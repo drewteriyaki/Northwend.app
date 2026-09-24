@@ -172,6 +172,13 @@ database keeps working after an update.
   advisor-managed only (random password) or given a login. A "Clients"
   section (`overview.py`) summarizes every client - value, gain/loss %,
   alert count, last import, profile completeness - with an Open button.
+- **Client plan (PDF):** under **Client plan** on the AI Assistant page,
+  **Create plan** builds a printable PDF for the viewed account - profile,
+  allocation, holdings with dollar amounts, concentration and alerts, and
+  AI-written suggested next steps (`client_plan.py`, rendered with
+  `fpdf2`). The one API call gets the same percentages-only summary as the
+  chat; dollar figures are added locally. Download only - nothing is
+  saved. Disabled while **Hide amounts** is on.
 - `.env`, `portfolio.db`, `imports/`, and `.dashboard_prefs*.json` are
   git-ignored.
 

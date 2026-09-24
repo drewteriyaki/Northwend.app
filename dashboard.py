@@ -282,6 +282,56 @@ def _render_clients():
                "Profile counts the AI Assistant questions answered.")
 
 
+def _render_plan_export(api_key, profile, contexts, cash_by_account, display):
+    """'Client plan' block: one API call for next steps, then a PDF download.
+    The PDF lives in session state only, so switching accounts drops it."""
+    import advisor
+    import anthropic
+    import client_plan
+
+    with st.expander("Client plan (PDF)", expanded=False):
+        st.caption("A printable plan for this account: profile, allocation, holdings with "
+                   "dollar amounts, things to watch, and AI-suggested next steps. The AI only "
+                   "sees percentages; the dollar figures are added on this machine.")
+        blocked = ("Turn off Hide amounts to create a plan - it includes dollar figures."
+                   if _hidden() else
+                   "Import positions for this account first." if not contexts else None)
+        if st.button("Create plan", disabled=bool(blocked), help=blocked):
+            conn = connect(DB)
+            try:
+                facts = client_plan.build_facts(conn, USER_ID, contexts, cash_by_account,
+                                                _rules_for(USER_ID))
+            finally:
+                conn.close()
+            steps = None
+            with st.spinner("Writing suggested next steps..."):
+                try:
+                    steps = client_plan.next_steps(
+                        anthropic.Anthropic(api_key=api_key), profile,
+                        advisor.portfolio_summary(contexts, cash_by_account),
+                        client_plan.chat_transcript(display))
+                except anthropic.AuthenticationError:
+                    st.warning("The ANTHROPIC_API_KEY was rejected - the plan was made "
+                               "without suggested next steps.")
+                except anthropic.RateLimitError:
+                    st.warning("The assistant is rate-limited right now - the plan was made "
+                               "without suggested next steps.")
+                except (anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
+                    st.warning(f"Couldn't reach the assistant ({exc}) - the plan was made "
+                               "without suggested next steps.")
+            today = datetime.now().date()
+            st.session_state["plan_pdf"] = {
+                "data": client_plan.render_pdf(
+                    facts, steps, account_name=ACTIVE_NAME, today=today,
+                    advisor_name=None if USER_ID == LOGIN_ID else st.session_state["username"]),
+                "name": f"plan-{ACTIVE_NAME}-{today.isoformat()}.pdf",
+            }
+        plan = st.session_state.get("plan_pdf")
+        if plan and not blocked:
+            st.download_button("Download plan", plan["data"], file_name=plan["name"],
+                               mime="application/pdf", type="primary")
+
+
 def _render_assistant(contexts, cash_by_account):
     import advisor
 
@@ -340,6 +390,7 @@ def _render_assistant(contexts, cash_by_account):
 
     display = st.session_state.setdefault("chat_display", [])
     history = st.session_state.setdefault("chat_api", [])
+    _render_plan_export(api_key, profile, contexts, cash_by_account, display)
     for msg in display:
         with st.chat_message(msg["role"]):
             st.markdown(msg["text"])

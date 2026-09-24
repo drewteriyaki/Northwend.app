@@ -28,6 +28,7 @@ import auth  # noqa: E402
 import manage_users  # noqa: E402
 import changes  # noqa: E402
 import charts  # noqa: E402
+import client_plan  # noqa: E402
 import metrics as M  # noqa: E402
 import pandas as pd  # noqa: E402
 import perf  # noqa: E402
@@ -567,7 +568,7 @@ class _FakeCreateClient:
 
     def create(self, **kwargs):
         self.kwargs = kwargs
-        return _Obj(content=[_Obj(type="text", text=self._text)])
+        return _Obj(stop_reason="end_turn", content=[_Obj(type="text", text=self._text)])
 
 
 def _fake_anthropic_response(mapping_dict_or_text) -> "_FakeCreateClient":
@@ -1001,6 +1002,61 @@ class ClientsOverviewTests(TempDBMixin, unittest.TestCase):
         self.assertIsNone(s["portfolio_value"])
         self.assertEqual(s["profile_answered"], 0)
         conn.close()
+
+
+class ClientPlanTests(TempDBMixin, unittest.TestCase):
+    _contexts = AdvisorTests._contexts
+
+    def _facts(self):
+        ctxs, cash = self._contexts()
+        conn = portfolio.connect(self.db)
+        advisor.save_profile(conn, self.user_id, {"goal": "retire", "risk_tolerance": "moderate"})
+        facts = client_plan.build_facts(conn, self.user_id, ctxs, cash)
+        summary = overview.account_summary(conn, self.user_id, quotes={})
+        conn.close()
+        return facts, summary, ctxs, cash
+
+    def test_build_facts_matches_clients_overview(self):
+        facts, summary, _, _ = self._facts()
+        self.assertEqual(facts["summary"]["portfolio_value"], summary["portfolio_value"])
+        self.assertEqual(facts["summary"]["gain_pct"], summary["gain_pct"])
+        self.assertEqual(facts["cash"], 150.0)
+        self.assertEqual([h["symbol"] for h in facts["holdings"]], ["CCC", "AAA", "BBB"])
+        self.assertAlmostEqual(sum(h["weight_pct"] for h in facts["holdings"]), 3250 / 3400 * 100)
+        # CCC 1600 / 3400 = 47% and AAA 1200 / 3400 = 35% are both over the 15% limit
+        self.assertEqual([c["symbol"] for c in facts["concentration"]], ["CCC", "AAA"])
+        self.assertEqual(len(facts["alerts"]), summary["n_alerts"])
+        self.assertIn("experience", facts["missing"])
+
+    def test_next_steps_parses_bullets_and_sends_no_dollars(self):
+        _, _, ctxs, cash = self._facts()
+        client = _FakeCreateClient("Here you go:\n- Add a bond fund\n- Trim CCC\n")
+        steps = client_plan.next_steps(client, {"goal": "retire"},
+                                       advisor.portfolio_summary(ctxs, cash),
+                                       "User: how am I doing?")
+        self.assertEqual(steps, ["Add a bond fund", "Trim CCC"])
+        sent = json.dumps({"system": client.kwargs["system"], "messages": client.kwargs["messages"]})
+        self.assertNotIn("$", sent)
+        self.assertNotIn("Individual", sent)
+        self.assertIn("how am I doing", sent)
+
+    def test_next_steps_refusal_and_plain_text(self):
+        refusing = _Obj(messages=_Obj(create=lambda **kw: _Obj(stop_reason="refusal", content=[])))
+        self.assertIsNone(client_plan.next_steps(refusing, {}, "summary"))
+        plain = _Obj(messages=_Obj(create=lambda **kw: _Obj(
+            stop_reason="end_turn", content=[_Obj(type="text", text="Just diversify.")])))
+        self.assertEqual(client_plan.next_steps(plain, {}, "summary"), ["Just diversify."])
+
+    def test_render_pdf_handles_unicode_empty_account_and_no_steps(self):
+        facts, _, _, _ = self._facts()
+        pdf = client_plan.render_pdf(facts, ["Diversify \U0001F680 中文 — soon"],
+                                     account_name="jsmith", advisor_name="alice")
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        conn = portfolio.connect(self.db)
+        empty_id = auth.create_user(conn, "empty", "pw")
+        empty = client_plan.build_facts(conn, empty_id, [], {})
+        conn.close()
+        self.assertTrue(client_plan.render_pdf(empty, None, account_name="empty").startswith(b"%PDF"))
 
 
 class RefreshAllUsersTests(TempDBMixin, unittest.TestCase):

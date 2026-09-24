@@ -149,7 +149,7 @@ RUNNING THE TEST SUITE
 ------------------------
   python -m unittest discover -s tests
 
-(88 tests as of this writing. Always run this before pushing changes.
+(92 tests as of this writing. Always run this before pushing changes.
 One of them fails if an API key or database password is sitting in a
 file git tracks - if it fails, remove the secret before you push.)
 
@@ -194,7 +194,9 @@ GitHub Actions:         repo → Settings → Secrets and variables → Actions
                          the AI Assistant section just says it's off.
                          Chat messages bill to this key (Claude Sonnet 5,
                          roughly 1-2 cents per message; capped at 40
-                         messages per conversation).
+                         messages per conversation). Each "Create
+                         plan" (Client plan PDF on the AI Assistant
+                         page) is one more call, a few cents.
   DATABASE_URL        — Neon connection string (Streamlit Cloud + Actions)
   (REFRESH_USERNAME is no longer used - the refresh job covers every
    account now. You can delete it from GitHub Actions secrets.)

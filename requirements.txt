@@ -36,3 +36,6 @@ psycopg-pool==3.2.4
 # streaming replies and tool use. Uses ANTHROPIC_API_KEY, same as the
 # AI-assisted CSV import.
 anthropic==1.8.0
+
+# Client plan PDF export (client_plan.py) - pure Python, no system libraries.
+fpdf2==2.8.8
