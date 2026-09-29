@@ -273,6 +273,11 @@ database keeps working after an update.
   for the session, but the assistant keeps short notes of its own between
   conversations (`ai_memory`, up to 1,500 characters, never shown in the
   app), so the next chat picks up where the last one left off.
+- **Login lockout:** 5 wrong passwords for a username within 15 minutes lock
+  it for 15 minutes - even the right password is refused until then. Unknown
+  usernames lock the same way, so a lock says nothing about which accounts
+  exist, and only a hash of the typed username is kept (`login_failures`).
+  `manage_users.py unlock <username>` or a password change clears it.
 - **Stay signed in:** checked by default on the login form. The browser keeps
   a random token in a cookie (`pt_session`, 30 days) and the database keeps
   only its SHA-256 hash (`login_sessions`), so reloading the page or a phone

@@ -121,6 +121,13 @@ def _cookie_script(token: str | None) -> str:
             + " + (location.protocol === 'https:' ? '; Secure' : '');</script>")
 
 
+def _session_cookie() -> str | None:
+    """The browser's stay-signed-in token, or None. Only ever a string -
+    anything else (an empty or odd cookie jar) counts as no cookie."""
+    value = st.context.cookies.get(SESSION_COOKIE)
+    return value if isinstance(value, str) and value else None
+
+
 def _login() -> bool:
     """Per-account login - every account is admin-provisioned (see
     manage_users.py); there is no signup anywhere in this app. Sets
@@ -133,7 +140,7 @@ def _login() -> bool:
     every time, so logging out or changing the password ends it."""
     if st.session_state.get("user_id"):
         return True
-    cookie = st.context.cookies.get(SESSION_COOKIE)
+    cookie = _session_cookie()
     if cookie and not st.session_state.get("signed_out"):
         conn = connect(DB)
         try:
@@ -160,9 +167,14 @@ def _login() -> bool:
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Log in", type="primary", width="stretch")
     if submitted:
+        if not user or not pw:
+            mid.error("Enter your username and password.")
+            return False
         conn = connect(DB)
         try:
-            user_id = auth.verify_login(conn, user, pw) if user and pw else None
+            # behind the lockout: too many wrong passwords locks the username
+            result = auth.attempt_login(conn, user, pw)
+            user_id = result["user_id"]
             token = auth.create_session(conn, user_id) if user_id is not None and remember else None
         finally:
             conn.close()
@@ -172,7 +184,16 @@ def _login() -> bool:
             st.session_state["username"] = user
             st.session_state["session_token"] = token
             st.rerun()
-        mid.error("Invalid username or password.")
+        if result["locked_minutes"]:
+            m = result["locked_minutes"]
+            mid.error(f"Too many attempts. Try again in {m} minute{'s' if m != 1 else ''}, "
+                      "or ask whoever manages your account to reset your password.")
+        elif result["attempts_left"] <= 2:
+            mid.error(f"Invalid username or password. {result['attempts_left']} more "
+                      f"attempt{'s' if result['attempts_left'] != 1 else ''} before a "
+                      f"{auth.LOCKOUT_MINUTES}-minute lock.")
+        else:
+            mid.error("Invalid username or password.")
     return False
 
 
@@ -192,7 +213,7 @@ def _logout():
     conn = connect(DB)
     try:
         auth.end_session(conn, st.session_state.get("session_token")
-                         or st.context.cookies.get(SESSION_COOKIE))
+                         or _session_cookie())
     finally:
         conn.close()
     st.session_state.clear()
@@ -205,7 +226,7 @@ if not _login():
 # Rendered on every run until a reload shows the browser has it, so a rerun
 # right after login can't drop it.
 if (st.session_state.get("session_token")
-        and st.context.cookies.get(SESSION_COOKIE) != st.session_state["session_token"]):
+        and _session_cookie() != st.session_state["session_token"]):
     st.html(_cookie_script(st.session_state["session_token"]), unsafe_allow_javascript=True)
 
 # Advisor mode: user_id is who logged in; active_user_id is whose data is

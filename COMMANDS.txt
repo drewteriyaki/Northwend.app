@@ -57,6 +57,11 @@ Change a password:
 List all accounts:
   python manage_users.py list
 
+Unlock someone after too many wrong passwords (5 in 15 minutes locks the
+username for 15 minutes; this clears it now - so does changing their
+password). Use --db $env:NEON_DSN for the live site:
+  python manage_users.py --db $env:NEON_DSN unlock <username>
+
 Create several accounts at once from a text file (one per line, either
 "username" alone for a random generated password, or "username,password"
 for one you chose — passwords are shown ONCE in the output, save them):

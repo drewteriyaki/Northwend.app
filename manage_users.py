@@ -168,6 +168,15 @@ def cmd_unlink(args) -> int:
     return 0
 
 
+def cmd_unlock(args) -> int:
+    conn = connect(args.db)
+    if auth.unlock_login(conn, args.username):
+        print(f"Cleared failed logins for '{args.username}' - they can try again now.")
+    else:
+        print(f"'{args.username}' had no failed logins or lock to clear.")
+    return 0
+
+
 def cmd_clients(args) -> int:
     conn = connect(args.db)
     a = auth.get_user_id(conn, args.advisor)
@@ -207,6 +216,8 @@ def main(argv=None) -> int:
         p.add_argument("advisor")
         p.add_argument("client")
     sub.add_parser("clients", help="list an advisor's clients").add_argument("advisor")
+    sub.add_parser("unlock", help="clear a login lock after too many wrong passwords"
+                   ).add_argument("username")
 
     args = ap.parse_args(argv)
     if args.cmd == "create":
@@ -223,6 +234,8 @@ def main(argv=None) -> int:
         return cmd_unlink(args)
     if args.cmd == "clients":
         return cmd_clients(args)
+    if args.cmd == "unlock":
+        return cmd_unlock(args)
     return cmd_list(args)
 
 

@@ -20,6 +20,8 @@ from datetime import datetime, timedelta, timezone
 
 PBKDF2_ITERATIONS = 200_000
 SESSION_DAYS = 30  # how long "stay signed in" lasts before the password is needed again
+MAX_FAILED_LOGINS = 5   # wrong passwords for one username within LOCKOUT_MINUTES...
+LOCKOUT_MINUTES = 15    # ...lock that username for this long
 
 
 def _hash_password(password: str, salt: bytes) -> str:
@@ -67,6 +69,63 @@ def set_password(conn: sqlite3.Connection, username: str, new_password: str) -> 
         (pw_hash, salt.hex(), username))
     conn.execute("DELETE FROM login_sessions WHERE user_id IN "
                  "(SELECT id FROM users WHERE username = ?)", (username,))
+    conn.execute("DELETE FROM login_failures WHERE username_key = ?", (_login_key(username),))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+# --------------------------------------------------------------------------- #
+# failed-login lockout
+# --------------------------------------------------------------------------- #
+def _login_key(username: str | None) -> str:
+    """The lockout's key for a typed username: case-folded (so 'Alice' and
+    'alice' share one count) and hashed (so what people typed isn't stored)."""
+    return hashlib.sha256((username or "").strip().casefold().encode("utf-8")).hexdigest()
+
+
+def attempt_login(conn, username: str, password: str, *, now: datetime | None = None) -> dict:
+    """verify_login() behind the lockout. Returns {"user_id": id or None,
+    "locked_minutes": minutes left on a lock (0 if none), "attempts_left":
+    wrong passwords left before a lock}. A locked username is refused
+    without checking the password - even the right one. Unknown usernames
+    are counted and locked exactly like real ones."""
+    now = now or datetime.now(timezone.utc)
+    key, stamp = _login_key(username), _utc(now)
+    row = conn.execute("SELECT failures, window_start, locked_until FROM login_failures "
+                       "WHERE username_key = ?", (key,)).fetchone()
+    if row and row["locked_until"] and row["locked_until"] > stamp:
+        left = datetime.strptime(row["locked_until"], "%Y-%m-%d %H:%M:%S").replace(
+            tzinfo=timezone.utc) - now
+        return {"user_id": None, "locked_minutes": max(1, -(-int(left.total_seconds()) // 60)),
+                "attempts_left": 0}
+
+    user_id = verify_login(conn, username, password) if username and password else None
+    if user_id is not None:
+        conn.execute("DELETE FROM login_failures WHERE username_key = ?", (key,))
+        conn.commit()
+        return {"user_id": user_id, "locked_minutes": 0, "attempts_left": MAX_FAILED_LOGINS}
+
+    window_open = _utc(now - timedelta(minutes=LOCKOUT_MINUTES))
+    fresh = row is None or row["window_start"] <= window_open or row["locked_until"]
+    failures = 1 if fresh else row["failures"] + 1
+    locked_until = (_utc(now + timedelta(minutes=LOCKOUT_MINUTES))
+                    if failures >= MAX_FAILED_LOGINS else None)
+    conn.execute("DELETE FROM login_failures WHERE username_key = ?", (key,))
+    conn.execute("INSERT INTO login_failures (username_key, failures, window_start, locked_until) "
+                 "VALUES (?, ?, ?, ?)",
+                 (key, failures, stamp if fresh else row["window_start"], locked_until))
+    # tidy: counts nobody has added to in a day, and locks that have run out
+    conn.execute("DELETE FROM login_failures WHERE window_start < ? "
+                 "AND (locked_until IS NULL OR locked_until < ?)",
+                 (_utc(now - timedelta(days=1)), stamp))
+    conn.commit()
+    return {"user_id": None, "locked_minutes": LOCKOUT_MINUTES if locked_until else 0,
+            "attempts_left": max(0, MAX_FAILED_LOGINS - failures)}
+
+
+def unlock_login(conn, username: str) -> bool:
+    """Clear a username's failed logins and any lock. True if there was one."""
+    cur = conn.execute("DELETE FROM login_failures WHERE username_key = ?", (_login_key(username),))
     conn.commit()
     return cur.rowcount > 0
 

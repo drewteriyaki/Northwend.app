@@ -333,6 +333,18 @@ CREATE TABLE IF NOT EXISTS model_portfolios (
     updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Failed logins per username, for the lockout (auth.attempt_login): after
+-- MAX_FAILED_LOGINS wrong passwords in LOCKOUT_MINUTES, that username is
+-- locked for LOCKOUT_MINUTES. Keyed by a SHA-256 of the username as typed
+-- (case-folded), known or not - so the lock reveals nothing about which
+-- usernames exist, and a password typed into the username box isn't stored.
+CREATE TABLE IF NOT EXISTS login_failures (
+    username_key  TEXT    PRIMARY KEY,
+    failures      INTEGER NOT NULL,
+    window_start  TEXT    NOT NULL,              -- 'YYYY-MM-DD HH:MM:SS' UTC
+    locked_until  TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

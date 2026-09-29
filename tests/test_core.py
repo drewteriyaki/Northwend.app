@@ -561,6 +561,70 @@ class CliPostgresDsnGuardTests(unittest.TestCase):
                 sync_history.main(["--db", self.DSN, "--no-info", "--no-intraday"])
 
 
+class LoginLockoutTests(TempDBMixin, unittest.TestCase):
+    T0 = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+    def _fail(self, conn, n, username="testuser", start=None):
+        t = start or self.T0
+        for i in range(n):
+            r = auth.attempt_login(conn, username, "wrong", now=t + timedelta(seconds=i))
+        return r
+
+    def test_locks_after_the_limit_even_for_the_right_password(self):
+        conn = portfolio.connect(self.db)
+        r = self._fail(conn, auth.MAX_FAILED_LOGINS - 1)
+        self.assertEqual((r["locked_minutes"], r["attempts_left"]), (0, 1))
+        r = self._fail(conn, 1, start=self.T0 + timedelta(minutes=1))
+        self.assertEqual(r["locked_minutes"], auth.LOCKOUT_MINUTES)
+        ok = auth.attempt_login(conn, "testuser", "testpass", now=self.T0 + timedelta(minutes=2))
+        self.assertIsNone(ok["user_id"])                               # locked: password not checked
+        self.assertGreater(ok["locked_minutes"], 0)
+        later = self.T0 + timedelta(minutes=1 + auth.LOCKOUT_MINUTES, seconds=5)
+        ok = auth.attempt_login(conn, "testuser", "testpass", now=later)
+        self.assertEqual(ok["user_id"], self.user_id)                  # lock ran out
+        conn.close()
+
+    def test_success_resets_and_old_failures_expire(self):
+        conn = portfolio.connect(self.db)
+        self._fail(conn, auth.MAX_FAILED_LOGINS - 1)
+        self.assertEqual(auth.attempt_login(conn, "testuser", "testpass", now=self.T0 + timedelta(minutes=1))
+                         ["user_id"], self.user_id)
+        r = self._fail(conn, 1, start=self.T0 + timedelta(minutes=2))
+        self.assertEqual(r["attempts_left"], auth.MAX_FAILED_LOGINS - 1)  # count started over
+        # failures spread past the window never add up to a lock
+        conn2 = portfolio.connect(self.db)
+        for i in range(auth.MAX_FAILED_LOGINS + 2):
+            r = auth.attempt_login(conn2, "slowguesser", "x",
+                                   now=self.T0 + timedelta(minutes=(auth.LOCKOUT_MINUTES + 1) * i))
+        self.assertEqual(r["locked_minutes"], 0)
+        conn2.close()
+        conn.close()
+
+    def test_unknown_usernames_lock_the_same_and_case_is_ignored(self):
+        conn = portfolio.connect(self.db)
+        r = self._fail(conn, auth.MAX_FAILED_LOGINS, username="nobody")
+        self.assertEqual(r["locked_minutes"], auth.LOCKOUT_MINUTES)   # same as a real account
+        self._fail(conn, auth.MAX_FAILED_LOGINS - 1, username="TestUser")
+        r = auth.attempt_login(conn, "testuser", "nope", now=self.T0 + timedelta(seconds=30))
+        self.assertEqual(r["locked_minutes"], auth.LOCKOUT_MINUTES)   # 'TestUser' counted too
+        keys = [row["username_key"] for row in conn.execute("SELECT username_key FROM login_failures")]
+        self.assertTrue(all(len(k) == 64 and "user" not in k for k in keys))  # hashed, not stored
+        conn.close()
+
+    def test_password_change_and_unlock_clear_a_lock(self):
+        conn = portfolio.connect(self.db)
+        self._fail(conn, auth.MAX_FAILED_LOGINS)
+        auth.set_password(conn, "testuser", "new-password")
+        self.assertEqual(auth.attempt_login(conn, "testuser", "new-password",
+                                            now=self.T0 + timedelta(minutes=1))["user_id"], self.user_id)
+        self._fail(conn, auth.MAX_FAILED_LOGINS, start=self.T0 + timedelta(minutes=2))
+        self.assertTrue(auth.unlock_login(conn, "testuser"))
+        self.assertFalse(auth.unlock_login(conn, "testuser"))
+        self.assertEqual(auth.attempt_login(conn, "testuser", "new-password",
+                                            now=self.T0 + timedelta(minutes=3))["user_id"], self.user_id)
+        conn.close()
+
+
 class StaySignedInTests(TempDBMixin, unittest.TestCase):
     def test_token_signs_in_until_it_expires(self):
         conn = portfolio.connect(self.db)
