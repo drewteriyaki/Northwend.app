@@ -11,6 +11,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+import accounts
 import alerts
 import auth
 import charts
@@ -35,6 +36,50 @@ RED = "#dc2626"
 st.set_page_config(page_title="Portfolio Tracker", layout="wide",
                    initial_sidebar_state="auto")
 
+# App-wide styles: hide Streamlit's own running/deploy widgets, tighten the
+# page on phones, and the classes used by the hero, stat tiles, and
+# allocation bars below. Text inherits the theme's colors; only marks and
+# gain/loss figures carry their own.
+st.html("""<style>
+[data-testid="stStatusWidget"], [data-testid="stAppDeployButton"], .stAppDeployButton {
+  display: none !important; }
+[data-testid="stMainBlockContainer"] { padding-top: 3rem; }
+@media (max-width: 640px) {
+  [data-testid="stMainBlockContainer"] { padding: 3.75rem 1rem 3rem; }
+  h1 { font-size: 1.6rem !important; }
+}
+.pt-status { font-size: .8rem; opacity: .65; margin-top: -.6rem; }
+.pt-hero-label { font-size: .85rem; opacity: .7; }
+.pt-hero-value { font-size: 2.6rem; font-weight: 700; line-height: 1.15;
+  font-variant-numeric: tabular-nums; }
+.pt-hero-delta { font-size: 1rem; font-weight: 600; margin-top: .15rem; }
+.pt-hero-sub { font-size: .8rem; opacity: .65; margin-top: .2rem; }
+.pt-up { color: #16a34a; } .pt-down { color: #dc2626; }
+.pt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .6rem; margin-top: 1rem; }
+.pt-stat { border: 1px solid rgba(128,128,128,.25); border-radius: .5rem;
+  padding: .55rem .7rem; min-width: 0; }
+.pt-stat-label { font-size: .75rem; opacity: .7; white-space: nowrap; }
+.pt-stat-value { font-size: 1.1rem; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.pt-stat-sub { font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+@media (max-width: 640px) { .pt-hero-value { font-size: 2.2rem; }
+  .pt-stat-value { font-size: .95rem; } }
+.pt-alloc-title { font-size: .9rem; font-weight: 600; margin-bottom: .35rem; }
+.pt-alloc-bar { display: flex; gap: 2px; height: 14px; border-radius: 4px;
+  overflow: hidden; margin-bottom: .6rem; }
+.pt-alloc-seg { height: 100%; min-width: 3px; }
+.pt-legend { display: grid; gap: .3rem; margin-bottom: .75rem; }
+.pt-legend-row { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.pt-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.pt-legend-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.pt-legend-pct { font-weight: 600; font-variant-numeric: tabular-nums; }
+.pt-legend-val { opacity: .65; font-variant-numeric: tabular-nums; min-width: 5.5rem;
+  text-align: right; }
+</style>""")
+
 
 def _login() -> bool:
     """Per-account login - every account is admin-provisioned (see
@@ -45,10 +90,15 @@ def _login() -> bool:
     login screen never reveals which username exists."""
     if st.session_state.get("user_id"):
         return True
-    st.title("Portfolio Tracker")
-    user = st.text_input("Username", key="login_user")
-    pw = st.text_input("Password", type="password", key="login_pw")
-    if st.button("Log in") or pw:
+    _, mid, _ = st.columns([1, 1.4, 1])
+    with mid:
+        st.title("Portfolio Tracker")
+        st.caption("Sign in to see your portfolio.")
+        with st.form("login_form", border=True):
+            user = st.text_input("Username", key="login_user")
+            pw = st.text_input("Password", type="password", key="login_pw")
+            submitted = st.form_submit_button("Log in", type="primary", width="stretch")
+    if submitted:
         conn = connect(DB)
         try:
             user_id = auth.verify_login(conn, user, pw) if user and pw else None
@@ -58,8 +108,7 @@ def _login() -> bool:
             st.session_state["user_id"] = user_id
             st.session_state["username"] = user
             st.rerun()
-        elif pw:
-            st.error("Invalid username or password.")
+        mid.error("Invalid username or password.")
     return False
 
 
@@ -91,6 +140,7 @@ try:
     _active = st.session_state.get("active_user_id", LOGIN_ID)
     if not auth.can_view(_conn, LOGIN_ID, _active):
         _active = LOGIN_ID
+    ACCOUNT_LABELS = accounts.labels(_conn, _active)
 finally:
     _conn.close()
 USER_ID = _active
@@ -238,7 +288,6 @@ def _rules_for(account_id):
 def _render_clients():
     import overview
 
-    st.subheader("Clients")
     if not CLIENTS:
         st.info("No clients yet - add one with **Add client** in the sidebar.")
         return
@@ -423,7 +472,6 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
 def _render_assistant(contexts, cash_by_account):
     import advisor
 
-    st.subheader("AI Assistant")
     if st.session_state.pop("profile_toast", False):
         st.toast("Profile updated from the conversation.")
     api_key = _anthropic_key()
@@ -621,6 +669,55 @@ def _stat_tiles(ctx, keys, ncols=4):
                 st.markdown(f"**{text}**")
 
 
+# Categorical palette (dataviz reference palette, fixed slot order), light and
+# dark steps. Asset types keep a fixed slot so a color always means the same
+# thing; anything else takes the next free slot.
+SERIES_LIGHT = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948")
+SERIES_DARK = ("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767")
+SERIES_OTHER = "#8a8a86"
+ASSET_SLOT = {"Equity": 0, "ETF / CEF": 1, "Cash": 2, "Fixed Income": 3, "Mutual Funds": 4,
+              "Option": 6}
+
+
+def _slot_map(labels, fixed=None):
+    """{label: palette slot}. Labels in `fixed` keep their slot; the rest take
+    the unused slots in name order - so a color follows its entity, not its
+    rank. Past eight, labels get the neutral 'other' gray (slot None)."""
+    fixed = fixed or {}
+    out = {lbl: fixed[lbl] for lbl in labels if lbl in fixed}
+    free = [i for i in range(len(SERIES_LIGHT)) if i not in out.values()]
+    for lbl in sorted(lbl for lbl in labels if lbl not in out):
+        out[lbl] = free.pop(0) if free else None
+    return out
+
+
+def _alloc_bar(rows, title, slots):
+    """Part-to-whole as one stacked bar plus a legend of label / % / value.
+    HTML rather than a chart library so it lays out cleanly at phone width;
+    every segment is named in the legend, so identity never rests on color."""
+    import html as _h
+    colors = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+
+    def color(label):
+        i = slots.get(label)
+        return colors[i] if i is not None else SERIES_OTHER
+
+    segs = "".join(
+        f"<div class='pt-alloc-seg' style='flex:{r['value']} 0 0;background:{color(r['label'])}' "
+        f"title='{_h.escape(r['label'], quote=True)}'></div>"
+        for r in rows if (r["value"] or 0) > 0)
+    legend = ""
+    for r in rows:
+        pct = MASK if _hidden() or r["pct"] is None else f"{r['pct']:.1f}%"
+        legend += ("<div class='pt-legend-row'>"
+                   f"<span class='pt-swatch' style='background:{color(r['label'])}'></span>"
+                   f"<span class='pt-legend-label'>{_h.escape(r['label'])}</span>"
+                   f"<span class='pt-legend-pct'>{pct}</span>"
+                   f"<span class='pt-legend-val'>{fmt_money(r['value'])}</span></div>")
+    return (f"<div class='pt-alloc-title'>{_h.escape(title)}</div>"
+            f"<div class='pt-alloc-bar'>{segs}</div><div class='pt-legend'>{legend}</div>")
+
+
 def _read_prefs():
     try:
         with open(PREFS_PATH, encoding="utf-8") as fh:
@@ -732,7 +829,14 @@ def load():
         }
     finally:
         conn.close()
-    return snap, [dict(r) for r in rows], cash_by_account, quotes
+    # Nicknames replace the broker's account names from here on (display
+    # only); the broker's name stays available as "broker_account".
+    positions = [dict(r) for r in rows]
+    for p in positions:
+        p["broker_account"] = p["account"]
+        p["account"] = accounts.display(p["account"], ACCOUNT_LABELS)
+    cash_by_account = {accounts.display(a, ACCOUNT_LABELS): v for a, v in cash_by_account.items()}
+    return snap, positions, cash_by_account, quotes
 
 
 AUTO_REFRESH_AFTER = timedelta(minutes=15)
@@ -783,6 +887,154 @@ def _refresh_prices(auto=False):
     st.rerun()
 
 
+# ---- header -------------------------------------------------------------- #
+def _sync_history(tickers=None, *, quick=False):
+    """Pull Yahoo history, then rerun to show it. `quick` is the automatic
+    backfill for holdings that have none yet: daily bars and fundamentals
+    only (seconds, not minutes) - the full sync and the nightly job add the
+    intraday bars. It stays silent when it can't run."""
+    try:
+        import sync_history
+    except ImportError:
+        if quick:
+            return
+        st.session_state["refresh_msg"] = ("error", "yfinance not installed — run: pip install yfinance")
+        st.rerun()
+    prog = st.progress(0.0, text="Loading price history for your holdings…" if quick
+                       else "Contacting Yahoo…")
+    try:
+        summary = sync_history.sync(
+            DB, tickers, period=sync_history.DEFAULT_PERIOD, with_intraday=not quick,
+            on_progress=lambda i, n, tk, nr, ok, err: prog.progress(
+                i / n, text=f"{tk} ({i}/{n}) — {nr:,} rows"),
+        )
+    except Exception:  # noqa: BLE001 - the automatic backfill must never break the page
+        if not quick:
+            raise
+        prog.empty()
+        return
+    prog.empty()
+    if quick:
+        if summary["ok"]:
+            st.session_state["refresh_msg"] = (
+                "toast", f"Loaded price history for {summary['ok']} holding(s).")
+            st.rerun()
+        return
+    msg = (f"Synced {summary['bars_written']:,} daily + "
+           f"{summary['intraday_written']:,} intraday bars for "
+           f"{summary['ok']}/{summary['tickers']} tickers.")
+    if summary["failed"]:
+        st.session_state["refresh_msg"] = ("warning", msg + " No data for: " + ", ".join(summary["failed"]))
+    else:
+        st.session_state["refresh_msg"] = ("success", msg)
+    st.rerun()
+
+
+def _local_time(ts):
+    """A stored UTC timestamp as an aware datetime in the viewer's timezone
+    (UTC when the browser didn't report one)."""
+    at = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    off = st.context.timezone_offset
+    return at.astimezone(timezone(-timedelta(minutes=off)) if off is not None else timezone.utc)
+
+
+def _fmt_when(ts):
+    """'4:18 PM' today, 'Sep 28, 4:18 PM' this year, with the year otherwise."""
+    try:
+        at = _local_time(ts)
+    except (TypeError, ValueError):
+        return str(ts)
+    now = datetime.now(at.tzinfo)
+    clock = at.strftime("%I:%M %p").lstrip("0") + ("" if st.context.timezone_offset is not None
+                                                   else " UTC")
+    if at.date() == now.date():
+        return clock
+    if at.year == now.year:
+        return f"{at:%b} {at.day}, {clock}"
+    return f"{at:%b} {at.day}, {at.year}, {clock}"
+
+
+def _fmt_date(d):
+    """'Jan 15, 2026' from '2026-01-15'."""
+    try:
+        d = datetime.strptime(str(d)[:10], "%Y-%m-%d")
+    except ValueError:
+        return str(d)
+    return f"{d:%b} {d.day}, {d.year}"
+
+
+def _after_import():
+    """A new statement can bring new tickers: fetch their prices and history
+    on the next run instead of waiting for the scheduled jobs."""
+    st.session_state.pop("auto_refreshed", None)
+    st.session_state.pop("auto_backfilled", None)
+
+
+def _toggle_hide():
+    st.session_state["hide_amounts"] = not st.session_state.get("hide_amounts", False)
+    save_hide(st.session_state["hide_amounts"])
+
+
+def _page_header(title, *, data=True):
+    """The page's title with the app's icon actions beside it. `data` pages
+    (this account's portfolio) also get import / refresh / sync and a
+    one-line status: how fresh the prices are and the statement date."""
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.title(title, anchor=False, width="stretch")
+        if data and st.button(":material/upload:", key="pt_import", type="tertiary",
+                              help="Import a new positions CSV"):
+            _import_dialog()
+        st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
+                  key="pt_hide", type="tertiary", on_click=_toggle_hide,
+                  help="Show amounts" if _hidden() else "Hide amounts - mask every dollar and "
+                                                         "percent with " + MASK)
+        if data and st.button(":material/refresh:", key="pt_refresh", type="tertiary",
+                              help="Refresh prices. On a phone you can also pull down from the top "
+                                   "of the page. Prices also refresh on their own when you open "
+                                   "an account."):
+            _refresh_prices()
+        if data and st.button(":material/history:", key="pt_sync", type="tertiary",
+                              help="Sync history from Yahoo: the deepest history Yahoo allows at "
+                                   "every resolution (~2 years daily, plus 1-minute to hourly "
+                                   "bars) and fundamentals. Takes a minute or two. It also runs "
+                                   "on its own every evening."):
+            _sync_history()
+    if data:
+        if last_live:
+            prices = f"Prices as of {_fmt_when(last_live)}"
+            if n_live < len(positions):
+                prices += f" ({n_live} of {len(positions)} priced)"
+        else:
+            prices = "No live prices yet"
+        st.html(f"<div class='pt-status'>{prices} · Statement from {_fmt_date(snapshot)}</div>")
+
+    # the result of a refresh / sync / import that happened just before the rerun
+    _msg = st.session_state.pop("refresh_msg", None)
+    if _msg:
+        getattr(st, _msg[0])(_msg[1])
+    _flash = st.session_state.pop("import_flash", None)
+    if _flash:
+        st.success(_flash)
+
+
+def _signed_money(v):
+    """'+$12.30' / '-$12.30' (fmt_money has no plus sign)."""
+    if _hidden():
+        return MASK
+    if _blank(v):
+        return "—"
+    return ("+" if v > 0 else "") + fmt_money(v)
+
+
+def _tone(v, html):
+    """Wrap `html` in the gain/loss color for `v` (plain when hidden or flat)."""
+    if _hidden() or _blank(v) or v == 0:
+        return html
+    return f"<span class='{'pt-up' if v > 0 else 'pt-down'}'>{html}</span>"
+
+
 # --------------------------------------------------------------------------- #
 if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
     st.error("No `portfolio.db` yet. Build it first:")
@@ -792,23 +1044,16 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
-# surface the result of a refresh that happened just before the rerun
-_msg = st.session_state.pop("refresh_msg", None)
-if _msg:
-    getattr(st, _msg[0])(_msg[1])
-
-_flash = st.session_state.pop("import_flash", None)
-if _flash:
-    st.success(_flash)
-
 snapshot, positions, cash_by_account, quotes = load()
 if not positions and PAGE == "AI Assistant":
     # Helping brand-new investors plan a first portfolio is a core use of the
     # assistant, so it works before any CSV has been imported.
+    _page_header(PAGE, data=False)
     _render_assistant([], {})
     st.stop()
 if PAGE == "Clients":
     # about the advisor's clients, not the viewed account's data
+    _page_header(PAGE, data=False)
     _render_clients()
     st.stop()
 if not positions:
@@ -819,7 +1064,7 @@ if not positions:
     # entry point as the full "Import a new positions CSV" expander further
     # down, just without that flow's diff-preview step (there's nothing to
     # diff a first import against).
-    st.title("Portfolio Tracker")
+    _page_header("Welcome", data=False)
     st.info(f"Welcome, **{ACTIVE_NAME}** — this account has no data yet. "
             "Upload a Schwab Positions export CSV to get started.")
     st.caption("New to investing? Open **AI Assistant** in the sidebar for help planning a "
@@ -841,7 +1086,10 @@ if not positions:
         else:
             note = " (Claude helped interpret this file's headers — worth a spot check.)" \
                 if info["ai_assisted"] else ""
-            st.success(f"Imported snapshot {info['snapshot_date']} — {info['n_positions']} positions.{note}")
+            st.session_state["import_flash"] = (
+                f"Imported your statement from {_fmt_date(info['snapshot_date'])} - "
+                f"{info['n_positions']} positions.{note}")
+            _after_import()
             st.rerun()
         finally:
             _conn.close()
@@ -922,53 +1170,156 @@ if "value_logged" not in st.session_state:
         "priced_at": last_live,
     })
 
-# ---- header -------------------------------------------------------------- #
-left, right = st.columns([0.7, 0.3])
-with left:
-    st.title("Portfolio Tracker")
-    st.caption(
-        f"CSV snapshot **{snapshot}**  ·  "
-        + (f"live prices as of **{last_live} UTC** ({n_live}/{len(positions)} priced)"
-           if last_live else "**no live prices yet — tap :material/refresh:**")
-    )
-    st.toggle("Hide amounts", key="hide_amounts",
-              help="Mask every dollar / percent on the page with " + MASK)
-hide_amounts = st.session_state["hide_amounts"]
-if hide_amounts != _read_prefs().get("hide_amounts", False):
-    save_hide(hide_amounts)
-with right, st.container(horizontal=True, horizontal_alignment="right"):
-    if st.button(":material/refresh:", key="pt_refresh", type="tertiary",
-                 help="Refresh prices. On a phone you can also pull down from the top of "
-                      "the page. Prices also refresh on their own when you open an account."):
-        _refresh_prices()
 
-    if st.button(":material/history:", key="pt_sync", type="tertiary",
-                 help="Sync history from Yahoo: pull the maximum history Yahoo allows at every resolution it offers - "
-                      "~2 years daily, plus 1-minute (~7d), 5- and 15-minute (~60d), and "
-                      "hourly (~2y) bars - plus fundamentals. Takes a minute or two. Powers "
-                      "the 1D-1Y charts, moving averages, volume, 52-wk figures, and the "
-                      "reconstructed line. Tip: run setup-scheduled-tasks.ps1 once to have "
-                      "this (and price refresh) happen on their own — see the README."):
+@st.dialog("Import a positions CSV", width="large")
+def _import_dialog():
+    """Upload a new Schwab Positions export, preview what changed, confirm."""
+    st.caption(
+        "Upload a fresh Schwab **Positions** export. You'll see exactly what changed "
+        "before anything is saved."
+    )
+    up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
+    # A path on "this machine" is only meaningful running locally - on the
+    # hosted app it would be a path on the server, which users must not read.
+    path_in = "" if pgcompat.is_postgres_dsn(DB) else st.text_input(
+        "…or a path to a CSV on this machine",
+        key="csv_path",
+        placeholder="C:\\Users\\you\\Downloads\\All-Accounts-Positions-....csv",
+    ).strip().strip('"')
+
+    src_path = None
+    if up is not None:
+        imports_dir = os.path.join(HERE, "imports", str(USER_ID))
+        os.makedirs(imports_dir, exist_ok=True)
+        src_path = os.path.join(imports_dir, up.name)
+        with open(src_path, "wb") as fh:
+            fh.write(up.getbuffer())
+    elif path_in:
+        src_path = path_in
+
+    if src_path and not os.path.isfile(src_path):
+        st.error(f"No file at: {src_path}")
+    elif src_path:
+        _parse_info: dict = {}
         try:
-            import sync_history
-        except ImportError:
-            st.session_state["refresh_msg"] = ("error", "yfinance not installed — run: pip install yfinance")
-            st.rerun()
-        prog = st.progress(0.0, text="Contacting Yahoo…")
-        summary = sync_history.sync(
-            DB, period=sync_history.DEFAULT_PERIOD,
-            on_progress=lambda i, n, tk, nr, ok, err: prog.progress(
-                i / n, text=f"{tk} ({i}/{n}) — {nr:,} rows"),
-        )
-        prog.empty()
-        msg = (f"Synced {summary['bars_written']:,} daily + "
-               f"{summary['intraday_written']:,} intraday bars for "
-               f"{summary['ok']}/{summary['tickers']} tickers.")
-        if summary["failed"]:
-            st.session_state["refresh_msg"] = ("warning", msg + " No data for: " + ", ".join(summary["failed"]))
+            _meta, new_rows, _ = parse_csv_smart(src_path, _anthropic_key(), _parse_info)
+        except SystemExit as exc:
+            st.error(f"Couldn't parse this file: {exc}")
         else:
-            st.session_state["refresh_msg"] = ("success", msg)
-        st.rerun()
+            if _parse_info.get("ai_assisted"):
+                st.info("This file's headers didn't match the expected format, so Claude "
+                        "helped interpret it — double check the numbers below before confirming.")
+            file_date = _meta["snapshot_date"]
+            _conn = connect(DB)
+            try:
+                # Diff against the snapshot *before* this file's date, so the change
+                # set (and the transactions derived from it) is the same however many
+                # times this file is imported.
+                base_date = _conn.execute(
+                    "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
+                    (file_date, USER_ID),
+                ).fetchone()["d"]
+                base_rows = [dict(r) for r in _conn.execute(
+                    "SELECT account, symbol, description, quantity, cost_basis, market_value "
+                    "FROM positions WHERE snapshot_date = ? AND user_id = ?",
+                    (base_date, USER_ID))] if base_date else []
+                replacing = _conn.execute(
+                    "SELECT 1 FROM positions WHERE snapshot_date = ? AND user_id = ? LIMIT 1",
+                    (file_date, USER_ID)
+                ).fetchone() is not None
+
+                d = diff_positions(base_rows, new_rows)
+                n_changed = len(d["increased"]) + len(d["decreased"])
+
+                st.markdown(
+                    f"Changes vs snapshot **{base_date or '— none (first import)'}**"
+                )
+                c = st.columns(5)
+                c[0].metric("New", len(d["new"]))
+                c[1].metric("Qty changed", n_changed)
+                c[2].metric("Closed", len(d["closed"]))
+                c[3].metric("Unchanged", len(d["unchanged"]))
+                c[4].metric("File date", file_date)
+
+                if replacing:
+                    st.warning(
+                        f"A snapshot for {file_date} already exists — importing replaces "
+                        "its positions, account totals, and inferred transactions."
+                    )
+
+                def _tbl(entries, cols):
+                    return pd.DataFrame([{k: e[k] for k in cols} for e in entries])
+
+                if d["new"]:
+                    st.markdown("**New positions**")
+                    st.dataframe(_tbl(d["new"], ["account", "symbol", "description",
+                                                "new_qty", "new_cost", "new_mv"]),
+                                 hide_index=True, width="stretch")
+                if n_changed:
+                    st.markdown("**Quantity changes**")
+                    st.dataframe(_tbl(d["increased"] + d["decreased"],
+                                      ["account", "symbol", "old_qty", "new_qty", "dqty",
+                                       "old_mv", "new_mv"]),
+                                 hide_index=True, width="stretch")
+                if d["closed"]:
+                    st.markdown("**Closed positions**")
+                    st.dataframe(_tbl(d["closed"], ["account", "symbol", "description",
+                                                    "old_qty", "old_mv"]),
+                                 hide_index=True, width="stretch")
+
+                txns = synthesize_transactions(d, file_date, os.path.abspath(src_path))
+                st.caption(
+                    f"On confirm: positions + account totals for **{file_date}** are written, "
+                    f"and **{len(txns)}** transaction row(s) inferred from the quantity deltas "
+                    f"(BUY / SELL) are recorded."
+                )
+
+                if st.button("Confirm import", type="primary", key="csv_confirm"):
+                    try:
+                        info = import_csv(_conn, src_path, USER_ID, _anthropic_key())
+                        # Replace-by-date: this date's inferred transactions are
+                        # rewritten from the new file's diff.
+                        _conn.execute(
+                            "DELETE FROM transactions WHERE trade_date = ? AND user_id = ?",
+                            (info["snapshot_date"], USER_ID),
+                        )
+                        if txns:
+                            for _t in txns:
+                                _t["user_id"] = USER_ID
+                            _conn.executemany(
+                                "INSERT INTO transactions (account, trade_date, action, symbol, "
+                                "description, quantity, price, amount, fees, realized_gain, "
+                                "source_file, user_id) VALUES "
+                                "(:account, :trade_date, :action, :symbol, :description, :quantity, "
+                                ":price, :amount, :fees, :realized_gain, :source_file, :user_id)",
+                                txns,
+                            )
+                        _conn.commit()
+                    except DBError as exc:
+                        _conn.rollback()
+                        st.error(f"Import failed, nothing was saved: {exc}")
+                    else:
+                        st.session_state["import_flash"] = (
+                            f"Imported your statement from {_fmt_date(info['snapshot_date'])} - "
+                            f"{info['n_positions']} positions, {len(txns)} transaction(s) recorded."
+                        )
+                        _after_import()
+                        st.rerun()
+            finally:
+                _conn.close()
+
+
+# Holdings with no Yahoo history yet (a first import, or a new position):
+# fetch it once per visit so the charts fill in without a manual sync. Runs
+# before the header so the header's one-shot messages survive its rerun.
+_covered, _missing = perf.holdings_coverage(DB, USER_ID)
+if PAGE == "Dashboard" and _missing and not st.session_state.get("auto_backfilled"):
+    st.session_state["auto_backfilled"] = True
+    _sync_history(_missing, quick=True)
+
+_page_header(PAGE)
+hide_amounts = st.session_state["hide_amounts"]
+
 
 def _pick_holdings():
     st.session_state["watchlist_pill"] = None
@@ -979,9 +1330,24 @@ def _pick_watchlist():
 
 
 if PAGE == "Dashboard":
-    # ---- "since you last opened" ---------------------------------------- #
+    # ---- hero: value, today's move, since last visit, headline stats ----- #
+    _day_base = portfolio_value - day_change_total
+    _day_pct = (day_change_total / _day_base * 100) if _day_base else None
+    if hide_amounts:
+        _day_html = f"{MASK} today"
+    elif n_live:
+        _arrow = "▲" if day_change_total >= 0 else "▼"
+        _day_html = _tone(day_change_total, f"{_arrow} {fmt_money(abs(day_change_total))}"
+                          + (f" ({_day_pct:+.2f}%)" if _day_pct is not None else "") + " today")
+    else:
+        _day_html = ""
+
+    _since_html = ""
     _last_open = st.session_state["last_open_snapshot"]
-    if _last_open and _last_open.get("portfolio_value"):
+    # Only when it's the same statement - a new import's jump is new holdings
+    # data, not the market moving.
+    if (_last_open and _last_open.get("portfolio_value")
+            and _last_open.get("snapshot_date") == snapshot):
         _prev_val = _last_open["portfolio_value"]
         _since_delta = portfolio_value - _prev_val
         _since_pct = (_since_delta / _prev_val * 100) if _prev_val else None
@@ -993,185 +1359,59 @@ if PAGE == "Dashboard":
             _ago = f"{int(_secs // 3600)}h ago"
         else:
             _ago = f"{int(_secs // 86400)}d ago"
-        _arrow = "↑" if _since_delta >= 0 else "↓"
-        st.info(
-            f"**Since you last opened** ({_ago}): {_arrow} "
-            + (MASK if hide_amounts else f"{fmt_money(abs(_since_delta))} "
-               f"({_since_pct:+.2f}%)" if _since_pct is not None else fmt_money(abs(_since_delta)))
-        )
+        _since_html = (f"Since your last visit ({_ago}): " + _signed_money(_since_delta)
+                       + ("" if hide_amounts or _since_pct is None else f" ({_since_pct:+.2f}%)"))
 
-    # ---- alerts (recomputed on every page load) ------------------------ #
+    def _stat(label, value, sub=""):
+        return (f"<div class='pt-stat'><div class='pt-stat-label'>{label}</div>"
+                f"<div class='pt-stat-value'>{value}</div>"
+                + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>")
+
+    st.html(
+        "<div class='pt-hero'>"
+        "<div class='pt-hero-label'>Portfolio value</div>"
+        f"<div class='pt-hero-value'>{fmt_money(portfolio_value)}</div>"
+        + (f"<div class='pt-hero-delta'>{_day_html}</div>" if _day_html else "")
+        + (f"<div class='pt-hero-sub'>{_since_html}</div>" if _since_html else "")
+        + "</div><div class='pt-stats'>"
+        + _stat("Total gain/loss", _tone(tot_gl, _signed_money(tot_gl)),
+                _tone(tot_glp, fmt_pct(tot_glp)) if tot_glp is not None else "")
+        + _stat("Holdings", fmt_money(tot_mv), f"{len(positions)} positions")
+        + _stat("Cash", fmt_money(cash),
+                "" if hide_amounts or not portfolio_value
+                else f"{cash / portfolio_value * 100:.1f}% of total")
+        + "</div>"
+    )
+
+    # ---- alerts: one line, open for the list and the limits ------------ #
     _rules = load_rules()
     _fired = alerts.evaluate(contexts, _rules)
-
-    al, ar = st.columns([0.8, 0.2])
-    al.subheader(f"Alerts ({len(_fired)})")
-    with ar.popover("Rules", width="stretch"):
+    _alert_label = (f":red[:material/notifications_active:] **{len(_fired)} "
+                    f"alert{'s' if len(_fired) != 1 else ''}** · positions past your limits"
+                    if _fired else ":material/notifications: No alerts")
+    with st.expander(_alert_label):
+        for _a in _fired:
+            st.markdown(_a.masked_message if hide_amounts else _a.message)
+        if not _fired:
+            st.caption("No position is past its day-move or gain/loss limit.")
+        st.markdown("**Limits**")
         _new = []
-        for _r in alerts.DEFAULT_RULES:
+        for _col, _r in zip(st.columns(len(alerts.DEFAULT_RULES)), alerts.DEFAULT_RULES):
             cur = next((x["abs_gt"] for x in _rules if x["key"] == _r["key"]), _r["abs_gt"])
-            val = st.number_input(f"{_r['label']} — flag beyond ±%", min_value=0.0, max_value=1000.0,
-                                  value=float(cur), step=0.5, key=f"rule_{_r['key']}")
+            val = _col.number_input(f"{_r['label']} — flag beyond ±%", min_value=0.0,
+                                    max_value=1000.0, value=float(cur), step=0.5,
+                                    key=f"rule_{_r['key']}")
             _new.append({**_r, "abs_gt": val})
         if _new != _rules:
             save_rules(_new)
             st.rerun()
-        st.caption("Thresholds recompute live against the latest prices — no scheduler.")
-
-    if _fired:
-        with st.container(border=True):
-            for _a in _fired:
-                st.markdown(_a.masked_message if hide_amounts else _a.message)
-    else:
-        st.caption("No position is past its day-move or gain/loss limit.")
-
-    # ---- import a new positions CSV -------------------------------------- #
-    with st.expander("Import a new positions CSV", expanded=False):
-        st.caption(
-            "Upload a fresh Schwab **Positions** export (or point at one already on "
-            "this machine). You'll see exactly what changed before anything is saved."
-        )
-        up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
-        path_in = st.text_input(
-            "…or a path to a CSV on this machine",
-            key="csv_path",
-            placeholder="C:\\Users\\you\\Downloads\\All-Accounts-Positions-....csv",
-        ).strip().strip('"')
-
-        src_path = None
-        if up is not None:
-            imports_dir = os.path.join(HERE, "imports", str(USER_ID))
-            os.makedirs(imports_dir, exist_ok=True)
-            src_path = os.path.join(imports_dir, up.name)
-            with open(src_path, "wb") as fh:
-                fh.write(up.getbuffer())
-        elif path_in:
-            src_path = path_in
-
-        if src_path and not os.path.isfile(src_path):
-            st.error(f"No file at: {src_path}")
-        elif src_path:
-            _parse_info: dict = {}
-            try:
-                _meta, new_rows, _ = parse_csv_smart(src_path, _anthropic_key(), _parse_info)
-            except SystemExit as exc:
-                st.error(f"Couldn't parse this file: {exc}")
-            else:
-                if _parse_info.get("ai_assisted"):
-                    st.info("This file's headers didn't match the expected format, so Claude "
-                            "helped interpret it — double check the numbers below before confirming.")
-                file_date = _meta["snapshot_date"]
-                _conn = connect(DB)
-                try:
-                    # Diff against the snapshot *before* this file's date, so the change
-                    # set (and the transactions derived from it) is the same however many
-                    # times this file is imported.
-                    base_date = _conn.execute(
-                        "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
-                        (file_date, USER_ID),
-                    ).fetchone()["d"]
-                    base_rows = [dict(r) for r in _conn.execute(
-                        "SELECT account, symbol, description, quantity, cost_basis, market_value "
-                        "FROM positions WHERE snapshot_date = ? AND user_id = ?",
-                        (base_date, USER_ID))] if base_date else []
-                    replacing = _conn.execute(
-                        "SELECT 1 FROM positions WHERE snapshot_date = ? AND user_id = ? LIMIT 1",
-                        (file_date, USER_ID)
-                    ).fetchone() is not None
-
-                    d = diff_positions(base_rows, new_rows)
-                    n_changed = len(d["increased"]) + len(d["decreased"])
-
-                    st.markdown(
-                        f"Changes vs snapshot **{base_date or '— none (first import)'}**"
-                    )
-                    c = st.columns(5)
-                    c[0].metric("New", len(d["new"]))
-                    c[1].metric("Qty changed", n_changed)
-                    c[2].metric("Closed", len(d["closed"]))
-                    c[3].metric("Unchanged", len(d["unchanged"]))
-                    c[4].metric("File date", file_date)
-
-                    if replacing:
-                        st.warning(
-                            f"A snapshot for {file_date} already exists — importing replaces "
-                            "its positions, account totals, and inferred transactions."
-                        )
-
-                    def _tbl(entries, cols):
-                        return pd.DataFrame([{k: e[k] for k in cols} for e in entries])
-
-                    if d["new"]:
-                        st.markdown("**New positions**")
-                        st.dataframe(_tbl(d["new"], ["account", "symbol", "description",
-                                                    "new_qty", "new_cost", "new_mv"]),
-                                     hide_index=True, width="stretch")
-                    if n_changed:
-                        st.markdown("**Quantity changes**")
-                        st.dataframe(_tbl(d["increased"] + d["decreased"],
-                                          ["account", "symbol", "old_qty", "new_qty", "dqty",
-                                           "old_mv", "new_mv"]),
-                                     hide_index=True, width="stretch")
-                    if d["closed"]:
-                        st.markdown("**Closed positions**")
-                        st.dataframe(_tbl(d["closed"], ["account", "symbol", "description",
-                                                        "old_qty", "old_mv"]),
-                                     hide_index=True, width="stretch")
-
-                    txns = synthesize_transactions(d, file_date, os.path.abspath(src_path))
-                    st.caption(
-                        f"On confirm: positions + account totals for **{file_date}** are written, "
-                        f"and **{len(txns)}** transaction row(s) inferred from the quantity deltas "
-                        f"(BUY / SELL) are recorded."
-                    )
-
-                    if st.button("Confirm import", type="primary", key="csv_confirm"):
-                        try:
-                            info = import_csv(_conn, src_path, USER_ID, _anthropic_key())
-                            # Replace-by-date: this date's inferred transactions are
-                            # rewritten from the new file's diff.
-                            _conn.execute(
-                                "DELETE FROM transactions WHERE trade_date = ? AND user_id = ?",
-                                (info["snapshot_date"], USER_ID),
-                            )
-                            if txns:
-                                for _t in txns:
-                                    _t["user_id"] = USER_ID
-                                _conn.executemany(
-                                    "INSERT INTO transactions (account, trade_date, action, symbol, "
-                                    "description, quantity, price, amount, fees, realized_gain, "
-                                    "source_file, user_id) VALUES "
-                                    "(:account, :trade_date, :action, :symbol, :description, :quantity, "
-                                    ":price, :amount, :fees, :realized_gain, :source_file, :user_id)",
-                                    txns,
-                                )
-                            _conn.commit()
-                        except DBError as exc:
-                            _conn.rollback()
-                            st.error(f"Import failed, nothing was saved: {exc}")
-                        else:
-                            st.session_state["import_flash"] = (
-                                f"Imported snapshot {info['snapshot_date']} — {info['n_positions']} "
-                                f"positions, {len(txns)} transaction row(s) recorded."
-                            )
-                            st.rerun()
-                finally:
-                    _conn.close()
-
-
-    # ---- totals ------------------------------------------------------------- #
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Portfolio value", fmt_money(portfolio_value))
-    m2.metric("Total gain/loss", fmt_money(tot_gl),
-              delta=(None if hide_amounts else fmt_pct(tot_glp)))
-    m3.metric("Holdings value", fmt_money(tot_mv))
-    m4.metric("Cash", fmt_money(cash))
+        st.caption("Checked against the latest prices every time the page loads.")
 
     st.divider()
 
     # ---- performance over time ---------------------------------------- #
     p1, p2 = st.columns([0.65, 0.35])
-    p1.subheader("Performance over time")
+    p1.subheader("Performance")
     series_col = p2.selectbox(
         "Series", [c for c, _, _ in perf.SERIES],
         index=[c for c, _, _ in perf.SERIES].index(load_perf_series()),
@@ -1186,12 +1426,21 @@ if PAGE == "Dashboard":
 
     # history() picks the reconstruction's resolution to match `prng`, exactly like
     # ticker_series() does for a single ticker (finest Yahoo interval that covers
-    # the window), and already clips + falls back so this is never < 2 rows once
-    # there's any data at all.
+    # the window). With only daily bars so far (right after the automatic
+    # backfill, before the nightly intraday sync) a short range can come back
+    # empty - then show the shortest wider range that has data, and say so.
+    _shown_rng = prng
     _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[prng], include_app_open=False)
+    for _wider in charts.RANGE_LABELS[charts.RANGE_LABELS.index(prng) + 1:]:
+        if len(_hist) >= 2:
+            break
+        _shown_rng = _wider
+        _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[_wider], include_app_open=False)
+    if _shown_rng != prng and len(_hist) >= 2:
+        st.caption(f"No {prng} data yet - showing {_shown_rng}. Intraday history loads each evening.")
     if len(_hist) < 2:
-        st.caption("Not enough data yet — sync history (:material/history:) backfills a reconstructed "
-                   "line from Yahoo, and a point is logged each time you open the app.")
+        st.caption("Your performance chart fills in once price history for your holdings has "
+                   "loaded - it updates on its own every trading day.")
     else:
         _fmtname = perf.SERIES_FMT[series_col]
         y_title = perf.SERIES_LABEL[series_col]
@@ -1209,7 +1458,7 @@ if PAGE == "Dashboard":
             _pf, _pl, ppct = charts.window_change(pwin, "t", series_col)
             pmcol, _ = st.columns([0.4, 0.6])
             pmcol.metric(y_title, mask_or(FORMATTERS[_fmtname](_pl)),
-                         delta=(None if hide_amounts or ppct is None else f"{ppct:+.2f}% over {prng}"))
+                         delta=(None if hide_amounts or ppct is None else f"{ppct:+.2f}% over {_shown_rng}"))
 
             _ptips = [alt.Tooltip("t:T", title="When", format="%b %d, %Y  %H:%M")]
             if not hide_amounts:
@@ -1218,11 +1467,10 @@ if PAGE == "Dashboard":
                 charts.line(
                     pwin, x="t", y=series_col, y_title=y_title, y_format=AXIS_FORMAT[_fmtname],
                     mask=hide_amounts, compress_gaps=bool(_pcompress),
-                    line_color=perf.SOURCE_COLOR["reconstructed"],
+                    line_color=(SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0],
                     tooltip=_ptips),
                 width="stretch",
             )
-            _covered, _missing = perf.holdings_coverage(DB, USER_ID)
             st.caption(
                 f"{len(pwin)} points · reconstructed from current holdings × each bar's close. "
                 + (f"Sync {len(_missing)} more ticker(s) to extend the line: {', '.join(_missing)}."
@@ -1233,33 +1481,8 @@ if PAGE == "Dashboard":
 
     # ---- allocation ----------------------------------------------------- #
     alloc = allocate(positions, cash_by_account)
-
-
-    def _alloc_chart(rows, title):
-        data = pd.DataFrame(rows)
-        if data.empty:
-            return None
-        data["row"] = data.apply(
-            lambda r: r["label"] if (hide_amounts or r["pct"] is None)
-            else f"{r['label']}  ·  {r['pct']:.1f}%", axis=1)
-        tips = ["label"] if hide_amounts else [
-            "label", alt.Tooltip("value:Q", title="Value", format="$,.2f"),
-            alt.Tooltip("pct:Q", title="% of portfolio", format=".2f")]
-        return (
-            alt.Chart(data)
-            .mark_bar()
-            .encode(
-                y=alt.Y("row:N", sort="-x", title=None),
-                x=alt.X("value:Q", title=None, axis=alt.Axis(format="$,.2s", labels=not hide_amounts)),
-                tooltip=tips,
-            )
-            .properties(height=44 * len(data) + 40, title=title)
-        )
-
-
-    def _short_acct(rows):
-        return [{**r, "label": r["label"].replace("Individual ", "").strip()} for r in rows]
-
+    # One color per asset type across every allocation bar on the page.
+    _asset_slots = _slot_map({r["label"] for r in alloc["by_asset_type"]}, ASSET_SLOT)
 
     al1, al2 = st.columns([0.75, 0.25])
     al1.subheader("Allocation")
@@ -1280,13 +1503,13 @@ if PAGE == "Dashboard":
         if _new_thresh != load_drift_threshold():
             save_drift_threshold(_new_thresh)
 
-    a1, a2 = st.columns(2)
-    c1 = _alloc_chart(alloc["by_asset_type"], "By asset type")
-    c2 = _alloc_chart(_short_acct(alloc["by_account"]), "By account")
-    if c1 is not None:
-        a1.altair_chart(c1, width="stretch")
-    if c2 is not None:
-        a2.altair_chart(c2, width="stretch")
+    if len(alloc["by_account"]) > 1:
+        a1, a2 = st.columns(2, gap="large")
+        a1.html(_alloc_bar(alloc["by_asset_type"], "By asset type", _asset_slots))
+        a2.html(_alloc_bar(alloc["by_account"], "By account",
+                           _slot_map({r["label"] for r in alloc["by_account"]})))
+    else:
+        st.html(_alloc_bar(alloc["by_asset_type"], "By asset type", _asset_slots))
 
     if alloc["concentration"]:
         lines = "  \n".join(
@@ -1322,7 +1545,35 @@ if PAGE == "Dashboard":
     st.divider()
 
     # ---- accounts: side-by-side comparison -------------------------------- #
-    st.subheader("Accounts")
+    ac1, ac2 = st.columns([0.75, 0.25])
+    ac1.subheader("Accounts")
+    with ac2.popover("Rename", width="stretch"):
+        # the broker's own names, recovered from the display names in use
+        _to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
+        _broker_accts = sorted({p["broker_account"] for p in positions}
+                               | {_to_broker.get(a, a) for a in cash_by_account})
+        with st.form("rename_accounts", border=False):
+            st.caption("Give an account a name you'll recognize. Leave blank to use the "
+                       "broker's name.")
+            _typed = {a: st.text_input(a, value=ACCOUNT_LABELS.get(a, ""), placeholder=a,
+                                       max_chars=accounts.MAX_LEN, key=f"acct_name_{a}")
+                      for a in _broker_accts}
+            if st.form_submit_button("Save names", type="primary"):
+                _proposed = {a: n.strip() for a, n in _typed.items() if n.strip()}
+                _bad = next((a for a in _broker_accts
+                             if accounts.clash(a, _proposed.get(a, a), _broker_accts, _proposed)), None)
+                if _bad:
+                    st.error(f"Two accounts can't share the name "
+                             f"“{accounts.display(_bad, _proposed)}”.")
+                else:
+                    _c = connect(DB)
+                    try:
+                        for a in _broker_accts:
+                            if _proposed.get(a) != ACCOUNT_LABELS.get(a):
+                                accounts.set_label(_c, USER_ID, a, _proposed.get(a))
+                    finally:
+                        _c.close()
+                    st.rerun()
 
     _acct_stats = {}
     for _p, _ctx in zip(positions, contexts):
@@ -1387,9 +1638,7 @@ if PAGE == "Dashboard":
             _acct_positions = [p for p in positions if p["account"] == _a]
             _acct_cash = {_a: cash_by_account.get(_a, 0.0)}
             _acct_alloc = allocate(_acct_positions, _acct_cash)
-            _c = _alloc_chart(_acct_alloc["by_asset_type"], _a.replace("Individual ", "").strip())
-            if _c is not None:
-                _col.altair_chart(_c, width="stretch")
+            _col.html(_alloc_bar(_acct_alloc["by_asset_type"], _a, _asset_slots))
 
     st.divider()
 
@@ -1472,7 +1721,6 @@ if PAGE == "Dashboard":
 
 if PAGE == "Watchlist":
     # ---- watchlist: tickers tracked for their chart/stats, not owned ------- #
-    st.subheader("Watchlist")
     wc1, wc2 = st.columns([0.75, 0.25])
     _wl_raw = wc1.text_input("Add a ticker", key="wl_add_input", placeholder="Add a ticker, e.g. NVDA",
                              label_visibility="collapsed")
@@ -1539,7 +1787,7 @@ if PAGE in ("Dashboard", "Watchlist"):
                                  else f"{fmt_money(_dchg_usd)} ({_dchg_pct:+.2f}%) today"))
             _price_at = M.value("price_at", _ctx)
             if _price_at:
-                st.caption(f"As of {_price_at}")
+                st.caption(f"As of {_fmt_when(_price_at)}")
 
             t1, t2 = st.columns([0.6, 0.4])
             t1.markdown("#### Price history")
@@ -1707,7 +1955,6 @@ if PAGE in ("Dashboard", "Watchlist"):
 
 if PAGE == "Activity":
     # ---- activity: inferred transaction history --------------------------- #
-    st.subheader("Activity")
 
     _txn_conn = connect(DB)
     try:
@@ -1715,6 +1962,8 @@ if PAGE == "Activity":
             "SELECT * FROM transactions WHERE user_id = ? ORDER BY trade_date DESC, id DESC", (USER_ID,))]
     finally:
         _txn_conn.close()
+    for _t in _all_txns:
+        _t["account"] = accounts.display(_t["account"], ACCOUNT_LABELS)
 
     if not _all_txns:
         st.caption("No transactions yet — they're inferred automatically the next time you import "
@@ -1784,7 +2033,6 @@ if PAGE == "Activity":
 
 if PAGE == "Income":
     # ---- income: dividend yield summary + per-position breakdown ---------- #
-    st.subheader("Income")
 
     _income_rows = []
     for p, ctx in zip(positions, contexts):

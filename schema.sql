@@ -254,6 +254,15 @@ CREATE TABLE IF NOT EXISTS news (
 );
 CREATE INDEX IF NOT EXISTS idx_news_ticker ON news (ticker, published_at);
 
+-- A user's own display name for a broker account ("Roth IRA" instead of
+-- "Individual ...111"). Display only: positions keep the broker's name.
+CREATE TABLE IF NOT EXISTS account_labels (
+    user_id    INTEGER NOT NULL,
+    account    TEXT    NOT NULL,
+    nickname   TEXT    NOT NULL,
+    PRIMARY KEY (user_id, account)
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

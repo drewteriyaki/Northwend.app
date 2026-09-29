@@ -47,6 +47,12 @@
     }
     #pt-sb-handle svg { width: 16px; height: 16px; transition: transform 0.2s; }
     #pt-sb-handle.open svg { transform: rotate(180deg); }
+    /* phones: slimmer, and see-through while closed so it doesn't cover content */
+    @media (max-width: 640px) {
+      #pt-sb-handle { width: 16px; height: 56px; margin-top: -28px; }
+      #pt-sb-handle:not(.open) { opacity: 0.7; }
+      #pt-sb-handle svg { width: 13px; height: 13px; }
+    }
     #pt-ptr {
       position: fixed; top: 0; left: 50%; z-index: 1000300;
       width: 36px; height: 36px; margin-left: -18px; border-radius: 50%;

@@ -1,0 +1,10 @@
+# Checked in so Streamlit Community Cloud picks it up too. Secrets live in
+# secrets.toml (git-ignored), never here.
+
+[client]
+# Hide Streamlit's own Deploy button and developer menu from app users.
+toolbarMode = "minimal"
+
+[theme]
+# Blue, so the app's own accent never reads as a loss (red) or gain (green).
+primaryColor = "#2a78d6"

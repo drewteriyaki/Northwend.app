@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
+import accounts  # noqa: E402
 import advisor  # noqa: E402
 import ai_parse  # noqa: E402
 import alerts  # noqa: E402
@@ -960,6 +961,38 @@ class BulkCreateTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(auth.verify_login(conn, "newperson", "chosenpw"), auth.get_user_id(conn, "newperson"))
         # testuser's original password is untouched
         self.assertEqual(auth.verify_login(conn, "testuser", "testpass"), self.user_id)
+
+
+class AccountLabelTests(TempDBMixin, unittest.TestCase):
+    def test_set_display_and_clear(self):
+        conn = portfolio.connect(self.db)
+        accounts.set_label(conn, self.user_id, "Individual ...111", "  Roth IRA ")
+        names = accounts.labels(conn, self.user_id)
+        self.assertEqual(names, {"Individual ...111": "Roth IRA"})              # trimmed
+        self.assertEqual(accounts.display("Individual ...111", names), "Roth IRA")
+        self.assertEqual(accounts.display("Individual ...222", names), "Individual ...222")
+        accounts.set_label(conn, self.user_id, "Individual ...111", "New name")   # replaces
+        self.assertEqual(accounts.labels(conn, self.user_id), {"Individual ...111": "New name"})
+        accounts.set_label(conn, self.user_id, "Individual ...111", "  ")         # blank clears
+        self.assertEqual(accounts.labels(conn, self.user_id), {})
+        conn.close()
+
+    def test_labels_are_per_user(self):
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "someone_else", "testpass")
+        accounts.set_label(conn, self.user_id, "Individual ...111", "Mine")
+        self.assertEqual(accounts.labels(conn, other), {})
+        conn.close()
+
+    def test_clash_catches_a_shared_display_name(self):
+        accts = ["Individual ...111", "Individual ...222"]
+        names = {"Individual ...111": "Brokerage"}
+        self.assertEqual(accounts.clash("Individual ...222", "brokerage", accts, names),
+                         "Individual ...111")                                  # case-insensitive
+        self.assertIsNone(accounts.clash("Individual ...111", "Brokerage", accts, names))  # itself
+        self.assertEqual(accounts.clash("Individual ...111", "Individual ...222", accts, {}),
+                         "Individual ...222")                                  # another's broker name
+        self.assertIsNone(accounts.clash("Individual ...222", "", accts, names))
 
 
 class WatchlistTests(TempDBMixin, unittest.TestCase):
