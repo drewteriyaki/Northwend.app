@@ -15,7 +15,7 @@ import sys
 import tempfile
 import unittest
 import unittest.mock
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -40,6 +40,8 @@ import watchlist  # noqa: E402
 import news  # noqa: E402
 import overview  # noqa: E402
 import pgcompat  # noqa: E402
+import plans  # noqa: E402
+import prefs  # noqa: E402
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "sample_positions.csv")
 
@@ -1071,6 +1073,120 @@ class BulkCreateTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(auth.verify_login(conn, "newperson", "chosenpw"), auth.get_user_id(conn, "newperson"))
         # testuser's original password is untouched
         self.assertEqual(auth.verify_login(conn, "testuser", "testpass"), self.user_id)
+
+
+class PlanMathTests(unittest.TestCase):
+    TODAY = date(2026, 9, 29)
+
+    def test_future_value(self):
+        self.assertAlmostEqual(plans.future_value(1000, 100, 0, 12), 2200)            # no growth
+        self.assertAlmostEqual(plans.future_value(10000, 0, 6, 12), 10600, places=6)  # one year at 6%
+        self.assertEqual(plans.future_value(500, 50, 6, -3), 500)                     # no negative time
+
+    def test_required_monthly_reaches_the_target(self):
+        need = plans.required_monthly(20000, 500000, 6, 360)
+        self.assertAlmostEqual(plans.future_value(20000, need, 6, 360), 500000, places=4)
+        self.assertEqual(plans.required_monthly(500000, 100000, 6, 12), 0.0)  # already enough
+        self.assertIsNone(plans.required_monthly(1000, 5000, 6, 0))          # no time left
+
+    def test_months_until_and_add_months(self):
+        self.assertEqual(plans.months_until("2027-09-29", self.TODAY), 12)
+        self.assertEqual(plans.months_until("2027-09-28", self.TODAY), 11)    # a day short
+        self.assertEqual(plans.months_until("2026-01-01", self.TODAY), -9)
+        self.assertEqual(plans.add_months(date(2026, 1, 31), 1), date(2026, 2, 28))
+        self.assertEqual(plans.add_months(date(2026, 11, 15), 3), date(2027, 2, 15))
+
+    def _plan(self, target, when, monthly=0):
+        return {"target_amount": target, "target_date": when, "monthly_contribution": monthly}
+
+    def test_progress_statuses(self):
+        today = self.TODAY
+        status = lambda plan, value: plans.progress(plan, value, today=today)["status"]  # noqa: E731
+        self.assertEqual(status(self._plan(10000, "2030-01-01"), 12000), "reached")
+        self.assertEqual(status(self._plan(10000, "2026-01-01"), 5000), "past_date")
+        # 10 years at 6% turns 10k into ~17.9k: 15k is on track
+        self.assertEqual(status(self._plan(15000, "2036-09-29"), 10000), "on_track")
+        # ~20.7k at 8% but ~17.9k at 6%: 20k only at the optimistic end
+        self.assertEqual(status(self._plan(20000, "2036-09-29"), 10000), "within_reach")
+        self.assertEqual(status(self._plan(50000, "2036-09-29"), 10000), "behind")
+        p = plans.progress(self._plan(50000, "2036-09-29"), 10000, today=today)
+        self.assertLess(p["projected_low"], p["projected"])
+        self.assertLess(p["projected"], p["projected_high"])
+        self.assertAlmostEqual(p["pct_of_target"], 20.0)
+        self.assertGreater(p["needed_monthly"], 0)
+
+    def test_projection_series(self):
+        rows = plans.projection_series(1000, 100, 24, today=self.TODAY)
+        self.assertEqual(len(rows), 25)
+        self.assertEqual(rows[0]["date"], "2026-09-29")
+        self.assertEqual(rows[0]["mid"], 1000)
+        self.assertEqual(rows[-1]["date"], "2028-09-29")
+        long = plans.projection_series(1000, 100, 600, today=self.TODAY)
+        self.assertLessEqual(len(long), 242)                                    # sampled
+        self.assertEqual(long[-1]["date"], plans.add_months(self.TODAY, 600).isoformat())
+
+
+class PlanStorageTests(TempDBMixin, unittest.TestCase):
+    def test_save_merges_and_records_who_saved(self):
+        conn = portfolio.connect(self.db)
+        self.assertIsNone(plans.get_plan(conn, self.user_id))
+        plans.save_plan(conn, self.user_id, {"target_alloc": {"Equity": 70, "Cash": 0}}, set_by=self.user_id)
+        plan = plans.save_plan(conn, self.user_id, {"goal_type": "Retirement", "target_amount": 900000,
+                                                    "target_date": "2055-01-01"}, set_by=99)
+        self.assertEqual(plan["target_alloc"], {"Equity": 70.0})   # kept, and zero targets dropped
+        self.assertEqual(plan["set_by"], 99)
+        self.assertTrue(plans.has_goal(plan))
+        plan = plans.save_plan(conn, self.user_id, {"target_amount": None}, set_by=self.user_id)
+        self.assertFalse(plans.has_goal(plan))                       # None clears a field
+        conn.close()
+
+    def test_contributions_are_per_user(self):
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw")
+        plans.add_contribution(conn, self.user_id, "2026-09-02", 500, " paycheck ")
+        plans.add_contribution(conn, self.user_id, "2026-09-20", -200)
+        plans.add_contribution(conn, self.user_id, "2026-08-31", 300)
+        plans.add_contribution(conn, other, "2026-09-05", 1000)
+        self.assertEqual(plans.month_total(conn, self.user_id, 2026, 9), 300.0)
+        rows = plans.list_contributions(conn, self.user_id)
+        self.assertEqual([r["date"] for r in rows], ["2026-09-20", "2026-09-02", "2026-08-31"])
+        self.assertEqual(rows[1]["note"], "paycheck")
+        plans.delete_contribution(conn, other, rows[0]["id"])       # someone else's id: no effect
+        self.assertEqual(len(plans.list_contributions(conn, self.user_id)), 3)
+        plans.delete_contribution(conn, self.user_id, rows[0]["id"])
+        self.assertEqual(plans.month_total(conn, self.user_id, 2026, 9), 500.0)
+        conn.close()
+
+    def test_money_in_history_adds_up(self):
+        conn = portfolio.connect(self.db)
+        portfolio.import_csv(conn, FIXTURE, self.user_id)
+        hist = plans.money_in_history(conn, self.user_id)
+        self.assertEqual(len(hist), 1)
+        h = hist[0]
+        mv = conn.execute("SELECT SUM(market_value) AS s FROM positions WHERE user_id = ?",
+                          (self.user_id,)).fetchone()["s"]
+        cash = conn.execute("SELECT SUM(cash_value) AS s FROM account_totals WHERE user_id = ?",
+                            (self.user_id,)).fetchone()["s"]
+        self.assertAlmostEqual(h["value"], mv + cash)
+        self.assertAlmostEqual(h["money_in"] + h["growth"], h["value"])
+        conn.close()
+
+
+class PrefsTests(TempDBMixin, unittest.TestCase):
+    def test_round_trip_and_legacy_file_carries_over(self):
+        conn = portfolio.connect(self.db)
+        self.assertEqual(prefs.load(conn, self.user_id), {})
+        legacy = os.path.join(os.path.dirname(self.db), "old_prefs.json")
+        with open(legacy, "w", encoding="utf-8") as fh:
+            json.dump({"hide_amounts": True, "rules": {"day_change_pct": 3}}, fh)
+        other = auth.create_user(conn, "other", "pw")
+        self.assertEqual(prefs.load(conn, other, legacy)["hide_amounts"], True)   # imported once
+        os.remove(legacy)
+        self.assertEqual(prefs.load(conn, other, legacy)["rules"], {"day_change_pct": 3})  # now in the db
+        prefs.save(conn, other, {"columns": ["symbol"]})
+        self.assertEqual(prefs.load(conn, other), {"columns": ["symbol"]})
+        self.assertEqual(prefs.load(conn, self.user_id), {})                     # per user
+        conn.close()
 
 
 class AccountLabelTests(TempDBMixin, unittest.TestCase):

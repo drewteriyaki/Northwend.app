@@ -126,3 +126,55 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
                   .add_params(nearest))
 
     return alt.layer(*layers).properties(height=height)
+
+
+def projection(df: pd.DataFrame, *, target: float, color: str, mask: bool = False,
+               tooltip=None, height: int = 300) -> alt.LayerChart:
+    """Goal projection: the low-high range as a band, the assumed return as a
+    line, and the goal as a dashed rule. `df` has date / low / mid / high.
+    Same hover as line(): a rule and dot at the nearest month, with
+    `tooltip` on a wide invisible hit target."""
+    grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
+    x = alt.X("date:T", title=None, axis=alt.Axis(**grid))
+    y_axis = alt.Axis(format="$,.2s", labels=not mask, **grid)
+    base = alt.Chart(df)
+    layers = [
+        base.mark_area(opacity=0.18, color=color).encode(
+            x=x, y=alt.Y("low:Q", title=None, axis=y_axis), y2="high:Q"),
+        base.mark_line(strokeWidth=2, color=color).encode(x=x, y="mid:Q"),
+        alt.Chart(pd.DataFrame({"target": [target]})).mark_rule(
+            strokeDash=[6, 4], strokeWidth=1.5, color="#8a8a86").encode(y="target:Q"),
+    ]
+    nearest = alt.selection_point(nearest=True, on="pointerover", fields=["date"],
+                                  empty=False, clear="pointerout")
+    layers.append(base.mark_rule(color="#94a3b8", strokeWidth=1).encode(
+        x=x, opacity=alt.condition(nearest, alt.value(0.7), alt.value(0))))
+    layers.append(base.mark_point(size=90, filled=True, color=color).encode(
+        x=x, y="mid:Q", opacity=alt.condition(nearest, alt.value(1), alt.value(0))))
+    layers.append(base.mark_rule(strokeWidth=24).encode(
+        x=x, opacity=alt.value(0), tooltip=tooltip if tooltip is not None else []
+    ).add_params(nearest))
+    return alt.layer(*layers).properties(height=height)
+
+
+def money_in_chart(df: pd.DataFrame, *, money_color: str, value_color: str,
+                   mask: bool = False, height: int = 240) -> alt.LayerChart:
+    """Money in (filled) with total value (line) over it, one point per
+    statement; the gap between them is growth, or a loss when the line dips
+    below. `df` has date / money_in / value. Not stacked: growth can be
+    negative, and a stack would draw a loss below zero."""
+    long = df.melt(id_vars=["date"], value_vars=["money_in", "value"], var_name="k", value_name="v")
+    long["series"] = long["k"].map({"money_in": "Money in", "value": "Value"})
+    grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
+    color = alt.Color("series:N", title=None, legend=alt.Legend(orient="top"),
+                      scale=alt.Scale(domain=["Money in", "Value"], range=[money_color, value_color]))
+    enc = dict(x=alt.X("date:T", title=None, axis=alt.Axis(**grid)),
+               y=alt.Y("v:Q", title=None, axis=alt.Axis(format="$,.2s", labels=not mask, **grid)),
+               color=color,
+               tooltip=[alt.Tooltip("date:T", title="Statement", format="%b %d, %Y"), "series:N"]
+               + ([] if mask else [alt.Tooltip("v:Q", title="Amount", format="$,.2f")]))
+    base = alt.Chart(long).encode(**enc)
+    return alt.layer(
+        base.transform_filter("datum.series == 'Money in'").mark_area(opacity=0.3, line=True),
+        base.transform_filter("datum.series == 'Value'").mark_line(strokeWidth=2, point=True),
+    ).properties(height=height)

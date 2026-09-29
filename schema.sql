@@ -273,6 +273,40 @@ CREATE TABLE IF NOT EXISTS login_sessions (
     expires_at  TEXT    NOT NULL                     -- 'YYYY-MM-DD HH:MM:SS' UTC
 );
 
+-- Per-account dashboard settings (chosen columns, alert limits, hide
+-- amounts, ...) as one JSON object. Was a .dashboard_prefs.<id>.json file,
+-- which a hosted app loses on every restart.
+CREATE TABLE IF NOT EXISTS user_prefs (
+    user_id   INTEGER PRIMARY KEY,
+    data      TEXT    NOT NULL
+);
+
+-- One plan per account: a goal, how much is added toward it, and a target
+-- mix. Written by the account owner or their advisor (set_by).
+CREATE TABLE IF NOT EXISTS plans (
+    user_id              INTEGER PRIMARY KEY,
+    goal_type            TEXT,
+    goal_name            TEXT,
+    target_amount        REAL,
+    target_date          TEXT,                  -- YYYY-MM-DD
+    monthly_contribution REAL,
+    target_alloc         TEXT,                  -- JSON {asset type label: target %}
+    notes                TEXT,
+    set_by               INTEGER,               -- users.id of whoever last saved it
+    updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Money added to (or, negative, taken out of) an account, logged by hand.
+CREATE TABLE IF NOT EXISTS contributions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    date        TEXT    NOT NULL,               -- YYYY-MM-DD
+    amount      REAL    NOT NULL,
+    note        TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_contributions_user ON contributions (user_id, date);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

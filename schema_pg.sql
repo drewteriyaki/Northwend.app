@@ -237,6 +237,36 @@ CREATE TABLE IF NOT EXISTS login_sessions (
     expires_at  TEXT    NOT NULL
 );
 
+-- Money columns here are DOUBLE PRECISION: Postgres REAL is 4-byte and
+-- loses cents on large amounts.
+CREATE TABLE IF NOT EXISTS user_prefs (
+    user_id   INTEGER PRIMARY KEY,
+    data      TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plans (
+    user_id              INTEGER PRIMARY KEY,
+    goal_type            TEXT,
+    goal_name            TEXT,
+    target_amount        DOUBLE PRECISION,
+    target_date          TEXT,
+    monthly_contribution DOUBLE PRECISION,
+    target_alloc         TEXT,
+    notes                TEXT,
+    set_by               INTEGER,
+    updated_at           TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+);
+
+CREATE TABLE IF NOT EXISTS contributions (
+    id          SERIAL  PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    date        TEXT    NOT NULL,
+    amount      DOUBLE PRECISION NOT NULL,
+    note        TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_contributions_user ON contributions (user_id, date);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

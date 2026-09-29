@@ -52,7 +52,8 @@ machine.
 | **Alerts** | One line with the count - open it for the list and the limits. Defaults: day move beyond ±5 %, total gain/loss beyond ±20 %. Recomputed on every page load, no scheduler. |
 | **Import** | The upload icon opens a dialog: upload a fresh export (running locally you can also type a path). Shows new / increased / decreased / closed positions vs the prior snapshot **before** saving, then writes the snapshot and records inferred BUY/SELL rows in `transactions`. Re-importing a date replaces it. New tickers get their prices and daily history fetched right away. |
 | **Performance** | Line chart of any recorded portfolio stat, with a **1D … 1Y** range picker and the **% change over the window** - the reconstructed value of your current holdings × each bar's close, gap-compressed so market-closed hours don't stretch the chart. Holdings with no Yahoo history get daily bars fetched automatically on the next visit; if the picked range has no data yet (1D before the nightly intraday sync), the chart shows the shortest range that does. |
-| **Allocation** | A stacked bar by asset type with a legend of % and $, and **By account**: each account's share of the portfolio with a thin bar of its own asset mix (hover a segment for its %), a flag for any single position over 15 % of the portfolio, and **Targets** — set a target % per asset type and get flagged when you've drifted beyond a threshold (default ±5 pts). |
+| **Goal card** | One line under the summary: the plan's goal, % of the way there, and whether it's on track, with **Open plan** - or **Set a goal** if there isn't one. |
+| **Allocation** | A stacked bar by asset type with a legend of % and $, and **By account**: each account's share of the portfolio with a thin bar of its own asset mix (hover a segment for its %), a flag for any single position over 15 % of the portfolio, and **Targets** — set a target % per asset type (saved as the plan's target mix) and get flagged when you've drifted beyond a threshold (default ±5 pts). |
 | **Accounts** | Side-by-side comparison across every account — total value, gain/loss, today's move, position count — with a CSV export. **Rename** gives any account a nickname ("Roth IRA" instead of "Individual ...111"), used everywhere in the app and saved in `account_labels`; the broker's name stays the key in the database. |
 | **Holdings** | Sortable table. **Columns** picks from ~35 stats (price, day change $/%, unrealized $/%, % of portfolio, day open/high/low, dividend yield, **20/50/200-day MA, volume, 52-wk high/low, beta, P/E, sector** …) — add or remove as many as you like; the choice is saved. Search and **tap a ticker's pill** above the table to open its chart, position summary, stats, and recent news headlines below (cached from Finnhub, refreshed every 4 hours). **Download CSV** exports the raw figures (disabled while amounts are hidden). |
 | **Watchlist** | Track any ticker's chart/stats without owning it — add one by symbol, tap its pill the same way as a holding. |
@@ -80,6 +81,31 @@ for **1D**/**5D**, not one point per day. Also powers moving averages, volume,
 52-wk figures, and the reconstructed performance line. Needs `pip install
 yfinance`; a full sync makes ~130 requests and a few hundred thousand rows, so it
 takes a minute or two.
+
+---
+
+## Plan
+
+One plan per account (`plans.py`, tables `plans` and `contributions`), set by
+the account owner or their advisor - it says which ("Set by your advisor ...").
+It works before anything is imported, so someone just starting can set a goal.
+
+- **Goal:** what it's for (retirement, a home, education, ...), a target amount
+  and date, and how much is added each month. The form starts from the
+  investing profile's goal and time horizon.
+- **Status:** % of the way there and one of *On track* (the assumed return
+  gets there), *Within reach* (only the optimistic end does), *Behind*, *Goal
+  reached*, or *Date passed* - with the projected amount, or the monthly amount
+  that would close the gap.
+- **Projection:** compound growth at an assumed yearly return (slider, default
+  6%) with a ±2-point shaded range and the goal as a dashed line. Before
+  inflation, fees and taxes - an illustration, not a prediction.
+- **Contributions:** log money added or taken out; "This month: $X of $Y
+  planned". Logged by hand - imports don't add these.
+- **Money in vs growth:** money in is cost basis plus cash; growth is the rest.
+  With two or more statements it's a chart over time.
+- **Target mix:** target % per asset type with each one's distance from it.
+  Must total 100%. The Dashboard's **Targets** edits the same numbers.
 
 ---
 
@@ -201,6 +227,9 @@ database keeps working after an update.
   `fpdf2`). The one API call gets the same percentages-only summary as the
   chat; dollar figures are added locally. Download only - nothing is
   saved. Disabled while **Hide amounts** is on.
+- Dashboard settings (columns, alert limits, hide amounts, ...) are saved per
+  account in the database (`user_prefs`, `prefs.py`). Older
+  `.dashboard_prefs.<id>.json` files are read once and carried over.
 - `.env`, `portfolio.db`, `imports/`, and `.dashboard_prefs*.json` are
   git-ignored.
 

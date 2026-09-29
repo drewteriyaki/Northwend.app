@@ -3,9 +3,10 @@
 Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 """
 
+import html
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import altair as alt
 import pandas as pd
@@ -19,6 +20,8 @@ import metrics as M
 import news
 import perf
 import pgcompat
+import plans
+import prefs
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
 from portfolio import DBError, connect, import_csv, parse_csv_smart
@@ -81,6 +84,20 @@ st.html("""<style>
 .pt-acct { margin-bottom: .8rem; }
 .pt-acct .pt-legend-row { margin-bottom: .3rem; }
 .pt-alloc-bar.pt-mini { height: 8px; margin-bottom: 0; }
+.pt-warn { color: #c98500; } .pt-muted { opacity: .7; }
+.pt-chip { display: inline-block; padding: .1rem .6rem; border-radius: 999px; font-size: .8rem;
+  font-weight: 600; border: 1px solid currentColor; }
+.pt-goal-top { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.pt-goal-pct { font-weight: 600; }
+.pt-goal-track { height: 10px; border-radius: 5px; background: rgba(128,128,128,.2);
+  overflow: hidden; margin: .5rem 0 .4rem; }
+.pt-goal-fill { height: 100%; border-radius: 5px; background: #2a78d6; }
+.pt-goal-sub { font-size: .8rem; opacity: .7; }
+.pt-mix-track { position: relative; height: 8px; border-radius: 4px;
+  background: rgba(128,128,128,.2); margin: 0 0 .6rem; }
+.pt-mix-fill { height: 100%; border-radius: 4px; background: #2a78d6; }
+.pt-mix-target { position: absolute; top: -3px; width: 3px; height: 14px; border-radius: 1px;
+  margin-left: -1px; background: currentColor; }
 </style>""")
 
 
@@ -206,9 +223,11 @@ USER_ID = _active
 st.session_state["active_user_id"] = USER_ID
 ACTIVE_NAME = (st.session_state["username"] if USER_ID == LOGIN_ID
                else dict(CLIENTS).get(USER_ID, "client"))
+# where this account's settings lived before they moved into the database;
+# read once, the first time, so they carry over (prefs.py)
 PREFS_PATH = os.path.join(HERE, f".dashboard_prefs.{USER_ID}.json")
 
-PAGES = ["Dashboard", *(["Clients"] if IS_ADVISOR else []),
+PAGES = ["Dashboard", "Plan", *(["Clients"] if IS_ADVISOR else []),
          "Watchlist", "Activity", "Income", "AI Assistant"]
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
@@ -338,12 +357,19 @@ QUICK_STARTS = {
 }
 
 
-def _rules_for(account_id):
-    """That account's saved alert limits (its own prefs file), else defaults."""
+def _legacy_prefs_path(account_id):
+    return os.path.join(HERE, f".dashboard_prefs.{account_id}.json")
+
+
+def _rules_for(account_id, conn=None):
+    """That account's saved alert limits, else defaults."""
+    c = conn or connect(DB)
     try:
-        with open(os.path.join(HERE, f".dashboard_prefs.{account_id}.json"), encoding="utf-8") as fh:
-            saved = (json.load(fh) or {}).get("rules") or {}
-    except (OSError, ValueError, AttributeError):
+        saved = prefs.load(c, account_id, _legacy_prefs_path(account_id)).get("rules") or {}
+    finally:
+        if conn is None:
+            c.close()
+    if not isinstance(saved, dict):
         saved = {}
     return [{**r, "abs_gt": float(saved.get(r["key"], r["abs_gt"]))} for r in alerts.DEFAULT_RULES]
 
@@ -357,7 +383,7 @@ def _render_clients():
     conn = connect(DB)
     try:
         quotes = overview.latest_quotes(conn)
-        rows = [{**overview.account_summary(conn, cid, quotes, _rules_for(cid)), "name": name}
+        rows = [{**overview.account_summary(conn, cid, quotes, _rules_for(cid, conn)), "name": name}
                 for cid, name in CLIENTS]
     finally:
         conn.close()
@@ -530,6 +556,342 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
         if plan and not blocked:
             st.download_button("Download plan", plan["data"], file_name=plan["name"],
                                mime="application/pdf", type="primary")
+
+
+# ---- Plan page ------------------------------------------------------------ #
+# status -> (label, css tone); the label always goes with the color
+PLAN_STATUS = {
+    "reached": ("Goal reached", "pt-up"),
+    "on_track": ("On track", "pt-up"),
+    "within_reach": ("Within reach", "pt-warn"),
+    "behind": ("Behind", "pt-down"),
+    "past_date": ("Date passed", "pt-muted"),
+}
+# the profile's goal answers -> the plan's goal types
+_GOAL_FROM_PROFILE = {"Retirement": "Retirement", "Buy a home": "Buy a home",
+                      "Pay for education": "Pay for education",
+                      "Build long-term wealth": "Build long-term wealth",
+                      "Save for a big purchase": "Big purchase"}
+RETURN_CHOICES = tuple(float(p) for p in range(2, 11))
+
+
+def _fmt_month(d):
+    """'Jan 2055' from '2055-01-01'."""
+    try:
+        d = datetime.strptime(str(d)[:10], "%Y-%m-%d")
+    except ValueError:
+        return str(d)
+    return f"{d:%b} {d.year}"
+
+
+def _time_left(months):
+    if months <= 0:
+        return "no time left"
+    y, m = divmod(months, 12)
+    parts = ([f"{y} year{'s' if y != 1 else ''}"] if y else []) + \
+            ([f"{m} month{'s' if m != 1 else ''}"] if m else [])
+    return " ".join(parts) + " left"
+
+
+def _plan_author(plan):
+    """Who last saved the plan, from the viewer's side. Only the owner and
+    their advisor can save it, so anyone else an owner sees is the advisor."""
+    by = plan.get("set_by")
+    if not by or by == LOGIN_ID:
+        return "Set by you"
+    conn = connect(DB)
+    try:
+        name = auth.get_username(conn, by) or "someone else"
+    finally:
+        conn.close()
+    return f"Set by your advisor {name}" if USER_ID == LOGIN_ID else f"Set by {name}"
+
+
+def _plan_return_pct():
+    """The assumed yearly return for projections: the slider's value this
+    session, else the saved one, else plans.DEFAULT_RETURN_PCT."""
+    if "plan_return" not in st.session_state:
+        saved = _read_prefs().get("plan_return_pct")
+        st.session_state["plan_return"] = float(saved) if saved in RETURN_CHOICES \
+            else plans.DEFAULT_RETURN_PCT
+    return st.session_state["plan_return"]
+
+
+def _goal_progress(plan, value):
+    return plans.progress(plan, value or 0.0, today=datetime.now().date(),
+                          return_pct=_plan_return_pct())
+
+
+def _render_plan_form(plan, today):
+    import advisor
+
+    plan = plan or {}
+    conn = connect(DB)
+    try:
+        profile = advisor.get_profile(conn, USER_ID)
+    finally:
+        conn.close()
+    first_goal = (advisor.split_multi(profile.get("goal")) or [None])[0]
+    horizon = int(profile.get("time_horizon_years") or 10)
+    when_default = (datetime.strptime(plan["target_date"], "%Y-%m-%d").date()
+                    if plan.get("target_date") else plans.add_months(today, 12 * horizon))
+    if not plans.has_goal(plan):
+        st.markdown("#### Set a goal")
+        st.caption("What you're investing for, how much you'll need, and by when. The plan then "
+                   "shows whether you're on track and what it would take to get there.")
+    with st.form("plan_form"):
+        goal_type = st.pills("What's the goal?", plans.GOAL_TYPES,
+                             default=plan.get("goal_type") or _GOAL_FROM_PROFILE.get(first_goal))
+        goal_name = st.text_input("Name it (optional)", value=plan.get("goal_name") or "",
+                                  placeholder="e.g. Retire at 60", max_chars=60)
+        c1, c2 = st.columns(2)
+        target = c1.number_input("Target amount ($)", min_value=0.0, step=1000.0, format="%.0f",
+                                 value=float(plan.get("target_amount") or 0.0))
+        when = c2.date_input("Target date", value=when_default,
+                             min_value=min(when_default, plans.add_months(today, 1)),
+                             max_value=date(today.year + 80, 12, 31))
+        monthly = c1.number_input("Adding each month ($)", min_value=0.0, step=50.0, format="%.0f",
+                                  value=float(plan.get("monthly_contribution") or 0.0))
+        notes = st.text_area("Notes (optional)", value=plan.get("notes") or "",
+                             placeholder="Anything worth remembering about this goal")
+        with st.container(horizontal=True):
+            save = st.form_submit_button("Save plan", type="primary")
+            cancel = plans.has_goal(plan) and st.form_submit_button("Cancel")
+    if save:
+        if not goal_type or target <= 0:
+            st.error("Pick a goal and enter a target amount above $0.")
+            return
+        save_plan_fields({"goal_type": goal_type, "goal_name": goal_name.strip() or None,
+                          "target_amount": float(target), "target_date": when.isoformat(),
+                          "monthly_contribution": float(monthly), "notes": notes.strip() or None})
+        st.session_state["plan_editing"] = False
+        st.rerun()
+    if cancel:
+        st.session_state["plan_editing"] = False
+        st.rerun()
+
+
+def fmt_money0(v):
+    """Whole dollars ('$1,000,000'), for goals and projections."""
+    if _hidden():
+        return MASK
+    if _blank(v):
+        return "—"
+    return f"-${abs(v):,.0f}" if v < 0 else f"${v:,.0f}"
+
+
+def _md(text):
+    """st.markdown for text with dollar amounts: a pair of '$' would
+    otherwise be read as a math formula."""
+    st.markdown(text.replace("$", r"\$"))
+
+
+def _render_plan_status(plan, value, today):
+    rp = _plan_return_pct()
+    prog = plans.progress(plan, value or 0.0, today=today, return_pct=rp)
+    label, tone = PLAN_STATUS[prog["status"]]
+    title = plan.get("goal_name") or plan.get("goal_type") or "Your goal"
+    target, when = prog["target"], _fmt_month(plan["target_date"])
+
+    h1, h2 = st.columns([0.8, 0.2], vertical_alignment="center")
+    h1.markdown(f"#### {title}")
+    if h2.button("Edit goal", key="plan_edit", width="stretch"):
+        st.session_state["plan_editing"] = True
+        st.rerun()
+    pct = prog["pct_of_target"] or 0.0
+    st.html(
+        "<div class='pt-goal'><div class='pt-goal-top'>"
+        f"<span class='pt-chip {tone}'>{label}</span>"
+        f"<span class='pt-goal-pct'>{mask_or(f'{pct:.1f}%')} of {fmt_money0(target)}</span></div>"
+        f"<div class='pt-goal-track'><div class='pt-goal-fill' style='width:{min(100.0, pct):.1f}%'>"
+        "</div></div>"
+        f"<div class='pt-goal-sub'>{fmt_money0(prog['current'])} now · goal {fmt_money0(target)} by "
+        f"{when} · {_time_left(prog['months'])} · "
+        f"{fmt_money0(prog['monthly'])}/month planned · {_plan_author(plan)}</div></div>")
+
+    projected, needed = fmt_money0(prog["projected"]), fmt_money0(prog["needed_monthly"])
+    status = prog["status"]
+    if status == "reached":
+        _md("You've reached this goal. Edit it to set the next one.")
+    elif status == "past_date":
+        _md(f"The goal date has passed with {fmt_money0(target - prog['current'])} still to "
+                    "go. Edit the goal to set a new date.")
+    elif status == "on_track":
+        _md(f"At **{rp:g}%** a year, adding {fmt_money0(prog['monthly'])} a month, you'd have "
+                    f"about **{projected}** by {when}.")
+    elif status == "within_reach":
+        _md(f"At **{rp:g}%** a year you'd have about **{projected}** by {when} - short of "
+                    f"the goal unless returns run higher. About **{needed}** a month would get you "
+                    "there at this rate.")
+    else:
+        _md(f"At **{rp:g}%** a year you'd have about **{projected}** by {when}. Reaching "
+                    f"{fmt_money0(target)} would take about **{needed}** a month.")
+
+    if prog["months"] > 0:
+        st.select_slider("Assumed yearly return", RETURN_CHOICES, key="plan_return",
+                         format_func=lambda v: f"{v:g}%")
+        if st.session_state["plan_return"] != _read_prefs().get("plan_return_pct"):
+            _p = _read_prefs()
+            _p["plan_return_pct"] = st.session_state["plan_return"]
+            _write_prefs(_p)
+        df = pd.DataFrame(plans.projection_series(
+            prog["current"], prog["monthly"], prog["months"], today=today, return_pct=rp))
+        df["date"] = pd.to_datetime(df["date"])
+        tips = [alt.Tooltip("date:T", title="Date", format="%b %Y")]
+        if not _hidden():
+            tips += [alt.Tooltip("mid:Q", title=f"At {rp:g}%", format="$,.0f"),
+                     alt.Tooltip("low:Q", title=f"At {rp - plans.SPREAD_PCT:g}%", format="$,.0f"),
+                     alt.Tooltip("high:Q", title=f"At {rp + plans.SPREAD_PCT:g}%", format="$,.0f")]
+        palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+        st.altair_chart(charts.projection(df, target=target, color=palette[0], mask=_hidden(),
+                                          tooltip=tips), width="stretch")
+        st.caption(f"The line assumes {rp:g}% a year; the shaded range is "
+                   f"{rp - plans.SPREAD_PCT:g}-{rp + plans.SPREAD_PCT:g}%. The dashed line is the "
+                   "goal. Before inflation, fees and taxes - an illustration of the plan, not a "
+                   "prediction.")
+    if plan.get("notes"):
+        st.caption(f"Notes: {plan['notes']}")
+
+
+def _render_contributions(plan, today):
+    st.markdown("#### Contributions")
+    conn = connect(DB)
+    try:
+        this_month = plans.month_total(conn, USER_ID, today.year, today.month)
+        recent = plans.list_contributions(conn, USER_ID, limit=10)
+    finally:
+        conn.close()
+    planned = float((plan or {}).get("monthly_contribution") or 0.0)
+    _md(f"This month: **{fmt_money0(this_month)}**"
+                + (f" of {fmt_money0(planned)} planned" if planned else ""))
+    with st.expander("Log money added or taken out"):
+        with st.form("contribution_form", clear_on_submit=True):
+            c1, c2, c3 = st.columns([1, 1, 1])
+            kind = c1.segmented_control("Type", ["Added", "Took out"], default="Added")
+            amount = c2.number_input("Amount ($)", min_value=0.0, step=50.0, format="%.2f")
+            on = c3.date_input("Date", value=today, max_value=today)
+            note = st.text_input("Note (optional)", max_chars=100)
+            if st.form_submit_button("Save", type="primary"):
+                if amount <= 0:
+                    st.error("Enter an amount above $0.")
+                else:
+                    c = connect(DB)
+                    try:
+                        plans.add_contribution(c, USER_ID, on.isoformat(),
+                                               -amount if kind == "Took out" else amount, note)
+                    finally:
+                        c.close()
+                    st.rerun()
+        st.caption("Logged by hand - importing a statement doesn't add these.")
+        if recent:
+            by_id = {r["id"]: r for r in recent}
+            c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+            drop = c1.selectbox(
+                "Remove an entry", list(by_id), index=None, placeholder="Pick one to remove",
+                format_func=lambda i: f"{_fmt_date(by_id[i]['date'])}  {_signed_money(by_id[i]['amount'])}"
+                                      + (f"  {by_id[i]['note']}" if by_id[i]["note"] else ""))
+            if c2.button("Remove", disabled=drop is None, width="stretch"):
+                c = connect(DB)
+                try:
+                    plans.delete_contribution(c, USER_ID, drop)
+                finally:
+                    c.close()
+                st.rerun()
+    if recent:
+        st.html("<div class='pt-legend'>" + "".join(
+            "<div class='pt-legend-row'>"
+            f"<span class='pt-legend-val' style='text-align:left'>{_fmt_date(r['date'])}</span>"
+            f"<span class='pt-legend-label'>{html.escape(r['note'] or '')}</span>"
+            f"<span class='pt-legend-pct'>{_tone(r['amount'], _signed_money(r['amount']))}</span>"
+            "</div>" for r in recent) + "</div>")
+
+
+def _render_money_in(value, growth):
+    st.markdown("#### Money in vs growth")
+    money_in = value - growth
+    st.html("<div class='pt-stats'>"
+            f"<div class='pt-stat'><div class='pt-stat-label'>Money in</div>"
+            f"<div class='pt-stat-value'>{fmt_money(money_in)}</div></div>"
+            f"<div class='pt-stat'><div class='pt-stat-label'>Growth</div>"
+            f"<div class='pt-stat-value'>{_tone(growth, _signed_money(growth))}</div></div>"
+            f"<div class='pt-stat'><div class='pt-stat-label'>Value</div>"
+            f"<div class='pt-stat-value'>{fmt_money(value)}</div></div></div>")
+    conn = connect(DB)
+    try:
+        hist = plans.money_in_history(conn, USER_ID)
+    finally:
+        conn.close()
+    if len(hist) >= 2:
+        df = pd.DataFrame(hist)
+        df["date"] = pd.to_datetime(df["date"])
+        palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+        st.altair_chart(charts.money_in_chart(df, money_color=SERIES_OTHER, value_color=palette[0],
+                                              mask=_hidden()), width="stretch")
+    st.caption("Money in is what you paid for your holdings plus cash; growth is the rest. "
+               + ("The chart uses each statement's own figures. " if len(hist) >= 2 else
+                  "Import more statements over time and this becomes a chart. ")
+               + "Dividends and gains you've sold count as money in, since they're in the "
+                 "account as cash or cost.")
+
+
+def _render_target_mix(alloc_rows):
+    st.markdown("#### Target mix")
+    targets = load_alloc_targets()
+    actual = {r["label"]: r["pct"] or 0.0 for r in alloc_rows}
+    labels = sorted(set(actual) | set(targets), key=lambda lbl: -(actual.get(lbl) or 0.0))
+    if not targets:
+        st.caption("No targets yet. Set a target % for each asset type to see how far the "
+                   "portfolio is from its plan.")
+    else:
+        rows = ""
+        for lbl in labels:
+            a, t = actual.get(lbl, 0.0), targets.get(lbl)
+            diff = "" if t is None else f"{a - t:+.1f} pts"
+            rows += ("<div class='pt-legend-row'>"
+                     f"<span class='pt-legend-label'>{html.escape(lbl)}</span>"
+                     f"<span class='pt-legend-pct'>{mask_or(f'{a:.1f}%')}</span>"
+                     f"<span class='pt-legend-val'>target {'—' if t is None else f'{t:g}%'}</span>"
+                     f"<span class='pt-legend-val'>{mask_or(diff) if diff else ''}</span></div>"
+                     "<div class='pt-mix-track'>"
+                     f"<div class='pt-mix-fill' style='width:{min(100.0, a):.1f}%'></div>"
+                     + (f"<div class='pt-mix-target' style='left:{min(100.0, t):.1f}%'></div>"
+                        if t is not None else "")
+                     + "</div>")
+        st.html(f"<div class='pt-legend'>{rows}</div>")
+        st.caption("The bar is where the portfolio is now; the mark is the target.")
+    with st.expander("Edit target mix"):
+        with st.form("target_mix_form", border=False):
+            cols = st.columns(min(3, max(1, len(labels))))
+            new = {lbl: cols[i % len(cols)].number_input(
+                       f"{lbl} %", min_value=0.0, max_value=100.0, step=5.0, format="%.0f",
+                       value=float(targets.get(lbl, 0.0)), key=f"plan_target_{lbl}")
+                   for i, lbl in enumerate(labels)}
+            if st.form_submit_button("Save target mix", type="primary"):
+                total = sum(new.values())
+                if total and abs(total - 100) > 0.5:
+                    st.error(f"The targets add up to {total:g}% - make them total 100%.")
+                else:
+                    save_alloc_targets(new)
+                    st.rerun()
+
+
+def _render_plan(value, growth, alloc_rows):
+    """The Plan page. `value` / `growth` / `alloc_rows` are None for an
+    account with no holdings yet - the goal and contributions still work."""
+    today = datetime.now().date()
+    plan = load_plan()
+    if st.session_state.get("plan_editing") or not plans.has_goal(plan):
+        _render_plan_form(plan, today)
+    else:
+        _render_plan_status(plan, value, today)
+    st.divider()
+    _render_contributions(plan, today)
+    if value is not None:
+        st.divider()
+        _render_money_in(value, growth)
+    if alloc_rows:
+        st.divider()
+        _render_target_mix(alloc_rows)
 
 
 def _render_assistant(contexts, cash_by_account):
@@ -812,20 +1174,27 @@ def _account_mix(by_account, positions, cash_by_account, slots):
 
 
 def _read_prefs():
-    try:
-        with open(PREFS_PATH, encoding="utf-8") as fh:
-            d = json.load(fh)
-            return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    """This account's saved settings (prefs.py). Read from the database once
+    per browser session, then served from session state - the page reads a
+    setting many times per run."""
+    cached = st.session_state.get("_prefs")
+    if cached is None or cached[0] != USER_ID:
+        conn = connect(DB)
+        try:
+            cached = (USER_ID, prefs.load(conn, USER_ID, PREFS_PATH))
+        finally:
+            conn.close()
+        st.session_state["_prefs"] = cached
+    return dict(cached[1])
 
 
 def _write_prefs(d):
+    conn = connect(DB)
     try:
-        with open(PREFS_PATH, "w", encoding="utf-8") as fh:
-            json.dump(d, fh, indent=1)
-    except OSError:
-        pass
+        prefs.save(conn, USER_ID, d)
+    finally:
+        conn.close()
+    st.session_state["_prefs"] = (USER_ID, dict(d))
 
 
 def load_columns():
@@ -859,18 +1228,44 @@ def load_perf_series():
 DEFAULT_DRIFT_THRESHOLD = 5.0  # percentage points off target before flagging
 
 
+def load_plan():
+    """This account's plan (plans.py), or None. Cached for the session like
+    the settings; saving through save_plan_fields() refreshes it."""
+    cached = st.session_state.get("_plan")
+    if cached is None or cached[0] != USER_ID:
+        conn = connect(DB)
+        try:
+            cached = (USER_ID, plans.get_plan(conn, USER_ID))
+        finally:
+            conn.close()
+        st.session_state["_plan"] = cached
+    return cached[1]
+
+
+def save_plan_fields(fields: dict):
+    """Save into this account's plan, recording who saved it (an advisor
+    editing a client's plan is recorded as the advisor)."""
+    conn = connect(DB)
+    try:
+        plan = plans.save_plan(conn, USER_ID, fields, set_by=LOGIN_ID)
+    finally:
+        conn.close()
+    st.session_state["_plan"] = (USER_ID, plan)
+    return plan
+
+
 def load_alloc_targets():
-    """{asset-type label: target %}. Only labels the user has explicitly set
-    a nonzero target for are included — an unset label has no target and is
-    never flagged, rather than implicitly meaning "target 0%"."""
-    saved = _read_prefs().get("alloc_targets") or {}
+    """{asset-type label: target %}, from the plan's target mix. Only labels
+    with a nonzero target are included — an unset label has no target and is
+    never flagged, rather than implicitly meaning "target 0%". Targets saved
+    before plans existed (in the settings) are used until the plan has some."""
+    plan = load_plan()
+    saved = (plan or {}).get("target_alloc") or _read_prefs().get("alloc_targets") or {}
     return {k: float(v) for k, v in saved.items() if v}
 
 
 def save_alloc_targets(targets: dict):
-    p = _read_prefs()
-    p["alloc_targets"] = {k: v for k, v in targets.items() if v}
-    _write_prefs(p)
+    save_plan_fields({"target_alloc": {k: v for k, v in targets.items() if v}})
 
 
 def load_drift_threshold():
@@ -1138,11 +1533,15 @@ if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
 snapshot, positions, cash_by_account, quotes = load()
-if not positions and PAGE == "AI Assistant":
+if not positions and PAGE in ("AI Assistant", "Plan"):
     # Helping brand-new investors plan a first portfolio is a core use of the
-    # assistant, so it works before any CSV has been imported.
+    # assistant, and a goal can be set before there's anything invested, so
+    # both work before any CSV has been imported.
     _page_header(PAGE, data=False)
-    _render_assistant([], {})
+    if PAGE == "Plan":
+        _render_plan(None, None, None)
+    else:
+        _render_assistant([], {})
     st.stop()
 if PAGE == "Clients":
     # about the advisor's clients, not the viewed account's data
@@ -1475,6 +1874,25 @@ if PAGE == "Dashboard":
                 else f"{cash / portfolio_value * 100:.1f}% of total")
         + "</div>"
     )
+
+    # ---- goal: one line from the plan, or a nudge to set one ----------- #
+    _plan = load_plan()
+    with st.container(border=True, horizontal=True, vertical_alignment="center"):
+        if plans.has_goal(_plan):
+            _gp = _goal_progress(_plan, portfolio_value)
+            _glabel, _gtone = PLAN_STATUS[_gp["status"]]
+            _gpct = mask_or(f"{_gp['pct_of_target'] or 0:.0f}%")
+            st.html(f"<span class='pt-chip {_gtone}'>{_glabel}</span>&nbsp; "
+                    f"<b>{html.escape(_plan.get('goal_name') or _plan['goal_type'] or 'Goal')}</b>"
+                    f" · {_gpct} of "
+                    f"{fmt_money0(_gp['target'])} by {_fmt_month(_plan['target_date'])}",
+                    width="stretch")
+            st.button("Open plan", key="dash_open_plan", type="tertiary", on_click=_go,
+                      args=("Plan",))
+        else:
+            st.markdown("Set a goal to see whether you're on track.", width="stretch")
+            st.button("Set a goal", key="dash_set_goal", type="tertiary", on_click=_go,
+                      args=("Plan",))
 
     # ---- alerts: one line, open for the list and the limits ------------ #
     _rules = load_rules()
@@ -2171,6 +2589,9 @@ if PAGE == "Income":
                    "— a simple estimate, not a payment schedule. **Last Pay Date** is the most "
                    "recently known payment from Schwab, not a prediction of the next one.")
 
+
+if PAGE == "Plan":
+    _render_plan(portfolio_value, tot_gl, allocate(positions, cash_by_account)["by_asset_type"])
 
 if PAGE == "AI Assistant":
     _render_assistant(contexts, cash_by_account)
