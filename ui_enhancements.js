@@ -5,6 +5,9 @@
 //   - the sidebar closes when you click or tap outside it
 //   - pull down from the top of the page on a touch screen to refresh prices
 //     (it presses the page's refresh button, key "pt_refresh")
+//   - the sidebar's theme button (key "pt_theme") flips light/dark by picking
+//     the other theme in Streamlit's own menu, so the choice is saved the same
+//     way as picking it there, and the page doesn't reload
 // Everything drives Streamlit's own buttons, so if a Streamlit update renames
 // them this just stops doing anything; the app itself keeps working.
 (() => {
@@ -193,4 +196,35 @@
       hide();
     }
   }, { passive: true });
+
+  // ---- theme switch -----------------------------------------------------
+  const isDark = () => {
+    const rgb = getComputedStyle(q(".stApp") || document.body).backgroundColor.match(/\d+/g);
+    if (!rgb) return false;
+    const [r, g, b] = rgb.map(Number);
+    return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+  };
+  document.addEventListener("click", (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest(".st-key-pt_theme button")) return;
+    const want = `[data-testid="stMainMenuItem-theme-${isDark() ? "Light" : "Dark"}"]`;
+    // Wait for this click to finish first: the menu takes a click that's
+    // still in flight as a click outside it, and closes straight away.
+    setTimeout(() => {
+      const menu = q('[data-testid="stMainMenu"] button');
+      if (!menu) return;
+      if (!q('[data-testid="stMainMenuList"]')) menu.click();
+      let tries = 0;  // the menu renders a moment after it opens
+      const pick = () => {
+        const item = q(want);
+        if (!item) {
+          if (++tries < 20) setTimeout(pick, 25);
+          return;
+        }
+        item.click();
+        // picking a theme leaves the menu open; close it again
+        setTimeout(() => { if (q('[data-testid="stMainMenuList"]')) menu.click(); }, 50);
+      };
+      setTimeout(pick, 0);
+    }, 60);
+  }, true);
 })();

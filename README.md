@@ -52,8 +52,8 @@ machine.
 | **Alerts** | One line with the count - open it for the list and the limits. Defaults: day move beyond ±5 %, total gain/loss beyond ±20 %. Recomputed on every page load, no scheduler. |
 | **Import** | The upload icon opens a dialog: upload a fresh export (running locally you can also type a path). Shows new / increased / decreased / closed positions vs the prior snapshot **before** saving, then writes the snapshot and records inferred BUY/SELL rows in `transactions`. Re-importing a date replaces it. New tickers get their prices and daily history fetched right away. |
 | **Performance** | Line chart of any recorded portfolio stat, with a **1D … 1Y** range picker and the **% change over the window** - the reconstructed value of your current holdings × each bar's close, gap-compressed so market-closed hours don't stretch the chart. Holdings with no Yahoo history get daily bars fetched automatically on the next visit; if the picked range has no data yet (1D before the nightly intraday sync), the chart shows the shortest range that does. |
-| **Allocation** | One stacked bar each for asset type and account, with a legend of % and $, a flag for any single position over 15 % of the portfolio, and **Targets** — set a target % per asset type and get flagged when you've drifted beyond a threshold (default ±5 pts). |
-| **Accounts** | Side-by-side comparison across every account — total value, gain/loss, today's move, position count — plus each account's own asset-type mix, with a CSV export. **Rename** gives any account a nickname ("Roth IRA" instead of "Individual ...111"), used everywhere in the app and saved in `account_labels`; the broker's name stays the key in the database. |
+| **Allocation** | A stacked bar by asset type with a legend of % and $, and **By account**: each account's share of the portfolio with a thin bar of its own asset mix (hover a segment for its %), a flag for any single position over 15 % of the portfolio, and **Targets** — set a target % per asset type and get flagged when you've drifted beyond a threshold (default ±5 pts). |
+| **Accounts** | Side-by-side comparison across every account — total value, gain/loss, today's move, position count — with a CSV export. **Rename** gives any account a nickname ("Roth IRA" instead of "Individual ...111"), used everywhere in the app and saved in `account_labels`; the broker's name stays the key in the database. |
 | **Holdings** | Sortable table. **Columns** picks from ~35 stats (price, day change $/%, unrealized $/%, % of portfolio, day open/high/low, dividend yield, **20/50/200-day MA, volume, 52-wk high/low, beta, P/E, sector** …) — add or remove as many as you like; the choice is saved. Search and **tap a ticker's pill** above the table to open its chart, position summary, stats, and recent news headlines below (cached from Finnhub, refreshed every 4 hours). **Download CSV** exports the raw figures (disabled while amounts are hidden). |
 | **Watchlist** | Track any ticker's chart/stats without owning it — add one by symbol, tap its pill the same way as a holding. |
 | **Activity** | Every inferred BUY/SELL transaction, filterable by account/action/symbol, with an estimated realized gain/loss (average-cost method) per sale and a CSV export. |
@@ -66,7 +66,9 @@ runs on its own when an account is opened and its prices are more than 15
 minutes old.
 
 **Sidebar:** open and close it with the tab at the middle of its right edge,
-or click anywhere outside it to close it. Both come from `ui_enhancements.js`,
+or click anywhere outside it to close it. **Light / dark** at the bottom flips
+the theme (System, Light and Dark are also in the ⋮ menu); the browser
+remembers the choice. Both come from `ui_enhancements.js`,
 which also handles pull-to-refresh.
 
 **Sync history** (the clock icon next to refresh) pulls the deepest history Yahoo allows at *every* resolution

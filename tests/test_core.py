@@ -124,6 +124,69 @@ class ConnectTests(TempDBMixin, unittest.TestCase):
         conn.close()
 
 
+class SchemaSetupRaceTests(unittest.TestCase):
+    """Right after a deploy several sessions connect at once. Setup must run
+    once, not concurrently - on Postgres, racing CREATE TABLE IF NOT EXISTS
+    raised psycopg.errors.UniqueViolation on the live app's first login."""
+
+    def test_concurrent_connects_set_up_the_schema_once(self):
+        import threading
+        import time
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        db = os.path.join(tmp, "race.db")
+        real, calls = portfolio._ensure_schema, []
+
+        def slow_ensure(conn):
+            calls.append(1)
+            time.sleep(0.2)  # wide window for a second thread to slip in
+            real(conn)
+
+        errors = []
+
+        def worker():
+            try:
+                portfolio.connect(db).close()  # SQLite: close in the opening thread
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        with unittest.mock.patch.object(portfolio, "_ensure_schema", slow_ensure):
+            threads = [threading.Thread(target=worker) for _ in range(6)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(len(calls), 1)
+
+    def test_postgres_setup_takes_the_advisory_lock_first(self):
+        executed = []
+
+        class FakeCursor:
+            description = None
+
+            def execute(self, sql, params=None):
+                executed.append((sql, params))
+
+            def __iter__(self):
+                return iter([])
+
+        class FakeRaw:
+            def cursor(self):
+                return FakeCursor()
+
+            def commit(self):
+                executed.append(("COMMIT", None))
+
+        portfolio._ensure_schema(pgcompat.ConnWrapper(FakeRaw()))
+        first_sql, first_params = executed[0]
+        self.assertIn("pg_advisory_xact_lock", first_sql)
+        self.assertIn("%s", first_sql)                      # placeholder translated for psycopg
+        self.assertEqual(first_params, (portfolio.SCHEMA_ADVISORY_LOCK_ID,))
+        self.assertEqual(executed[-1][0], "COMMIT")          # the lock is released by this commit
+        self.assertTrue(any("CREATE TABLE" in sql for sql, _ in executed[1:]))
+
+
 class DiffTests(unittest.TestCase):
     OLD = [
         {"account": "A", "symbol": "X", "description": "x", "quantity": 10, "cost_basis": 1000, "market_value": 1200},

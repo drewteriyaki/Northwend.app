@@ -78,6 +78,9 @@ st.html("""<style>
 .pt-legend-pct { font-weight: 600; font-variant-numeric: tabular-nums; }
 .pt-legend-val { opacity: .65; font-variant-numeric: tabular-nums; min-width: 5.5rem;
   text-align: right; }
+.pt-acct { margin-bottom: .8rem; }
+.pt-acct .pt-legend-row { margin-bottom: .3rem; }
+.pt-alloc-bar.pt-mini { height: 8px; margin-bottom: 0; }
 </style>""")
 
 
@@ -245,6 +248,10 @@ with st.sidebar:
                           width="stretch")
         st.divider()
 
+    # flips light/dark in the browser (ui_enhancements.js); nothing runs here
+    st.button(":material/contrast: Light / dark", key="pt_theme", type="tertiary",
+              width="stretch", help="Switch between the light and dark theme. System, Light and "
+                                    "Dark are also in the ⋮ menu at the top right.")
     _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
     st.caption(f"Logged in as **{st.session_state['username']}**{_viewing}")
     st.button("Log out", on_click=_logout, width="stretch")
@@ -716,6 +723,36 @@ def _alloc_bar(rows, title, slots):
                    f"<span class='pt-legend-val'>{fmt_money(r['value'])}</span></div>")
     return (f"<div class='pt-alloc-title'>{_h.escape(title)}</div>"
             f"<div class='pt-alloc-bar'>{segs}</div><div class='pt-legend'>{legend}</div>")
+
+
+def _account_mix(by_account, positions, cash_by_account, slots):
+    """'By account': each account's share of the portfolio, with a thin bar
+    of its own asset mix underneath - one view instead of a by-account bar
+    plus a separate asset-mix chart per account. Mix colors match the asset
+    type legend beside it; each segment names itself on hover."""
+    import html as _h
+    colors = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+    out = "<div class='pt-alloc-title'>By account</div>"
+    for r in by_account:
+        acct = r["label"]
+        mix = allocate([p for p in positions if p["account"] == acct],
+                       {acct: cash_by_account.get(acct, 0.0)})["by_asset_type"]
+        segs = ""
+        for m in mix:
+            if (m["value"] or 0) <= 0:
+                continue
+            i = slots.get(m["label"])
+            tip = m["label"] if _hidden() or m["pct"] is None else f"{m['label']} {m['pct']:.1f}%"
+            segs += (f"<div class='pt-alloc-seg' style='flex:{m['value']} 0 0;"
+                     f"background:{colors[i] if i is not None else SERIES_OTHER}' "
+                     f"title='{_h.escape(tip, quote=True)}'></div>")
+        pct = MASK if _hidden() or r["pct"] is None else f"{r['pct']:.1f}%"
+        out += ("<div class='pt-acct'><div class='pt-legend-row'>"
+                f"<span class='pt-legend-label'>{_h.escape(acct)}</span>"
+                f"<span class='pt-legend-pct'>{pct}</span>"
+                f"<span class='pt-legend-val'>{fmt_money(r['value'])}</span></div>"
+                f"<div class='pt-alloc-bar pt-mini'>{segs}</div></div>")
+    return out
 
 
 def _read_prefs():
@@ -1506,8 +1543,7 @@ if PAGE == "Dashboard":
     if len(alloc["by_account"]) > 1:
         a1, a2 = st.columns(2, gap="large")
         a1.html(_alloc_bar(alloc["by_asset_type"], "By asset type", _asset_slots))
-        a2.html(_alloc_bar(alloc["by_account"], "By account",
-                           _slot_map({r["label"] for r in alloc["by_account"]})))
+        a2.html(_account_mix(alloc["by_account"], positions, cash_by_account, _asset_slots))
     else:
         st.html(_alloc_bar(alloc["by_asset_type"], "By asset type", _asset_slots))
 
@@ -1632,13 +1668,6 @@ if PAGE == "Dashboard":
                 if hide_amounts else None),
         )
 
-        st.caption("Asset mix by account:")
-        _acct_cols = st.columns(len(_all_accounts))
-        for _col, _a in zip(_acct_cols, _all_accounts):
-            _acct_positions = [p for p in positions if p["account"] == _a]
-            _acct_cash = {_a: cash_by_account.get(_a, 0.0)}
-            _acct_alloc = allocate(_acct_positions, _acct_cash)
-            _col.html(_alloc_bar(_acct_alloc["by_asset_type"], _a, _asset_slots))
 
     st.divider()
 

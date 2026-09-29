@@ -17,6 +17,7 @@ import os
 import re
 import sqlite3
 import sys
+import threading
 from datetime import date
 
 import pgcompat
@@ -314,11 +315,20 @@ PROFILE_EXTRA_COLS = [(c, "TEXT") for c in (
 # Schema creation + column back-fill is idempotent but not free; once a given
 # database file has been set up in this process, later connect() calls skip it.
 _SCHEMA_READY: set[str] = set()
+# Only one thread sets a database up at a time. Right after a deploy several
+# sessions connect at once, and concurrent CREATE TABLE IF NOT EXISTS on
+# Postgres fails with a UniqueViolation instead of waiting.
+_SCHEMA_LOCK = threading.Lock()
+# Same thing across processes (the app and a scheduled job starting together):
+# a Postgres advisory lock held for the setup transaction. Any fixed number.
+SCHEMA_ADVISORY_LOCK_ID = 7215346
 
 
 def _ensure_schema(conn) -> None:
     is_pg = isinstance(conn, pgcompat.ConnWrapper)
     schema_path = SCHEMA_PG_PATH if is_pg else SCHEMA_PATH
+    if is_pg:
+        conn.execute("SELECT pg_advisory_xact_lock(CAST(? AS BIGINT))", (SCHEMA_ADVISORY_LOCK_ID,))
     with open(schema_path, "r", encoding="utf-8") as fh:
         conn.executescript(fh.read())
     for table, cols in (("positions", LIVE_POSITION_COLS),
@@ -363,8 +373,14 @@ def connect(db_path: str):
         conn.execute("PRAGMA foreign_keys = ON")
         key = os.path.abspath(db_path)
     if key not in _SCHEMA_READY:
-        _ensure_schema(conn)
-        _SCHEMA_READY.add(key)
+        with _SCHEMA_LOCK:
+            if key not in _SCHEMA_READY:
+                try:
+                    _ensure_schema(conn)
+                except Exception:
+                    conn.close()  # don't hand a failed transaction back to the pool
+                    raise
+                _SCHEMA_READY.add(key)
     return conn
 
 

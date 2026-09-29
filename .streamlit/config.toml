@@ -2,9 +2,14 @@
 # secrets.toml (git-ignored), never here.
 
 [client]
-# Hide Streamlit's own Deploy button and developer menu from app users.
-toolbarMode = "minimal"
+# Viewer options only: no Deploy button or developer menu for app users.
+toolbarMode = "viewer"
 
-[theme]
-# Blue, so the app's own accent never reads as a loss (red) or gain (green).
+# A light and a dark theme, so the app can switch between them (the
+# sidebar's Theme control). Blue accent in both, so the app's own color
+# never reads as a loss (red) or gain (green).
+[theme.light]
 primaryColor = "#2a78d6"
+
+[theme.dark]
+primaryColor = "#3987e5"
