@@ -557,6 +557,53 @@ class CliPostgresDsnGuardTests(unittest.TestCase):
                 sync_history.main(["--db", self.DSN, "--no-info", "--no-intraday"])
 
 
+class StaySignedInTests(TempDBMixin, unittest.TestCase):
+    def test_token_signs_in_until_it_expires(self):
+        conn = portfolio.connect(self.db)
+        t0 = datetime(2026, 9, 1, tzinfo=timezone.utc)
+        token = auth.create_session(conn, self.user_id, now=t0)
+        self.assertEqual(auth.session_user(conn, token, now=t0), (self.user_id, "testuser"))
+        late = t0 + timedelta(days=auth.SESSION_DAYS, seconds=1)
+        self.assertIsNone(auth.session_user(conn, token, now=late))
+        self.assertIsNone(auth.session_user(conn, "not-a-real-token", now=t0))
+        self.assertIsNone(auth.session_user(conn, None))
+        conn.close()
+
+    def test_only_a_hash_of_the_token_is_stored(self):
+        conn = portfolio.connect(self.db)
+        token = auth.create_session(conn, self.user_id)
+        stored = [r["token_hash"] for r in conn.execute("SELECT token_hash FROM login_sessions")]
+        self.assertEqual(len(stored), 1)
+        self.assertNotIn(token, stored[0])
+        conn.close()
+
+    def test_logout_ends_only_that_session(self):
+        conn = portfolio.connect(self.db)
+        phone, laptop = auth.create_session(conn, self.user_id), auth.create_session(conn, self.user_id)
+        auth.end_session(conn, phone)
+        self.assertIsNone(auth.session_user(conn, phone))
+        self.assertEqual(auth.session_user(conn, laptop), (self.user_id, "testuser"))
+        conn.close()
+
+    def test_password_change_signs_out_everywhere(self):
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw-other")
+        mine, theirs = auth.create_session(conn, self.user_id), auth.create_session(conn, other)
+        auth.set_password(conn, "testuser", "a-new-password")
+        self.assertIsNone(auth.session_user(conn, mine))
+        self.assertEqual(auth.session_user(conn, theirs), (other, "other"))  # other users unaffected
+        conn.close()
+
+    def test_new_session_clears_expired_ones(self):
+        conn = portfolio.connect(self.db)
+        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        auth.create_session(conn, self.user_id, now=t0)
+        auth.create_session(conn, self.user_id, now=t0 + timedelta(days=auth.SESSION_DAYS + 1))
+        n = conn.execute("SELECT COUNT(*) AS n FROM login_sessions").fetchone()["n"]
+        self.assertEqual(n, 1)
+        conn.close()
+
+
 class AuthTests(TempDBMixin, unittest.TestCase):
     """TempDBMixin already created one user ('testuser'/'testpass', id
     self.user_id) via auth.create_user() in setUp - these tests exercise

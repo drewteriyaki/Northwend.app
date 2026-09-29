@@ -178,6 +178,13 @@ database keeps working after an update.
   for the session, but the assistant keeps short notes of its own between
   conversations (`ai_memory`, up to 1,500 characters, never shown in the
   app), so the next chat picks up where the last one left off.
+- **Stay signed in:** checked by default on the login form. The browser keeps
+  a random token in a cookie (`pt_session`, 30 days) and the database keeps
+  only its SHA-256 hash (`login_sessions`), so reloading the page or a phone
+  reopening the tab doesn't sign you out. **Log out** ends that browser's
+  session in the database and deletes the cookie; changing an account's
+  password (`manage_users.py` or an advisor's **Client login**) signs it out
+  everywhere. Leave the box unchecked on a shared computer.
 - **Advisor mode:** an account marked as an advisor (`manage_users.py
   make-advisor`) gets a "Viewing" dropdown in the sidebar to switch
   between its own portfolio and its clients' (`advisor_clients` table),

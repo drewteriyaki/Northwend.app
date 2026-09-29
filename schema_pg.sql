@@ -230,6 +230,13 @@ CREATE TABLE IF NOT EXISTS account_labels (
     PRIMARY KEY (user_id, account)
 );
 
+CREATE TABLE IF NOT EXISTS login_sessions (
+    token_hash  TEXT    PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+    expires_at  TEXT    NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

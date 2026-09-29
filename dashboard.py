@@ -84,15 +84,49 @@ st.html("""<style>
 </style>""")
 
 
+SESSION_COOKIE = "pt_session"
+
+
+def _cookie_script(token: str | None) -> str:
+    """JS that stores the stay-signed-in token in a browser cookie, or with
+    None deletes it. Streamlit can read cookies (st.context.cookies) but not
+    set them, so the page does it. Secure on https; Lax keeps it off
+    cross-site requests."""
+    if token:
+        value = f"{SESSION_COOKIE}={token}; Max-Age={auth.SESSION_DAYS * 86400}"
+    else:
+        value = f"{SESSION_COOKIE}=; Max-Age=0"
+    return ("<script>document.cookie = " + json.dumps(value + "; Path=/; SameSite=Lax")
+            + " + (location.protocol === 'https:' ? '; Secure' : '');</script>")
+
+
 def _login() -> bool:
     """Per-account login - every account is admin-provisioned (see
     manage_users.py); there is no signup anywhere in this app. Sets
-    st.session_state["user_id"]/["username"] on success, same pattern the
-    old single shared-password gate used for "authed". Generic error
+    st.session_state["user_id"]/["username"] on success. Generic error
     message on any failure (unknown username OR wrong password) so the
-    login screen never reveals which username exists."""
+    login screen never reveals which username exists.
+
+    A new browser session (a reload, a phone reopening the tab) first tries
+    the stay-signed-in cookie; the token is checked against the database
+    every time, so logging out or changing the password ends it."""
     if st.session_state.get("user_id"):
         return True
+    cookie = st.context.cookies.get(SESSION_COOKIE)
+    if cookie and not st.session_state.get("signed_out"):
+        conn = connect(DB)
+        try:
+            found = auth.session_user(conn, cookie)
+        finally:
+            conn.close()
+        if found:
+            st.session_state["user_id"], st.session_state["username"] = found
+            st.session_state["session_token"] = cookie
+            return True
+        st.session_state["signed_out"] = True  # a dead cookie: remove it below
+    if st.session_state.get("signed_out") and cookie:
+        st.html(_cookie_script(None), unsafe_allow_javascript=True)
+
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
         st.title("Portfolio Tracker")
@@ -100,16 +134,22 @@ def _login() -> bool:
         with st.form("login_form", border=True):
             user = st.text_input("Username", key="login_user")
             pw = st.text_input("Password", type="password", key="login_pw")
+            remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
+                                   value=True, key="login_remember",
+                                   help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Log in", type="primary", width="stretch")
     if submitted:
         conn = connect(DB)
         try:
             user_id = auth.verify_login(conn, user, pw) if user and pw else None
+            token = auth.create_session(conn, user_id) if user_id is not None and remember else None
         finally:
             conn.close()
         if user_id is not None:
+            st.session_state.pop("signed_out", None)
             st.session_state["user_id"] = user_id
             st.session_state["username"] = user
+            st.session_state["session_token"] = token
             st.rerun()
         mid.error("Invalid username or password.")
     return False
@@ -125,11 +165,27 @@ def _logout():
     # isn't, unless explicitly cleared here. No st.rerun() needed - an
     # on_click callback is always followed by an automatic rerun, and
     # calling it explicitly here just logs a "no-op" warning.
+    # The stay-signed-in session ends in the database (so the cookie is dead
+    # even if deleting it fails), and "signed_out" stops the login page from
+    # using the cookie and has it deleted from the browser.
+    conn = connect(DB)
+    try:
+        auth.end_session(conn, st.session_state.get("session_token")
+                         or st.context.cookies.get(SESSION_COOKIE))
+    finally:
+        conn.close()
     st.session_state.clear()
+    st.session_state["signed_out"] = True
 
 
 if not _login():
     st.stop()
+# Just signed in with "stay signed in": put the token in the browser's cookie.
+# Rendered on every run until a reload shows the browser has it, so a rerun
+# right after login can't drop it.
+if (st.session_state.get("session_token")
+        and st.context.cookies.get(SESSION_COOKIE) != st.session_state["session_token"]):
+    st.html(_cookie_script(st.session_state["session_token"]), unsafe_allow_javascript=True)
 
 # Advisor mode: user_id is who logged in; active_user_id is whose data is
 # showing. Every query below goes through USER_ID, so it's resolved here,
@@ -158,7 +214,7 @@ if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
 # kept when an advisor switches accounts; everything else is per-account
-_KEEP_ON_SWITCH = ("user_id", "username", "page")
+_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token")
 
 
 def _go(page):

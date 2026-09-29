@@ -263,6 +263,16 @@ CREATE TABLE IF NOT EXISTS account_labels (
     PRIMARY KEY (user_id, account)
 );
 
+-- "Stay signed in": one row per signed-in browser. Only a SHA-256 hash of
+-- the cookie's random token is stored, so a copy of this table can't be used
+-- to sign in. Rows are deleted on logout and on a password change.
+CREATE TABLE IF NOT EXISTS login_sessions (
+    token_hash  TEXT    PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    expires_at  TEXT    NOT NULL                     -- 'YYYY-MM-DD HH:MM:SS' UTC
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);
