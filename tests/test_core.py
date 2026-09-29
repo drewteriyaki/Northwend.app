@@ -21,6 +21,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 import accounts  # noqa: E402
+import advising  # noqa: E402
 import advisor  # noqa: E402
 import ai_parse  # noqa: E402
 import alerts  # noqa: E402
@@ -1394,6 +1395,73 @@ class ClientsOverviewTests(TempDBMixin, unittest.TestCase):
         conn.close()
 
 
+class AdvisingTests(TempDBMixin, unittest.TestCase):
+    def _pair(self, conn):
+        auth.set_advisor(conn, "testuser", True)
+        return auth.create_client(conn, self.user_id, "client1")
+
+    def test_notes_private_and_next_steps(self):
+        conn = portfolio.connect(self.db)
+        client = self._pair(conn)
+        self.assertEqual(advising.advisor_of(conn, client), self.user_id)
+        self.assertIsNone(advising.advisor_of(conn, self.user_id))
+        advising.add_note(conn, client, self.user_id, "Review", "Went over the plan", "2026-06-01")
+        advising.add_note(conn, client, self.user_id, "Next step", "Raise monthly to $600", "2026-06-01")
+        advising.add_note(conn, client, self.user_id, "Note", "Nervous about markets", "2026-06-02",
+                          private=True)
+        with self.assertRaises(ValueError):
+            advising.add_note(conn, client, self.user_id, "Note", "   ", "2026-06-02")
+        with self.assertRaises(ValueError):
+            advising.add_note(conn, client, self.user_id, "Gossip", "x", "2026-06-02")
+        seen = advising.list_notes(conn, client, include_private=False)
+        self.assertEqual({n["body"] for n in seen}, {"Went over the plan", "Raise monthly to $600"})
+        self.assertEqual(len(advising.list_notes(conn, client, include_private=True)), 3)
+        step = advising.open_next_steps(seen)[0]
+        advising.set_done(conn, self.user_id, step["id"], True)       # wrong client id: no effect
+        self.assertEqual(len(advising.open_next_steps(advising.list_notes(conn, client, include_private=False))), 1)
+        advising.set_done(conn, client, step["id"], True)
+        self.assertEqual(advising.open_next_steps(advising.list_notes(conn, client, include_private=False)), [])
+        self.assertEqual(advising.last_review(conn, client), "2026-06-01")
+        conn.close()
+
+    def test_review_status(self):
+        today = date(2026, 9, 29)
+        self.assertEqual(advising.review_status(None, today), ("never", None))
+        self.assertEqual(advising.review_status("2026-09-01", today), ("ok", 28))
+        self.assertEqual(advising.review_status("2026-05-01", today)[0], "due")
+
+    def test_models_validate_and_replace_by_name(self):
+        conn = portfolio.connect(self.db)
+        with self.assertRaises(ValueError):
+            advising.save_model(conn, self.user_id, "Bad", {"Equity": 50})
+        with self.assertRaises(ValueError):
+            advising.save_model(conn, self.user_id, " ", {"Equity": 100})
+        advising.save_model(conn, self.user_id, "Growth", {"Equity": 80, "Cash": 20, "Fixed Income": 0})
+        advising.save_model(conn, self.user_id, "Growth", {"Equity": 90, "Cash": 10})
+        models = advising.list_models(conn, self.user_id)
+        self.assertEqual(len(models), 1)
+        self.assertEqual(models[0]["target_alloc"], {"Equity": 90.0, "Cash": 10.0})
+        self.assertEqual(advising.mix_text(models[0]["target_alloc"]), "Equity 90% · Cash 10%")
+        other = auth.create_user(conn, "other", "pw")
+        advising.delete_model(conn, other, models[0]["id"])            # not theirs
+        self.assertEqual(len(advising.list_models(conn, self.user_id)), 1)
+        self.assertEqual(advising.list_models(conn, other), [])
+        conn.close()
+
+    def test_drift_and_attention(self):
+        self.assertIsNone(advising.max_drift({"Equity": 60}, {}))
+        self.assertAlmostEqual(advising.max_drift({"Equity": 70, "Cash": 30},
+                                                  {"Equity": 60, "Fixed Income": 20}), 20)
+        self.assertEqual(advising.attention(has_data=True, goal_status="on_track", review="ok",
+                                            n_alerts=0, drift=2.0, profile_done=True), [])
+        reasons = advising.attention(has_data=True, goal_status="behind", review="due", n_alerts=2,
+                                     drift=12.4, profile_done=False)
+        self.assertEqual(reasons, ["Goal behind", "Review due", "2 alerts", "Drift 12 pts",
+                                   "Profile incomplete"])
+        self.assertIn("No goal", advising.attention(has_data=False, goal_status=None, review="never",
+                                                    n_alerts=0, drift=None, profile_done=True))
+
+
 class ClientPlanTests(TempDBMixin, unittest.TestCase):
     _contexts = AdvisorTests._contexts
 
@@ -1448,6 +1516,25 @@ class ClientPlanTests(TempDBMixin, unittest.TestCase):
         empty = client_plan.build_facts(conn, empty_id, [], {})
         conn.close()
         self.assertTrue(client_plan.render_pdf(empty, None, account_name="empty").startswith(b"%PDF"))
+
+
+    def test_plan_pdf_includes_goal_and_advisor_steps_but_not_private_notes(self):
+        ctxs, cash = self._contexts()
+        conn = portfolio.connect(self.db)
+        auth.set_advisor(conn, "testuser", True)
+        client = auth.create_client(conn, self.user_id, "client1")
+        plans.save_plan(conn, client, {"goal_type": "Retirement", "target_amount": 500000,
+                                       "target_date": "2050-01-01", "monthly_contribution": 400},
+                        set_by=self.user_id)
+        advising.add_note(conn, client, self.user_id, "Next step", "Open a Roth IRA", "2026-09-01")
+        advising.add_note(conn, client, self.user_id, "Next step", "SECRET-PRIVATE", "2026-09-01",
+                          private=True)
+        facts = client_plan.build_facts(conn, client, [], {})
+        conn.close()
+        self.assertEqual(facts["goal"]["target"], 500000)
+        self.assertEqual(facts["advisor_steps"], ["Open a Roth IRA"])
+        pdf = client_plan.render_pdf(facts, None, account_name="client1", advisor_name="testuser")
+        self.assertTrue(pdf.startswith(b"%PDF"))
 
 
 class RefreshAllUsersTests(TempDBMixin, unittest.TestCase):

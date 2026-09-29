@@ -10,6 +10,7 @@ from __future__ import annotations
 import advisor
 import alerts
 import metrics as M
+from allocation import allocate
 from update_prices import latest_snapshot
 
 
@@ -28,6 +29,7 @@ def account_summary(conn, user_id: int, quotes: dict, rules=None) -> dict:
     answered = len(advisor.REQUIRED_PROFILE_FIELDS) - len(advisor.missing_fields(profile))
     out = {"user_id": user_id, "has_data": False, "snapshot_date": None, "imported_at": None,
            "portfolio_value": None, "gain_pct": None, "n_positions": 0, "n_alerts": 0,
+           "alloc_pct": {},
            "profile_answered": answered, "profile_total": len(advisor.REQUIRED_PROFILE_FIELDS)}
 
     snap = latest_snapshot(conn, user_id)
@@ -35,9 +37,10 @@ def account_summary(conn, user_id: int, quotes: dict, rules=None) -> dict:
         return out
     positions = [dict(r) for r in conn.execute(
         "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ?", (snap, user_id))]
-    cash = sum(r["cash_value"] or 0.0 for r in conn.execute(
-        "SELECT cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
-        (snap, user_id)))
+    cash_by_account = {r["account"]: r["cash_value"] or 0.0 for r in conn.execute(
+        "SELECT account, cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
+        (snap, user_id))}
+    cash = sum(cash_by_account.values())
     contexts = [{"pos": p, "quote": quotes.get(p["symbol"], {}), "stats": {}, "info": {},
                  "port_value": None, "acct_value": None} for p in positions]
 
@@ -63,5 +66,9 @@ def account_summary(conn, user_id: int, quotes: dict, rules=None) -> dict:
         "gain_pct": round(gain / cost * 100, 2) if cost else None,
         "n_positions": len(positions),
         "n_alerts": len(alerts.evaluate(contexts, rules)),
+        # % of portfolio by asset type, for comparing against a target mix
+        "alloc_pct": {r["label"]: r["pct"] or 0.0 for r in allocate(
+            [{**p, "live_market_value": M.eff_mv(c)} for p, c in zip(positions, contexts)],
+            cash_by_account)["by_asset_type"]},
     })
     return out

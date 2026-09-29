@@ -308,6 +308,31 @@ CREATE TABLE IF NOT EXISTS contributions (
 );
 CREATE INDEX IF NOT EXISTS idx_contributions_user ON contributions (user_id, date);
 
+-- Advisor notes on a client's account (advising.py): a Review (meeting), a
+-- Note, or a Next step (done when the advisor ticks it). Private notes are
+-- never shown to the client.
+CREATE TABLE IF NOT EXISTS advisor_notes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id   INTEGER NOT NULL,
+    advisor_id  INTEGER NOT NULL,
+    kind        TEXT    NOT NULL,
+    body        TEXT    NOT NULL,
+    note_date   TEXT    NOT NULL,                -- YYYY-MM-DD
+    private     INTEGER NOT NULL DEFAULT 0,
+    done        INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_advisor_notes_client ON advisor_notes (client_id, note_date);
+
+-- An advisor's saved target mixes by asset type, applied to clients' plans.
+CREATE TABLE IF NOT EXISTS model_portfolios (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    advisor_id    INTEGER NOT NULL,
+    name          TEXT    NOT NULL,
+    target_alloc  TEXT    NOT NULL,              -- JSON {asset type label: target %}
+    updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

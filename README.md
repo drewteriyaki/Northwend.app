@@ -142,6 +142,42 @@ the AI Assistant, and each is checked off automatically where the app can tell
 
 ---
 
+## Advisors and their clients
+
+An advisor (`manage_users.py make-advisor`) manages client accounts
+(`advisor_clients`) from the sidebar's **Viewing** switcher (`advising.py`).
+
+- **Clients page:** one card per client, sorted by what needs a look - goal
+  behind or past its date, no goal, a review due (90 days after the last one)
+  or never done, alerts, drift of more than 5 points from the plan's target
+  mix, an incomplete profile, no statement yet - with the goal's progress, the
+  last review, open next steps and the statement date. **Open** switches to
+  that client.
+- **Advisor notes** (on a client's account): a dated timeline of *Reviews*
+  (meetings - the latest is the client's last review), *Notes*, and *Next
+  steps* the advisor ticks off. Anything marked **private** is for the advisor
+  only. The Dashboard shows the last review and open next steps.
+- **Model portfolios:** saved target mixes by asset type (Clients page),
+  applied to a client from their Plan page's Target mix. Asset types are how
+  holdings are grouped, so an ETF counts as ETF / CEF whatever it holds.
+- **How clients see you:** name, firm, email, phone and a short message
+  (Clients page), shown on the client's Advisor notes page and sidebar.
+- **Plans:** the advisor sets each client's goal and target mix; the Plan
+  shows "Set by your advisor ...".
+
+**When a client with an advisor logs in**, their view is read-only for what
+the advisor manages: no import or history sync, no alert limits (they see the
+advisor's), no allocation targets or account renaming, and the goal, target
+mix and contributions are view-only. They see their portfolio, Plan, the
+**Advisor notes** page (the advisor's card, open next steps and the timeline,
+never private notes), Get started and the AI Assistant. An account with no
+statement yet says the advisor brings statements in.
+
+The **client plan PDF** includes the goal's progress and the advisor's open
+next steps (never private notes).
+
+---
+
 ## Command line
 
 ```bash

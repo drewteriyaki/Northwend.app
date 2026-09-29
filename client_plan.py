@@ -17,7 +17,9 @@ from datetime import date
 
 from fpdf import FPDF
 
+import advising
 import advisor
+import plans
 import alerts
 import metrics as M
 import overview
@@ -65,8 +67,18 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
         })
     holdings.sort(key=lambda h: h["value"] or 0.0, reverse=True)
 
+    plan = plans.get_plan(conn, user_id)
+    goal = (plans.progress(plan, summary["portfolio_value"] or 0.0, today=date.today())
+            if plans.has_goal(plan) else None)
+    # the advisor's open next steps the client can see - never private notes
+    advisor_steps = [n["body"] for n in advising.open_next_steps(
+        advising.list_notes(conn, user_id, include_private=False))]
+
     return {
         "profile": profile,
+        "plan": plan,
+        "goal": goal,
+        "advisor_steps": advisor_steps,
         "missing": advisor.missing_fields(profile),
         "summary": summary,
         "cash": round(sum(float(v or 0.0) for v in cash_by_account.values()), 2),
@@ -131,6 +143,10 @@ def _safe(s) -> str:
 
 def _money(v) -> str:
     return "n/a" if v is None else f"-${abs(v):,.2f}" if v < 0 else f"${v:,.2f}"
+
+
+def _money0(v) -> str:
+    return "n/a" if v is None else f"${v:,.0f}"
 
 
 def _pct(v, signed=False) -> str:
@@ -201,6 +217,29 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
     if facts["missing"]:
         para("Still to discuss: " + ", ".join(advisor.PROFILE_FIELDS[f] for f in facts["missing"]) + ".")
 
+    # goal
+    g, plan = facts.get("goal"), facts.get("plan") or {}
+    if g:
+        heading("Goal")
+        words = {"reached": "reached", "on_track": "on track", "within_reach": "within reach",
+                 "behind": "behind", "past_date": "past its date"}[g["status"]]
+        para(f"{plan.get('goal_name') or plan.get('goal_type') or 'Goal'}: "
+             f"{_money0(g['target'])} by {plan['target_date'][:7]}, adding "
+             f"{_money0(g['monthly'])} a month. Now {_money0(g['current'])} "
+             f"({g['pct_of_target'] or 0:.0f}% of the goal) - {words}.")
+        if g["status"] in ("on_track", "within_reach", "behind"):
+            para(f"At {plans.DEFAULT_RETURN_PCT:g}% a year it would reach about "
+                 f"{_money0(g['projected'])} "
+                 f"({_money0(g['projected_low'])} to {_money0(g['projected_high'])} at "
+                 f"{plans.DEFAULT_RETURN_PCT - plans.SPREAD_PCT:g}-"
+                 f"{plans.DEFAULT_RETURN_PCT + plans.SPREAD_PCT:g}%)."
+                 + (f" Reaching the goal at {plans.DEFAULT_RETURN_PCT:g}% would take about "
+                    f"{_money0(g['needed_monthly'])} a month." if g["status"] != "on_track" else "")
+                 + " An illustration, before inflation, fees and taxes - not a prediction.")
+        if plan.get("target_alloc"):
+            para("Target mix: " + ", ".join(f"{k} {v:g}%" for k, v in sorted(
+                plan["target_alloc"].items(), key=lambda kv: -kv[1])) + ".")
+
     # summary
     heading("Portfolio summary")
     if not s.get("has_data"):
@@ -237,7 +276,13 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
         for w in watch or ["Nothing flagged: no position above the concentration limit and no alerts."]:
             para(f"- {w}")
 
-    heading("Suggested next steps")
+    if facts.get("advisor_steps"):
+        heading("Next steps from your advisor")
+        for i, step in enumerate(facts["advisor_steps"], 1):
+            para(f"{i}. {step}")
+
+    heading("Suggested next steps (AI-written)" if facts.get("advisor_steps")
+            else "Suggested next steps")
     if steps:
         for i, st in enumerate(steps, 1):
             para(f"{i}. {st}")
