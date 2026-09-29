@@ -216,6 +216,15 @@ CREATE TABLE IF NOT EXISTS investor_profiles (
     target_return_pct  REAL,
     risk_tolerance     TEXT,                      -- conservative | moderate | aggressive
     experience         TEXT,                      -- new | some | experienced
+    drawdown_reaction  TEXT,
+    age_range          TEXT,
+    income_stability   TEXT,
+    emergency_fund     TEXT,
+    high_interest_debt TEXT,
+    contributions      TEXT,
+    withdrawal_needs   TEXT,
+    preferences        TEXT,
+    ai_memory          TEXT,                      -- the assistant's own notes, never shown in the app
     notes              TEXT,
     updated_at         TEXT
 );

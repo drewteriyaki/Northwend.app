@@ -769,13 +769,18 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
 
     def test_validate_profile_input(self):
         ok, err = advisor.validate_profile_input(
-            {"goal": " retire ", "time_horizon_years": 20, "target_return_pct": 7,
-             "risk_tolerance": "aggressive", "experience": None, "notes": None})
+            {"goal": ["Buy a home", "Retirement"], "time_horizon_years": 20, "target_return_pct": 7,
+             "risk_tolerance": "aggressive", "experience": None, "age_range": "25-34",
+             "preferences": []})
         self.assertEqual(err, "")
-        self.assertEqual(ok, {"goal": "retire", "time_horizon_years": 20,
-                              "target_return_pct": 7.0, "risk_tolerance": "aggressive"})
+        # pick-any answers are stored in the options' own order; an empty list is "no change"
+        self.assertEqual(ok, {"goal": "Retirement; Buy a home", "time_horizon_years": 20,
+                              "target_return_pct": 7.0, "risk_tolerance": "aggressive",
+                              "age_range": "25-34"})
         for bad in ({"risk_tolerance": "yolo"}, {"time_horizon_years": 0},
-                    {"target_return_pct": 900}, {"surprise": "x"}, "not a dict"):
+                    {"target_return_pct": 900}, {"surprise": "x"}, "not a dict",
+                    {"goal": "retire at 60"}, {"goal": ["Get rich quick"]},
+                    {"notes": "the user's own field"}):
             fields, err = advisor.validate_profile_input(bad)
             self.assertIsNone(fields, bad)
             self.assertTrue(err)
@@ -783,17 +788,22 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
     def test_system_prompt_asks_for_missing_profile_fields(self):
         empty = {f: None for f in advisor.PROFILE_FIELDS}
         self.assertIn("Still unknown", advisor.system_prompt(empty, "No holdings yet"))
-        full = {"goal": "retire", "time_horizon_years": 30, "target_return_pct": 7.0,
-                "risk_tolerance": "moderate", "experience": "new", "notes": None}
+        full = {f: None for f in advisor.PROFILE_FIELDS}
+        full.update({"goal": "Retirement", "time_horizon_years": 30, "risk_tolerance": "moderate",
+                     "drawdown_reaction": "Hold and wait", "experience": "new",
+                     "age_range": "35-44", "income_stability": "Very stable",
+                     "emergency_fund": "3-6 months"})
         prompt = advisor.system_prompt(full, "No holdings yet")
         self.assertNotIn("Still unknown", prompt)
-        self.assertIn("retire", prompt)
+        self.assertIn("Retirement", prompt)
+        self.assertIn("None yet", prompt)  # no notes from earlier conversations
+        self.assertIn("- saving for a boat",
+                      advisor.system_prompt(full, "No holdings yet", "- saving for a boat"))
 
     def test_stream_reply_saves_profile_then_continues(self):
         tool_block = _Obj(type="tool_use", id="tu_1", name="update_investor_profile",
-                          input={"goal": "retire at 60", "time_horizon_years": None,
-                                 "target_return_pct": None, "risk_tolerance": "moderate",
-                                 "experience": None, "notes": None})
+                          input={**{f: None for f in advisor.TOOL_PROFILE_FIELDS},
+                                 "goal": ["Retirement"], "risk_tolerance": "moderate"})
         client = _FakeClient([
             _FakeStream(["Got it. "], _Obj(stop_reason="tool_use", content=[tool_block])),
             _FakeStream(["How long until you retire?"],
@@ -803,10 +813,67 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
         history = [{"role": "user", "content": "I want to retire at 60, moderate risk."}]
         text = "".join(advisor.stream_reply(client, history, "sys", saved.append))
         self.assertEqual(text, "Got it. How long until you retire?")
-        self.assertEqual(saved, [{"goal": "retire at 60", "risk_tolerance": "moderate"}])
+        self.assertEqual(saved, [{"goal": "Retirement", "risk_tolerance": "moderate"}])
         self.assertEqual(len(client.calls), 2)
         # second call carries the assistant tool_use turn and its tool_result
         self.assertEqual(client.calls[1]["messages"][-1]["content"][0]["tool_use_id"], "tu_1")
+
+    def test_stream_reply_saves_memory(self):
+        mem_block = _Obj(type="tool_use", id="tu_m", name="save_memory",
+                         input={"notes": "- house ~2029\n- avoid crypto"})
+        too_long = _Obj(type="tool_use", id="tu_x", name="save_memory",
+                        input={"notes": "x" * (advisor.MEMORY_MAX_CHARS + 1)})
+        client = _FakeClient([
+            _FakeStream(["Noted."], _Obj(stop_reason="tool_use", content=[mem_block, too_long])),
+            _FakeStream([], _Obj(stop_reason="end_turn", content=[])),
+        ])
+        notes, profile = [], []
+        text = "".join(advisor.stream_reply(client, [{"role": "user", "content": "x"}], "sys",
+                                            profile.append, notes.append))
+        self.assertEqual(text, "Noted.")
+        self.assertEqual(notes, ["- house ~2029\n- avoid crypto"])  # the too-long one isn't saved
+        self.assertEqual(profile, [])
+        results = client.calls[1]["messages"][-1]["content"]
+        self.assertFalse(results[0].get("is_error"))
+        self.assertTrue(results[1]["is_error"])
+        self.assertEqual({t["name"] for t in client.calls[0]["tools"]},
+                         {"update_investor_profile", "save_memory"})
+
+    def test_memory_round_trip_is_separate_from_profile(self):
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw")
+        self.assertEqual(advisor.get_memory(conn, self.user_id), "")
+        advisor.save_memory(conn, self.user_id, "- house ~2029")      # before any profile row
+        advisor.save_profile(conn, self.user_id, {"age_range": "25-34"}, replace=True)
+        self.assertEqual(advisor.get_memory(conn, self.user_id), "- house ~2029")
+        self.assertEqual(advisor.get_profile(conn, self.user_id)["age_range"], "25-34")
+        self.assertNotIn("ai_memory", advisor.get_profile(conn, self.user_id))  # never shown
+        self.assertEqual(advisor.get_memory(conn, other), "")
+        conn.close()
+
+    def test_profile_columns_added_to_an_existing_database(self):
+        import sqlite3
+        old = os.path.join(os.path.dirname(self.db), "old.db")
+        c = sqlite3.connect(old)
+        c.execute("CREATE TABLE investor_profiles (user_id INTEGER PRIMARY KEY, goal TEXT, "
+                  "time_horizon_years INTEGER, target_return_pct REAL, risk_tolerance TEXT, "
+                  "experience TEXT, notes TEXT, updated_at TEXT)")
+        c.execute("INSERT INTO investor_profiles (user_id, goal) VALUES (1, 'retire at 60')")
+        c.commit()
+        c.close()
+        conn = portfolio.connect(old)
+        self.assertEqual(advisor.get_profile(conn, 1)["goal"], "retire at 60")
+        advisor.save_memory(conn, 1, "- note")
+        self.assertEqual(advisor.get_memory(conn, 1), "- note")
+        conn.close()
+
+    def test_ui_script_survives_the_html_sanitizer(self):
+        # Streamlit's st.html sanitizer drops a whole script whose text looks
+        # like it contains a tag (e.g. an SVG string), and then nothing runs.
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "ui_enhancements.js")
+        with open(path, encoding="utf-8") as fh:
+            self.assertEqual(re.findall(r"<[/\w!]", fh.read()), [])
 
     def test_stream_reply_refusal(self):
         client = _FakeClient([_FakeStream([], _Obj(stop_reason="refusal", content=[]))])
@@ -992,7 +1059,8 @@ class ClientsOverviewTests(TempDBMixin, unittest.TestCase):
         self.assertAlmostEqual(s["gain_pct"], -7.14, places=2)
         # default rules: CCC day move -6.5% (>5) and CCC total -20% is not > 20 -> 1 alert
         self.assertEqual(s["n_alerts"], 1)
-        self.assertEqual((s["profile_answered"], s["profile_total"]), (2, 5))
+        self.assertEqual((s["profile_answered"], s["profile_total"]),
+                         (2, len(advisor.REQUIRED_PROFILE_FIELDS)))
         conn.close()
 
     def test_account_summary_empty_account(self):
@@ -1033,12 +1101,13 @@ class ClientPlanTests(TempDBMixin, unittest.TestCase):
         client = _FakeCreateClient("Here you go:\n- Add a bond fund\n- Trim CCC\n")
         steps = client_plan.next_steps(client, {"goal": "retire"},
                                        advisor.portfolio_summary(ctxs, cash),
-                                       "User: how am I doing?")
+                                       "User: how am I doing?", "- house ~2029")
         self.assertEqual(steps, ["Add a bond fund", "Trim CCC"])
         sent = json.dumps({"system": client.kwargs["system"], "messages": client.kwargs["messages"]})
         self.assertNotIn("$", sent)
         self.assertNotIn("Individual", sent)
         self.assertIn("how am I doing", sent)
+        self.assertIn("house ~2029", sent)  # the assistant's notes inform the plan
 
     def test_next_steps_refusal_and_plain_text(self):
         refusing = _Obj(messages=_Obj(create=lambda **kw: _Obj(stop_reason="refusal", content=[])))

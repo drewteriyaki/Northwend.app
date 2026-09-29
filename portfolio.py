@@ -304,6 +304,13 @@ TRANSACTIONS_EXTRA_COLS = [
 USER_ID_COL = [("user_id", "INTEGER")]
 
 
+# Investing-profile questions and the assistant's memory, added after
+# investor_profiles already existed.
+PROFILE_EXTRA_COLS = [(c, "TEXT") for c in (
+    "drawdown_reaction", "age_range", "income_stability", "emergency_fund",
+    "high_interest_debt", "contributions", "withdrawal_needs", "preferences", "ai_memory")]
+
+
 # Schema creation + column back-fill is idempotent but not free; once a given
 # database file has been set up in this process, later connect() calls skip it.
 _SCHEMA_READY: set[str] = set()
@@ -322,7 +329,8 @@ def _ensure_schema(conn) -> None:
                         ("account_totals", USER_ID_COL),
                         ("transactions", USER_ID_COL),
                         ("value_log", USER_ID_COL),
-                        ("users", [("is_advisor", "INTEGER")])):
+                        ("users", [("is_advisor", "INTEGER")]),
+                        ("investor_profiles", PROFILE_EXTRA_COLS)):
         if is_pg:
             have = {r["column_name"] for r in conn.execute(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = %s",

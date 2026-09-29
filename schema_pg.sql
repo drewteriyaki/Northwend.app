@@ -191,6 +191,15 @@ CREATE TABLE IF NOT EXISTS investor_profiles (
     target_return_pct  REAL,
     risk_tolerance     TEXT,
     experience         TEXT,
+    drawdown_reaction  TEXT,
+    age_range          TEXT,
+    income_stability   TEXT,
+    emergency_fund     TEXT,
+    high_interest_debt TEXT,
+    contributions      TEXT,
+    withdrawal_needs   TEXT,
+    preferences        TEXT,
+    ai_memory          TEXT,
     notes              TEXT,
     updated_at         TEXT
 );

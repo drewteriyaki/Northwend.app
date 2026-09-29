@@ -5,8 +5,9 @@ Pure logic, no Streamlit; dashboard.py's AI Assistant page owns the button.
 
 What leaves the machine: only next_steps() calls the API, with the same
 weights-only portfolio summary the chat uses (advisor.portfolio_summary) and
-the session's chat transcript. The dollar figures in the PDF are computed
-and rendered locally.
+the session's chat transcript, plus the assistant's own saved notes (which
+are never printed in the PDF). The dollar figures in the PDF are computed and
+rendered locally.
 """
 
 from __future__ import annotations
@@ -80,17 +81,19 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
 # --------------------------------------------------------------------------- #
 # the one API call (percentages only)
 # --------------------------------------------------------------------------- #
-def next_steps(client, profile: dict, summary: str, chat_text: str = "") -> list[str] | None:
+def next_steps(client, profile: dict, summary: str, chat_text: str = "",
+               memory: str = "") -> list[str] | None:
     """Suggested next steps as a list of short lines, or None if the model
     declined. API errors propagate so the caller can say what went wrong.
-    `summary` must be advisor.portfolio_summary() output (weights only)."""
+    `summary` must be advisor.portfolio_summary() output (weights only);
+    `memory` is the assistant's saved notes (advisor.get_memory)."""
     content = _NEXT_STEPS_REQUEST
     if chat_text.strip():
         content = "## Conversation so far\n" + chat_text.strip() + "\n\n" + content
     message = client.messages.create(
         model=advisor.MODEL,
         max_tokens=MAX_TOKENS,
-        system=advisor.system_prompt(profile, summary),
+        system=advisor.system_prompt(profile, summary, memory),
         messages=[{"role": "user", "content": content}],
         thinking={"type": "adaptive"},
         output_config={"effort": "medium"},

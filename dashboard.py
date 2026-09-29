@@ -5,7 +5,7 @@ Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import altair as alt
 import pandas as pd
@@ -33,7 +33,7 @@ GREEN = "#16a34a"
 RED = "#dc2626"
 
 st.set_page_config(page_title="Portfolio Tracker", layout="wide",
-                   initial_sidebar_state="expanded")
+                   initial_sidebar_state="auto")
 
 
 def _login() -> bool:
@@ -198,6 +198,9 @@ with st.sidebar:
     _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
     st.caption(f"Logged in as **{st.session_state['username']}**{_viewing}")
     st.button("Log out", on_click=_logout, width="stretch")
+    # sidebar handle, click-away to close, pull to refresh (see the file)
+    with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:
+        st.html(f"<script>{_fh.read()}</script>", unsafe_allow_javascript=True)
 
 PAGE = st.session_state["page"]
 
@@ -282,7 +285,92 @@ def _render_clients():
                "Profile counts the AI Assistant questions answered.")
 
 
-def _render_plan_export(api_key, profile, contexts, cash_by_account, display):
+# The investing-profile form: every answer is a tap, not typing. Keys match
+# advisor.PROFILE_FIELDS; the wording here is just for the form.
+PROFILE_QUESTIONS = {
+    "goal": "What are you investing for? Pick all that apply.",
+    "time_horizon_years": "When will you need most of this money?",
+    "target_return_pct": "What yearly return are you hoping for?",
+    "risk_tolerance": "How much risk are you comfortable with?",
+    "drawdown_reaction": "If your portfolio dropped 20% in a month, you would...",
+    "experience": "How much investing experience do you have?",
+    "age_range": "Your age",
+    "income_stability": "How steady is your income?",
+    "emergency_fund": "Emergency savings outside this portfolio",
+    "high_interest_debt": "High-interest debt, like credit cards",
+    "contributions": "How often will you add money?",
+    "withdrawal_needs": "Planning to take money out in the next 3 years?",
+    "preferences": "Anything you'd like in your investments? Pick any.",
+}
+PROFILE_SECTIONS = (
+    ("Goals", ("goal", "time_horizon_years", "target_return_pct")),
+    ("Comfort with risk", ("risk_tolerance", "drawdown_reaction", "experience")),
+    ("Your situation", ("age_range", "income_stability", "emergency_fund",
+                        "high_interest_debt", "contributions", "withdrawal_needs")),
+    ("Preferences", ("preferences",)),
+)
+HORIZON_YEARS = (1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40)
+TARGET_RETURNS = (3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 15.0)
+_NOT_SET = "Not set"
+
+
+def _with_current(options, current):
+    """`options` plus a saved value that isn't one of them (answers saved
+    before the presets existed), so the form still shows it."""
+    return sorted({*options, current}) if current is not None and current not in options \
+        else list(options)
+
+
+def _render_profile_form(advisor, profile):
+    with st.form("investor_profile_form", border=False):
+        answers = {}
+        for title, fields in PROFILE_SECTIONS:
+            st.markdown(f"**{title}**")
+            for field in fields:
+                q, cur = PROFILE_QUESTIONS[field], profile.get(field)
+                if field in advisor.MULTI_CHOICES:
+                    chosen = advisor.split_multi(cur)
+                    opts = list(advisor.MULTI_CHOICES[field]) + [c for c in chosen
+                                                                 if c not in advisor.MULTI_CHOICES[field]]
+                    answers[field] = st.pills(q, opts, selection_mode="multi", default=chosen)
+                elif field in advisor.CHOICES:
+                    opts = list(advisor.CHOICES[field]) + (
+                        [cur] if cur and cur not in advisor.CHOICES[field] else [])
+                    answers[field] = st.pills(q, opts, default=cur or None,
+                                              format_func=lambda v: v[:1].upper() + v[1:])
+                elif field == "time_horizon_years":
+                    cur = int(cur) if cur else None
+                    answers[field] = st.select_slider(
+                        q, [_NOT_SET, *_with_current(HORIZON_YEARS, cur)], value=cur or _NOT_SET,
+                        format_func=lambda v: v if v == _NOT_SET else
+                        f"{v} year{'s' if v != 1 else ''}{'+' if v == HORIZON_YEARS[-1] else ''}")
+                elif field == "target_return_pct":
+                    cur = float(cur) if cur else None
+                    answers[field] = st.select_slider(
+                        q, ["Not sure", *_with_current(TARGET_RETURNS, cur)],
+                        value=cur or "Not sure",
+                        format_func=lambda v: v if isinstance(v, str) else f"{v:g}%")
+        notes = st.text_area("Other notes", value=profile["notes"] or "",
+                             placeholder="Anything else worth knowing: a date you're saving "
+                                         "toward, accounts elsewhere, investments to avoid...")
+        if st.form_submit_button("Save profile", type="primary"):
+            fields = {}
+            for field, v in answers.items():
+                if isinstance(v, list):
+                    order = advisor.MULTI_CHOICES[field]
+                    v = advisor.MULTI_SEP.join(sorted(
+                        v, key=lambda x: order.index(x) if x in order else len(order)))
+                fields[field] = None if v in (None, "", _NOT_SET, "Not sure") else v
+            fields["notes"] = notes.strip() or None
+            conn = connect(DB)
+            try:
+                advisor.save_profile(conn, USER_ID, fields, replace=True)
+            finally:
+                conn.close()
+            st.rerun()
+
+
+def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display):
     """'Client plan' block: one API call for next steps, then a PDF download.
     The PDF lives in session state only, so switching accounts drops it."""
     import advisor
@@ -309,7 +397,7 @@ def _render_plan_export(api_key, profile, contexts, cash_by_account, display):
                     steps = client_plan.next_steps(
                         anthropic.Anthropic(api_key=api_key), profile,
                         advisor.portfolio_summary(contexts, cash_by_account),
-                        client_plan.chat_transcript(display))
+                        client_plan.chat_transcript(display), memory)
                 except anthropic.AuthenticationError:
                     st.warning("The ANTHROPIC_API_KEY was rejected - the plan was made "
                                "without suggested next steps.")
@@ -347,53 +435,32 @@ def _render_assistant(contexts, cash_by_account):
     conn = connect(DB)
     try:
         profile = advisor.get_profile(conn, USER_ID)
+        memory = advisor.get_memory(conn, USER_ID)
     finally:
         conn.close()
 
-    with st.expander("Your investing profile", expanded=False):
-        with st.form("investor_profile_form"):
-            goal = st.text_input("Long-term goal", value=profile["goal"] or "",
-                                 placeholder="e.g. retire at 60, buy a house in 5 years")
-            c1, c2 = st.columns(2)
-            horizon = c1.number_input("Time horizon (years, 0 = not set)", min_value=0,
-                                      max_value=80, value=int(profile["time_horizon_years"] or 0))
-            target = c2.number_input("Target annual return % (0 = not set)", min_value=0.0,
-                                     max_value=50.0, step=0.5,
-                                     value=float(profile["target_return_pct"] or 0.0))
-            risk_opts = ["Not set", *advisor.RISK_LEVELS]
-            exp_opts = ["Not set", *advisor.EXPERIENCE_LEVELS]
-            risk = c1.selectbox("Risk tolerance", risk_opts,
-                                index=risk_opts.index(profile["risk_tolerance"] or "Not set"))
-            exp = c2.selectbox("Investing experience", exp_opts,
-                               index=exp_opts.index(profile["experience"] or "Not set"))
-            notes = st.text_area("Other notes", value=profile["notes"] or "",
-                                 placeholder="Income stability, upcoming expenses, preferences...")
-            if st.form_submit_button("Save profile"):
-                conn = connect(DB)
-                try:
-                    advisor.save_profile(conn, USER_ID, {
-                        "goal": goal.strip() or None,
-                        "time_horizon_years": horizon or None,
-                        "target_return_pct": target or None,
-                        "risk_tolerance": None if risk == "Not set" else risk,
-                        "experience": None if exp == "Not set" else exp,
-                        "notes": notes.strip() or None,
-                    }, replace=True)
-                finally:
-                    conn.close()
-                st.rerun()
-        st.caption("The assistant also fills this in from what you tell it in the chat.")
+    missing = advisor.missing_fields(profile)
+    display = st.session_state.setdefault("chat_display", [])
+    history = st.session_state.setdefault("chat_api", [])
+    n_required = len(advisor.REQUIRED_PROFILE_FIELDS)
+    with st.expander(f"Your investing profile ({n_required - len(missing)}/{n_required} key "
+                     "questions answered)", expanded=bool(missing) and not display):
+        _render_profile_form(advisor, profile)
+        st.caption("The assistant also fills this in from what you tell it in the chat, and "
+                   "keeps short notes of its own so the next conversation picks up where this "
+                   "one left off.")
 
     st.caption("Educational information only - not financial advice. The assistant is not a "
                "licensed financial advisor; do your own research before making any investment "
                "decision.")
 
-    display = st.session_state.setdefault("chat_display", [])
-    history = st.session_state.setdefault("chat_api", [])
-    _render_plan_export(api_key, profile, contexts, cash_by_account, display)
-    for msg in display:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["text"])
+    _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display)
+    # new messages are written into this box too, so they land above the input
+    chat_box = st.container()
+    with chat_box:
+        for msg in display:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["text"])
 
     prompt = None
     if not display:
@@ -404,7 +471,12 @@ def _render_assistant(contexts, cash_by_account):
 
     n_sent = sum(1 for m in display if m["role"] == "user")
     at_limit = n_sent >= CHAT_MESSAGE_LIMIT
-    typed = st.chat_input("Ask about investing or your portfolio...", disabled=at_limit)
+    # Inside a container the input sits inline under the chat instead of pinned to
+    # the bottom of the screen. Pinned, Streamlit also keeps the page stuck to the
+    # bottom, and on phones scrolling up (which resizes the browser's address bar)
+    # snapped it straight back down.
+    with st.container():
+        typed = st.chat_input("Ask about investing or your portfolio...", disabled=at_limit)
     prompt = typed or prompt
 
     if prompt and not at_limit:
@@ -412,10 +484,11 @@ def _render_assistant(contexts, cash_by_account):
 
         display.append({"role": "user", "text": prompt})
         history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
+        with chat_box, st.chat_message("user"):
             st.markdown(prompt)
 
-        system = advisor.system_prompt(profile, advisor.portfolio_summary(contexts, cash_by_account))
+        system = advisor.system_prompt(profile, advisor.portfolio_summary(contexts, cash_by_account),
+                                       memory)
         updated = []
 
         def on_update(fields):
@@ -426,10 +499,18 @@ def _render_assistant(contexts, cash_by_account):
                 c.close()
             updated.append(fields)
 
-        with st.chat_message("assistant"):
+        def on_memory(text):
+            c = connect(DB)
+            try:
+                advisor.save_memory(c, USER_ID, text)
+            finally:
+                c.close()
+
+        with chat_box, st.chat_message("assistant"):
             try:
                 reply = st.write_stream(advisor.stream_reply(
-                    anthropic.Anthropic(api_key=api_key), history, system, on_update))
+                    anthropic.Anthropic(api_key=api_key), history, system, on_update,
+                    on_memory))
             except anthropic.AuthenticationError:
                 reply = "The ANTHROPIC_API_KEY was rejected - check that it's correct."
                 st.error(reply)
@@ -654,6 +735,54 @@ def load():
     return snap, [dict(r) for r in rows], cash_by_account, quotes
 
 
+AUTO_REFRESH_AFTER = timedelta(minutes=15)
+
+
+def _prices_stale(last_live) -> bool:
+    if not last_live:
+        return True
+    try:
+        at = datetime.fromisoformat(str(last_live).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - at > AUTO_REFRESH_AFTER
+
+
+def _refresh_prices(auto=False):
+    """Fetch Finnhub quotes for this account, then rerun to show them. Success
+    is a toast; problems get a banner. The automatic refresh on opening an
+    account says nothing when there's no key."""
+    key = resolve_key(None, ENV_PATH)
+    if not key:
+        if auto:
+            return
+        st.session_state["refresh_msg"] = ("error", "No FINNHUB_API_KEY in .env — add it and retry.")
+        st.rerun()
+    bar = st.progress(0.0, text="Updating prices…" if auto else "Contacting Finnhub…")
+    conn = connect(DB)
+    try:
+        summary = refresh_prices(
+            conn, latest_snapshot(conn, USER_ID), USER_ID, key, delay=0.0,
+            on_quote=lambda i, n, tk, ok, px, err: bar.progress(i / n, text=f"{tk} ({i}/{n})"),
+        )
+    finally:
+        conn.close()
+    bar.empty()
+    if summary["failed"]:
+        bad = ", ".join(tk for tk, _, err, _ in summary["results"] if err)
+        st.session_state["refresh_msg"] = (
+            "warning",
+            f"Updated {summary['updated']} positions · {summary['ok']}/{summary['tickers']} quotes OK · "
+            f"no data for: {bad}",
+        )
+    else:
+        st.session_state["refresh_msg"] = (
+            "toast", f"Prices updated: {summary['ok']} live quotes.")
+    st.rerun()
+
+
 # --------------------------------------------------------------------------- #
 if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
     st.error("No `portfolio.db` yet. Build it first:")
@@ -761,6 +890,14 @@ for p, ctx in zip(positions, contexts):
 
 n_live = sum(1 for p in positions if p["live_price"] is not None)
 last_live = max((p["live_price_at"] for p in positions if p["live_price_at"]), default=None)
+
+# Refresh once when an account is opened (login, or an advisor switching
+# accounts - the flag is dropped with the rest of the session on a switch),
+# unless the scheduled job already did it recently.
+if not st.session_state.get("auto_refreshed"):
+    st.session_state["auto_refreshed"] = True
+    if _prices_stale(last_live):
+        _refresh_prices(auto=True)
 day_change_total = sum(
     v for v in (M.value("day_change_usd", ctx) for ctx in contexts) if v is not None
 )
@@ -792,44 +929,21 @@ with left:
     st.caption(
         f"CSV snapshot **{snapshot}**  ·  "
         + (f"live prices as of **{last_live} UTC** ({n_live}/{len(positions)} priced)"
-           if last_live else "**no live prices yet — click Refresh**")
+           if last_live else "**no live prices yet — tap :material/refresh:**")
     )
     st.toggle("Hide amounts", key="hide_amounts",
               help="Mask every dollar / percent on the page with " + MASK)
 hide_amounts = st.session_state["hide_amounts"]
 if hide_amounts != _read_prefs().get("hide_amounts", False):
     save_hide(hide_amounts)
-with right:
-    st.write("")
-    if st.button("Refresh prices", type="primary", width="stretch"):
-        key = resolve_key(None, ENV_PATH)
-        if not key:
-            st.session_state["refresh_msg"] = ("error", "No FINNHUB_API_KEY in .env — add it and retry.")
-            st.rerun()
-        bar = st.progress(0.0, text="Contacting Finnhub…")
-        conn = connect(DB)
-        try:
-            summary = refresh_prices(
-                conn, latest_snapshot(conn, USER_ID), USER_ID, key, delay=0.0,
-                on_quote=lambda i, n, tk, ok, px, err: bar.progress(i / n, text=f"{tk} ({i}/{n})"),
-            )
-        finally:
-            conn.close()
-        bar.empty()
-        if summary["failed"]:
-            bad = ", ".join(tk for tk, _, err, _ in summary["results"] if err)
-            st.session_state["refresh_msg"] = (
-                "warning",
-                f"Updated {summary['updated']} positions · {summary['ok']}/{summary['tickers']} quotes OK · "
-                f"no data for: {bad}",
-            )
-        else:
-            st.session_state["refresh_msg"] = (
-                "success", f"Updated {summary['updated']} positions from {summary['ok']} live quotes.")
-        st.rerun()
+with right, st.container(horizontal=True, horizontal_alignment="right"):
+    if st.button(":material/refresh:", key="pt_refresh", type="tertiary",
+                 help="Refresh prices. On a phone you can also pull down from the top of "
+                      "the page. Prices also refresh on their own when you open an account."):
+        _refresh_prices()
 
-    if st.button("Sync history (Yahoo)", width="stretch",
-                 help="Pull the maximum history Yahoo allows at every resolution it offers - "
+    if st.button(":material/history:", key="pt_sync", type="tertiary",
+                 help="Sync history from Yahoo: pull the maximum history Yahoo allows at every resolution it offers - "
                       "~2 years daily, plus 1-minute (~7d), 5- and 15-minute (~60d), and "
                       "hourly (~2y) bars - plus fundamentals. Takes a minute or two. Powers "
                       "the 1D-1Y charts, moving averages, volume, 52-wk figures, and the "
@@ -1076,7 +1190,7 @@ if PAGE == "Dashboard":
     # there's any data at all.
     _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[prng], include_app_open=False)
     if len(_hist) < 2:
-        st.caption("Not enough data yet — **Sync history** backfills a reconstructed "
+        st.caption("Not enough data yet — sync history (:material/history:) backfills a reconstructed "
                    "line from Yahoo, and a point is logged each time you open the app.")
     else:
         _fmtname = perf.SERIES_FMT[series_col]
@@ -1298,7 +1412,7 @@ if PAGE == "Dashboard":
             save_columns(new_keys)
         if not perf.has_bars(DB):
             st.caption("The **Yahoo history** columns (MA, Volume, 52-wk, Beta, P/E, Sector) "
-                       "stay blank until you click **Sync history** up top.")
+                       "stay blank until you tap sync history (:material/history:) up top.")
 
     # A tappable strip of ticker symbols — the Robinhood-style "click the name"
     # entry point into the detail view below. Deliberately separate from the
@@ -1372,7 +1486,7 @@ if PAGE == "Watchlist":
         if added:
             st.session_state["refresh_msg"] = (
                 "success", f"Added **{added}** to your watchlist. "
-                           f"Click **Sync history** up top to pull its chart data.")
+                           f"Tap sync history (:material/history:) up top to pull its chart data.")
         else:
             st.session_state["refresh_msg"] = ("error", f"'{_wl_raw}' doesn't look like a valid ticker.")
         st.rerun()
@@ -1450,9 +1564,9 @@ if PAGE in ("Dashboard", "Watchlist"):
                 _interval = "sparse"
 
             if len(_rows) < 2:
-                st.info(f"Not enough history for **{_sym}** in this range yet. Click "
-                        "**Sync history** up top for real intraday + daily bars, or keep "
-                        "hitting **Refresh prices**.")
+                st.info(f"Not enough history for **{_sym}** in this range yet. Tap "
+                        "sync history (:material/history:) up top for real intraday + daily bars, or keep "
+                        "tapping refresh (:material/refresh:).")
             else:
                 tdf = pd.DataFrame(_rows)
                 tdf["t"] = pd.to_datetime(tdf["t"], utc=True, format="mixed")
@@ -1498,7 +1612,7 @@ if PAGE in ("Dashboard", "Watchlist"):
                     st.caption(
                         f"{len(win)}" + (f" of {len(full)}" if len(win) != len(full) else "") + " points · "
                         + (f"**{_res_label}** Yahoo bars." if _has_yahoo
-                           else "sparse Refresh-prices history — **Sync history** for real bars.")
+                           else "sparse refresh history — sync history (:material/history:) for real bars.")
                         + (f"  ·  *{rng} is shorter than the data interval — showing the last {len(win)}.*"
                            if _short else "")
                     )
@@ -1558,14 +1672,14 @@ if PAGE in ("Dashboard", "Watchlist"):
             ])
             if not perf.has_bars(DB):
                 st.caption("Fundamentals (52-wk range, beta, P/E, market cap, sector, moving averages) "
-                           "fill in after you click **Sync history** up top.")
+                           "fill in after you tap sync history (:material/history:) up top.")
 
             # ---- news: cached Finnhub headlines, fetched when stale --------- #
             st.markdown("#### Recent News")
             _news_key = resolve_key(None, ENV_PATH)
             if not _news_key:
                 st.caption("No `FINNHUB_API_KEY` in `.env` — news uses the same key as "
-                           "**Refresh prices**.")
+                           "price refresh.")
             else:
                 _news_conn = connect(DB)
                 try:

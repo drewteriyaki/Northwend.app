@@ -59,10 +59,17 @@ machine.
 | **Activity** | Every inferred BUY/SELL transaction, filterable by account/action/symbol, with an estimated realized gain/loss (average-cost method) per sale and a CSV export. |
 | **Income** | Estimated annual dividend income and yield-on-holdings, plus a per-position breakdown (yield %, est. income, last pay date, reinvest) sorted by biggest contributor and a CSV export — from the CSV's own dividend fields, not Yahoo. |
 
-**Refresh prices** calls Finnhub's `/quote` endpoint for each ticker, appends
-to `price_history`, and rewrites each position's live market value.
+**Refresh** (the circular-arrow icon top right, or pull down from the top of
+the page on a phone) calls Finnhub's `/quote` endpoint for each ticker, appends
+to `price_history`, and rewrites each position's live market value. It also
+runs on its own when an account is opened and its prices are more than 15
+minutes old.
 
-**Sync history** pulls the deepest history Yahoo allows at *every* resolution
+**Sidebar:** open and close it with the tab at the middle of its right edge,
+or click anywhere outside it to close it. Both come from `ui_enhancements.js`,
+which also handles pull-to-refresh.
+
+**Sync history** (the clock icon next to refresh) pulls the deepest history Yahoo allows at *every* resolution
 it offers into `daily_bars` / `intraday_bars` / `security_info`: ~2 years daily,
 plus 1-minute (~7 days back), 5- and 15-minute (~60 days back), and hourly
 (~2 years back) bars. The per-ticker chart automatically picks the finest
@@ -156,13 +163,19 @@ database keeps working after an update.
   never sent to the API under this design. Unset (the default): strict
   parsing only, identical to before this existed.
 - **AI Assistant (sidebar):** an educational investing chatbot on Claude
-  Sonnet 5, using the same `ANTHROPIC_API_KEY` - see `advisor.py`. It asks
-  about goals, time horizon, target return, and risk tolerance first,
-  saves the answers to a per-account profile (`investor_profiles` table,
-  also editable in a form), then reviews the account's holdings. Holdings
-  are sent as percentages only (ticker, name, asset type, sector, weight,
-  gain/loss %, dividend yield, beta, P/E) - never dollar amounts, share
-  counts, or account names. Chat history lasts for the session only.
+  Sonnet 5, using the same `ANTHROPIC_API_KEY` - see `advisor.py`. It
+  works from a per-account investing profile (`investor_profiles` table):
+  goals, time horizon, target return, risk tolerance, how they'd react to
+  a 20% drop, experience, age, income, emergency savings, debt, how often
+  they add or withdraw money, and preferences. Every question in the
+  profile form is a tap, not typing, with **Other notes** for anything
+  else. The assistant fills in answers from the chat too, then reviews the
+  account's holdings. Holdings are sent as percentages only (ticker, name,
+  asset type, sector, weight, gain/loss %, dividend yield, beta, P/E) -
+  never dollar amounts, share counts, or account names. Chat history lasts
+  for the session, but the assistant keeps short notes of its own between
+  conversations (`ai_memory`, up to 1,500 characters, never shown in the
+  app), so the next chat picks up where the last one left off.
 - **Advisor mode:** an account marked as an advisor (`manage_users.py
   make-advisor`) gets a "Viewing" dropdown in the sidebar to switch
   between its own portfolio and its clients' (`advisor_clients` table),
