@@ -309,7 +309,8 @@ USER_ID_COL = [("user_id", "INTEGER")]
 # investor_profiles already existed.
 PROFILE_EXTRA_COLS = [(c, "TEXT") for c in (
     "drawdown_reaction", "age_range", "income_stability", "emergency_fund",
-    "high_interest_debt", "contributions", "withdrawal_needs", "preferences", "ai_memory")]
+    "high_interest_debt", "contributions", "withdrawal_needs", "preferences", "ai_memory",
+    "employer_match")]
 
 
 # Schema creation + column back-fill is idempotent but not free; once a given

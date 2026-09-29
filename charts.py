@@ -166,9 +166,12 @@ def money_in_chart(df: pd.DataFrame, *, money_color: str, value_color: str,
     long = df.melt(id_vars=["date"], value_vars=["money_in", "value"], var_name="k", value_name="v")
     long["series"] = long["k"].map({"money_in": "Money in", "value": "Value"})
     grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
+    # label by year over long spans (Vega's default names only the month)
+    span = (df["date"].max() - df["date"].min()).days if len(df) else 0
+    x_fmt = {"format": "%Y"} if span > 730 else {"format": "%b %Y"} if span > 60 else {}
     color = alt.Color("series:N", title=None, legend=alt.Legend(orient="top"),
                       scale=alt.Scale(domain=["Money in", "Value"], range=[money_color, value_color]))
-    enc = dict(x=alt.X("date:T", title=None, axis=alt.Axis(**grid)),
+    enc = dict(x=alt.X("date:T", title=None, axis=alt.Axis(**grid, **x_fmt)),
                y=alt.Y("v:Q", title=None, axis=alt.Axis(format="$,.2s", labels=not mask, **grid)),
                color=color,
                tooltip=[alt.Tooltip("date:T", title="Statement", format="%b %d, %Y"), "series:N"]

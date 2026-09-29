@@ -109,6 +109,39 @@ It works before anything is imported, so someone just starting can set a goal.
 
 ---
 
+## Get started
+
+A step-by-step path for new investors (`learn.py`), built from the investing
+profile. It's where an account with nothing imported yet lands; once there are
+holdings it moves to the end of the menu. Educational: it explains and shows
+examples, it doesn't tell anyone what to buy. Each step can hand a question to
+the AI Assistant, and each is checked off automatically where the app can tell
+(profile answered, goal set, a statement imported) or marked done by hand.
+
+1. **About you** - the investing profile questions, one tap each. Adds
+   *Does your employer match what you put into a retirement plan?*
+2. **Are you ready to invest?** - emergency savings, high-interest debt, an
+   employer match, money needed within 3 years, uneven income - each marked
+   Good / Look at this / Start here, with why.
+3. **Set a goal** - links to the Plan.
+4. **Learn the basics** - stocks, bonds, funds and ETFs; diversification;
+   compounding and fees worked out with the plan's own monthly amount and
+   horizon; market drops; account types.
+5. **An example mix** - a stock / bond split from the time horizon, risk
+   comfort and 20%-drop answer (a stated rule of thumb, with its reasons),
+   shown as US stocks / international stocks / bonds with example low-cost
+   index funds (VTI, VXUS, BND and similar), a target-date fund year when it
+   fits, and notes for ESG or dividend preferences. **Watch these example
+   funds** adds them to the Watchlist.
+6. **Try it with practice money** - a monthly amount put into the mix over
+   the last 1-10 years of real prices (dividends included, from Yahoo; **Load
+   price history** fetches 10 years the first time): what you'd have put in,
+   what it'd be worth, and the worst drop along the way.
+7. **Open an account and bring it in** - how to open a brokerage account and
+   set up automatic investing, then import the first statement.
+
+---
+
 ## Command line
 
 ```bash

@@ -43,6 +43,7 @@ PROFILE_FIELDS = {
     "income_stability": "Income stability",
     "emergency_fund": "Emergency fund",
     "high_interest_debt": "High-interest debt",
+    "employer_match": "Employer retirement match",
     "contributions": "Adding money",
     "withdrawal_needs": "Withdrawals in the next 3 years",
     "preferences": "Preferences",
@@ -57,6 +58,8 @@ CHOICES = {
     "income_stability": ("Very stable", "Mostly stable", "Varies a lot", "Not working or retired"),
     "emergency_fund": ("6+ months of expenses", "3-6 months", "Under 3 months", "None"),
     "high_interest_debt": ("None", "Some", "A lot"),
+    "employer_match": ("Yes, and I get the full match", "Yes, but I'm not getting all of it",
+                       "No match or no plan", "Not sure"),
     "contributions": ("Monthly or more", "A few times a year", "Rarely", "Withdrawing regularly"),
     "withdrawal_needs": ("None planned", "Small amounts", "A large amount"),
 }

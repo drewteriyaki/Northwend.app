@@ -221,6 +221,7 @@ CREATE TABLE IF NOT EXISTS investor_profiles (
     income_stability   TEXT,
     emergency_fund     TEXT,
     high_interest_debt TEXT,
+    employer_match     TEXT,
     contributions      TEXT,
     withdrawal_needs   TEXT,
     preferences        TEXT,

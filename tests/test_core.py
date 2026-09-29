@@ -29,6 +29,7 @@ import auth  # noqa: E402
 import manage_users  # noqa: E402
 import changes  # noqa: E402
 import charts  # noqa: E402
+import learn  # noqa: E402
 import client_plan  # noqa: E402
 import metrics as M  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -1124,6 +1125,68 @@ class PlanMathTests(unittest.TestCase):
         long = plans.projection_series(1000, 100, 600, today=self.TODAY)
         self.assertLessEqual(len(long), 242)                                    # sampled
         self.assertEqual(long[-1]["date"], plans.add_months(self.TODAY, 600).isoformat())
+
+
+class LearnTests(unittest.TestCase):
+    def test_readiness_reads_the_profile(self):
+        items = {i["key"]: i["state"] for i in learn.readiness({
+            "emergency_fund": "None", "high_interest_debt": "Some",
+            "employer_match": "Yes, and I get the full match", "withdrawal_needs": "A large amount"})}
+        self.assertEqual(items, {"emergency_fund": learn.STOP, "high_interest_debt": learn.CAUTION,
+                                 "employer_match": learn.GOOD, "withdrawal_needs": learn.CAUTION})
+        self.assertEqual(learn.readiness_summary(learn.readiness({
+            "emergency_fund": "None"})), "Start here first")
+        ready = learn.readiness({"emergency_fund": "3-6 months", "high_interest_debt": "None",
+                                 "employer_match": "No match or no plan"})
+        self.assertEqual(learn.readiness_summary(ready), "Ready to start")
+        self.assertEqual(learn.readiness_summary(learn.readiness({})), "Answer a few questions")
+
+    def test_starter_mix_follows_horizon_and_risk(self):
+        self.assertIsNone(learn.starter_mix({}))
+        long = learn.starter_mix({"time_horizon_years": 30, "risk_tolerance": "moderate"})
+        short = learn.starter_mix({"time_horizon_years": 2, "risk_tolerance": "moderate"})
+        self.assertGreater(long["stocks_pct"], short["stocks_pct"])
+        self.assertTrue(short["short_horizon"])
+        careful = learn.starter_mix({"time_horizon_years": 30, "risk_tolerance": "conservative",
+                                     "drawdown_reaction": "Sell everything"})
+        self.assertLess(careful["stocks_pct"], long["stocks_pct"])
+        for mix in (long, short, careful):
+            self.assertEqual(sum(mix["weights"].values()), 100)
+            self.assertEqual(mix["stocks_pct"] % 5, 0)
+            self.assertTrue(mix["reasons"])
+        self.assertEqual(learn.starter_mix({"time_horizon_years": 2}, horizon_years=25)["horizon_years"], 25)
+
+    def test_target_date_year(self):
+        today = date(2026, 9, 29)
+        self.assertEqual(learn.target_date_year({"goal_type": "Retirement", "target_date": "2053-06-01"},
+                                                None, today), 2055)
+        self.assertEqual(learn.target_date_year(None, "25-34", today), 2060)   # 2026 + 35 = 2061
+        self.assertIsNone(learn.target_date_year(None, "65 or older", today))
+
+    def test_fee_cost_is_positive_and_grows_with_time(self):
+        short, long = (learn.fee_cost(200, y, 6, 0.05, 1.0) for y in (10, 30))
+        self.assertGreater(short, 0)
+        self.assertGreater(long, short * 3)
+        self.assertAlmostEqual(learn.grow_monthly(100, 1, 0), 1200)
+
+    def test_simulate_monthly_buys_and_value(self):
+        # one fund that doubles over the period: two buys of 100
+        prices = {"AAA": [("2026-01-05", 10.0), ("2026-01-20", 12.0), ("2026-02-02", 20.0)]}
+        rows = learn.simulate(prices, {"AAA": 1}, monthly=100)
+        self.assertEqual([r["money_in"] for r in rows], [100, 100, 200])   # once per month
+        self.assertAlmostEqual(rows[-1]["value"], 10 * 20 + 100)            # 10 units + new 100
+        self.assertAlmostEqual(rows[-1]["nav"], 2.0)                        # price doubled
+        # two funds, only shared days count
+        both = learn.simulate({"A": [("d1", 1.0), ("d2", 1.0)], "B": [("d2", 2.0)]},
+                              {"A": 50, "B": 50}, monthly=0, initial=100)
+        self.assertEqual([r["date"] for r in both], ["d2"])
+        self.assertEqual(learn.simulate(prices, {}, monthly=100), [])
+
+    def test_max_drawdown_ignores_contributions(self):
+        prices = {"A": [("2026-01-02", 10.0), ("2026-02-02", 5.0), ("2026-03-02", 10.0)]}
+        rows = learn.simulate(prices, {"A": 1}, monthly=1000)
+        self.assertAlmostEqual(learn.max_drawdown(rows), -50.0)             # the price halved
+        self.assertIsNone(learn.max_drawdown(rows[:1]))
 
 
 class PlanStorageTests(TempDBMixin, unittest.TestCase):
