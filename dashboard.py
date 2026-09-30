@@ -1,4 +1,4 @@
-"""Portfolio Tracker - single-page Streamlit dashboard.
+"""Waypoint (formerly Portfolio Tracker) - single-page Streamlit dashboard.
 
 Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 """
@@ -27,6 +27,7 @@ import charts
 import disclosures
 import friendly_errors
 import learn
+import live_prices
 import manual_entry
 import paste_parse
 import screenshot_read
@@ -64,10 +65,40 @@ TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts
 NOT_KEPT = ("Not kept: the file, image or pasted text itself, balances and gains, and account "
             "numbers beyond their last 3 digits. Holding names come from Yahoo.")
 
+# The brand: Waypoint, with Sage as the guide (the AI Assistant). Pages keep
+# their internal names (session state, links, `if PAGE == ...`); PAGE_LABELS
+# is only what people see.
+APP_NAME = "Waypoint"
+TAGLINE = "Your guide from first step to goal."
+GUIDE = "Sage"
+APP_ICON = ":material/flag:"
+PAGE_LABELS = {"AI Assistant": f"Ask {GUIDE}"}
+
+
+def _label(page):
+    return PAGE_LABELS.get(page, page)
+
+
+SAGE_AVATAR = ":material/explore:"   # a compass, for Sage's chat messages
+
+
+def _avatar(role):
+    return SAGE_AVATAR if role == "assistant" else None
+
+
+LIVE_EVERY_SEC = 60  # how often an open page checks for new prices (live_prices.py)
+
+
+def _dialog_closed():
+    """A dialog's X or Escape: live prices may redraw the page again (they
+    wait while a dialog is open, since a redraw would close it)."""
+    st.session_state["dialog_open"] = False
+
+
 GREEN = "#16a34a"
 RED = "#dc2626"
 
-st.set_page_config(page_title="Portfolio Tracker", layout="wide",
+st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide",
                    initial_sidebar_state="auto")
 
 # App-wide styles: hide Streamlit's own running/deploy widgets, tighten the
@@ -91,6 +122,7 @@ st.html("""<style>
 .pt-hero-delta { font-size: 1rem; font-weight: 600; margin-top: .15rem; }
 .pt-hero-sub { font-size: .8rem; opacity: .65; margin-top: .2rem; }
 .pt-up { color: #16a34a; } .pt-down { color: #dc2626; }
+.pt-live { color: #16a34a; }
 .pt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .6rem; margin-top: 1rem; }
 .pt-stat { border: 1px solid rgba(128,128,128,.25); border-radius: .5rem;
@@ -201,8 +233,8 @@ def _login() -> bool:
 
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title("Portfolio Tracker")
-        st.caption("Sign in to see your portfolio.")
+        st.title(f"{APP_ICON} {APP_NAME}")
+        st.caption(f"{TAGLINE} Sign in to see your portfolio.")
         _notice = st.session_state.get("login_notice")
         if _notice:
             st.info(_notice)
@@ -453,9 +485,10 @@ def _open_holdings_dialog(kind):
 
 
 with st.sidebar:
-    st.markdown("### Portfolio Tracker")
+    st.markdown(f"### {APP_ICON} {APP_NAME}")
+    st.caption(TAGLINE)
     for _p in PAGES:
-        st.button(_p, key=f"nav_{_p}", on_click=_go, args=(_p,), width="stretch",
+        st.button(_label(_p), key=f"nav_{_p}", on_click=_go, args=(_p,), width="stretch",
                   type="primary" if st.session_state["page"] == _p else "tertiary")
     st.divider()
 
@@ -1001,10 +1034,10 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
                     st.warning("The ANTHROPIC_API_KEY was rejected - the plan was made "
                                "without suggested next steps.")
                 except anthropic.RateLimitError:
-                    st.warning("The assistant is rate-limited right now - the plan was made "
+                    st.warning(f"{GUIDE} is busy right now - the plan was made "
                                "without suggested next steps.")
                 except (anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
-                    st.warning(f"Couldn't reach the assistant ({exc}) - the plan was made "
+                    st.warning(f"Couldn't reach {GUIDE} ({exc}) - the plan was made "
                                "without suggested next steps.")
             today = datetime.now().date()
             st.session_state["plan_pdf"] = {
@@ -1423,7 +1456,7 @@ def _ask_coach(step):
 
 
 def _coach_button(step):
-    st.button(":material/forum: Ask the assistant about this", key=f"coach_{step}",
+    st.button(f":material/forum: Ask {GUIDE} about this", key=f"coach_{step}",
               type="tertiary", on_click=_ask_coach, args=(step,))
 
 
@@ -1751,14 +1784,15 @@ def _render_get_started(has_holdings, value):
         "account": has_holdings,
     }
     n_done = sum(done.values())
-    st.caption("A step-by-step start, built from your answers. It explains how investing works "
-               "and shows examples - it doesn't tell you what to buy.")
+    st.caption("Your route, one waypoint at a time - built from your answers. It explains how "
+               f"investing works and shows examples; it doesn't tell you what to buy. Stuck? "
+               f"Each waypoint has an **Ask {GUIDE}** button.")
     st.progress(n_done / len(GET_STARTED_STEPS),
-                text=f"{n_done} of {len(GET_STARTED_STEPS)} steps done")
+                text=f"{n_done} of {len(GET_STARTED_STEPS)} waypoints reached")
     current = next((k for k, _ in GET_STARTED_STEPS if not done[k]), None)
     for i, (key, title) in enumerate(GET_STARTED_STEPS, start=1):
         icon = ":green[:material/check_circle:]" if done[key] else ":material/radio_button_unchecked:"
-        with st.expander(f"{icon} {i}. {title}", expanded=(key == current)):
+        with st.expander(f"{icon} Waypoint {i}: {title}", expanded=(key == current)):
             if key == "profile":
                 _step_profile(advisor, profile, missing)
             elif key == "ready":
@@ -1782,7 +1816,7 @@ def _render_assistant(contexts, cash_by_account):
         st.toast("Profile updated from the conversation.")
     api_key = _anthropic_key()
     if not api_key:
-        st.info("The assistant needs an `ANTHROPIC_API_KEY` - add it to `.env` locally, or to "
+        st.info(f"{GUIDE} needs an `ANTHROPIC_API_KEY` - add it to `.env` locally, or to "
                 "Settings → Secrets on Streamlit Cloud.")
         return
 
@@ -1800,11 +1834,11 @@ def _render_assistant(contexts, cash_by_account):
     with st.expander(f"Your investing profile ({n_required - len(missing)}/{n_required} key "
                      "questions answered)", expanded=bool(missing) and not display):
         _render_profile_form(advisor, profile)
-        st.caption("The assistant also fills this in from what you tell it in the chat, and "
+        st.caption(f"{GUIDE} also fills this in from what you tell it in the chat, and "
                    "keeps short notes of its own so the next conversation picks up where this "
                    "one left off.")
 
-    st.caption("Educational information only - not financial advice. The assistant is not a "
+    st.caption(f"Educational information only - not financial advice. {GUIDE} is not a "
                "licensed financial advisor; do your own research before making any investment "
                "decision.")
 
@@ -1812,8 +1846,14 @@ def _render_assistant(contexts, cash_by_account):
     # new messages are written into this box too, so they land above the input
     chat_box = st.container()
     with chat_box:
+        if not display:
+            with st.chat_message("assistant", avatar=SAGE_AVATAR):
+                st.markdown(f"Hi, I'm **{GUIDE}**, your guide in {APP_NAME}. Ask me anything "
+                            "about investing or your portfolio - what a fund is, whether your mix "
+                            "fits your goal, what to look at next. I'll explain in plain "
+                            "language, and I won't tell you what to buy.")
         for msg in display:
-            with st.chat_message(msg["role"]):
+            with st.chat_message(msg["role"], avatar=_avatar(msg["role"])):
                 st.markdown(msg["text"])
 
     prompt = None
@@ -1830,7 +1870,8 @@ def _render_assistant(contexts, cash_by_account):
     # bottom, and on phones scrolling up (which resizes the browser's address bar)
     # snapped it straight back down.
     with st.container():
-        typed = st.chat_input("Ask about investing or your portfolio...", disabled=at_limit)
+        typed = st.chat_input(f"Ask {GUIDE} about investing or your portfolio...",
+                              disabled=at_limit)
     # a question handed over from a Get started step
     prompt = typed or prompt or st.session_state.pop("coach_prompt", None)
 
@@ -1861,7 +1902,7 @@ def _render_assistant(contexts, cash_by_account):
             finally:
                 c.close()
 
-        with chat_box, st.chat_message("assistant"):
+        with chat_box, st.chat_message("assistant", avatar=SAGE_AVATAR):
             try:
                 reply = st.write_stream(advisor.stream_reply(
                     anthropic.Anthropic(api_key=api_key), history, system, on_update,
@@ -1870,10 +1911,10 @@ def _render_assistant(contexts, cash_by_account):
                 reply = "The ANTHROPIC_API_KEY was rejected - check that it's correct."
                 st.error(reply)
             except anthropic.RateLimitError:
-                reply = "The assistant is rate-limited right now - wait a minute and try again."
+                reply = f"{GUIDE} is busy right now - wait a minute and try again."
                 st.error(reply)
             except (anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
-                reply = f"Couldn't reach the assistant: {exc}"
+                reply = f"Couldn't reach {GUIDE}: {exc}"
                 st.error(reply)
         display.append({"role": "assistant", "text": reply if isinstance(reply, str) else "".join(reply)})
         if updated:
@@ -1890,7 +1931,7 @@ def _render_assistant(contexts, cash_by_account):
             st.session_state["chat_display"] = []
             st.session_state["chat_api"] = []
         st.button("New conversation", on_click=_new_conversation)
-    st.caption("Your holdings are shared with the assistant as percentages only - no dollar "
+    st.caption(f"Your holdings are shared with {GUIDE} as percentages only - no dollar "
                "amounts, share counts, or account names.")
 
 
@@ -2075,7 +2116,7 @@ def _render_classification(positions):
                      + (f" · {n_guess} from broker type only" if n_guess else "")):
         st.caption("Funds are split by what they hold, from Yahoo - a balanced fund counts part "
                    "stocks, part bonds. Without Yahoo data a holding goes by its broker type "
-                   "(Equity is stocks, Fixed Income is bonds); **Refresh** fills the rest in."
+                   "(Equity is stocks, Fixed Income is bonds); the rest fills in by itself."
                    + (" Choose a holding below to decide its class yourself." if CAN_MANAGE
                       else ""))
         df = pd.DataFrame(rows)
@@ -2260,91 +2301,6 @@ def load():
 AUTO_REFRESH_AFTER = timedelta(minutes=15)
 
 
-def _prices_stale(last_live) -> bool:
-    if not last_live:
-        return True
-    try:
-        at = datetime.fromisoformat(str(last_live).replace("Z", "+00:00"))
-    except ValueError:
-        return True
-    if at.tzinfo is None:
-        at = at.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc) - at > AUTO_REFRESH_AFTER
-
-
-def _refresh_prices(auto=False):
-    """Fetch Finnhub quotes for this account, then rerun to show them. Success
-    is a toast; problems get a banner. The automatic refresh on opening an
-    account says nothing when there's no key."""
-    key = resolve_key(None, ENV_PATH)
-    if not key:
-        if auto:
-            return
-        st.session_state["refresh_msg"] = ("error", "No FINNHUB_API_KEY in .env — add it and retry.")
-        st.rerun()
-    bar = st.progress(0.0, text="Updating prices…" if auto else "Contacting Finnhub…")
-    conn = connect(DB)
-    try:
-        summary = refresh_prices(
-            conn, latest_snapshot(conn, USER_ID), USER_ID, key, delay=0.0,
-            on_quote=lambda i, n, tk, ok, px, err: bar.progress(i / n, text=f"{tk} ({i}/{n})"),
-        )
-    finally:
-        conn.close()
-    bar.empty()
-    if summary["failed"]:
-        bad = ", ".join(tk for tk, _, err, _ in summary["results"] if err)
-        st.session_state["refresh_msg"] = (
-            "warning",
-            f"Updated {summary['updated']} positions · {summary['ok']}/{summary['tickers']} quotes OK · "
-            f"no data for: {bad}",
-        )
-    else:
-        st.session_state["refresh_msg"] = (
-            "toast", f"Prices updated: {summary['ok']} live quotes.")
-    st.rerun()
-
-
-def _refresh_everything():
-    """The header's Refresh: live prices (Finnhub), then this account's price
-    history and fund details (Yahoo daily bars + info - the quick sync; the
-    nightly job adds the intraday bars). One progress bar, one message."""
-    notes, problems = [], []
-    key = resolve_key(None, ENV_PATH)
-    bar = st.progress(0.0, text="Updating prices…")
-    conn = connect(DB)
-    try:
-        held = [r["symbol"] for r in conn.execute(
-            "SELECT DISTINCT symbol FROM positions WHERE snapshot_date = ? AND user_id = ?",
-            (latest_snapshot(conn, USER_ID), USER_ID))]
-        if key:
-            summary = refresh_prices(
-                conn, latest_snapshot(conn, USER_ID), USER_ID, key, delay=0.0,
-                on_quote=lambda i, n, tk, ok, px, err: bar.progress(
-                    0.5 * i / n, text=f"Prices: {tk} ({i}/{n})"))
-            notes.append(f"{summary['ok']} live price(s)")
-            problems += [tk for tk, _, err, _ in summary["results"] if err]
-        else:
-            problems.append("live prices (no FINNHUB_API_KEY)")
-    finally:
-        conn.close()
-    try:
-        import sync_history
-        hist = sync_history.sync(
-            DB, held, period=sync_history.DEFAULT_PERIOD, with_intraday=False,
-            on_progress=lambda i, n, tk, nr, ok, err: bar.progress(
-                0.5 + 0.5 * i / n, text=f"History: {tk} ({i}/{n})"))
-        notes.append(f"history for {hist['ok']} holding(s)")
-        problems += [tk for tk in hist["failed"] if tk not in problems]
-    except Exception:  # noqa: BLE001 - prices are already saved; say history didn't update
-        problems.append("price history (Yahoo didn't answer)")
-    bar.empty()
-    msg = "Updated " + " and ".join(notes) + "." if notes else "Nothing could be updated."
-    st.session_state["refresh_msg"] = (
-        ("warning", msg + " No data for: " + ", ".join(problems)) if problems else ("toast", msg))
-    st.rerun()
-
-
 # ---- header -------------------------------------------------------------- #
 def _sync_history(tickers=None, *, quick=False):
     """Pull Yahoo history, then rerun to show it. `quick` is the automatic
@@ -2426,8 +2382,8 @@ def _fmt_date(d):
 def _after_import():
     """A new statement can bring new tickers: fetch their prices and history
     on the next run instead of waiting for the scheduled jobs."""
-    st.session_state.pop("auto_refreshed", None)
     st.session_state.pop("auto_backfilled", None)
+    st.session_state["dialog_open"] = False  # saved: the dialog is closing
     for k in ("last_open_snapshot", "value_logged"):  # the portfolio changed: compare afresh
         st.session_state.pop(k, None)
 
@@ -2627,11 +2583,12 @@ def _manual_save(meta, rows, totals, txns, source):
         conn.close()
 
 
-@st.dialog("Add or update holdings", width="large")
+@st.dialog("Add or update holdings", width="large", on_dismiss=_dialog_closed)
 def _manual_dialog(current_positions, current_cash, current_source=None):
     """Type in holdings (no file needed); saved as today's snapshot, like an import.
     Shares mode records real holdings; Percentages mode records only each
     holding's share of a pretend total."""
+    st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
     _manual_rows_init(current_positions, current_cash, current_source)
     ss = st.session_state
     st.caption(":material/lock: " + TRUST_LINE)
@@ -2786,9 +2743,10 @@ def _clear_sample():
     _after_import()
 
 
-@st.dialog("Import a positions CSV", width="large")
+@st.dialog("Import a positions CSV", width="large", on_dismiss=_dialog_closed)
 def _import_dialog():
     """Upload a new Schwab Positions export, preview what changed, confirm."""
+    st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
     st.caption(
         "Upload a fresh Schwab **Positions** export. You'll see exactly what changed "
         "before anything is saved."
@@ -2933,33 +2891,54 @@ def _toggle_hide():
     save_hide(st.session_state["hide_amounts"])
 
 
+@st.fragment(run_every=LIVE_EVERY_SEC)
+def _live_status():
+    """Keeps prices current without a Refresh button: every minute (only this
+    line reruns) it fetches whatever quotes are due (live_prices.freshen -
+    shared across everyone viewing, so each ticker is asked for at most once a
+    minute), then redraws the page if any price changed. It waits while a
+    dialog is open, so it never interrupts adding holdings."""
+    ss = st.session_state
+    try:
+        c = connect(DB)
+        try:
+            live = live_prices.freshen(c, USER_ID, resolve_key(None, ENV_PATH))
+        finally:
+            c.close()
+    except Exception:  # noqa: BLE001 - prices failing must never break the page
+        live = {"updated": 0, "as_of": None, "live": False}
+    if live["updated"] and not ss.get("dialog_open"):
+        st.rerun()  # the whole page, with the new prices
+    as_of = live["as_of"] or live_prices._parse(last_live)
+    if live["live"] and as_of:
+        age = (datetime.now(timezone.utc) - as_of).total_seconds()
+        ago = ("just now" if age < 90 else f"{int(age // 60)} min ago" if age < 3600
+               else _fmt_when(as_of))
+        prices = f"<span class='pt-live'>●</span> Live · prices updated {ago}"
+    elif as_of:
+        prices = f"Market closed · prices as of {_fmt_when(as_of)}"
+    else:
+        prices = "No live prices yet"
+    if n_live < len(positions):
+        prices += f" ({n_live} of {len(positions)} priced)"
+    _what = {manual_entry.SOURCE: "Entered by hand", manual_entry.PCT_SOURCE: "Percentages",
+             SAMPLE_SOURCE: "Example portfolio"}.get(SNAPSHOT_SOURCE, "Statement")
+    st.html(f"<div class='pt-status'>{prices} · {_what} from {_fmt_date(snapshot)}</div>")
+
+
 def _page_header(title, *, data=True):
     """The page's title with the hide-amounts toggle and, on `data` pages
-    (this account's portfolio), one Refresh button and a one-line status: how
-    fresh the prices are and the statement date. Adding or updating holdings
-    lives in the sidebar's Holdings section."""
+    (this account's portfolio), a status line that keeps prices current by
+    itself (_live_status) - there's no Refresh button. Adding or updating
+    holdings lives in the sidebar's Holdings section."""
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.title(title, anchor=False, width="stretch")
         st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
                   key="pt_hide", type="tertiary", on_click=_toggle_hide,
                   help="Show amounts" if _hidden() else "Hide amounts - mask every dollar and "
                                                          "percent with " + MASK)
-        if data and st.button(":material/refresh: Refresh", key="pt_refresh",
-                              help="Update live prices, price history and fund details for your "
-                                   "holdings. On a phone you can also pull down from the top of "
-                                   "the page. Prices also refresh on their own when you open an "
-                                   "account, and the full history syncs every evening."):
-            _refresh_everything()
     if data:
-        if last_live:
-            prices = f"Prices as of {_fmt_when(last_live)}"
-            if n_live < len(positions):
-                prices += f" ({n_live} of {len(positions)} priced)"
-        else:
-            prices = "No live prices yet"
-        _what = {manual_entry.SOURCE: "Entered by hand", manual_entry.PCT_SOURCE: "Percentages",
-                 SAMPLE_SOURCE: "Example portfolio"}.get(SNAPSHOT_SOURCE, "Statement")
-        st.html(f"<div class='pt-status'>{prices} · {_what} from {_fmt_date(snapshot)}</div>")
+        _live_status()
         if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
             with st.container(border=True, horizontal=True, vertical_alignment="center"):
                 st.markdown(":material/science: **This is an example portfolio** - made-up "
@@ -3023,7 +3002,7 @@ if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor no
     # Helping brand-new investors plan a first portfolio is a core use of the
     # assistant, and a goal can be set before there's anything invested, so
     # both work before any CSV has been imported.
-    _page_header(PAGE, data=False)
+    _page_header(_label(PAGE), data=False)
     if PAGE == "Plan":
         _render_plan(None, None, None)
     elif PAGE == "Get started":
@@ -3152,13 +3131,6 @@ for p, ctx in zip(positions, contexts):
 n_live = sum(1 for p in positions if p["live_price"] is not None)
 last_live = max((p["live_price_at"] for p in positions if p["live_price_at"]), default=None)
 
-# Refresh once when an account is opened (login, or an advisor switching
-# accounts - the flag is dropped with the rest of the session on a switch),
-# unless the scheduled job already did it recently.
-if not st.session_state.get("auto_refreshed"):
-    st.session_state["auto_refreshed"] = True
-    if _prices_stale(last_live):
-        _refresh_prices(auto=True)
 day_change_total = sum(
     v for v in (M.value("day_change_usd", ctx) for ctx in contexts) if v is not None
 )
@@ -3197,7 +3169,7 @@ if PAGE == "Dashboard" and (_missing or _undescribed)         and not st.session
     st.session_state["auto_backfilled"] = True
     _sync_history(sorted(set(_missing) | set(_undescribed)), quick=True)
 
-_page_header(PAGE)
+_page_header(_label(PAGE))
 hide_amounts = st.session_state["hide_amounts"]
 
 

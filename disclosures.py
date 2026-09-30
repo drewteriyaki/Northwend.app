@@ -24,13 +24,13 @@ Plain text, no "$" (Streamlit would read a pair of them as math).
 
 LAST_UPDATED = "September 29, 2026"
 
-SUMMARY = ("Portfolio Tracker is an educational tool for following your investments. "
+SUMMARY = ("Waypoint is an educational tool for following your investments. "
            "It is not financial advice, and it isn't connected to any brokerage.")
 
 SECTIONS = [
     ("Educational, not advice", """
 Everything in this app - the dashboard, plans and projections, the Get started
-path, example funds, model portfolios, alerts and the AI Assistant - is for
+path, example funds, model portfolios, alerts and Sage, the AI guide - is for
 education and information only. None of it is a recommendation to buy, sell or
 hold any security, and none of it is personalized investment, tax or legal advice.
 
@@ -77,13 +77,13 @@ Consider talking to a licensed professional before making investment decisions.
   **Your data**. To have your whole account deleted, contact whoever manages it.
 """),
     ("What's sent to the AI", """
-The AI Assistant and the plan's suggested next steps use Claude, an AI model from
-Anthropic. When you use them, the app sends:
+Sage, the app's guide (Ask Sage), and the plan's suggested next steps use Claude,
+an AI model from Anthropic. When you use them, the app sends:
 
 - your investing-profile answers (goals, time horizon, risk tolerance and so on),
 - your holdings as **tickers, fund names, types, sectors and percentages** of the
   portfolio - never dollar amounts, share counts, account names or numbers,
-- what you type in the chat, and short notes the assistant saved from earlier
+- what you type in the chat, and short notes Sage saved from earlier
   conversations.
 
 If you choose to **read holdings from screenshots**, the images you upload are sent
@@ -105,7 +105,7 @@ updates them on a schedule during market hours - check your brokerage for exact
 figures before trading.
 """),
     ("Not affiliated", """
-Portfolio Tracker is independent. It isn't affiliated with, endorsed by or
+Waypoint is independent. It isn't affiliated with, endorsed by or
 connected to Charles Schwab or any other brokerage, or to Finnhub, Yahoo or
 Anthropic. Brokerage names are used only to describe which statement files it
 can read.

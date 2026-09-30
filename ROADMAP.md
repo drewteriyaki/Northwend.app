@@ -51,7 +51,12 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       crypto saved as Yahoo's BTC-USD with a Crypto type (this commit)
 - [x] Holdings section in the sidebar (paste / type / screenshots, CSV,
       example data) instead of header icons; one bigger Refresh for prices
-      and history together (this commit)
+      and history together (`9feb7ce`)
+- [x] Prices keep themselves current: every minute while the market is open
+      (crypto around the clock, mutual funds hourly), shared across viewers;
+      the Refresh button is gone (this commit)
+- [x] Brand: Waypoint, with Sage as the guide (Ask Sage); Get started is a
+      route of numbered waypoints (this commit)
 
 ---
 

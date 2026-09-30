@@ -4,7 +4,8 @@
 //     Streamlit's small top-corner arrows
 //   - the sidebar closes when you click or tap outside it
 //   - pull down from the top of the page on a touch screen to refresh prices
-//     (it presses the page's refresh button, key "pt_refresh")
+//     (it presses a button keyed "pt_refresh" when the page has one; prices
+//     now update on their own, so the dashboard doesn't show one)
 //   - the sidebar's theme button (key "pt_theme") flips light/dark by picking
 //     the other theme in Streamlit's own menu, so the choice is saved the same
 //     way as picking it there, and the page doesn't reload

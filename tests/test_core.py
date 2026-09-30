@@ -2004,6 +2004,91 @@ class AppFilesCompileTests(unittest.TestCase):
                                        cfile=os.path.join(tempfile.gettempdir(), "pt_compile.pyc"))
 
 
+class LivePricesTests(TempDBMixin, unittest.TestCase):
+    """Prices keep themselves current (no Refresh button): live_prices.freshen."""
+    OPEN = datetime(2026, 9, 29, 15, 0, tzinfo=timezone.utc)      # Tue 11:00 ET
+    NIGHT = datetime(2026, 9, 30, 3, 0, tzinfo=timezone.utc)      # Tue 11 PM ET
+    SATURDAY = datetime(2026, 10, 3, 16, 0, tzinfo=timezone.utc)
+
+    def _hold(self, conn, user_id, rows):
+        import manual_entry as me
+        clean, cash, _ = me.validate(rows, [])
+        found = {r["Symbol"]: {"price": 10.0, "name": r["Symbol"]} for r in rows}
+        meta, prows, totals, _ = me.build(clean, cash, found)
+        portfolio.write_snapshot(conn, user_id, meta, prows, totals, me.SOURCE)
+
+    def _fakes(self):
+        calls = {"finnhub": [], "yahoo": []}
+
+        def finnhub(sym):
+            calls["finnhub"].append(sym)
+            return ({"c": 101.0, "pc": 100.0}, "") if sym != "NOFH" else ({"c": 0}, "")
+
+        def yahoo(sym):
+            calls["yahoo"].append(sym)
+            return ({"c": 55.0, "pc": 50.0}, "") if sym != "DEAD" else ({}, "yahoo: no price")
+        return calls, finnhub, yahoo
+
+    def test_market_hours(self):
+        import live_prices as lp
+        self.assertTrue(lp.market_open(self.OPEN))
+        self.assertFalse(lp.market_open(self.NIGHT))
+        self.assertFalse(lp.market_open(self.SATURDAY))
+        self.assertEqual(lp.last_close(self.SATURDAY).astimezone(lp.NY).strftime("%a %H:%M"),
+                         "Fri 16:00")
+        self.assertEqual(lp.kind("BTC-USD", "Crypto"), "crypto")
+        self.assertEqual(lp.kind("VTSAX", "Mutual Funds"), "fund")
+        self.assertEqual(lp.kind("VTI", "ETFs & Closed End Funds"), "stock")
+
+    def test_due_rules(self):
+        import live_prices as lp
+        m = timedelta(minutes=1)
+        self.assertTrue(lp.due("stock", None, self.OPEN))
+        self.assertFalse(lp.due("stock", self.OPEN - 30 * timedelta(seconds=1), self.OPEN))
+        self.assertTrue(lp.due("stock", self.OPEN - m, self.OPEN))
+        self.assertFalse(lp.due("stock", self.NIGHT - m, self.NIGHT))     # after the close fetch
+        self.assertTrue(lp.due("stock", self.OPEN, self.NIGHT))            # not yet since the close
+        self.assertTrue(lp.due("crypto", self.NIGHT - 6 * m, self.NIGHT))  # crypto never closes
+        self.assertFalse(lp.due("fund", self.OPEN - 30 * m, self.OPEN))    # NAV: hourly is plenty
+
+    def test_prices_are_shared_and_routed_to_the_right_source(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw")
+        rows = [{"Symbol": "VTI", "Shares": 2, "Total cost": 20}, {"Symbol": "BTC-USD", "Shares": 1,
+                "Total cost": 10, "Type": "Crypto"}, {"Symbol": "VTSAX", "Shares": 1, "Total cost": 10,
+                "Type": "Mutual fund"}, {"Symbol": "NOFH", "Shares": 1, "Total cost": 10}]
+        self._hold(conn, self.user_id, rows)
+        self._hold(conn, other, rows[:1])
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(conn, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh)
+        self.assertEqual(r["fetched"], 4)
+        self.assertEqual(sorted(calls["finnhub"]), ["NOFH", "VTI"])            # stocks: Finnhub
+        self.assertEqual(sorted(calls["yahoo"]), ["BTC-USD", "NOFH", "VTSAX"])  # + the fallback
+        live = {p["symbol"]: p["live_price"] for p in conn.execute(
+            "SELECT symbol, live_price FROM positions WHERE user_id = ?", (self.user_id,))}
+        self.assertEqual(live, {"VTI": 101.0, "BTC-USD": 55.0, "VTSAX": 55.0, "NOFH": 55.0})
+        self.assertTrue(r["live"])
+        # another viewer a few seconds later: nothing is fetched again, prices still apply
+        calls2, fh2, yh2 = self._fakes()
+        r2 = lp.freshen(conn, other, "key", now=self.OPEN + timedelta(seconds=10), finnhub=fh2, yahoo=yh2)
+        self.assertEqual((r2["fetched"], calls2), (0, {"finnhub": [], "yahoo": []}))
+        conn.close()
+
+    def test_a_symbol_with_no_price_is_not_asked_every_minute(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        self._hold(conn, self.user_id, [{"Symbol": "DEAD", "Shares": 1, "Total cost": 1,
+                                         "Type": "Mutual fund"}])
+        calls, fh, yh = self._fakes()
+        lp.freshen(conn, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh)
+        lp.freshen(conn, self.user_id, "key", now=self.OPEN + timedelta(minutes=2), finnhub=fh, yahoo=yh)
+        self.assertEqual(calls["yahoo"], ["DEAD"])                   # tried once, not again yet
+        r = lp.freshen(conn, self.user_id, "key", now=self.NIGHT, finnhub=fh, yahoo=yh)
+        self.assertFalse(r["live"])                                   # market closed, no crypto
+        conn.close()
+
+
 class ScreenshotReadTests(unittest.TestCase):
     """Roadmap 9d: holdings from screenshots, read by the AI (a fake client here)."""
 
