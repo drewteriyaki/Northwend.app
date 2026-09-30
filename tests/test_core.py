@@ -1990,8 +1990,81 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class AppFilesCompileTests(unittest.TestCase):
+    """Every app file at least compiles - dashboard.py has no unit tests of
+    its own, so a syntax slip there would otherwise only show on the live app."""
+
+    def test_every_python_file_compiles(self):
+        import py_compile
+        for name in sorted(os.listdir(REPO)):
+            if name.endswith(".py"):
+                with self.subTest(name):
+                    py_compile.compile(os.path.join(REPO, name), doraise=True,
+                                       cfile=os.path.join(tempfile.gettempdir(), "pt_compile.pyc"))
+
+
+class PasteParseTests(unittest.TestCase):
+    """Roadmap 9c: holdings from text pasted off a brokerage's website."""
+
+    def _rows(self, text):
+        import paste_parse
+        r = paste_parse.parse(text)
+        return r, [(h["Symbol"], h["Shares"], h["Total cost"], h["Percent"]) for h in r["holdings"]]
+
+    def test_table_with_a_header_keeps_only_symbols_shares_and_cost(self):
+        r, rows = self._rows(
+            "Individual - TOD Z12345678\n"
+            "Symbol\tDescription\tQuantity\tPrice\tMarket Value\tCost Basis\t% of Account\n"
+            "VTI\tVANGUARD TOTAL STOCK MARKET ETF\t10\t$300.12\t$3,001.20\t$2,500.00\t60.5%\n"
+            "BND\tVANGUARD TOTAL BOND\t25.5\t$73.00\t$1,861.50\t$1,900.00\t37.5%\n"
+            "Cash & Cash Investments\t--\t--\t--\t$100.00\t--\t2%\n"
+            "Account Total\t\t\t\t$4,962.70")
+        self.assertEqual(rows, [("VTI", 10.0, 2500.0, 60.5), ("BND", 25.5, 1900.0, 37.5)])
+        self.assertEqual((r["mode"], r["cash"]), ("Shares", 100.0))
+        self.assertNotIn("12345678", repr(r))              # the account number is dropped
+
+    def test_one_cell_per_line_like_a_web_app(self):
+        _, rows = self._rows("Stocks\nName\nSymbol\nShares\nPrice\nApple\nAAPL\n10\n$230.10\n"
+                             "+$801.00\nVanguard S&P 500 ETF\nVOO\n2.5\n$550.00\n$1,375.00")
+        self.assertEqual([(s, q) for s, q, _, _ in rows], [("AAPL", 10.0), ("VOO", 2.5)])
+
+    def test_typed_lists_percentages_and_spaced_columns(self):
+        _, rows = self._rows("vti 10\nBND 25\nAAPL 3 shares\nbrk.b 2")
+        self.assertEqual([(s, q) for s, q, _, _ in rows],
+                         [("VTI", 10.0), ("BND", 25.0), ("AAPL", 3.0), ("BRK.B", 2.0)])
+        r, rows = self._rows("VTI 60%\nVXUS 25%\nBND 15%")
+        self.assertEqual((r["mode"], [p for *_, p in rows]), ("Percentages", [60.0, 25.0, 15.0]))
+        r, rows = self._rows("SYMBOL   QTY    PRICE     VALUE\nSCHD     120    $28.00    $3,360.00\n"
+                             "CASH                      $512.33")
+        self.assertEqual((rows, r["cash"]), ([("SCHD", 120.0, None, None)], 512.33))
+
+    def test_same_symbol_in_two_accounts_is_combined_and_junk_finds_nothing(self):
+        _, rows = self._rows("VTI 10\nBND 5\nVTI 2.5")
+        self.assertEqual(rows[0], ("VTI", 12.5, None, None))
+        r, rows = self._rows("Welcome back! Your balance is $12,000 as of 9/29/2026\nTOTAL 12000")
+        self.assertEqual(rows, [])
+
+
 class PrivacyTests(TempDBMixin, unittest.TestCase):
-    """Roadmap 9a: keep less than people share, and let them share nothing."""
+    """Roadmap 9a / 9c: keep less than people share, and let them share nothing."""
+
+    def test_delete_all_my_holdings_leaves_other_accounts_and_goals(self):
+        import manual_entry as me
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw")
+        clean, cash, _ = me.validate([{"Symbol": "VTI", "Shares": 1}], [{"Cash": 5}])
+        for uid in (self.user_id, other):
+            meta, rows, totals, _ = me.build(clean, cash, {"VTI": {"price": 100.0}})
+            portfolio.write_snapshot(conn, uid, meta, rows, totals, me.SOURCE)
+        plans.save_plan(conn, self.user_id, {"goal_type": "Retirement"}, self.user_id)
+        portfolio.delete_holdings(conn, self.user_id)
+        for table in portfolio.HOLDINGS_TABLES:
+            n = conn.execute(f"SELECT COUNT(*) n FROM {table} WHERE user_id = ?",
+                             (self.user_id,)).fetchone()["n"]
+            self.assertEqual(n, 0, table)
+        self.assertIsNotNone(update_prices.latest_snapshot(conn, other))   # untouched
+        self.assertEqual(plans.get_plan(conn, self.user_id)["goal_type"], "Retirement")
+        conn.close()
 
     def test_uploads_leave_no_file_behind(self):
         with portfolio.temp_upload("../../evil/name.csv", b"a,b\n") as path:

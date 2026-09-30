@@ -472,6 +472,21 @@ def clear_sample(conn, user_id: int) -> None:
                      (SAMPLE_SOURCE, user_id))
 
 
+# what "Delete all my holdings" removes: everything an import or hand entry
+# wrote for the account, plus the visit history built from it
+HOLDINGS_TABLES = ("positions", "account_totals", "transactions", "value_log",
+                   "account_labels", "snapshots")
+
+
+def delete_holdings(conn, user_id: int) -> None:
+    """Delete every holding, snapshot, cash balance, transaction and value
+    history row of one account, in one transaction. Plans, goals, settings,
+    the watchlist and the login itself are kept."""
+    with conn:
+        for table in HOLDINGS_TABLES:
+            conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+
+
 def snapshot_source(conn, user_id: int, snapshot_date: str | None) -> str | None:
     """Where a snapshot came from (its source_file), or None."""
     if not snapshot_date:

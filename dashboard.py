@@ -28,6 +28,7 @@ import disclosures
 import friendly_errors
 import learn
 import manual_entry
+import paste_parse
 import sample_data
 import metrics as M
 import news
@@ -37,8 +38,9 @@ import plans
 import prefs
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
-from portfolio import (SAMPLE_SOURCE, DBError, connect, import_csv, parse_csv_smart,
-                       snapshot_source, temp_upload, upload_label, write_snapshot)
+from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, import_csv,
+                       parse_csv_smart, snapshot_source, temp_upload, upload_label,
+                       write_snapshot)
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
 from changes import diff_positions, synthesize_transactions
 
@@ -54,6 +56,12 @@ DB = os.environ.get("PORTFOLIO_DB") or os.path.join(HERE, "portfolio.db")
 # traceback goes to the log. Details show on screen only for a local run.
 friendly_errors.install(show_details=not pgcompat.is_postgres_dsn(DB)
                         and st.get_option("client.showErrorDetails") in ("full", True, "true"))
+
+# said wherever people decide what to share (import, hand entry, paste)
+TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts and cost "
+              "are saved - never balances or full account numbers.")
+NOT_KEPT = ("Not kept: the file, image or pasted text itself, balances and gains, and account "
+            "numbers beyond their last 3 digits. Holding names come from Yahoo.")
 
 GREEN = "#16a34a"
 RED = "#dc2626"
@@ -397,6 +405,19 @@ def _set_client_password():
     st.session_state["client_msg"] = ("success", "Login password set - the client can log in now.")
 
 
+def _delete_my_holdings():
+    if not st.session_state.get("confirm_delete_holdings"):
+        return
+    c = connect(DB)
+    try:
+        delete_holdings(c, st.session_state["user_id"])  # own account only
+    finally:
+        c.close()
+    st.session_state["confirm_delete_holdings"] = False
+    st.session_state["import_flash"] = "All your holdings were deleted."
+    _after_import()
+
+
 def _change_password():
     cur, new, again = (st.session_state.get(k) or "" for k in ("pw_current", "pw_new", "pw_again"))
     if new != again:
@@ -469,6 +490,14 @@ with st.sidebar:
                           help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
             st.text_input("New password again", type="password", key="pw_again")
             st.form_submit_button("Change password", on_click=_change_password, width="stretch")
+    if CAN_MANAGE and USER_ID == LOGIN_ID:
+        with st.expander("Your data"):
+            st.caption("Delete everything you've imported or entered: holdings, cash, "
+                       "activity and value history. Your goals, settings and login stay.")
+            st.checkbox("Yes, delete all my holdings", key="confirm_delete_holdings")
+            st.button("Delete all my holdings", key="delete_holdings", width="stretch",
+                      disabled=not st.session_state.get("confirm_delete_holdings"),
+                      on_click=_delete_my_holdings)
     st.button("Log out", on_click=_logout, width="stretch")
     # sidebar handle, click-away to close, pull to refresh (see the file)
     with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:
@@ -2429,6 +2458,30 @@ def _manual_form_rows():
     return holdings, cash
 
 
+def _manual_from_paste():
+    """Replace the form's rows with what paste_parse finds in the pasted text,
+    then forget the text."""
+    ss = st.session_state
+    found = paste_parse.parse(ss.get("me_paste") or "")
+    ss["me_paste"] = ""  # the pasted text isn't kept, even in this session
+    if not found["holdings"]:
+        ss["me_paste_msg"] = ("warning", "Couldn't find any holdings in that text. Try copying "
+                              "just the positions table, or type lines like `VTI 10`.")
+        return
+    acct = _manual_last_account()
+    ss["me_ids"], ss["me_cash_ids"] = [], []
+    for h in found["holdings"]:
+        _manual_add_row({"Account": acct, "Symbol": h["Symbol"], "Shares": h["Shares"],
+                         "Total cost": h["Total cost"], "Percent": h["Percent"], "Type": "Other"})
+    _manual_add_cash({"Account": acct, "Cash": found["cash"] if found["mode"] == "Shares" else None})
+    ss["me_mode"] = found["mode"]
+    n = len(found["holdings"])
+    ss["me_paste_msg"] = ("success", f"Found {n} holding{'s' if n != 1 else ''}"
+                          + (f" and {fmt_money(found['cash'])} cash" if found["cash"] else "")
+                          + " - check them below, then look up prices. Type is set to Other; "
+                            "Yahoo works out what each one holds.")
+
+
 def _manual_clear():
     for k in [k for k in st.session_state if k.startswith("me_")]:
         del st.session_state[k]
@@ -2466,6 +2519,20 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     holding's share of a pretend total."""
     _manual_rows_init(current_positions, current_cash, current_source)
     ss = st.session_state
+    st.caption(":material/lock: " + TRUST_LINE)
+    _empty = not any((ss.get(f"me_sym_{i}") or "").strip() for i in ss["me_ids"])
+    with st.expander(":material/content_paste: Paste from your brokerage",
+                     expanded=_empty or bool(ss.get("me_paste_msg"))):
+        st.caption("On your brokerage's website, select your positions table, copy it, and "
+                   "paste it here. The app reads it itself - no AI - and keeps only symbols, "
+                   "share counts and cost. The pasted text isn't saved.")
+        st.text_area("Pasted positions", key="me_paste", height=120,
+                     label_visibility="collapsed",
+                     placeholder="VTI   10\nBND   25\n...or paste a whole table")
+        st.button("Fill in from pasted text", key="me_paste_btn", on_click=_manual_from_paste)
+        _pm = ss.pop("me_paste_msg", None)
+        if _pm:
+            getattr(st, _pm[0])(_pm[1])
     st.segmented_control("How to enter them", ["Shares", "Percentages"], key="me_mode",
                          required=True, on_change=lambda: ss.pop("me_review", None))
     pct_mode = ss.get("me_mode") == "Percentages"
@@ -2539,8 +2606,10 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     if price_errors:
         st.error("  \n".join(price_errors))
         return
+    st.markdown("**What we'll keep**")
     st.dataframe(pd.DataFrame([{
-        "Account": r["account"], "Symbol": r["symbol"], "Name": r["description"] or "",
+        "Account": accounts.mask_number(r["account"]), "Symbol": r["symbol"],
+        "Name": r["description"] or "",
         "Shares": round(r["quantity"], 4), "Value": fmt_money(r["market_value"]),
         **({} if pct_mode else {"Total cost": fmt_money(r["cost_basis"])
                                 if r["cost_basis"] is not None else ""})}
@@ -2566,6 +2635,7 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
         + f" · {len(d['new'])} new, {len(d['increased']) + len(d['decreased'])} changed, "
           f"{len(d['closed'])} removed since "
           f"{_fmt_date(base_date) if base_date else 'nothing yet'}.")
+    st.caption(NOT_KEPT)
     if st.button("Save holdings", type="primary", key="me_save"):
         try:
             _manual_save(meta, rows, totals, txns, source)
@@ -2737,12 +2807,19 @@ if not positions:
                       args=("Get started",))
             st.button("Advisor notes", key="onboard_notes", on_click=_go, args=("Advisor notes",))
         st.stop()
-    st.info(f"Welcome, **{ACTIVE_NAME}** — this account has no data yet. "
-            "Upload a Schwab Positions export CSV, or enter your holdings by hand.")
+    st.info(f"Welcome, **{ACTIVE_NAME}** — this account has no data yet. Paste your holdings, "
+            "enter them by hand, or upload a Schwab Positions export CSV.")
+    st.caption(":material/lock: " + TRUST_LINE)
     with st.container(horizontal=True, vertical_alignment="center"):
         st.markdown("New to investing, or don't have an account yet?", width="stretch")
         st.button("Start here", key="onboard_get_started", type="primary", on_click=_go,
                   args=("Get started",))
+    with st.container(horizontal=True, vertical_alignment="center"):
+        st.markdown("**Quickest:** copy your positions table from your brokerage's website "
+                    "and paste it - any brokerage.", width="stretch")
+        if st.button("Paste your holdings", key="onboard_paste", type="primary"):
+            _manual_clear()
+            _manual_dialog([], {})
     with st.container(horizontal=True, vertical_alignment="center"):
         st.markdown("No file, or rather not share your real numbers?", width="stretch")
         if st.button("Enter holdings by hand", key="onboard_manual",
@@ -2862,6 +2939,7 @@ def _import_dialog():
         "Upload a fresh Schwab **Positions** export. You'll see exactly what changed "
         "before anything is saved."
     )
+    st.caption(":material/lock: " + TRUST_LINE)
     up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
     # A path on "this machine" is only meaningful running locally - on the
     # hosted app it would be a path on the server, which users must not read.
@@ -2958,6 +3036,8 @@ def _import_preview(src_path, source_name):
                     f"(BUY / SELL) are recorded."
                 )
 
+                st.caption("Kept: each holding's symbol, shares, cost and value, and account "
+                           "names. " + NOT_KEPT)
                 if st.button("Confirm import", type="primary", key="csv_confirm"):
                     try:
                         info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),

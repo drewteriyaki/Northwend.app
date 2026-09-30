@@ -57,6 +57,8 @@ Consider talking to a licensed professional before making investment decisions.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name
   is cut to its last 3 digits before it's saved.
+- **Pasted text** is read by the app itself, not by AI, and only symbols, share
+  counts and cost are taken from it; the text isn't saved.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
@@ -69,7 +71,8 @@ Consider talking to a licensed professional before making investment decisions.
   ends it.
 - **Brokerage logins:** this app never asks for or stores your brokerage
   username or password. It only reads the statement files you import.
-- To have your account and data deleted, contact whoever manages your account.
+- **Deleting:** you can delete all your holdings yourself - in the sidebar, under
+  **Your data**. To have your whole account deleted, contact whoever manages it.
 """),
     ("What's sent to the AI", """
 The AI Assistant and the plan's suggested next steps use Claude, an AI model from
