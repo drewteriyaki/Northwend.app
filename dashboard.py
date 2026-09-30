@@ -12,6 +12,12 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+import codefresh
+
+# After a deploy, drop any of our modules still loaded at an older version so
+# the imports below load one current set (see codefresh.py).
+_OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
+
 import accounts
 import advising
 import alerts
@@ -29,6 +35,9 @@ from allocation import CONCENTRATION_PCT, allocate
 from portfolio import DBError, connect, import_csv, parse_csv_smart
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
 from changes import diff_positions, synthesize_transactions
+
+codefresh.carry_over(_OLD_MODULES)
+codefresh.mark_loaded(os.path.dirname(os.path.abspath(__file__)))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Defaults to ./portfolio.db; set PORTFOLIO_DB to point at another file (handy for

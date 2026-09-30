@@ -1932,5 +1932,58 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class CodeFreshTests(unittest.TestCase):
+    """A deploy that changes a module's file reloads all of the app's modules."""
+
+    def setUp(self):
+        import codefresh
+        self.cf = codefresh
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        sys.path.insert(0, self.dir)
+        self.addCleanup(sys.path.remove, self.dir)
+        self.names = ["cf_mod_a", "cf_mod_b"]
+        self.addCleanup(lambda: [sys.modules.pop(n, None) for n in self.names])
+        for n in self.names:
+            self._write(n, "VERSION = 1\n")
+
+    def _write(self, name, text):
+        with open(os.path.join(self.dir, name + ".py"), "w") as f:
+            f.write(text)
+
+    def _load(self):
+        import importlib
+        importlib.invalidate_caches()
+        return [importlib.import_module(n) for n in self.names]
+
+    def test_unchanged_files_keep_their_modules(self):
+        a, _ = self._load()
+        self.cf.mark_loaded(self.dir)
+        self.assertEqual(self.cf.drop_stale(self.dir), {})
+        self.assertIs(sys.modules["cf_mod_a"], a)
+
+    def test_one_changed_file_reloads_them_all(self):
+        a, b = self._load()
+        self.cf.mark_loaded(self.dir)
+        self._write("cf_mod_a", "VERSION = 2\nNEW = True\n")
+        with contextlib.redirect_stderr(io.StringIO()):
+            old = self.cf.drop_stale(self.dir)
+        self.assertEqual(set(old), set(self.names))
+        a2, b2 = self._load()
+        self.assertEqual((a2.VERSION, a2.NEW), (2, True))
+        self.assertIsNot(b2, b)  # the unchanged one is reloaded too
+        self.cf.mark_loaded(self.dir)
+        self.assertEqual(self.cf.drop_stale(self.dir), {})
+
+    def test_connection_pools_carry_over(self):
+        old_pg = type(sys)("pgcompat")
+        old_pg._POOLS = {"dsn": "pool"}
+        new_pg = type(sys)("pgcompat")
+        new_pg._POOLS = {}
+        with unittest.mock.patch.dict(sys.modules, {"pgcompat": new_pg}):
+            self.cf.carry_over({"pgcompat": old_pg})
+        self.assertEqual(new_pg._POOLS, {"dsn": "pool"})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
