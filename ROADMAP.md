@@ -37,7 +37,10 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       where they map, cleared with a note where they can't (`815158a`)
 - [x] 8 - Enter holdings by hand (any brokerage, no file): priced at save from
       Finnhub, then Yahoo; saved through the same write_snapshot() as an
-      import, with the usual "what changed" review (this commit)
+      import, with the usual "what changed" review (`c1749aa`)
+- [x] 9a - Privacy first: uploads read from a temporary copy and deleted;
+      account numbers cut to 3 digits on save; an example portfolio; a
+      percentages-only portfolio; disclosures updated (this commit)
 
 ---
 
@@ -54,11 +57,26 @@ depends on.
 **Needs you:** have the final wording reviewed by someone qualified before
 launch, and decide who people contact to delete their data. Then tick this.
 
-### 9. Other brokers' CSV files - M
-**Why:** the AI header-mapping fallback exists but hasn't been tried on real
-Fidelity or Vanguard exports.
-**What:** test with real exports, fix what breaks, and say which brokers are
-supported.
+### 9b. Any brokerage's CSV - L
+**Why:** people will come from every brokerage, and each exports a different
+layout; today only Schwab's imports reliably.
+**What:**
+- Find the holdings table anywhere in a file (title lines, notes, one table
+  or a section per account).
+- Match columns by common names first; if that isn't enough, AI sees only
+  the column names and the *shape* of a few rows ("text, number, date") -
+  never the values.
+- Need only a symbol plus shares or value; cost optional; missing values
+  from live prices; no date in the file -> today; no account column -> one
+  account named after the file.
+- A "check the columns" step with a dropdown per column before saving.
+- Remember each layout, so the next file from the same broker imports
+  without questions.
+- Recognize a transactions export (or other wrong file) and say so.
+**Done when:** exports from at least Fidelity, Vanguard, Robinhood, E*TRADE
+and Schwab import (real samples, numbers blanked), and an unknown layout can
+be fixed by hand in the column check.
+**Needs you:** sample exports from real brokerages, numbers blanked out.
 
 ### 10. Remember where you were - S
 **Why:** a reload lands on Dashboard, and an advisor loses the client they

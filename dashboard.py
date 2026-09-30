@@ -28,6 +28,7 @@ import disclosures
 import friendly_errors
 import learn
 import manual_entry
+import sample_data
 import metrics as M
 import news
 import perf
@@ -36,7 +37,8 @@ import plans
 import prefs
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
-from portfolio import DBError, connect, import_csv, parse_csv_smart, write_snapshot
+from portfolio import (SAMPLE_SOURCE, DBError, connect, import_csv, parse_csv_smart,
+                       snapshot_source, temp_upload, upload_label, write_snapshot)
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
 from changes import diff_positions, synthesize_transactions
 
@@ -2332,9 +2334,11 @@ def _after_import():
     on the next run instead of waiting for the scheduled jobs."""
     st.session_state.pop("auto_refreshed", None)
     st.session_state.pop("auto_backfilled", None)
+    for k in ("last_open_snapshot", "value_logged"):  # the portfolio changed: compare afresh
+        st.session_state.pop(k, None)
 
 
-def _manual_rows_init(current_positions, current_cash):
+def _manual_rows_init(current_positions, current_cash, current_source=None):
     """Start the hand-entry form from the latest snapshot (once per opening)."""
     if "me_ids" in st.session_state:
         return
@@ -2342,14 +2346,38 @@ def _manual_rows_init(current_positions, current_cash):
     base = [{**p, "account": p.get("broker_account") or p.get("account")} for p in current_positions]
     cash = {to_broker.get(a, a): v for a, v in current_cash.items()}
     holdings, cash_rows = manual_entry.prefill(base, cash)
+    weights, cash_pct = manual_entry.prefill_weights(base, cash)
+    pct_by = {(w["Account"], w["Symbol"]): w["Percent"] for w in weights}
     holdings = holdings or [{"Account": manual_entry.DEFAULT_ACCOUNT, "Type": "ETF"}]
     cash_rows = cash_rows or [{"Account": holdings[0]["Account"], "Cash": None}]
-    st.session_state["me_next"] = 0
-    st.session_state["me_ids"], st.session_state["me_cash_ids"] = [], []
+    ss = st.session_state
+    ss["me_next"] = 0
+    ss["me_ids"], ss["me_cash_ids"] = [], []
+    ss["me_mode"] = "Percentages" if current_source == manual_entry.PCT_SOURCE else "Shares"
+    # Number fields keep their values here, not in their widget keys: Streamlit
+    # drops a widget's value on a run where it isn't shown, and the Shares and
+    # Percentages fields take turns being hidden.
+    ss["me_vals"] = {"cash_pct": cash_pct if base else None, "total": manual_entry.DEFAULT_TOTAL}
+    if current_source == manual_entry.PCT_SOURCE and base:
+        # keep the pretend total it was made with
+        ss["me_vals"]["total"] = round(sum(p.get("market_value") or 0.0 for p in base)
+                               + sum(v or 0.0 for v in cash.values()), 2)
     for r in holdings:
-        _manual_add_row(r)
+        _manual_add_row({**r, "Percent": pct_by.get((r["Account"], r.get("Symbol")))})
     for r in cash_rows:
         _manual_add_cash(r)
+
+
+def _manual_number(label, name, *, min_value=0.0, **kw):
+    """A number field whose value lives in me_vals (see _manual_rows_init)."""
+    vals = st.session_state["me_vals"]
+    wkey = f"me_w_{name}"
+
+    def keep():
+        vals[name] = st.session_state.get(wkey)
+        st.session_state.pop("me_review", None)
+    st.session_state[wkey] = vals.get(name)
+    return st.number_input(label, key=wkey, min_value=min_value, on_change=keep, **kw)
 
 
 def _manual_new_id():
@@ -2362,8 +2390,8 @@ def _manual_add_row(r=None):
     i = _manual_new_id()
     st.session_state[f"me_acct_{i}"] = r.get("Account") or manual_entry.DEFAULT_ACCOUNT
     st.session_state[f"me_sym_{i}"] = r.get("Symbol") or ""
-    st.session_state[f"me_qty_{i}"] = r.get("Shares")
-    st.session_state[f"me_cost_{i}"] = r.get("Total cost")
+    st.session_state["me_vals"].update({f"qty_{i}": r.get("Shares"), f"cost_{i}": r.get("Total cost"),
+                                        f"pct_{i}": r.get("Percent")})
     st.session_state[f"me_type_{i}"] = r.get("Type") or "ETF"
     st.session_state["me_ids"].append(i)
     st.session_state.pop("me_review", None)
@@ -2373,7 +2401,7 @@ def _manual_add_cash(r=None):
     r = r or {"Account": _manual_last_account()}
     i = _manual_new_id()
     st.session_state[f"me_cacct_{i}"] = r.get("Account") or manual_entry.DEFAULT_ACCOUNT
-    st.session_state[f"me_cash_{i}"] = r.get("Cash")
+    st.session_state["me_vals"][f"cash_{i}"] = r.get("Cash")
     st.session_state["me_cash_ids"].append(i)
     st.session_state.pop("me_review", None)
 
@@ -2391,10 +2419,12 @@ def _manual_remove(kind, i):
 
 def _manual_form_rows():
     ss = st.session_state
+    v = ss["me_vals"]
     holdings = [{"Account": ss.get(f"me_acct_{i}"), "Symbol": ss.get(f"me_sym_{i}"),
-                 "Shares": ss.get(f"me_qty_{i}"), "Total cost": ss.get(f"me_cost_{i}"),
-                 "Type": ss.get(f"me_type_{i}")} for i in ss["me_ids"]]
-    cash = [{"Account": ss.get(f"me_cacct_{i}"), "Cash": ss.get(f"me_cash_{i}")}
+                 "Shares": v.get(f"qty_{i}"), "Total cost": v.get(f"cost_{i}"),
+                 "Percent": v.get(f"pct_{i}"), "Type": ss.get(f"me_type_{i}")}
+                for i in ss["me_ids"]]
+    cash = [{"Account": ss.get(f"me_cacct_{i}"), "Cash": v.get(f"cash_{i}")}
             for i in ss["me_cash_ids"]]
     return holdings, cash
 
@@ -2404,12 +2434,12 @@ def _manual_clear():
         del st.session_state[k]
 
 
-def _manual_save(meta, rows, totals, txns):
+def _manual_save(meta, rows, totals, txns, source):
     """Write a reviewed hand entry: the snapshot (portfolio.write_snapshot, the
     same save an import uses) and the day's inferred buys and sells."""
     conn = connect(DB)
     try:
-        write_snapshot(conn, USER_ID, meta, rows, totals, manual_entry.SOURCE)
+        write_snapshot(conn, USER_ID, meta, rows, totals, source)
         conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ?",
                      (meta["snapshot_date"], USER_ID))
         for tx in txns:
@@ -2430,41 +2460,64 @@ def _manual_save(meta, rows, totals, txns):
 
 
 @st.dialog("Enter holdings by hand", width="large")
-def _manual_dialog(current_positions, current_cash):
-    """Type in holdings (no file needed); saved as today's snapshot, like an import."""
-    _manual_rows_init(current_positions, current_cash)
+def _manual_dialog(current_positions, current_cash, current_source=None):
+    """Type in holdings (no file needed); saved as today's snapshot, like an import.
+    Shares mode records real holdings; Percentages mode records only each
+    holding's share of a pretend total."""
+    _manual_rows_init(current_positions, current_cash, current_source)
     ss = st.session_state
-    st.caption("For any brokerage, or no file at all. Add each holding - its value comes from "
-               "today's price. Saving records today's snapshot; to update later, open this "
-               "again and change what's different.")
+    st.segmented_control("How to enter them", ["Shares", "Percentages"], key="me_mode",
+                         required=True, on_change=lambda: ss.pop("me_review", None))
+    pct_mode = ss.get("me_mode") == "Percentages"
+    if pct_mode:
+        st.caption("No real amounts: give each holding's share of the portfolio, and the app "
+                   "works with a pretend total. Allocation, the stock / bond mix, risk and "
+                   "projections all work; gains are tracked from today.")
+    else:
+        st.caption("For any brokerage, or no file at all. Add each holding - its value comes "
+                   "from today's price. Saving records today's snapshot; to update later, "
+                   "open this again and change what's different.")
     types = list(manual_entry.TYPES)
     for i in list(ss["me_ids"]):
         with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
             st.text_input("Account", key=f"me_acct_{i}", width=150)
             st.text_input("Symbol", key=f"me_sym_{i}", width=100, placeholder="VTI")
-            st.number_input("Shares", key=f"me_qty_{i}", min_value=0.0, step=1.0,
-                            format="%.4f", width=130)
-            st.number_input("Total cost", key=f"me_cost_{i}", min_value=0.0, step=100.0,
-                            format="%.2f", width=140,
-                            help="What you paid in total (optional) - for gain and loss.")
+            if pct_mode:
+                _manual_number("% of portfolio", f"pct_{i}", max_value=100.0, step=5.0,
+                               format="%.1f", width=150)
+            else:
+                _manual_number("Shares", f"qty_{i}", step=1.0, format="%.4f", width=130)
+                _manual_number("Total cost", f"cost_{i}", step=100.0, format="%.2f", width=140,
+                               help="What you paid in total (optional) - for gain and loss.")
             st.selectbox("Type", types, key=f"me_type_{i}", width=130)
             st.button(":material/close:", key=f"me_del_{i}", type="tertiary",
                       on_click=_manual_remove, args=("me_ids", i), help="Remove this row")
     st.button(":material/add: Add another holding", key="me_add", type="tertiary",
               on_click=_manual_add_row)
-    st.markdown("**Cash** (optional)")
-    for i in list(ss["me_cash_ids"]):
-        with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
-            st.text_input("Account", key=f"me_cacct_{i}", width=150)
-            st.number_input("Cash", key=f"me_cash_{i}", min_value=0.0, step=100.0,
-                            format="%.2f", width=160)
-            st.button(":material/close:", key=f"me_cdel_{i}", type="tertiary",
-                      on_click=_manual_remove, args=("me_cash_ids", i), help="Remove")
-    st.button(":material/add: Add cash for another account", key="me_add_cash",
-              type="tertiary", on_click=_manual_add_cash)
+    if pct_mode:
+        with st.container(horizontal=True, gap="small"):
+            _manual_number("Cash %", "cash_pct", max_value=100.0, step=5.0, format="%.1f",
+                           width=150)
+            _manual_number("Pretend total", "total", min_value=1.0, step=1000.0, format="%.0f",
+                           width=180, help="Any amount - it only sets the scale of the numbers "
+                                           "shown.")
+    else:
+        st.markdown("**Cash** (optional)")
+        for i in list(ss["me_cash_ids"]):
+            with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
+                st.text_input("Account", key=f"me_cacct_{i}", width=150)
+                _manual_number("Cash", f"cash_{i}", step=100.0, format="%.2f", width=160)
+                st.button(":material/close:", key=f"me_cdel_{i}", type="tertiary",
+                          on_click=_manual_remove, args=("me_cash_ids", i), help="Remove")
+        st.button(":material/add: Add cash for another account", key="me_add_cash",
+                  type="tertiary", on_click=_manual_add_cash)
 
     holdings, cash_rows = _manual_form_rows()
-    clean, cash, errors = manual_entry.validate(holdings, cash_rows)
+    if pct_mode:
+        clean, cash_pct, errors = manual_entry.validate_weights(
+            holdings, ss["me_vals"].get("cash_pct"), ss["me_vals"].get("total"))
+    else:
+        clean, cash, errors = manual_entry.validate(holdings, cash_rows)
     if st.button("Look up prices and review", type="primary", key="me_review_btn"):
         if errors:
             ss.pop("me_review", None)
@@ -2476,7 +2529,9 @@ def _manual_dialog(current_positions, current_cash):
                     [h["symbol"] for h in clean],
                     finnhub_quote=manual_entry.finnhub_price(resolve_key(None, ENV_PATH)),
                     yahoo_info=manual_entry.yahoo_price_and_name, known_names=known)
-            ss["me_review"] = manual_entry.build(clean, cash, found)
+            ss["me_review"] = (manual_entry.build_weights(clean, cash_pct,
+                                                          ss["me_vals"]["total"], found)
+                               if pct_mode else manual_entry.build(clean, cash, found))
     review = ss.get("me_review")
     if not review:
         return
@@ -2486,8 +2541,9 @@ def _manual_dialog(current_positions, current_cash):
         return
     st.dataframe(pd.DataFrame([{
         "Account": r["account"], "Symbol": r["symbol"], "Name": r["description"] or "",
-        "Shares": r["quantity"], "Value": fmt_money(r["market_value"]),
-        "Total cost": fmt_money(r["cost_basis"]) if r["cost_basis"] is not None else ""}
+        "Shares": round(r["quantity"], 4), "Value": fmt_money(r["market_value"]),
+        **({} if pct_mode else {"Total cost": fmt_money(r["cost_basis"])
+                                if r["cost_basis"] is not None else ""})}
         for r in rows]), hide_index=True, width="stretch")
     total = sum(r["market_value"] for r in rows) + sum(t["cash_value"] or 0 for t in totals.values())
     conn = connect(DB)
@@ -2501,14 +2557,18 @@ def _manual_dialog(current_positions, current_cash):
             (base_date, USER_ID))] if base_date else []
     finally:
         conn.close()
+    source = manual_entry.PCT_SOURCE if pct_mode else manual_entry.SOURCE
     d = diff_positions(base_rows, rows)
-    txns = synthesize_transactions(d, meta["snapshot_date"], manual_entry.SOURCE)
-    _md(f"Total **{fmt_money(total)}** today · {len(d['new'])} new, "
-        f"{len(d['increased']) + len(d['decreased'])} changed, {len(d['closed'])} removed "
-        f"since {_fmt_date(base_date) if base_date else 'nothing yet'}.")
+    # a pretend portfolio has no real buys and sells to record
+    txns = [] if pct_mode else synthesize_transactions(d, meta["snapshot_date"], source)
+    _md(f"Total **{fmt_money(total)}**"
+        + (" (pretend)" if pct_mode else " today")
+        + f" · {len(d['new'])} new, {len(d['increased']) + len(d['decreased'])} changed, "
+          f"{len(d['closed'])} removed since "
+          f"{_fmt_date(base_date) if base_date else 'nothing yet'}.")
     if st.button("Save holdings", type="primary", key="me_save"):
         try:
-            _manual_save(meta, rows, totals, txns)
+            _manual_save(meta, rows, totals, txns, source)
         except DBError as exc:
             st.error(f"Saving failed, nothing was changed: {exc}")
         else:
@@ -2517,6 +2577,27 @@ def _manual_dialog(current_positions, current_cash):
             _manual_clear()
             _after_import()
             st.rerun()
+
+
+def _load_sample():
+    c = connect(DB)
+    try:
+        sample_data.load(c, USER_ID)
+    finally:
+        c.close()
+    st.session_state["import_flash"] = ("Loaded an example portfolio - explore freely. Clear it "
+                                        "any time from the banner at the top.")
+    _after_import()
+
+
+def _clear_sample():
+    c = connect(DB)
+    try:
+        sample_data.clear(c, USER_ID)
+    finally:
+        c.close()
+    st.session_state["import_flash"] = "Example portfolio removed."
+    _after_import()
 
 
 def _toggle_hide():
@@ -2538,7 +2619,7 @@ def _page_header(title, *, data=True):
                                              help="Enter or update holdings by hand - for any "
                                                   "brokerage, no file needed"):
             _manual_clear()  # start from the latest snapshot
-            _manual_dialog(positions, cash_by_account)
+            _manual_dialog(positions, cash_by_account, SNAPSHOT_SOURCE)
         st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
                   key="pt_hide", type="tertiary", on_click=_toggle_hide,
                   help="Show amounts" if _hidden() else "Hide amounts - mask every dollar and "
@@ -2561,7 +2642,19 @@ def _page_header(title, *, data=True):
                 prices += f" ({n_live} of {len(positions)} priced)"
         else:
             prices = "No live prices yet"
-        st.html(f"<div class='pt-status'>{prices} · Statement from {_fmt_date(snapshot)}</div>")
+        _what = {manual_entry.SOURCE: "Entered by hand", manual_entry.PCT_SOURCE: "Percentages",
+                 SAMPLE_SOURCE: "Example portfolio"}.get(SNAPSHOT_SOURCE, "Statement")
+        st.html(f"<div class='pt-status'>{prices} · {_what} from {_fmt_date(snapshot)}</div>")
+        if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
+            with st.container(border=True, horizontal=True, vertical_alignment="center"):
+                st.markdown(":material/science: **This is an example portfolio** - made-up "
+                            "holdings to explore with. It's removed as soon as you import or "
+                            "enter your own.", width="stretch")
+                if CAN_IMPORT:
+                    st.button("Remove example", key="pt_clear_sample", on_click=_clear_sample)
+        elif SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE:
+            st.caption(":material/percent: A percentages portfolio - dollar amounts are pretend, "
+                       "scaled to the total you chose. Change it with the ✎ icon above.")
 
     # the result of a refresh / sync / import that happened just before the rerun
     _msg = st.session_state.pop("refresh_msg", None)
@@ -2598,6 +2691,12 @@ if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
 snapshot, positions, cash_by_account, quotes = load()
+_src_conn = connect(DB)
+try:
+    # an import, a hand entry, a percentages portfolio or the example portfolio
+    SNAPSHOT_SOURCE = snapshot_source(_src_conn, USER_ID, snapshot)
+finally:
+    _src_conn.close()
 if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor notes"):
     # Helping brand-new investors plan a first portfolio is a core use of the
     # assistant, and a goal can be set before there's anything invested, so
@@ -2645,20 +2744,20 @@ if not positions:
         st.button("Start here", key="onboard_get_started", type="primary", on_click=_go,
                   args=("Get started",))
     with st.container(horizontal=True, vertical_alignment="center"):
-        st.markdown("Not at Schwab, or no file handy?", width="stretch")
-        if st.button("Enter holdings by hand", key="onboard_manual"):
+        st.markdown("No file, or rather not share your real numbers?", width="stretch")
+        if st.button("Enter holdings by hand", key="onboard_manual",
+                     help="Shares from any brokerage - or just percentages, no real amounts."):
             _manual_clear()
             _manual_dialog([], {})
+        st.button("Try it with example data", key="onboard_sample", on_click=_load_sample,
+                  help="A made-up portfolio to explore with. Removed when you add your own.")
     up = st.file_uploader("Positions export (.csv)", type=["csv"], key="onboard_csv_upload")
     if up is not None:
-        imports_dir = os.path.join(HERE, "imports", str(USER_ID))
-        os.makedirs(imports_dir, exist_ok=True)
-        src_path = os.path.join(imports_dir, up.name)
-        with open(src_path, "wb") as fh:
-            fh.write(up.getbuffer())
         _conn = connect(DB)
         try:
-            info = import_csv(_conn, src_path, USER_ID, _anthropic_key())
+            with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
+                info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),
+                                  source_name=upload_label(up.name))
         except DBError as exc:
             st.error(f"Import failed: {exc}")
         except SystemExit as exc:
@@ -2772,16 +2871,16 @@ def _import_dialog():
         placeholder="C:\\Users\\you\\Downloads\\All-Accounts-Positions-....csv",
     ).strip().strip('"')
 
-    src_path = None
     if up is not None:
-        imports_dir = os.path.join(HERE, "imports", str(USER_ID))
-        os.makedirs(imports_dir, exist_ok=True)
-        src_path = os.path.join(imports_dir, up.name)
-        with open(src_path, "wb") as fh:
-            fh.write(up.getbuffer())
+        with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
+            _import_preview(src_path, upload_label(up.name))
     elif path_in:
-        src_path = path_in
+        _import_preview(path_in, os.path.abspath(path_in))
 
+
+def _import_preview(src_path, source_name):
+    """The import dialog's preview and confirm, for a file at `src_path`;
+    `source_name` is what the database records as its source."""
     if src_path and not os.path.isfile(src_path):
         st.error(f"No file at: {src_path}")
     elif src_path:
@@ -2852,7 +2951,7 @@ def _import_dialog():
                                                     "old_qty", "old_mv"]),
                                  hide_index=True, width="stretch")
 
-                txns = synthesize_transactions(d, file_date, os.path.abspath(src_path))
+                txns = synthesize_transactions(d, file_date, source_name)
                 st.caption(
                     f"On confirm: positions + account totals for **{file_date}** are written, "
                     f"and **{len(txns)}** transaction row(s) inferred from the quantity deltas "
@@ -2861,7 +2960,8 @@ def _import_dialog():
 
                 if st.button("Confirm import", type="primary", key="csv_confirm"):
                     try:
-                        info = import_csv(_conn, src_path, USER_ID, _anthropic_key())
+                        info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),
+                                          source_name=source_name)
                         # Replace-by-date: this date's inferred transactions are
                         # rewritten from the new file's diff.
                         _conn.execute(
@@ -2898,9 +2998,14 @@ def _import_dialog():
 # fetch it once per visit so the charts fill in without a manual sync. Runs
 # before the header so the header's one-shot messages survive its rerun.
 _covered, _missing = perf.holdings_coverage(DB, USER_ID)
-if PAGE == "Dashboard" and _missing and not st.session_state.get("auto_backfilled"):
+# ...and holdings Yahoo was never asked to describe (what a fund holds -
+# asset_classes.py). quote_type is None until asked, "" if Yahoo had nothing.
+_undescribed = sorted({p["symbol"] for p in positions
+                       if (sec_info.get(p["symbol"]) or {}).get("quote_type") is None}
+                      - set(_missing))
+if PAGE == "Dashboard" and (_missing or _undescribed)         and not st.session_state.get("auto_backfilled"):
     st.session_state["auto_backfilled"] = True
-    _sync_history(_missing, quick=True)
+    _sync_history(sorted(set(_missing) | set(_undescribed)), quick=True)
 
 _page_header(PAGE)
 hide_amounts = st.session_state["hide_amounts"]

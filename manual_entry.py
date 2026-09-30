@@ -142,6 +142,87 @@ def build(holdings: list[dict], cash_by_account: dict, found: dict, *,
     return meta, rows, totals, errors
 
 
+# ---- percentages only ------------------------------------------------------ #
+# For people who'd rather not enter real amounts: each holding's share of the
+# portfolio, against a pretend total. Shares are worked out from today's
+# price, and the cost is set to today's value, so gains track from today.
+PCT_SOURCE = "percentages"
+DEFAULT_TOTAL = 10_000.0
+
+
+def prefill_weights(positions: list[dict], cash_by_account: dict) -> tuple[list[dict], float]:
+    """Percent rows (and a cash %) from a snapshot's values."""
+    cash = sum(v or 0.0 for v in cash_by_account.values())
+    total = sum(p.get("market_value") or 0.0 for p in positions) + cash
+    rows = [{"Account": p.get("account") or DEFAULT_ACCOUNT, "Symbol": p.get("symbol"),
+             "Percent": round((p.get("market_value") or 0.0) / total * 100, 1) if total else None,
+             "Type": type_label(p.get("asset_type"))}
+            for p in sorted(positions, key=lambda p: -(p.get("market_value") or 0.0))]
+    return rows, (round(cash / total * 100, 1) if total else 0.0)
+
+
+def validate_weights(rows: list[dict], cash_pct, total) -> tuple[list[dict], float, list[str]]:
+    """Clean percent rows: (holdings with "weight", cash %, errors). The
+    percentages and cash must add up to 100."""
+    errors, out, seen = [], [], set()
+    for i, r in enumerate(rows, start=1):
+        sym = str(r.get("Symbol") or "").strip().upper()
+        pct = _num(r.get("Percent"))
+        acct = str(r.get("Account") or "").strip() or DEFAULT_ACCOUNT
+        if not sym and pct is None:
+            continue
+        where = f"Row {i}" + (f" ({sym})" if sym else "")
+        if not sym:
+            errors.append(f"{where}: add a symbol.")
+        elif not all(ch.isalnum() or ch in ".-/^" for ch in sym) or len(sym) > 12:
+            errors.append(f"{where}: '{sym}' doesn't look like a ticker symbol.")
+        if pct in (None, "bad") or (pct != "bad" and not 0 < pct <= 100):
+            errors.append(f"{where}: enter a percentage between 0 and 100.")
+        if (acct, sym) in seen:
+            errors.append(f"{where}: {sym} is listed twice in {acct} - combine them into one row.")
+        seen.add((acct, sym))
+        out.append({"account": acct, "symbol": sym, "weight": pct if pct != "bad" else 0.0,
+                    "asset_type": TYPES.get(r.get("Type"), TYPES["Other"])})
+    cash = _num(cash_pct)
+    if cash == "bad" or (cash is not None and not 0 <= cash <= 100):
+        errors.append("Cash should be a percentage between 0 and 100, or blank.")
+        cash = 0.0
+    cash = cash or 0.0
+    tot = _num(total)
+    if tot in (None, "bad") or tot <= 0:
+        errors.append("Enter a pretend total above 0.")
+    if not out:
+        errors.append("Add at least one holding.")
+    elif not errors:
+        added = sum(h["weight"] for h in out) + cash
+        if abs(added - 100) > 0.5:
+            errors.append(f"The percentages add up to {added:g}% - make them total 100%.")
+    return out, cash, errors
+
+
+def build_weights(holdings: list[dict], cash_pct: float, total: float, found: dict, *,
+                  today: date | None = None) -> tuple[dict, list[dict], dict, list[str]]:
+    """Like build(), from percentages of a pretend `total`."""
+    shares = []
+    for h in holdings:
+        price = (found.get(h["symbol"]) or {}).get("price")
+        value = round(total * h["weight"] / 100, 2)
+        shares.append({**h, "quantity": round(value / price, 6) if price else 0.0,
+                       "cost_basis": value})
+    meta, rows, totals, errors = build(shares, {}, found, today=today)
+    for r, h in zip(rows, shares):
+        r["market_value"] = h["cost_basis"]   # exactly the chosen share of the total
+        r["reported_gain"], r["reported_gain_pct"] = 0.0, 0.0
+    if cash_pct:
+        acct = holdings[0]["account"] if holdings else DEFAULT_ACCOUNT
+        totals.setdefault(acct, {k: None for k in ("cash_value", "reported_cost_basis",
+                                                   "reported_market_value", "reported_gain",
+                                                   "reported_gain_pct")})
+        totals[acct]["cash_value"] = round(total * cash_pct / 100, 2)
+    meta["as_of_text"] = f"Percentages of a pretend {total:,.0f}"
+    return meta, rows, totals, errors
+
+
 # ---- the real price sources ------------------------------------------------ #
 def finnhub_price(key: str | None):
     """A finnhub_quote callable for lookup(), or None without a key."""

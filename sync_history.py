@@ -165,6 +165,8 @@ def fetch_info(ticker: str) -> dict:
     for col, key in _INFO_KEYS.items():
         v = raw.get(key)
         out[col] = v if v not in ("", "Infinity", "-Infinity") else None
+    if raw and out.get("quote_type") is None:
+        out["quote_type"] = ""  # asked, and Yahoo has no type for it (None = never asked)
     out.update(fetch_fund_split(ticker) if out.get("quote_type") in _FUND_TYPES
                else dict.fromkeys(_FUND_SPLIT_KEYS))
     return out

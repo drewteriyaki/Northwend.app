@@ -12,11 +12,14 @@ Standard library only (sqlite3, csv, argparse). No network calls.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import os
 import re
+import shutil
 import sqlite3
 import sys
+import tempfile
 import threading
 from datetime import date
 
@@ -450,6 +453,34 @@ POSITION_COLS = [
 ]
 
 
+# snapshots.source_file of the example portfolio (sample_data.py)
+SAMPLE_SOURCE = "sample portfolio"
+
+
+def clear_sample(conn, user_id: int) -> None:
+    """Delete this account's example-portfolio snapshots, and the visits
+    logged while it was showing (so "since your last visit" never compares
+    real holdings with made-up ones). No commit - it runs inside the
+    caller's transaction."""
+    since = conn.execute("SELECT MIN(imported_at) m FROM snapshots WHERE source_file = ? "
+                         "AND user_id = ?", (SAMPLE_SOURCE, user_id)).fetchone()["m"]
+    if since:  # imported_at is 'YYYY-MM-DD HH:MM:SS', logged_at ISO with a T
+        conn.execute("DELETE FROM value_log WHERE user_id = ? AND logged_at >= ?",
+                     (user_id, str(since).replace(" ", "T")))
+    for table in ("positions", "account_totals", "snapshots"):
+        conn.execute(f"DELETE FROM {table} WHERE source_file = ? AND user_id = ?",
+                     (SAMPLE_SOURCE, user_id))
+
+
+def snapshot_source(conn, user_id: int, snapshot_date: str | None) -> str | None:
+    """Where a snapshot came from (its source_file), or None."""
+    if not snapshot_date:
+        return None
+    row = conn.execute("SELECT source_file FROM snapshots WHERE snapshot_date = ? AND user_id = ? "
+                       "ORDER BY imported_at DESC LIMIT 1", (snapshot_date, user_id)).fetchone()
+    return row["source_file"] if row else None
+
+
 def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dict,
                    src: str) -> None:
     """Save one snapshot for `user_id`, in one transaction: replace any
@@ -457,9 +488,15 @@ def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dic
     then write its positions and account totals. `meta`, `rows` and `totals`
     are parse_csv()'s shapes; `src` names where it came from (the CSV's path,
     or manual_entry.SOURCE). Shared by import_csv() and hand entry
-    (manual_entry.py)."""
+    (manual_entry.py). Full account numbers in account names are cut to
+    their last 3 digits first (accounts.mask_number), whatever the source."""
+    from accounts import mask_number
+    rows = [{**r, "account": mask_number(r.get("account"))} for r in rows]
+    totals = {mask_number(a): t for a, t in totals.items()}
     snapshot_date = meta["snapshot_date"]
     with conn:
+        if src != SAMPLE_SOURCE:
+            clear_sample(conn, user_id)  # real holdings replace the example portfolio
         # Replace-by-date: drop any prior import of this date (whatever its file),
         # then the rows below re-establish it from `src`. Scoped to user_id so
         # this never touches another user's snapshot for the same date.
@@ -500,8 +537,30 @@ def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dic
         )
 
 
+@contextlib.contextmanager
+def temp_upload(filename: str, data):
+    """An uploaded file as a path, for the length of the `with` block only.
+    Uploads are never kept: the bytes go to a private temporary folder that
+    is removed afterwards, even if the block fails or the page reruns."""
+    folder = tempfile.mkdtemp(prefix="pt_upload_")
+    path = os.path.join(folder, os.path.basename(filename or "") or "upload.csv")
+    try:
+        with open(path, "wb") as fh:
+            fh.write(data)
+        yield path
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def upload_label(filename: str) -> str:
+    """What snapshots.source_file records for an uploaded file. Uploads are
+    read from a temporary copy that is deleted afterwards, so the source is
+    named, not a path on the server."""
+    return f"upload: {os.path.basename(filename or '') or 'file.csv'}"
+
+
 def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
-                api_key: str | None = None) -> dict:
+                api_key: str | None = None, *, source_name: str | None = None) -> dict:
     """Parse a Schwab Positions export and write it into an open connection,
     scoped to `user_id`.
 
@@ -518,25 +577,32 @@ def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
     AI-assisted fallback for a file whose headers don't match the strict
     Schwab shape - see ai_parse.py. None (the default) means exactly
     today's behavior: strict parsing only.
+
+    `source_name` is what's recorded as the snapshot's source (default: the
+    file's absolute path); an upload passes upload_label(), since its
+    temporary copy is deleted right after.
     """
-    src = os.path.abspath(csv_path)
-    if not os.path.isfile(src):
-        raise FileNotFoundError(src)
+    path = os.path.abspath(csv_path)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
 
     parse_info: dict = {}
-    meta, rows, totals = parse_csv_smart(src, api_key, parse_info)
+    meta, rows, totals = parse_csv_smart(path, api_key, parse_info)
     snapshot_date = meta["snapshot_date"]
+    src = source_name or path
 
     write_snapshot(conn, user_id, meta, rows, totals, src)
 
-    accounts = sorted({r["account"] for r in rows})
+    from accounts import mask_number  # the names as saved
+    saved = [mask_number(r["account"]) for r in rows]
+    accounts = sorted(set(saved))
     return {
         "snapshot_date": snapshot_date,
         "source_file": src,
         "as_of_text": meta["as_of_text"],
         "n_positions": len(rows),
         "accounts": accounts,
-        "per_account": {a: sum(1 for r in rows if r["account"] == a) for a in accounts},
+        "per_account": {a: saved.count(a) for a in accounts},
         "ai_assisted": parse_info.get("ai_assisted", False),
     }
 

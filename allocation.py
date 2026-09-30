@@ -86,7 +86,9 @@ def allocate(positions, cash_by_account: dict | None = None, splits: dict | None
 
     return {
         "portfolio_value": round(portfolio_value, 2),
-        "by_asset_class": _rows({k: v for k, v in by_class.items() if round(v, 2)},
+        # a class under 0.05% (a fund's leftover slivers) isn't worth a "0.0%" row
+        "by_asset_class": _rows({k: v for k, v in by_class.items()
+                                 if portfolio_value and v / portfolio_value >= 0.0005},
                                 portfolio_value),
         "by_asset_type": _rows(by_type, portfolio_value),
         "by_account": _rows(by_acct, portfolio_value),

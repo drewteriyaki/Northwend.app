@@ -1990,6 +1990,100 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class PrivacyTests(TempDBMixin, unittest.TestCase):
+    """Roadmap 9a: keep less than people share, and let them share nothing."""
+
+    def test_uploads_leave_no_file_behind(self):
+        with portfolio.temp_upload("../../evil/name.csv", b"a,b\n") as path:
+            self.assertTrue(os.path.isfile(path))
+            self.assertEqual(os.path.basename(path), "name.csv")  # no path tricks
+            folder = os.path.dirname(path)
+        self.assertFalse(os.path.exists(folder))
+        with self.assertRaises(RuntimeError):
+            with portfolio.temp_upload("x.csv", b"1") as path:
+                raise RuntimeError("import failed")
+        self.assertFalse(os.path.exists(path))                     # gone on failure too
+        self.assertEqual(portfolio.upload_label("C:/Users/me/Downloads/pos.csv"), "upload: pos.csv")
+
+    def test_account_numbers_are_cut_to_three_digits(self):
+        cases = {"Individual ...641": "Individual ...641", "Individual Z12345678": "Individual ...678",
+                 "Roth IRA 1234-5678": "Roth IRA ...678", "Brokerage 2024": "Brokerage 2024",
+                 "Joint 987 654 3210": "Joint ...210", "My account": "My account", None: None}
+        for raw, want in cases.items():
+            self.assertEqual(accounts.mask_number(raw), want, raw)
+
+    def test_saved_snapshots_never_hold_a_full_account_number(self):
+        import manual_entry as me
+        clean, cash, _ = me.validate([{"Account": "Fidelity Z12345678", "Symbol": "VTI",
+                                       "Shares": 1}], [{"Account": "Fidelity Z12345678",
+                                                        "Cash": 5}])
+        meta, rows, totals, _ = me.build(clean, cash, {"VTI": {"price": 100.0}})
+        conn = portfolio.connect(self.db)
+        portfolio.write_snapshot(conn, self.user_id, meta, rows, totals, me.SOURCE)
+        stored = {r["account"] for r in conn.execute("SELECT account FROM positions")} | \
+                 {r["account"] for r in conn.execute("SELECT account FROM account_totals")}
+        self.assertEqual(stored, {"Fidelity ...678"})
+        conn.close()
+
+    def test_import_records_the_upload_name_not_a_path(self):
+        conn = portfolio.connect(self.db)
+        with open(FIXTURE, "rb") as fh:
+            data = fh.read()
+        with portfolio.temp_upload("positions.csv", data) as path:
+            info = portfolio.import_csv(conn, path, self.user_id,
+                                        source_name=portfolio.upload_label("positions.csv"))
+        self.assertEqual(info["source_file"], "upload: positions.csv")
+        self.assertEqual({r["source_file"] for r in conn.execute("SELECT source_file FROM snapshots")},
+                         {"upload: positions.csv"})
+        conn.close()
+
+    def test_example_portfolio_loads_and_real_holdings_replace_it(self):
+        import manual_entry as me
+        import sample_data
+        conn = portfolio.connect(self.db)
+        n = sample_data.load(conn, self.user_id, today=date(2026, 9, 28))
+        snap = update_prices.latest_snapshot(conn, self.user_id)
+        self.assertEqual(portfolio.snapshot_source(conn, self.user_id, snap), portfolio.SAMPLE_SOURCE)
+        self.assertEqual(conn.execute("SELECT COUNT(*) n FROM positions").fetchone()["n"], n)
+        clean, cash, _ = me.validate([{"Symbol": "VTI", "Shares": 2}], [])
+        meta, rows, totals, _ = me.build(clean, cash, {"VTI": {"price": 100.0}},
+                                         today=date(2026, 9, 29))
+        portfolio.write_snapshot(conn, self.user_id, meta, rows, totals, me.SOURCE)
+        self.assertEqual([r["symbol"] for r in conn.execute("SELECT symbol FROM positions")], ["VTI"])
+        self.assertEqual({r["source_file"] for r in conn.execute("SELECT source_file FROM snapshots")},
+                         {me.SOURCE})                               # the example is gone
+        sample_data.load(conn, self.user_id, today=date(2026, 9, 30))
+        perf.log_open(self.db, self.user_id, {"portfolio_value": 40000.0}, min_gap_sec=0)
+        sample_data.clear(conn, self.user_id)
+        self.assertIsNone(conn.execute("SELECT 1 FROM value_log WHERE portfolio_value = 40000"
+                                       ).fetchone())  # the example's visits go too
+        self.assertEqual(update_prices.latest_snapshot(conn, self.user_id), "2026-09-29")
+        conn.close()
+
+    def test_percentages_portfolio(self):
+        import manual_entry as me
+        rows = [{"Symbol": "VTI", "Percent": 60, "Type": "ETF"},
+                {"Symbol": "BND", "Percent": 30, "Type": "Bond"}]
+        clean, cash, errors = me.validate_weights(rows, 10, 10_000)
+        self.assertEqual(errors, [])
+        found = {"VTI": {"price": 300.0, "name": "VTI"}, "BND": {"price": 75.0, "name": "BND"}}
+        meta, out, totals, errors = me.build_weights(clean, cash, 10_000, found,
+                                                     today=date(2026, 9, 29))
+        self.assertEqual(errors, [])
+        self.assertEqual([(r["symbol"], r["market_value"], r["quantity"]) for r in out],
+                         [("VTI", 6000.0, 20.0), ("BND", 3000.0, 40.0)])
+        self.assertEqual([r["reported_gain"] for r in out], [0.0, 0.0])  # tracked from today
+        self.assertEqual(totals[me.DEFAULT_ACCOUNT]["cash_value"], 1000.0)
+        self.assertIn("add up to 95", me.validate_weights(rows, 5, 10_000)[2][0])
+        self.assertIn("pretend total", " ".join(me.validate_weights(rows, 10, 0)[2]))
+        back, cash_pct = me.prefill_weights(
+            [{"account": "A", "symbol": "VTI", "market_value": 6000.0, "asset_type": "Equity"},
+             {"account": "A", "symbol": "BND", "market_value": 3000.0, "asset_type": "Fixed Income"}],
+            {"A": 1000.0})
+        self.assertEqual([(r["Symbol"], r["Percent"]) for r in back], [("VTI", 60.0), ("BND", 30.0)])
+        self.assertEqual(cash_pct, 10.0)
+
+
 class ManualEntryTests(TempDBMixin, unittest.TestCase):
     ROWS = [{"Account": "Roth", "Symbol": " vti ", "Shares": 10, "Total cost": 2000.0,
              "Type": "ETF"},
@@ -2208,6 +2302,8 @@ class FetchFundSplitTests(unittest.TestCase):
         out, _ = self._fetch({"quoteType": "MUTUALFUND"}, fail=True)
         self.assertIsNone(out["bond_pct"])
         self.assertEqual(out["quote_type"], "MUTUALFUND")
+        out, calls = self._fetch({"trailingPegRatio": None})     # Yahoo doesn't know it
+        self.assertEqual((out["quote_type"], calls), ("", []))   # asked - don't keep asking
 
 
 class DisclosureTests(unittest.TestCase):

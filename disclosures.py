@@ -11,6 +11,10 @@ Each statement about data here must stay true to the code:
   sync_history.py -> Yahoo Finance).
 - Passwords: PBKDF2 with a per-user salt; stay-signed-in cookies hold a random
   token whose hash is stored (auth.py).
+- Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
+  account numbers cut to 3 digits on save (accounts.mask_number via
+  portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
+  manual_entry.PCT_SOURCE.
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -45,11 +49,17 @@ Consider talking to a licensed professional before making investment decisions.
 - **All investing involves risk,** including losing the money you put in.
 """),
     ("Your data", """
-- **What's stored:** the statements you or your advisor import (holdings,
-  balances and account names), your plan and goals, your investing-profile
-  answers, notes, and settings. On the hosted site this lives in a Postgres
-  database run by Neon (in the US), and the app runs on Streamlit Community
-  Cloud.
+- **What's stored:** the holdings you or your advisor import or enter
+  (symbols, shares, cost, value and account names), your plan and goals, your
+  investing-profile answers, notes, and settings. On the hosted site this lives
+  in a Postgres database run by Neon (in the US), and the app runs on
+  Streamlit Community Cloud.
+- **Less is kept than you share:** an uploaded file is read and then deleted -
+  the file itself is never kept - and any account number in an account name
+  is cut to its last 3 digits before it's saved.
+- **You don't have to share real numbers at all:** try the example portfolio,
+  or enter only percentages of a pretend total. Everything except real gains
+  and income works the same.
 - **Who can see it:** you, and - if your account is managed by an advisor -
   that advisor. Your advisor's notes about you are shown to you, except ones
   they mark private.

@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     snapshot_date TEXT    NOT NULL,              -- ISO date parsed from the export header, e.g. 2026-08-28
     as_of_text    TEXT,                          -- raw "as of ..." string from the file
-    source_file   TEXT    NOT NULL,              -- absolute path of the CSV that was imported
+    source_file   TEXT    NOT NULL,              -- the CSV's path, 'upload: <name>', 'manual entry', 'percentages' or 'sample portfolio'
     user_id       INTEGER NOT NULL,
     imported_at   TEXT    NOT NULL DEFAULT (datetime('now')),
     UNIQUE (snapshot_date, source_file, user_id)
