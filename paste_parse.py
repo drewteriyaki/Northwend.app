@@ -1,11 +1,14 @@
 """Read holdings out of text pasted from a brokerage's website.
 
 People select the positions table on their brokerage's site, copy it, and
-paste it. What arrives depends on the site: a tab-separated table with a
-header row, one cell per line, or a list someone typed ("VTI 10"). This
-module finds each holding's symbol and share count (or % of portfolio),
-plus cost when a header names that column, and cash. It keeps nothing else:
-names, prices, balances, gains and account numbers are dropped here.
+paste it. What arrives depends on the site:
+- a table with a header row (tab- or space-separated): read by the same
+  engine as uploaded CSVs (csv_import.py), so both share one list of column
+  names and one set of rules;
+- one cell per line, or a list someone typed ("VTI 10"): read here, from
+  each symbol line and the numbers after it.
+Either way only symbols, share counts, cost (or % of portfolio) and cash are
+kept; names, prices, balances, gains and account numbers are dropped.
 
 No AI and no network - it's plain text matching, so pasted text never
 leaves the app. Results fill the hand-entry review form (manual_entry.py),
@@ -16,36 +19,8 @@ from __future__ import annotations
 
 import re
 
-# ticker-shaped: 1-5 capitals, optional class suffix (BRK.B, BF-B) or a coin's
-# Yahoo name (BTC-USD)
-_TICKER_RE = re.compile(r"^[A-Z]{1,5}(?:[.\-][A-Z]{1,2}|-USD)?$")
-# capitalised words a table shows that aren't tickers
-_NOT_TICKERS = {
-    "CASH", "TOTAL", "TOTALS", "USD", "ETF", "ETFS", "NA", "ACCT", "QTY", "PRICE", "VALUE",
-    "COST", "GAIN", "LOSS", "DAY", "TODAY", "SHARE", "SHARES", "BUY", "SELL", "HOLD", "NEW",
-    "ALL", "YTD", "MTD", "AVG", "MKT", "IRA", "ROTH", "SEP", "FUND", "FUNDS", "INC", "CORP",
-    "LLC", "LTD", "TRUST", "CLASS", "AND", "THE", "OF", "FOR", "MY", "DIV", "EST", "APR", "APY",
-    "USA", "US", "NAME", "TYPE", "VIEW", "MORE", "LESS", "SORT", "EDIT", "TRADE", "OPEN",
-    "CLOSE", "HIGH", "LOW", "LAST", "CHANGE", "CHG", "PCT", "YIELD", "ACCOUNT", "SYMBOL",
-    "PENDING", "MARGIN", "CORE", "SWEEP", "OTHER", "STOCK", "STOCKS", "BOND", "BONDS", "OPTION",
-    "OPTIONS", "SPDR", "PLC", "NV", "SA", "AG", "CO", "LP", "ADR", "ETN", "CEF", "REIT", "NYSE",
-    "AMEX", "OTC", "IPO", "EPS", "PE", "N", "A", "I", "Y",
-}
-
-# header cell text -> field (matched lowercase, punctuation-insensitive)
-_HEADERS = {
-    "symbol": ("symbol", "ticker", "symbol/cusip", "sym"),
-    "quantity": ("quantity", "qty", "shares", "shares owned", "units", "quantity/shares",
-                 "share count", "position", "qty (shares)"),
-    "cost": ("cost basis", "cost basis total", "total cost", "cost", "total cost basis",
-             "cost basis ($)", "book value"),
-    # per share - multiplied by the share count
-    "avg_cost": ("average cost", "avg cost", "avg. cost", "average price", "avg price",
-                 "cost per share", "cost/share", "unit cost", "average cost basis"),
-    "percent": ("% of account", "% of portfolio", "percent", "weight", "allocation",
-                "% of holdings", "portfolio %", "% of acct", "% of total", "percent of account",
-                "% portfolio", "portfolio weight"),
-}
+import csv_import
+from csv_import import _is_ticker
 
 _NUM_RE = re.compile(r"^\(?[-+]?\$?\(?[-+]?\d[\d,]*(?:\.\d+)?\)?%?\)?$")
 _CASH_WORDS = ("cash", "money market", "sweep", "core position")
@@ -75,55 +50,6 @@ def _number(tok: str):
     if kind == "pct" and signed:
         kind = "change"
     return kind, (-v if neg else v)
-
-
-def _is_ticker(tok: str) -> bool:
-    return bool(_TICKER_RE.match(tok)) and tok not in _NOT_TICKERS
-
-
-def _field_of(cell: str):
-    c = re.sub(r"\s+", " ", cell.strip().lower().replace(" ", " "))
-    for field, names in _HEADERS.items():
-        if c in names:
-            return field
-    return None
-
-
-def _tabular(lines: list[str]) -> list[dict] | None:
-    """Rows from a table with a header row naming its columns, else None."""
-    for hi, line in enumerate(lines):
-        cells = _cells(line)
-        cols = {}
-        for i, c in enumerate(cells):
-            f = _field_of(c)
-            if f and f not in cols:
-                cols[f] = i
-        if "symbol" not in cols or not ({"quantity", "percent"} & set(cols)):
-            continue
-        rows = []
-        for line2 in lines[hi + 1:]:
-            cells2 = _cells(line2)
-            if len(cells2) <= cols["symbol"]:
-                continue
-            sym = cells2[cols["symbol"]].strip().upper().rstrip("*")
-            if not _is_ticker(sym):
-                continue
-
-            def val(field, kinds):
-                i = cols.get(field)
-                if i is None or i >= len(cells2):
-                    return None
-                n = _number(cells2[i])
-                return n[1] if n and n[0] in kinds else None
-            shares = val("quantity", ("plain", "dollar"))
-            cost, avg = val("cost", ("dollar", "plain")), val("avg_cost", ("dollar", "plain"))
-            if cost is None and avg is not None and shares:
-                cost = round(avg * shares, 2)
-            rows.append({"Symbol": sym, "Shares": shares, "Total cost": cost,
-                         "Percent": val("percent", ("pct", "plain"))})
-        if rows:
-            return rows
-    return None
 
 
 def _row_start(cells: list[str]) -> str | None:
@@ -192,7 +118,8 @@ def parse(text: str) -> dict:
     The same symbol twice (in two accounts) is combined."""
     lines = [ln.replace(" ", " ").rstrip() for ln in (text or "").replace("\r", "").split("\n")]
     lines = [ln for ln in lines if ln.strip()]
-    rows = _tabular(lines) or _scan(lines)
+    table = _as_table(lines)
+    rows = table["holdings"] if table else _scan(lines)
     merged: dict = {}
     for r in rows:
         if r["Shares"] is None and r["Percent"] is None:
@@ -207,5 +134,20 @@ def parse(text: str) -> dict:
     mode = "Shares" if with_shares or not holdings else "Percentages"
     if mode == "Shares":
         holdings = with_shares
-    return {"holdings": holdings, "cash": _cash(lines), "mode": mode,
+    cash = round(sum(table["cash"].values()), 2) or None if table else _cash(lines)
+    return {"holdings": holdings, "cash": cash, "mode": mode,
             "ignored_lines": max(0, len(lines) - len(holdings))}
+
+
+def _as_table(lines: list[str]) -> dict | None:
+    """The pasted text read as a table by the CSV engine - when it has a header
+    row the engine recognizes - else None (then it's read line by line)."""
+    rows = [_cells(line) for line in lines]
+    header_i, problem = csv_import.find_header(rows)
+    if header_i is None:
+        return None
+    mapping = csv_import.auto_mapping(rows[header_i])
+    if not csv_import.usable(mapping):
+        return None
+    found = csv_import.parse(rows, mapping)
+    return found if found["holdings"] else None

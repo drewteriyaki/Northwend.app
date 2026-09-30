@@ -6,7 +6,8 @@ Each statement about data here must stay true to the code:
 - AI Assistant / plan next steps: advisor.portfolio_summary() (weights only,
   no dollar amounts, share counts or account names), the profile answers,
   the chat, and the assistant's saved notes (advisor.system_prompt).
-- AI import fallback: the header row only (ai_parse.map_columns).
+- CSV column guess (only when asked): column names and cell kinds only
+  (csv_import.ai_mapping / sample_shapes).
 - Screenshots: opt-in, the images themselves (screenshot_read.read); only
   symbols / shares / cost / percent / cash survive screenshot_read.clean().
 - Market data: tickers only (update_prices.py / news.py -> Finnhub,
@@ -92,16 +93,18 @@ you're asked first. Crop them to just your holdings list. Only symbols, share
 counts and cost are taken from what it reads, and the images aren't saved.
 (Pasted text is different: the app reads it itself and nothing is sent.)
 
-If a statement file isn't in a format the app recognizes, it may send the file's
-**column-header row only** to work out which column is which. The values in the
-file are read by the app itself and are not sent.
+Uploaded files are read by the app itself. Only if a file's columns can't be
+matched and you press **Let AI guess the columns** is anything sent: the
+**column names and the kind of each cell** ("text", "number", "money") - never
+the values, holdings or account numbers in it.
 
 AI answers can be wrong or out of date. Check anything important before acting on it.
 """),
     ("Market data", """
 Prices, company details and news come from Finnhub and Yahoo Finance. Only ticker
-symbols are sent to them. Prices may be delayed or occasionally wrong, and the app
-updates them on a schedule during market hours - check your brokerage for exact
+symbols are sent to them. Prices update by themselves about every minute while the
+market is open (crypto around the clock, mutual funds hourly), but may be delayed
+(often by 15 minutes) or occasionally wrong - check your brokerage for exact
 figures before trading.
 """),
     ("Not affiliated", """

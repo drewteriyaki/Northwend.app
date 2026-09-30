@@ -30,7 +30,26 @@ import json
 import re
 from datetime import date, datetime, timezone
 
-from paste_parse import _is_ticker
+
+# ticker-shaped: 1-5 capitals, optional class suffix (BRK.B, BF-B) or a coin's
+# Yahoo name (BTC-USD)
+_TICKER_RE = re.compile(r"^[A-Z]{1,5}(?:[.\-][A-Z]{1,2}|-USD)?$")
+# capitalised words a table shows that aren't tickers
+_NOT_TICKERS = {
+    "CASH", "TOTAL", "TOTALS", "USD", "ETF", "ETFS", "NA", "ACCT", "QTY", "PRICE", "VALUE",
+    "COST", "GAIN", "LOSS", "DAY", "TODAY", "SHARE", "SHARES", "BUY", "SELL", "HOLD", "NEW",
+    "ALL", "YTD", "MTD", "AVG", "MKT", "IRA", "ROTH", "SEP", "FUND", "FUNDS", "INC", "CORP",
+    "LLC", "LTD", "TRUST", "CLASS", "AND", "THE", "OF", "FOR", "MY", "DIV", "EST", "APR", "APY",
+    "USA", "US", "NAME", "TYPE", "VIEW", "MORE", "LESS", "SORT", "EDIT", "TRADE", "OPEN",
+    "CLOSE", "HIGH", "LOW", "LAST", "CHANGE", "CHG", "PCT", "YIELD", "ACCOUNT", "SYMBOL",
+    "PENDING", "MARGIN", "CORE", "SWEEP", "OTHER", "STOCK", "STOCKS", "BOND", "BONDS", "OPTION",
+    "OPTIONS", "SPDR", "PLC", "NV", "SA", "AG", "CO", "LP", "ADR", "ETN", "CEF", "REIT", "NYSE",
+    "AMEX", "OTC", "IPO", "EPS", "PE", "N", "A", "I", "Y",
+}
+
+def _is_ticker(tok: str) -> bool:
+    return bool(_TICKER_RE.match(tok)) and tok not in _NOT_TICKERS
+
 
 # field -> header names, normalized by _norm() (lowercase, "%" -> "percent",
 # no $ ( ) # * . , and single spaces)
@@ -59,7 +78,31 @@ FIELDS = {
                        "account num"),
     "description": ("description", "name", "investment name", "security description", "security",
                     "security name", "fund name"),
+    # optional extras, kept when a file has them (the Income page, alerts and
+    # holdings columns use them) - whichever brokerage it's from
+    "asset_type": ("asset type", "security type", "asset class", "investment type",
+                   "product type"),
+    "day_change_pct": ("day change percent", "today's gain/loss percent", "day's gain percent",
+                       "change percent", "day change", "today's change percent",
+                       "day's gain unrealized percent"),
+    "price_change_pct": ("price change percent", "price change"),
+    "reported_gain": ("gain", "gain/loss", "total gain", "gain dollar", "total gain/loss dollar",
+                      "unrealized gain/loss", "gain/loss dollar", "total gain/loss",
+                      "unrealized gain"),
+    "reported_gain_pct": ("gain percent", "total gain percent", "total gain/loss percent",
+                          "gain/loss percent", "unrealized gain/loss percent"),
+    "div_yield_pct": ("dividend yield percent", "dividend yield", "yield", "yield percent",
+                      "div yield", "div yield percent", "sec yield"),
+    "div_pay_date": ("dividend pay date", "pay date", "next pay date", "dividend date",
+                     "last dividend date"),
+    "next_earnings_date": ("next earnings date", "earnings date", "next earnings"),
+    "reinvest": ("reinvest?", "reinvest", "reinvest dividends", "drip", "reinvest dividends?"),
+    "reinvest_cap_gains": ("reinvest capital gains?", "reinvest capital gains",
+                           "reinvest cap gains"),
 }
+# rows that total a section or the file (their figures go to account totals)
+_TOTAL_ROWS = ("positions total", "account total", "total", "totals", "grand total",
+               "account totals")
 LABELS = {"symbol": "Symbol", "quantity": "Shares", "cost": "Total cost",
           "avg_cost": "Cost per share", "value": "Value", "percent": "% of portfolio",
           "account": "Account", "description": "Name"}
@@ -228,7 +271,15 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
         i = mapping.get(field)
         return row[i] if i is not None and i < len(row) else ""
 
-    section_account, holdings, cash, skipped = None, [], {}, 0
+    section_account, holdings, cash, totals, skipped = None, [], {}, {}, 0
+    # the first section's account name can sit just above the header
+    # ("Individual ...111", then the column names)
+    for above in reversed(rows[:max(header_i, 0)]):
+        filled = [c for c in above if c]
+        if filled:
+            if len(filled) == 1 and _looks_like_account(filled[0]):
+                section_account = filled[0]
+            break
     data_end, txn_start = header_i + 1, len(rows)
     for j in range(header_i + 1, len(rows)):
         row = rows[j]
@@ -240,9 +291,10 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
             break  # a transactions section follows the holdings (Vanguard)
         if [_norm(c) for c in row[:len(header)]] == [_norm(c) for c in header]:
             continue  # the header repeated for the next account
-        if len(filled) == 1 and len(row) < width or (len(filled) == 1 and not _num(filled[0])):
-            section_account = filled[0]  # an account heading line
-            continue
+        if len(filled) == 1 and not _num(filled[0]):
+            if _looks_like_account(filled[0]):
+                section_account = filled[0]  # an account heading line
+            continue  # a heading, note or footer line
         acct = cell(row, "account") or section_account or ""
         number = cell(row, "account_number")
         if number and number not in acct:
@@ -251,9 +303,17 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
         sym = raw_sym.upper().rstrip("*").strip()
         desc = cell(row, "description")
         value = _num(cell(row, "value"))
+        if _norm(raw_sym) in _TOTAL_ROWS or _norm(filled[0]) in _TOTAL_ROWS:
+            totals[acct] = {"reported_cost_basis": _num(cell(row, "cost")),
+                            "reported_market_value": value,
+                            "reported_gain": _num(cell(row, "reported_gain")),
+                            "reported_gain_pct": _num(cell(row, "reported_gain_pct"))}
+            continue
         is_cash = raw_sym.endswith("**") or sym in ("CASH", "CASH & CASH INVESTMENTS") or \
             any(w in (desc or raw_sym).lower() for w in _CASH_WORDS) and not _num(cell(row, "quantity"))
         if is_cash:
+            if value is None:  # a short cash line ("CASH   $512.33"): its last amount
+                value = next((_num(c) for c in reversed(filled) if "$" in c and _num(c)), None)
             if value:
                 cash[acct] = round(cash.get(acct, 0.0) + value, 2)
             data_end = j + 1
@@ -270,15 +330,86 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
         if qty is None and value is None and pct is None:
             skipped += 1
             continue
+        extras = {f: _text(cell(row, f)) for f in _TEXT_EXTRAS}
+        extras.update({f: _num(cell(row, f)) for f in _NUM_EXTRAS})
+        extras.update({f: _yesno(cell(row, f)) for f in _YESNO_EXTRAS})
         holdings.append({"Account": acct, "Symbol": sym, "Shares": qty, "Total cost": cost,
-                         "Value": value, "Percent": pct, "Name": desc or None})
+                         "Value": value, "Percent": pct, "Name": _text(desc), "extras": extras})
         data_end = j + 1
     with_shares = [h for h in holdings if h["Shares"]]
     mode = "Shares" if with_shares or not holdings else "Percentages"
     return {"holdings": with_shares if mode == "Shares" else holdings, "cash": cash,
+            "totals": totals,
             "snapshot_date": _snapshot_date(rows[:txn_start], max(header_i, 0), data_end,
                                             filename, today),
+            "as_of_text": _as_of(rows[:max(header_i, 0)]),
             "mode": mode, "skipped": skipped}
+
+
+_TEXT_EXTRAS = ("asset_type", "div_pay_date", "next_earnings_date")
+_NUM_EXTRAS = ("day_change_pct", "price_change_pct", "reported_gain", "reported_gain_pct",
+               "div_yield_pct")
+_YESNO_EXTRAS = ("reinvest", "reinvest_cap_gains")
+
+
+_ACCOUNT_WORDS = re.compile(
+    r"\b(individual|joint|ira|roth|brokerage|401 ?k|403 ?b|457|trust|custodial|hsa|sep|simple|"
+    r"rollover|traditional|taxable|retirement|margin|cash account|529|utma|ugma|account)\b", re.I)
+
+
+def _looks_like_account(line: str) -> bool:
+    """A single-cell line naming an account ("Individual ...111", "Roth IRA"),
+    not a title or a note ("View Summary - All Positions")."""
+    if re.search(r"\bas of\b", line, re.I) or len(line) > 60:
+        return False
+    return bool(re.search(r"\d{3}", line) or _ACCOUNT_WORDS.search(line))
+
+
+def _text(cell):
+    t = str(cell or "").strip()
+    return None if t.lower() in ("", "--", "-", "n/a", "na") else t
+
+
+def _yesno(cell):
+    t = str(cell or "").strip().lower()
+    return 1 if t in ("yes", "y", "true") else 0 if t in ("no", "n", "false") else None
+
+
+def _as_of(rows_above) -> str | None:
+    """The export's own "as of" title line, when it has one."""
+    for row in rows_above:
+        line = " ".join(c for c in row if c).strip()
+        if re.search(r"\bas of\b", line, re.I):
+            return line
+    return None
+
+
+def to_snapshot(found: dict, *, account_default: str = "My account") -> tuple[dict, list, dict]:
+    """parse()'s result in portfolio.write_snapshot()'s shapes (meta, positions,
+    account totals). Values are the file's own; a holding without one gets
+    market_value None (the caller prices it)."""
+    snap = found["snapshot_date"]
+    rows = []
+    for h in found["holdings"]:
+        cost, value = h["Total cost"], h["Value"]
+        row = {"snapshot_date": snap, "account": h["Account"] or account_default,
+               "symbol": h["Symbol"], "description": h["Name"], "quantity": h["Shares"],
+               "cost_basis": cost, "market_value": value, "pct_of_account": h["Percent"],
+               **h.get("extras", {})}
+        if row.get("reported_gain") is None and value is not None and cost is not None:
+            row["reported_gain"] = round(value - cost, 2)
+        rows.append(row)
+    blank = {"cash_value": None, "reported_cost_basis": None, "reported_market_value": None,
+             "reported_gain": None, "reported_gain_pct": None}
+    totals = {}
+    for acct in sorted({r["account"] for r in rows} | {a or account_default for a in found["cash"]}
+                       | {a or account_default for a in found.get("totals", {})}):
+        totals[acct] = dict(blank)
+    for a, v in found["cash"].items():
+        totals[a or account_default]["cash_value"] = v
+    for a, t in found.get("totals", {}).items():
+        totals[a or account_default].update(t)
+    return {"snapshot_date": snap, "as_of_text": found.get("as_of_text")}, rows, totals
 
 
 def sample_shapes(rows, header_i: int, n: int = 3) -> list[list[str]]:
@@ -291,6 +422,10 @@ def sample_shapes(rows, header_i: int, n: int = 3) -> list[list[str]]:
             break
     return out
 
+
+# Only when the person asks ("Let AI guess the columns"), and only column names
+# and cell kinds go out - a small, cheap request; the fastest model is plenty.
+AI_MODEL = "claude-haiku-4-5-20251001"
 
 AI_PROMPT = """A brokerage positions export has these column names (JSON array):
 {header}
@@ -306,9 +441,8 @@ Return ONLY a JSON object like {{"symbol": 0, "quantity": 3, "cost": null, ...}}
 def ai_mapping(header, shapes, api_key, *, client=None, model=None) -> dict | None:
     """Ask the AI to map columns from their names and cell kinds only."""
     import anthropic
-    if model is None:
-        from ai_parse import MODEL as model
     client = client or anthropic.Anthropic(api_key=api_key, timeout=30.0)
+    model = model or AI_MODEL
     prompt = AI_PROMPT.format(header=json.dumps(header), shapes=json.dumps(shapes))
     try:
         resp = client.messages.create(model=model, max_tokens=400,

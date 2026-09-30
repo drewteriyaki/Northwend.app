@@ -19,7 +19,7 @@ import base64
 import json
 import re
 
-from paste_parse import _is_ticker
+from csv_import import _is_ticker
 
 MAX_IMAGES = 5
 MAX_BYTES = 5 * 1024 * 1024        # per image, the API's limit

@@ -41,27 +41,6 @@ try:
 except ImportError:
     DBError = sqlite3.Error
 
-# Column order in the Schwab Positions export (0-based). Same for every account
-# section's header row and for the "Positions Total" row.
-COL = {
-    "symbol": 0,
-    "description": 1,
-    "price_change_pct": 2,
-    "day_change_pct": 3,
-    "reported_gain": 4,
-    "reported_gain_pct": 5,
-    "cost_basis": 6,
-    "reinvest": 7,
-    "reinvest_cap_gains": 8,
-    "div_pay_date": 9,
-    "div_yield_pct": 10,
-    "next_earnings_date": 11,
-    "pct_of_account": 12,
-    "market_value": 13,
-    "quantity": 14,
-    "asset_type": 15,
-}
-
 NULLISH = {"", "--", "-", "n/a", "na"}
 TOLERANCE = 0.01  # dollars; sums of 2-dp figures should reconcile exactly
 
@@ -93,188 +72,38 @@ def parse_num(raw):
     return -value if negative else value
 
 
-def parse_text(raw):
-    if raw is None:
-        return None
-    s = str(raw).strip()
-    return None if s.lower() in NULLISH else s
-
-
-def parse_yesno(raw):
-    s = (raw or "").strip().lower()
-    if s in ("yes", "y", "true"):
-        return 1
-    if s in ("no", "n", "false"):
-        return 0
-    return None
-
-
-def extract_snapshot_date(header_line: str) -> str:
-    """'Positions for All-Accounts as of 06:10 PM ET, 08/28/2026' -> '2026-08-28'."""
-    m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", header_line)
-    if not m:
-        return date.today().isoformat()
-    month, day, year = (int(x) for x in m.groups())
-    return date(year, month, day).isoformat()
-
-
 # --------------------------------------------------------------------------- #
-# CSV parser - rebuilt for the real multi-account export
+# reading a positions export (any brokerage - csv_import.py)
 # --------------------------------------------------------------------------- #
 def parse_csv(path: str):
-    """Parse a Schwab Positions export.
+    """Read a positions export from any brokerage (csv_import.py, which finds
+    the table and matches its columns by name - Schwab's layout is just one of
+    the layouts it knows). Returns (meta, positions, account_totals) in the
+    shapes write_snapshot() takes:
 
-    Returns (meta, positions, account_totals):
       meta           -> {"snapshot_date": "YYYY-MM-DD", "as_of_text": str|None}
       positions      -> list of holding dicts (real holdings only)
       account_totals -> {account: {"cash_value", "reported_cost_basis",
                                    "reported_market_value", "reported_gain",
                                    "reported_gain_pct"}}
 
-    File shape (verified against All-Accounts-Positions-2026-08-28-181002.csv):
-
-        "Positions for All-Accounts as of 06:10 PM ET, 08/28/2026"   <- title, has the date
-        <blank>
-        Individual ...641                                            <- account section header (skip, but remember)
-        "Symbol","Description",...,"Asset Type",                     <- column header (skip)
-        "ARM",...                                                    <- holding
-        ... more holdings ...
-        "Cash & Cash Investments","--",...                          <- cash row (skip, capture market value)
-        "Positions Total","",...                                    <- totals row (skip, capture figures)
-        <blank>
-        Individual ...363                                            <- next account section
-        ...
-    """
-    meta = {"snapshot_date": None, "as_of_text": None}
-    positions: list[dict] = []
-    account_totals: dict[str, dict] = {}
-    current_account = None
-
-    def totals_for(acct):
-        return account_totals.setdefault(acct, {
-            "cash_value": None,
-            "reported_cost_basis": None,
-            "reported_market_value": None,
-            "reported_gain": None,
-            "reported_gain_pct": None,
-        })
-
-    with open(path, "r", encoding="utf-8-sig", newline="") as fh:
-        for row in csv.reader(fh):
-            if not row or all(cell.strip() == "" for cell in row):
-                continue
-
-            first = row[0].strip()
-            first_lower = first.lower()
-            rest_blank = all(cell.strip() == "" for cell in row[1:])
-
-            # --- single-column lines: title or account section header ---------
-            if len(row) == 1 or (rest_blank and first_lower not in ("positions total",)):
-                if first_lower.startswith("positions for"):
-                    meta["as_of_text"] = first
-                    meta["snapshot_date"] = extract_snapshot_date(first)
-                elif first:
-                    current_account = first          # section header - skip the row, keep the name
-                continue
-
-            # --- column header row: skip -------------------------------------
-            if first == "Symbol":
-                continue
-
-            def cell(name: str) -> str:
-                idx = COL[name]
-                return row[idx] if idx < len(row) else ""
-
-            # --- "Positions Total" row: skip, capture figures ---------------
-            if first_lower.startswith("positions total"):
-                if current_account is not None:
-                    t = totals_for(current_account)
-                    t["reported_cost_basis"] = parse_num(cell("cost_basis"))
-                    t["reported_market_value"] = parse_num(cell("market_value"))
-                    t["reported_gain"] = parse_num(cell("reported_gain"))
-                    t["reported_gain_pct"] = parse_num(cell("reported_gain_pct"))
-                continue
-
-            asset_type = parse_text(cell("asset_type"))
-
-            # --- cash row: skip, capture its market value ------------------
-            is_cash = first_lower.startswith("cash & cash") or \
-                first_lower.startswith("cash and cash") or \
-                (asset_type or "").lower().startswith("cash")
-            if is_cash:
-                if current_account is not None:
-                    totals_for(current_account)["cash_value"] = parse_num(cell("market_value"))
-                continue
-
-            # --- real holding ---------------------------------------------
-            positions.append({
-                "snapshot_date": meta["snapshot_date"],
-                "account": current_account,
-                "symbol": first,
-                "description": parse_text(cell("description")),
-                "asset_type": asset_type,
-                "quantity": parse_num(cell("quantity")),          # fractional-safe
-                "cost_basis": parse_num(cell("cost_basis")),
-                "market_value": parse_num(cell("market_value")),
-                "price_change_pct": parse_num(cell("price_change_pct")),
-                "day_change_pct": parse_num(cell("day_change_pct")),
-                "reported_gain": parse_num(cell("reported_gain")),
-                "reported_gain_pct": parse_num(cell("reported_gain_pct")),
-                "reinvest": parse_yesno(cell("reinvest")),
-                "reinvest_cap_gains": parse_yesno(cell("reinvest_cap_gains")),
-                "div_pay_date": parse_text(cell("div_pay_date")),
-                "div_yield_pct": parse_num(cell("div_yield_pct")),
-                "next_earnings_date": parse_text(cell("next_earnings_date")),
-                "pct_of_account": parse_num(cell("pct_of_account")),
-            })
-
-    if meta["snapshot_date"] is None:
-        raise SystemExit("Could not find the 'Positions for ...' header line; is this a Schwab Positions export?")
-    if not positions:
+    Raises SystemExit with a plain message for a file with no holdings table,
+    or a transactions export. A layout whose columns can't be matched by name
+    also raises; the dashboard asks which column is which instead."""
+    import csv_import
+    with open(path, "rb") as fh:
+        rows = csv_import.read_rows(fh.read())
+    header_i, problem = csv_import.find_header(rows)
+    if problem == "transactions":
+        raise SystemExit("This looks like transaction history, not current holdings.")
+    if header_i is None:
+        raise SystemExit("Couldn't find a table of holdings (a Symbol column and a Quantity "
+                         "or Value column) in this file.")
+    mapping = csv_import.auto_mapping(rows[header_i])
+    found = csv_import.parse(rows, mapping, filename=os.path.basename(path))
+    if not found["holdings"]:
         raise SystemExit("No holding rows found in the file.")
-    return meta, positions, account_totals
-
-
-def parse_csv_smart(path: str, api_key: str | None = None, info: dict | None = None):
-    """Like parse_csv(), but on failure - and only if `api_key` is given -
-    retries via ai_parse's AI-assisted column-mapping fallback (see
-    ai_parse.py's module docstring for why that's scoped to just the
-    header row, not full-row AI parsing - cost and privacy, not just
-    simplicity). Any failure in the fallback re-raises the ORIGINAL
-    strict-parser error rather than a confusing error about the fallback
-    itself, so a genuinely unparseable file still gets today's message.
-    `ai_parse` is imported lazily so local/no-key use never even imports
-    its urllib-based client.
-
-    Returns the exact same (meta, positions, account_totals) shape
-    parse_csv() does either way, so a caller that doesn't care which path
-    ran needs no changes. A caller that DOES want to know (e.g. to show
-    "Claude helped interpret this file" in the UI) passes a dict via
-    `info` - it gets `info["ai_assisted"] = True/False` set as a side
-    effect, chosen over widening the return tuple so this stays a drop-in
-    replacement for parse_csv() everywhere else."""
-    try:
-        result = parse_csv(path)
-        if info is not None:
-            info["ai_assisted"] = False
-        return result
-    except SystemExit as strict_error:
-        if not api_key:
-            raise
-        import ai_parse
-        header_row = ai_parse.guess_header_row(path)
-        if header_row is None:
-            raise
-        mapping, error = ai_parse.map_columns(header_row, api_key)
-        if mapping is None:
-            raise
-        try:
-            result = ai_parse.parse_with_mapping(path, mapping, header_row)
-        except SystemExit:
-            raise strict_error from None
-        if info is not None:
-            info["ai_assisted"] = True
-        return result
+    return csv_import.to_snapshot(found)
 
 
 # --------------------------------------------------------------------------- #
@@ -576,11 +405,11 @@ def upload_label(filename: str) -> str:
 
 def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
                 api_key: str | None = None, *, source_name: str | None = None) -> dict:
-    """Parse a Schwab Positions export and write it into an open connection,
-    scoped to `user_id`.
+    """Read a positions export from any brokerage (parse_csv) and write it into
+    an open connection, scoped to `user_id`.
 
-    This is the shared entry point: `cmd_import` (CLI) and the Streamlit dashboard
-    both call it. It upserts the `snapshots` row, then replaces `positions` and
+    The command line (`cmd_import`) and tests call it; the dashboard uses the
+    same reader through its column check and review. It upserts the `snapshots` row, then replaces `positions` and
     `account_totals` for the file's snapshot date. Re-importing *any* file for a
     date that is already loaded replaces that date wholesale for THIS user only
     (keyed on `snapshot_date` + `user_id`), so a re-downloaded export with a new
@@ -588,10 +417,8 @@ def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
     calendar date never touch each other's rows. Returns a summary dict; it does
     not print or verify.
 
-    `api_key` (an Anthropic key) is optional and enables parse_csv_smart()'s
-    AI-assisted fallback for a file whose headers don't match the strict
-    Schwab shape - see ai_parse.py. None (the default) means exactly
-    today's behavior: strict parsing only.
+    `api_key` is accepted for older callers and ignored: columns are matched by
+    name (csv_import.py); the AI is only used from the dashboard, when asked.
 
     `source_name` is what's recorded as the snapshot's source (default: the
     file's absolute path); an upload passes upload_label(), since its
@@ -601,8 +428,7 @@ def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
     if not os.path.isfile(path):
         raise FileNotFoundError(path)
 
-    parse_info: dict = {}
-    meta, rows, totals = parse_csv_smart(path, api_key, parse_info)
+    meta, rows, totals = parse_csv(path)
     snapshot_date = meta["snapshot_date"]
     src = source_name or path
 
@@ -618,7 +444,7 @@ def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
         "n_positions": len(rows),
         "accounts": accounts,
         "per_account": {a: saved.count(a) for a in accounts},
-        "ai_assisted": parse_info.get("ai_assisted", False),
+        "ai_assisted": False,
     }
 
 
@@ -629,12 +455,8 @@ def cmd_import(args: argparse.Namespace) -> int:
     if user_id is None:
         raise SystemExit(f"No such user '{args.user}' - create one first: "
                           f"python manage_users.py create {args.user}")
-    # Same optional AI-assisted-parsing fallback the dashboard offers (see
-    # ai_parse.py) - unset (the common case for local CLI use) means
-    # exactly today's strict-parser-only behavior.
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
     try:
-        info = import_csv(conn, args.csv, user_id, api_key)
+        info = import_csv(conn, args.csv, user_id)
     except FileNotFoundError as exc:
         raise SystemExit(f"File not found: {exc}")
 

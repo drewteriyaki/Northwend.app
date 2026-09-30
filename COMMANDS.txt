@@ -204,8 +204,9 @@ Streamlit Cloud:        app → Settings → Secrets
 GitHub Actions:         repo → Settings → Secrets and variables → Actions
 
   FINNHUB_API_KEY     — live price quotes (required for Refresh button)
-  ANTHROPIC_API_KEY   — powers the AI Assistant chatbot and the
-                         AI-assisted CSV import fallback. Without it,
+  ANTHROPIC_API_KEY   — powers Sage (the AI guide), screenshot reading,
+                         and the optional "Let AI guess the columns"
+                         button for an unfamiliar CSV. Without it,
                          the AI Assistant section just says it's off.
                          Chat messages bill to this key (Claude Sonnet 5,
                          roughly 1-2 cents per message; capped at 40

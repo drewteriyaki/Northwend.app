@@ -247,22 +247,18 @@ database keeps working after an update.
 
 ## Using it for another portfolio
 
-- Works with any Schwab **All-Accounts Positions** export — account names and
-  counts are read from the file, nothing is hard-coded.
+- Works with a positions export from **any brokerage** (`csv_import.py`): it
+  finds the holdings table, matches columns by name (Schwab, Fidelity,
+  Vanguard, E*TRADE and others are just layouts it knows), and remembers a
+  layout once someone has confirmed it. Pasted tables use the same engine.
 - Point at a different database with the `PORTFOLIO_DB` environment variable
   (e.g. one per person). The dashboard and every CLI command honour it.
 - The Finnhub key can come from `.env`, the `FINNHUB_API_KEY` environment
   variable, or `--key`. Yahoo history (`sync_history.py`) needs no key.
-- **AI-assisted import (optional):** if a CSV's headers don't match the
-  expected Schwab shape (a different broker, renamed/reordered columns),
-  and an `ANTHROPIC_API_KEY` is set (same `.env`/environment-variable
-  pattern as `FINNHUB_API_KEY`), the importer asks Claude to map the
-  file's column headers to the fields it needs, then parses the actual
-  data itself using that mapping - see `ai_parse.py`. Only the header
-  row (plain column-name text, e.g. `"Symbol,Description,Qty,..."`) is
-  ever sent; real holdings, dollar amounts, and account numbers are
-  never sent to the API under this design. Unset (the default): strict
-  parsing only, identical to before this existed.
+- **AI column guess (optional, only when asked):** if a file's columns
+  can't be matched by name, the column check offers "Let AI guess the
+  columns". Only the column names and the kind of each cell ("text",
+  "number", "money") are sent - never holdings, amounts or account numbers.
 - **AI Assistant (sidebar):** an educational investing chatbot on Claude
   Sonnet 5, using the same `ANTHROPIC_API_KEY` - see `advisor.py`. It
   works from a per-account investing profile (`investor_profiles` table):

@@ -33,8 +33,8 @@ psycopg[binary]==3.2.3
 psycopg-pool==3.2.4
 
 # AI Assistant chatbot (advisor.py) - the official Anthropic SDK, for
-# streaming replies and tool use. Uses ANTHROPIC_API_KEY, same as the
-# AI-assisted CSV import.
+# streaming replies and tool use. Uses ANTHROPIC_API_KEY, as do screenshot
+# reading and the optional CSV column guess.
 anthropic==1.8.0
 
 # Client plan PDF export (client_plan.py) - pure Python, no system libraries.

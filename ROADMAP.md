@@ -64,7 +64,11 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       columns by name / a remembered layout / the AI (column names and
       cell kinds only), a column check, then the usual review; spots
       transaction exports. Built on sample layouts - confirm with real
-      exports (this commit)
+      exports (`3a47439`)
+- [x] One import engine for every brokerage: uploads and pasted tables share
+      csv_import.py and one review; Schwab is a layout like any other (checked
+      identical to the old reader); the AI only guesses columns when asked;
+      ai_parse.py and the Schwab-only preview removed (this commit)
 
 ---
 
