@@ -342,6 +342,7 @@ def _ensure_schema(conn) -> None:
                         ("transactions", USER_ID_COL),
                         ("value_log", USER_ID_COL),
                         ("users", [("is_advisor", "INTEGER")]),
+                        ("advisor_clients", [("client_can_import", "INTEGER")]),
                         ("investor_profiles", PROFILE_EXTRA_COLS)):
         if is_pg:
             have = {r["column_name"] for r in conn.execute(

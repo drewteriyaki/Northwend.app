@@ -28,7 +28,9 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       including tabs already open (`8a55015`)
 - [x] 4 - Friendly errors: "Something went wrong" with Try again and an error
       code instead of a traceback; the full traceback and the same code go to
-      the Streamlit Cloud log (this commit)
+      the Streamlit Cloud log (`9c35e03`)
+- [x] 6 - "Client can import" switch on each client card; off by default, and
+      the plan, goal, target mix and limits stay the advisor's (this commit)
 
 ---
 
@@ -44,11 +46,6 @@ wording lives in `disclosures.py`, with notes on which code each statement
 depends on.
 **Needs you:** have the final wording reviewed by someone qualified before
 launch, and decide who people contact to delete their data. Then tick this.
-
-### 6. Let a client import their own statements - S
-**Why:** some advisors will want clients to upload their own files.
-**What:** a per-client switch on the Clients page ("Client can import").
-**Done when:** a client with the switch on sees the import button; others don't.
 
 ### 7. Stock vs bond funds - M
 **Why:** holdings are grouped by the broker's asset type, so every ETF is

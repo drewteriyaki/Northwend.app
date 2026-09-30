@@ -299,11 +299,14 @@ try:
     MY_ADVISOR = None if IS_ADVISOR else advising.advisor_of(_conn, LOGIN_ID)
     MY_ADVISOR_CARD = ({**(prefs.load(_conn, MY_ADVISOR).get("advisor_card") or {}),
                         "username": auth.get_username(_conn, MY_ADVISOR)} if MY_ADVISOR else {})
+    # ...except imports, which the advisor can open up per client (Clients page)
+    CLIENT_CAN_IMPORT = bool(MY_ADVISOR) and advising.client_can_import(_conn, LOGIN_ID)
 finally:
     _conn.close()
 USER_ID = _active
 IS_MANAGED_CLIENT = MY_ADVISOR is not None
 CAN_MANAGE = not IS_MANAGED_CLIENT         # may edit this account's plan, limits, imports
+CAN_IMPORT = CAN_MANAGE or CLIENT_CAN_IMPORT  # may import statements into this account
 ON_CLIENT = IS_ADVISOR and USER_ID != LOGIN_ID   # an advisor working on a client's account
 st.session_state["active_user_id"] = USER_ID
 ACTIVE_NAME = (st.session_state["username"] if USER_ID == LOGIN_ID
@@ -719,6 +722,16 @@ def _render_models():
                    "as ETF / CEF whether it holds stocks or bonds.")
 
 
+def _set_can_import(client_id):
+    allowed = bool(st.session_state.get(f"can_import_{client_id}"))
+    c = connect(DB)
+    try:
+        # set_client_can_import only touches the advisor's own clients
+        advising.set_client_can_import(c, st.session_state["user_id"], client_id, allowed)
+    finally:
+        c.close()
+
+
 def _render_clients():
     import overview
 
@@ -740,6 +753,7 @@ def _render_clients():
                 review, days = advising.review_status(advising.last_review(conn, cid), today)
                 steps = advising.open_next_steps(advising.list_notes(conn, cid, include_private=True))
                 rows.append({**summ, "name": name, "plan": plan, "goal": goal, "drift": drift,
+                             "can_import": advising.client_can_import(conn, cid),
                              "review": review, "review_days": days, "n_steps": len(steps),
                              "reasons": advising.attention(
                                  has_data=summ["has_data"],
@@ -789,8 +803,15 @@ def _render_clients():
                        if r["has_data"] else "<span class='pt-muted'>no statement yet</span>")
                     + f"</div><div style='margin:.45rem 0'>{chips}</div>"
                     f"<div class='pt-goal-sub'>{' · '.join(bits)}</div>")
-                st.button("Open", key=f"open_client_{r['user_id']}", on_click=_open_client,
-                          args=(r["user_id"],))
+                with st.container(horizontal=True, vertical_alignment="center"):
+                    st.button("Open", key=f"open_client_{r['user_id']}", on_click=_open_client,
+                              args=(r["user_id"],))
+                    key = f"can_import_{r['user_id']}"
+                    st.session_state[key] = r["can_import"]  # always what's saved
+                    st.toggle("Client can import", key=key, on_change=_set_can_import,
+                              args=(r["user_id"],),
+                              help="Let this client import their own statements. Their plan, "
+                                   "goal, target mix and alert limits stay yours to set.")
         st.caption(f"Sorted by what needs a look. Reviews are due {advising.REVIEW_EVERY_DAYS} days "
                    f"after the last one; drift is flagged past {advising.DRIFT_ATTENTION_PTS:g} "
                    "points from the plan's target mix; alerts use each client's own limits.")
@@ -1605,7 +1626,7 @@ def _step_practice(mix, plan, profile, done):
 
 
 def _step_account(monthly, has_holdings):
-    if IS_MANAGED_CLIENT and not has_holdings:
+    if not CAN_IMPORT and not has_holdings:
         st.markdown(f"Your advisor, {_advisor_display_name()}, helps you open the account and "
                     "brings your statements in - your portfolio shows up on the Dashboard once "
                     "they have.")
@@ -2267,7 +2288,7 @@ def _page_header(title, *, data=True):
     one-line status: how fresh the prices are and the statement date."""
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.title(title, anchor=False, width="stretch")
-        if data and CAN_MANAGE and st.button(":material/upload:", key="pt_import", type="tertiary",
+        if data and CAN_IMPORT and st.button(":material/upload:", key="pt_import", type="tertiary",
                               help="Import a new positions CSV"):
             _import_dialog()
         st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
@@ -2361,7 +2382,7 @@ if not positions:
     # down, just without that flow's diff-preview step (there's nothing to
     # diff a first import against).
     _page_header("Welcome", data=False)
-    if IS_MANAGED_CLIENT:
+    if not CAN_IMPORT:
         st.info(f"Welcome, **{ACTIVE_NAME}**. Your advisor, {_advisor_display_name()}, "
                 "brings your statements in - your portfolio shows up here once they have.")
         with st.container(horizontal=True):

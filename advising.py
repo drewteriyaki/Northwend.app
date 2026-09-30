@@ -30,6 +30,24 @@ def advisor_of(conn, client_id: int) -> int | None:
     return row["advisor_id"] if row else None
 
 
+def client_can_import(conn, client_id: int) -> bool:
+    """Whether a managed client may import their own statements - off unless
+    their advisor turned it on (advisor_clients.client_can_import)."""
+    row = conn.execute("SELECT 1 FROM advisor_clients WHERE client_id = ? "
+                       "AND client_can_import = 1 LIMIT 1", (client_id,)).fetchone()
+    return row is not None
+
+
+def set_client_can_import(conn, advisor_id: int, client_id: int, allowed: bool) -> bool:
+    """Turn a client's own imports on or off. Only for the advisor's own
+    clients; returns False (and changes nothing) otherwise."""
+    cur = conn.execute("UPDATE advisor_clients SET client_can_import = ? "
+                       "WHERE advisor_id = ? AND client_id = ?",
+                       (1 if allowed else 0, advisor_id, client_id))
+    conn.commit()
+    return cur.rowcount > 0
+
+
 # ---- notes and next steps --------------------------------------------------- #
 def add_note(conn, client_id: int, advisor_id: int, kind: str, body: str, on: str,
              private: bool = False) -> None:

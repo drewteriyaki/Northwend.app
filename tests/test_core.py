@@ -1150,6 +1150,18 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
         self.assertFalse(auth.can_view(self.conn, client, self.user_id))         # client can't see advisor
         self.assertFalse(auth.can_view(self.conn, stranger, client))
 
+    def test_client_import_switch_is_off_by_default_and_only_the_advisor_sets_it(self):
+        client = auth.create_client(self.conn, self.user_id, "c1")
+        self.assertFalse(advising.client_can_import(self.conn, client))
+        self.assertTrue(advising.set_client_can_import(self.conn, self.user_id, client, True))
+        self.assertTrue(advising.client_can_import(self.conn, client))
+        other_adv = auth.create_user(self.conn, "adv2", "pw")
+        self.assertFalse(advising.set_client_can_import(self.conn, other_adv, client, False))
+        self.assertTrue(advising.client_can_import(self.conn, client))   # not their client
+        advising.set_client_can_import(self.conn, self.user_id, client, False)
+        self.assertFalse(advising.client_can_import(self.conn, client))
+        self.assertFalse(advising.client_can_import(self.conn, self.user_id))  # not a client
+
     def test_can_view_stops_when_advisor_rights_are_removed(self):
         client = auth.create_client(self.conn, self.user_id, "c1")
         auth.set_advisor(self.conn, "testuser", False)
