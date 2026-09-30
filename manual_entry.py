@@ -20,7 +20,7 @@ DEFAULT_ACCOUNT = "My account"
 
 # the choices in the form -> broker asset types (what imports store)
 TYPES = {"Stock": "Equity", "ETF": "ETFs & Closed End Funds", "Mutual fund": "Mutual Funds",
-         "Bond": "Fixed Income", "Other": "Other"}
+         "Bond": "Fixed Income", "Crypto": "Crypto", "Other": "Other"}
 _TYPE_OF = {v: k for k, v in TYPES.items()}
 MAX_ROWS = 200
 

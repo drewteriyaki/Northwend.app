@@ -51,6 +51,8 @@ def from_yahoo(info: dict | None) -> dict | None:
         return _whole("Stocks")
     if qt == "MONEYMARKET":
         return _whole("Cash")
+    if qt == "CRYPTOCURRENCY":
+        return _whole("Other")
     parts = {"Stocks": info.get("stock_pct"), "Bonds": info.get("bond_pct"),
              "Cash": info.get("cash_pct"), "Other": info.get("other_pct")}
     parts = {k: float(v) for k, v in parts.items() if v is not None and float(v) > 0}

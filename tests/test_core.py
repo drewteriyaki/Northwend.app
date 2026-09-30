@@ -2051,6 +2051,16 @@ class ScreenshotReadTests(unittest.TestCase):
         self.assertEqual((sent[0]["type"], sent[0]["source"]["media_type"]), ("image", "image/png"))
         self.assertIn("Do not include names, account numbers", sent[-1]["text"])
 
+    def test_average_cost_and_crypto_like_a_robinhood_screen(self):
+        import screenshot_read as sr
+        out = sr.clean({"holdings": [
+            {"symbol": "USO", "shares": 11, "average_cost": 137.16, "crypto": False},
+            {"symbol": "BTC", "shares": 0.01523505, "average_cost": "105,026.24", "crypto": True}]})
+        self.assertEqual([(h["Symbol"], h["Total cost"], h["Type"]) for h in out["holdings"]],
+                         [("USO", 1508.76, None), ("BTC-USD", 1600.08, "Crypto")])
+        import asset_classes
+        self.assertEqual(asset_classes.from_yahoo({"quote_type": "CRYPTOCURRENCY"}), {"Other": 1.0})
+
     def test_percentages_and_failures(self):
         import anthropic
         import screenshot_read as sr
@@ -2100,6 +2110,12 @@ class PasteParseTests(unittest.TestCase):
         r, rows = self._rows("SYMBOL   QTY    PRICE     VALUE\nSCHD     120    $28.00    $3,360.00\n"
                              "CASH                      $512.33")
         self.assertEqual((rows, r["cash"]), ([("SCHD", 120.0, None, None)], 512.33))
+
+    def test_average_cost_column_becomes_total_cost(self):
+        _, rows = self._rows("Name\tSymbol\tShares\tPrice\tAverage cost\tTotal return\tEquity\n"
+                             "United States Oil Fund\tUSO\t11\t$144.12\t$137.16\t$76.56\t$1,585.32\n"
+                             "Bitcoin\tBTC-USD\t0.01523505\t$83,232.59\t$105,026.24\t$332.03\t$1,268.05")
+        self.assertEqual(rows, [("USO", 11.0, 1508.76, None), ("BTC-USD", 0.01523505, 1600.08, None)])
 
     def test_same_symbol_in_two_accounts_is_combined_and_junk_finds_nothing(self):
         _, rows = self._rows("VTI 10\nBND 5\nVTI 2.5")

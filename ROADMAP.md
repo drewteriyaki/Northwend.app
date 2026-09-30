@@ -46,7 +46,12 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       all my holdings, self-serve (`18b0b75`)
 - [x] 9d - Holdings from screenshots: opt-in, read by the AI, images never
       kept; the answer is re-checked so only symbols / shares / cost survive
-      (this commit)
+      (`09d20f7`)
+- [x] Real Robinhood screenshot: average cost x shares becomes total cost;
+      crypto saved as Yahoo's BTC-USD with a Crypto type (this commit)
+- [x] Holdings section in the sidebar (paste / type / screenshots, CSV,
+      example data) instead of header icons; one bigger Refresh for prices
+      and history together (this commit)
 
 ---
 

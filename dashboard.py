@@ -443,6 +443,15 @@ def _change_password():
     st.session_state["pw_msg"] = ("success", "Password changed. Your other devices are signed out.")
 
 
+def _open_holdings_dialog(kind):
+    """A sidebar Holdings button: the sidebar is drawn before this account's
+    holdings are loaded, so it leaves a note and the dialog opens just after
+    they are (see open_dialog below load())."""
+    if kind == "manual":
+        _manual_clear()  # start from the latest snapshot
+    st.session_state["open_dialog"] = kind
+
+
 with st.sidebar:
     st.markdown("### Portfolio Tracker")
     for _p in PAGES:
@@ -471,6 +480,21 @@ with st.sidebar:
                 st.text_input("New password", type="password", key="client_login_pw")
                 st.button("Set login password", on_click=_set_client_password,
                           width="stretch")
+        st.divider()
+
+    if CAN_IMPORT:
+        st.markdown("**Holdings**" + (f" · {ACTIVE_NAME}" if USER_ID != LOGIN_ID else ""))
+        st.button(":material/content_paste: Paste or type holdings", key="sb_manual",
+                  width="stretch", on_click=_open_holdings_dialog, args=("manual",),
+                  help="Paste your positions from any brokerage's website, read them from "
+                       "screenshots, type them in, or use percentages only.")
+        st.button(":material/upload_file: Upload a CSV", key="sb_import", width="stretch",
+                  on_click=_open_holdings_dialog, args=("import",),
+                  help="A Positions export file from your brokerage.")
+        if not HAS_HOLDINGS:
+            st.button(":material/science: Try example data", key="sb_sample", width="stretch",
+                      on_click=lambda: _load_sample(),  # defined further down
+                      help="A made-up portfolio to explore with. Removed when you add your own.")
         st.divider()
 
     # flips light/dark in the browser (ui_enhancements.js); nothing runs here
@@ -1690,8 +1714,8 @@ def _step_account(monthly, has_holdings):
            if monthly else
            "5. **Set up automatic monthly investing** so it happens without you having to "
            "remember.\n")
-        + "6. **Bring it in here:** import your Positions CSV on the Dashboard, or enter your "
-        "holdings by hand there - any brokerage works. Your Plan then tracks the real thing.")
+        + "6. **Bring it in here:** use **Holdings** in the sidebar - paste your positions, "
+        "upload a CSV or type them in; any brokerage works. Your Plan then tracks the real thing.")
     with st.container(horizontal=True):
         st.button("Import my first statement", key="gs_import", type="primary", on_click=_go,
                   args=("Dashboard",))
@@ -2051,7 +2075,7 @@ def _render_classification(positions):
                      + (f" · {n_guess} from broker type only" if n_guess else "")):
         st.caption("Funds are split by what they hold, from Yahoo - a balanced fund counts part "
                    "stocks, part bonds. Without Yahoo data a holding goes by its broker type "
-                   "(Equity is stocks, Fixed Income is bonds); **Sync history** fills the rest in."
+                   "(Equity is stocks, Fixed Income is bonds); **Refresh** fills the rest in."
                    + (" Choose a holding below to decide its class yourself." if CAN_MANAGE
                       else ""))
         df = pd.DataFrame(rows)
@@ -2281,6 +2305,46 @@ def _refresh_prices(auto=False):
     st.rerun()
 
 
+def _refresh_everything():
+    """The header's Refresh: live prices (Finnhub), then this account's price
+    history and fund details (Yahoo daily bars + info - the quick sync; the
+    nightly job adds the intraday bars). One progress bar, one message."""
+    notes, problems = [], []
+    key = resolve_key(None, ENV_PATH)
+    bar = st.progress(0.0, text="Updating prices…")
+    conn = connect(DB)
+    try:
+        held = [r["symbol"] for r in conn.execute(
+            "SELECT DISTINCT symbol FROM positions WHERE snapshot_date = ? AND user_id = ?",
+            (latest_snapshot(conn, USER_ID), USER_ID))]
+        if key:
+            summary = refresh_prices(
+                conn, latest_snapshot(conn, USER_ID), USER_ID, key, delay=0.0,
+                on_quote=lambda i, n, tk, ok, px, err: bar.progress(
+                    0.5 * i / n, text=f"Prices: {tk} ({i}/{n})"))
+            notes.append(f"{summary['ok']} live price(s)")
+            problems += [tk for tk, _, err, _ in summary["results"] if err]
+        else:
+            problems.append("live prices (no FINNHUB_API_KEY)")
+    finally:
+        conn.close()
+    try:
+        import sync_history
+        hist = sync_history.sync(
+            DB, held, period=sync_history.DEFAULT_PERIOD, with_intraday=False,
+            on_progress=lambda i, n, tk, nr, ok, err: bar.progress(
+                0.5 + 0.5 * i / n, text=f"History: {tk} ({i}/{n})"))
+        notes.append(f"history for {hist['ok']} holding(s)")
+        problems += [tk for tk in hist["failed"] if tk not in problems]
+    except Exception:  # noqa: BLE001 - prices are already saved; say history didn't update
+        problems.append("price history (Yahoo didn't answer)")
+    bar.empty()
+    msg = "Updated " + " and ".join(notes) + "." if notes else "Nothing could be updated."
+    st.session_state["refresh_msg"] = (
+        ("warning", msg + " No data for: " + ", ".join(problems)) if problems else ("toast", msg))
+    st.rerun()
+
+
 # ---- header -------------------------------------------------------------- #
 def _sync_history(tickers=None, *, quick=False):
     """Pull Yahoo history, then rerun to show it. `quick` is the automatic
@@ -2480,7 +2544,8 @@ def _manual_fill(found):
     ss["me_ids"], ss["me_cash_ids"] = [], []
     for h in found["holdings"]:
         _manual_add_row({"Account": acct, "Symbol": h["Symbol"], "Shares": h["Shares"],
-                         "Total cost": h["Total cost"], "Percent": h["Percent"], "Type": "Other"})
+                         "Total cost": h["Total cost"], "Percent": h["Percent"],
+                         "Type": h.get("Type") or "Other"})
     _manual_add_cash({"Account": acct, "Cash": found["cash"] if found["mode"] == "Shares" else None})
     ss["me_mode"] = found["mode"]
     n = len(found["holdings"])
@@ -2562,7 +2627,7 @@ def _manual_save(meta, rows, totals, txns, source):
         conn.close()
 
 
-@st.dialog("Enter holdings by hand", width="large")
+@st.dialog("Add or update holdings", width="large")
 def _manual_dialog(current_positions, current_cash, current_source=None):
     """Type in holdings (no file needed); saved as today's snapshot, like an import.
     Shares mode records real holdings; Percentages mode records only each
@@ -2721,41 +2786,170 @@ def _clear_sample():
     _after_import()
 
 
+@st.dialog("Import a positions CSV", width="large")
+def _import_dialog():
+    """Upload a new Schwab Positions export, preview what changed, confirm."""
+    st.caption(
+        "Upload a fresh Schwab **Positions** export. You'll see exactly what changed "
+        "before anything is saved."
+    )
+    st.caption(":material/lock: " + TRUST_LINE)
+    up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
+    # A path on "this machine" is only meaningful running locally - on the
+    # hosted app it would be a path on the server, which users must not read.
+    path_in = "" if pgcompat.is_postgres_dsn(DB) else st.text_input(
+        "…or a path to a CSV on this machine",
+        key="csv_path",
+        placeholder="C:\\Users\\you\\Downloads\\All-Accounts-Positions-....csv",
+    ).strip().strip('"')
+
+    if up is not None:
+        with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
+            _import_preview(src_path, upload_label(up.name))
+    elif path_in:
+        _import_preview(path_in, os.path.abspath(path_in))
+
+
+def _import_preview(src_path, source_name):
+    """The import dialog's preview and confirm, for a file at `src_path`;
+    `source_name` is what the database records as its source."""
+    if src_path and not os.path.isfile(src_path):
+        st.error(f"No file at: {src_path}")
+    elif src_path:
+        _parse_info: dict = {}
+        try:
+            _meta, new_rows, _ = parse_csv_smart(src_path, _anthropic_key(), _parse_info)
+        except SystemExit as exc:
+            st.error(f"Couldn't parse this file: {exc}")
+        else:
+            if _parse_info.get("ai_assisted"):
+                st.info("This file's headers didn't match the expected format, so Claude "
+                        "helped interpret it — double check the numbers below before confirming.")
+            file_date = _meta["snapshot_date"]
+            _conn = connect(DB)
+            try:
+                # Diff against the snapshot *before* this file's date, so the change
+                # set (and the transactions derived from it) is the same however many
+                # times this file is imported.
+                base_date = _conn.execute(
+                    "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
+                    (file_date, USER_ID),
+                ).fetchone()["d"]
+                base_rows = [dict(r) for r in _conn.execute(
+                    "SELECT account, symbol, description, quantity, cost_basis, market_value "
+                    "FROM positions WHERE snapshot_date = ? AND user_id = ?",
+                    (base_date, USER_ID))] if base_date else []
+                replacing = _conn.execute(
+                    "SELECT 1 FROM positions WHERE snapshot_date = ? AND user_id = ? LIMIT 1",
+                    (file_date, USER_ID)
+                ).fetchone() is not None
+
+                d = diff_positions(base_rows, new_rows)
+                n_changed = len(d["increased"]) + len(d["decreased"])
+
+                st.markdown(
+                    f"Changes vs snapshot **{base_date or '— none (first import)'}**"
+                )
+                c = st.columns(5)
+                c[0].metric("New", len(d["new"]))
+                c[1].metric("Qty changed", n_changed)
+                c[2].metric("Closed", len(d["closed"]))
+                c[3].metric("Unchanged", len(d["unchanged"]))
+                c[4].metric("File date", file_date)
+
+                if replacing:
+                    st.warning(
+                        f"A snapshot for {file_date} already exists — importing replaces "
+                        "its positions, account totals, and inferred transactions."
+                    )
+
+                def _tbl(entries, cols):
+                    return pd.DataFrame([{k: e[k] for k in cols} for e in entries])
+
+                if d["new"]:
+                    st.markdown("**New positions**")
+                    st.dataframe(_tbl(d["new"], ["account", "symbol", "description",
+                                                "new_qty", "new_cost", "new_mv"]),
+                                 hide_index=True, width="stretch")
+                if n_changed:
+                    st.markdown("**Quantity changes**")
+                    st.dataframe(_tbl(d["increased"] + d["decreased"],
+                                      ["account", "symbol", "old_qty", "new_qty", "dqty",
+                                       "old_mv", "new_mv"]),
+                                 hide_index=True, width="stretch")
+                if d["closed"]:
+                    st.markdown("**Closed positions**")
+                    st.dataframe(_tbl(d["closed"], ["account", "symbol", "description",
+                                                    "old_qty", "old_mv"]),
+                                 hide_index=True, width="stretch")
+
+                txns = synthesize_transactions(d, file_date, source_name)
+                st.caption(
+                    f"On confirm: positions + account totals for **{file_date}** are written, "
+                    f"and **{len(txns)}** transaction row(s) inferred from the quantity deltas "
+                    f"(BUY / SELL) are recorded."
+                )
+
+                st.caption("Kept: each holding's symbol, shares, cost and value, and account "
+                           "names. " + NOT_KEPT)
+                if st.button("Confirm import", type="primary", key="csv_confirm"):
+                    try:
+                        info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),
+                                          source_name=source_name)
+                        # Replace-by-date: this date's inferred transactions are
+                        # rewritten from the new file's diff.
+                        _conn.execute(
+                            "DELETE FROM transactions WHERE trade_date = ? AND user_id = ?",
+                            (info["snapshot_date"], USER_ID),
+                        )
+                        if txns:
+                            for _t in txns:
+                                _t["user_id"] = USER_ID
+                            _conn.executemany(
+                                "INSERT INTO transactions (account, trade_date, action, symbol, "
+                                "description, quantity, price, amount, fees, realized_gain, "
+                                "source_file, user_id) VALUES "
+                                "(:account, :trade_date, :action, :symbol, :description, :quantity, "
+                                ":price, :amount, :fees, :realized_gain, :source_file, :user_id)",
+                                txns,
+                            )
+                        _conn.commit()
+                    except DBError as exc:
+                        _conn.rollback()
+                        st.error(f"Import failed, nothing was saved: {exc}")
+                    else:
+                        st.session_state["import_flash"] = (
+                            f"Imported your statement from {_fmt_date(info['snapshot_date'])} - "
+                            f"{info['n_positions']} positions, {len(txns)} transaction(s) recorded."
+                        )
+                        _after_import()
+                        st.rerun()
+            finally:
+                _conn.close()
+
+
 def _toggle_hide():
     st.session_state["hide_amounts"] = not st.session_state.get("hide_amounts", False)
     save_hide(st.session_state["hide_amounts"])
 
 
 def _page_header(title, *, data=True):
-    """The page's title with the app's icon actions beside it. `data` pages
-    (this account's portfolio) also get import / refresh / sync and a
-    one-line status: how fresh the prices are and the statement date."""
+    """The page's title with the hide-amounts toggle and, on `data` pages
+    (this account's portfolio), one Refresh button and a one-line status: how
+    fresh the prices are and the statement date. Adding or updating holdings
+    lives in the sidebar's Holdings section."""
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.title(title, anchor=False, width="stretch")
-        if data and CAN_IMPORT and st.button(":material/upload:", key="pt_import", type="tertiary",
-                              help="Import a new positions CSV"):
-            _import_dialog()
-        if data and CAN_IMPORT and st.button(":material/edit_note:", key="pt_manual",
-                                             type="tertiary",
-                                             help="Enter or update holdings by hand - for any "
-                                                  "brokerage, no file needed"):
-            _manual_clear()  # start from the latest snapshot
-            _manual_dialog(positions, cash_by_account, SNAPSHOT_SOURCE)
         st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
                   key="pt_hide", type="tertiary", on_click=_toggle_hide,
                   help="Show amounts" if _hidden() else "Hide amounts - mask every dollar and "
                                                          "percent with " + MASK)
-        if data and st.button(":material/refresh:", key="pt_refresh", type="tertiary",
-                              help="Refresh prices. On a phone you can also pull down from the top "
-                                   "of the page. Prices also refresh on their own when you open "
-                                   "an account."):
-            _refresh_prices()
-        if data and CAN_MANAGE and st.button(":material/history:", key="pt_sync", type="tertiary",
-                              help="Sync history from Yahoo: the deepest history Yahoo allows at "
-                                   "every resolution (~2 years daily, plus 1-minute to hourly "
-                                   "bars) and fundamentals. Takes a minute or two. It also runs "
-                                   "on its own every evening."):
-            _sync_history()
+        if data and st.button(":material/refresh: Refresh", key="pt_refresh",
+                              help="Update live prices, price history and fund details for your "
+                                   "holdings. On a phone you can also pull down from the top of "
+                                   "the page. Prices also refresh on their own when you open an "
+                                   "account, and the full history syncs every evening."):
+            _refresh_everything()
     if data:
         if last_live:
             prices = f"Prices as of {_fmt_when(last_live)}"
@@ -2775,7 +2969,8 @@ def _page_header(title, *, data=True):
                     st.button("Remove example", key="pt_clear_sample", on_click=_clear_sample)
         elif SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE:
             st.caption(":material/percent: A percentages portfolio - dollar amounts are pretend, "
-                       "scaled to the total you chose. Change it with the ✎ icon above.")
+                       "scaled to the total you chose. Change it with **Paste or type holdings** "
+                       "in the sidebar.")
 
     # the result of a refresh / sync / import that happened just before the rerun
     _msg = st.session_state.pop("refresh_msg", None)
@@ -2818,6 +3013,12 @@ try:
     SNAPSHOT_SOURCE = snapshot_source(_src_conn, USER_ID, snapshot)
 finally:
     _src_conn.close()
+# a Holdings button in the sidebar was pressed (_open_holdings_dialog)
+_open = st.session_state.pop("open_dialog", None)
+if _open == "manual" and CAN_IMPORT:
+    _manual_dialog(positions, cash_by_account, SNAPSHOT_SOURCE)
+elif _open == "import" and CAN_IMPORT:
+    _import_dialog()
 if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor notes"):
     # Helping brand-new investors plan a first portfolio is a core use of the
     # assistant, and a goal can be set before there's anything invested, so
@@ -2981,148 +3182,6 @@ if "value_logged" not in st.session_state:
         "n_priced": n_live,
         "priced_at": last_live,
     })
-
-
-@st.dialog("Import a positions CSV", width="large")
-def _import_dialog():
-    """Upload a new Schwab Positions export, preview what changed, confirm."""
-    st.caption(
-        "Upload a fresh Schwab **Positions** export. You'll see exactly what changed "
-        "before anything is saved."
-    )
-    st.caption(":material/lock: " + TRUST_LINE)
-    up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
-    # A path on "this machine" is only meaningful running locally - on the
-    # hosted app it would be a path on the server, which users must not read.
-    path_in = "" if pgcompat.is_postgres_dsn(DB) else st.text_input(
-        "…or a path to a CSV on this machine",
-        key="csv_path",
-        placeholder="C:\\Users\\you\\Downloads\\All-Accounts-Positions-....csv",
-    ).strip().strip('"')
-
-    if up is not None:
-        with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
-            _import_preview(src_path, upload_label(up.name))
-    elif path_in:
-        _import_preview(path_in, os.path.abspath(path_in))
-
-
-def _import_preview(src_path, source_name):
-    """The import dialog's preview and confirm, for a file at `src_path`;
-    `source_name` is what the database records as its source."""
-    if src_path and not os.path.isfile(src_path):
-        st.error(f"No file at: {src_path}")
-    elif src_path:
-        _parse_info: dict = {}
-        try:
-            _meta, new_rows, _ = parse_csv_smart(src_path, _anthropic_key(), _parse_info)
-        except SystemExit as exc:
-            st.error(f"Couldn't parse this file: {exc}")
-        else:
-            if _parse_info.get("ai_assisted"):
-                st.info("This file's headers didn't match the expected format, so Claude "
-                        "helped interpret it — double check the numbers below before confirming.")
-            file_date = _meta["snapshot_date"]
-            _conn = connect(DB)
-            try:
-                # Diff against the snapshot *before* this file's date, so the change
-                # set (and the transactions derived from it) is the same however many
-                # times this file is imported.
-                base_date = _conn.execute(
-                    "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
-                    (file_date, USER_ID),
-                ).fetchone()["d"]
-                base_rows = [dict(r) for r in _conn.execute(
-                    "SELECT account, symbol, description, quantity, cost_basis, market_value "
-                    "FROM positions WHERE snapshot_date = ? AND user_id = ?",
-                    (base_date, USER_ID))] if base_date else []
-                replacing = _conn.execute(
-                    "SELECT 1 FROM positions WHERE snapshot_date = ? AND user_id = ? LIMIT 1",
-                    (file_date, USER_ID)
-                ).fetchone() is not None
-
-                d = diff_positions(base_rows, new_rows)
-                n_changed = len(d["increased"]) + len(d["decreased"])
-
-                st.markdown(
-                    f"Changes vs snapshot **{base_date or '— none (first import)'}**"
-                )
-                c = st.columns(5)
-                c[0].metric("New", len(d["new"]))
-                c[1].metric("Qty changed", n_changed)
-                c[2].metric("Closed", len(d["closed"]))
-                c[3].metric("Unchanged", len(d["unchanged"]))
-                c[4].metric("File date", file_date)
-
-                if replacing:
-                    st.warning(
-                        f"A snapshot for {file_date} already exists — importing replaces "
-                        "its positions, account totals, and inferred transactions."
-                    )
-
-                def _tbl(entries, cols):
-                    return pd.DataFrame([{k: e[k] for k in cols} for e in entries])
-
-                if d["new"]:
-                    st.markdown("**New positions**")
-                    st.dataframe(_tbl(d["new"], ["account", "symbol", "description",
-                                                "new_qty", "new_cost", "new_mv"]),
-                                 hide_index=True, width="stretch")
-                if n_changed:
-                    st.markdown("**Quantity changes**")
-                    st.dataframe(_tbl(d["increased"] + d["decreased"],
-                                      ["account", "symbol", "old_qty", "new_qty", "dqty",
-                                       "old_mv", "new_mv"]),
-                                 hide_index=True, width="stretch")
-                if d["closed"]:
-                    st.markdown("**Closed positions**")
-                    st.dataframe(_tbl(d["closed"], ["account", "symbol", "description",
-                                                    "old_qty", "old_mv"]),
-                                 hide_index=True, width="stretch")
-
-                txns = synthesize_transactions(d, file_date, source_name)
-                st.caption(
-                    f"On confirm: positions + account totals for **{file_date}** are written, "
-                    f"and **{len(txns)}** transaction row(s) inferred from the quantity deltas "
-                    f"(BUY / SELL) are recorded."
-                )
-
-                st.caption("Kept: each holding's symbol, shares, cost and value, and account "
-                           "names. " + NOT_KEPT)
-                if st.button("Confirm import", type="primary", key="csv_confirm"):
-                    try:
-                        info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),
-                                          source_name=source_name)
-                        # Replace-by-date: this date's inferred transactions are
-                        # rewritten from the new file's diff.
-                        _conn.execute(
-                            "DELETE FROM transactions WHERE trade_date = ? AND user_id = ?",
-                            (info["snapshot_date"], USER_ID),
-                        )
-                        if txns:
-                            for _t in txns:
-                                _t["user_id"] = USER_ID
-                            _conn.executemany(
-                                "INSERT INTO transactions (account, trade_date, action, symbol, "
-                                "description, quantity, price, amount, fees, realized_gain, "
-                                "source_file, user_id) VALUES "
-                                "(:account, :trade_date, :action, :symbol, :description, :quantity, "
-                                ":price, :amount, :fees, :realized_gain, :source_file, :user_id)",
-                                txns,
-                            )
-                        _conn.commit()
-                    except DBError as exc:
-                        _conn.rollback()
-                        st.error(f"Import failed, nothing was saved: {exc}")
-                    else:
-                        st.session_state["import_flash"] = (
-                            f"Imported your statement from {_fmt_date(info['snapshot_date'])} - "
-                            f"{info['n_positions']} positions, {len(txns)} transaction(s) recorded."
-                        )
-                        _after_import()
-                        st.rerun()
-            finally:
-                _conn.close()
 
 
 # Holdings with no Yahoo history yet (a first import, or a new position):

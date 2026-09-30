@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import re
 
-# ticker-shaped: 1-5 capitals, optional class suffix (BRK.B, BF-B)
-_TICKER_RE = re.compile(r"^[A-Z]{1,5}(?:[.\-][A-Z]{1,2})?$")
+# ticker-shaped: 1-5 capitals, optional class suffix (BRK.B, BF-B) or a coin's
+# Yahoo name (BTC-USD)
+_TICKER_RE = re.compile(r"^[A-Z]{1,5}(?:[.\-][A-Z]{1,2}|-USD)?$")
 # capitalised words a table shows that aren't tickers
 _NOT_TICKERS = {
     "CASH", "TOTAL", "TOTALS", "USD", "ETF", "ETFS", "NA", "ACCT", "QTY", "PRICE", "VALUE",
@@ -38,6 +39,9 @@ _HEADERS = {
                  "share count", "position", "qty (shares)"),
     "cost": ("cost basis", "cost basis total", "total cost", "cost", "total cost basis",
              "cost basis ($)", "book value"),
+    # per share - multiplied by the share count
+    "avg_cost": ("average cost", "avg cost", "avg. cost", "average price", "avg price",
+                 "cost per share", "cost/share", "unit cost", "average cost basis"),
     "percent": ("% of account", "% of portfolio", "percent", "weight", "allocation",
                 "% of holdings", "portfolio %", "% of acct", "% of total", "percent of account",
                 "% portfolio", "portfolio weight"),
@@ -111,8 +115,11 @@ def _tabular(lines: list[str]) -> list[dict] | None:
                     return None
                 n = _number(cells2[i])
                 return n[1] if n and n[0] in kinds else None
-            rows.append({"Symbol": sym, "Shares": val("quantity", ("plain", "dollar")),
-                         "Total cost": val("cost", ("dollar", "plain")),
+            shares = val("quantity", ("plain", "dollar"))
+            cost, avg = val("cost", ("dollar", "plain")), val("avg_cost", ("dollar", "plain"))
+            if cost is None and avg is not None and shares:
+                cost = round(avg * shares, 2)
+            rows.append({"Symbol": sym, "Shares": shares, "Total cost": cost,
                          "Percent": val("percent", ("pct", "plain"))})
         if rows:
             return rows

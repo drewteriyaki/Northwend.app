@@ -29,15 +29,20 @@ MAX_TOKENS = 4000
 
 PROMPT = """These are screenshots of someone's brokerage holdings (positions) screen.
 List every holding you can see. Return ONLY a JSON object, no other text:
-{"holdings": [{"symbol": "VTI", "shares": 10.5, "cost_basis": null, "percent": null}],
+{"holdings": [{"symbol": "VTI", "shares": 10.5, "cost_basis": null, "average_cost": null,
+               "percent": null, "crypto": false}],
  "cash": null}
 
 Rules:
-- symbol: the ticker symbol exactly as shown (e.g. VTI, BRK.B). If a row shows only a
-  name and no ticker, skip it.
-- shares: the number of shares or units held - never a dollar amount or a price.
+- symbol: the ticker symbol exactly as shown (e.g. VTI, BRK.B, BTC). If a row shows only
+  a name and no ticker, skip it.
+- shares: the number of shares, units or coins held - never a dollar amount or a price.
 - cost_basis: the TOTAL cost of the position, only if a column is clearly labeled cost
   basis or total cost; otherwise null. Never use market value, price or gain.
+- average_cost: the cost PER SHARE, only if a column is labeled average cost, avg cost
+  or cost per share; otherwise null.
+- crypto: true for a cryptocurrency (e.g. listed under a Crypto section, or Bitcoin,
+  Ethereum), otherwise false.
 - percent: the holding's % of the portfolio or account, only if shown; otherwise null.
   Never use a day-change or gain percentage.
 - cash: the cash / money market / sweep balance if clearly shown, else null.
@@ -83,6 +88,12 @@ def clean(answer) -> dict:
             continue
         sym = str(h.get("symbol") or "").strip().upper().rstrip("*")
         shares, cost, pct = _num(h.get("shares")), _num(h.get("cost_basis")), _num(h.get("percent"))
+        avg = _num(h.get("average_cost"))
+        if cost is None and avg is not None and shares:
+            cost = round(avg * shares, 2)  # average (per share) cost x shares
+        crypto = h.get("crypto") is True
+        if crypto and not sym.endswith("-USD"):
+            sym += "-USD"  # Yahoo's name for the coin; plain "BTC" is a stock fund's ticker
         if not _is_ticker(sym) or (shares is None and pct is None) or (pct is not None and pct > 100):
             continue
         prev = holdings.get(sym)
@@ -93,7 +104,8 @@ def clean(answer) -> dict:
             prev["Total cost"] = (prev["Total cost"] or 0) + (cost or 0) or None
             prev["Percent"] = (prev["Percent"] or 0) + (pct or 0) or None
             continue
-        holdings[sym] = {"Symbol": sym, "Shares": shares, "Total cost": cost, "Percent": pct}
+        holdings[sym] = {"Symbol": sym, "Shares": shares, "Total cost": cost, "Percent": pct,
+                         "Type": "Crypto" if crypto else None}
     rows = list(holdings.values())
     with_shares = [r for r in rows if r["Shares"]]
     mode = "Shares" if with_shares or not rows else "Percentages"
