@@ -22,6 +22,7 @@ PBKDF2_ITERATIONS = 200_000
 SESSION_DAYS = 30  # how long "stay signed in" lasts before the password is needed again
 MAX_FAILED_LOGINS = 5   # wrong passwords for one username within LOCKOUT_MINUTES...
 LOCKOUT_MINUTES = 15    # ...lock that username for this long
+MIN_PASSWORD_LENGTH = 8
 
 
 def _hash_password(password: str, salt: bytes) -> str:
@@ -72,6 +73,49 @@ def set_password(conn: sqlite3.Connection, username: str, new_password: str) -> 
     conn.execute("DELETE FROM login_failures WHERE username_key = ?", (_login_key(username),))
     conn.commit()
     return cur.rowcount > 0
+
+
+def change_password(conn, user_id: int, current: str, new: str, *,
+                    keep_session: bool = False, now: datetime | None = None) -> dict:
+    """A signed-in user changing their own password. The current password is
+    checked through attempt_login(), so wrong guesses count toward the same
+    lockout as the login form. On success every stay-signed-in session ends
+    (set_password); with keep_session a fresh one is started for this browser.
+    Returns {"ok": bool, "error": message or None, "token": new session token
+    or None}."""
+    def fail(msg):
+        return {"ok": False, "error": msg, "token": None}
+
+    username = get_username(conn, user_id)
+    if username is None:
+        return fail("Account not found.")
+    if len(new or "") < MIN_PASSWORD_LENGTH:
+        return fail(f"Use a new password of at least {MIN_PASSWORD_LENGTH} characters.")
+    result = attempt_login(conn, username, current or "", now=now)
+    if result["locked_minutes"]:
+        m = result["locked_minutes"]
+        return fail(f"Too many wrong passwords. Try again in {m} minute{'s' if m != 1 else ''}.")
+    if result["user_id"] != user_id:
+        left = result["attempts_left"]
+        return fail("Your current password is wrong." + (
+            f" {left} more attempt{'s' if left != 1 else ''} before a "
+            f"{LOCKOUT_MINUTES}-minute lock." if left <= 2 else ""))
+    # only after the current password checks out, so this can't confirm a guess
+    if new == current:
+        return fail("The new password must be different from the current one.")
+    set_password(conn, username, new)
+    token = create_session(conn, user_id, now=now) if keep_session else None
+    return {"ok": True, "error": None, "token": token}
+
+
+def password_stamp(conn, user_id: int) -> str | None:
+    """A short fingerprint of the account's current password hash, or None if
+    the account is gone. The dashboard notes it at sign-in and compares it on
+    every run, so a password change signs out tabs already open elsewhere."""
+    row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        return None
+    return hashlib.sha256((row["password_hash"] or "").encode("utf-8")).hexdigest()[:16]
 
 
 # --------------------------------------------------------------------------- #

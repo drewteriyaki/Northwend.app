@@ -628,6 +628,52 @@ class LoginLockoutTests(TempDBMixin, unittest.TestCase):
         conn.close()
 
 
+class ChangePasswordTests(TempDBMixin, unittest.TestCase):
+    NEW = "brand-new-pass"
+
+    def test_change_ends_other_sessions_and_keeps_this_one(self):
+        conn = portfolio.connect(self.db)
+        other = auth.create_session(conn, self.user_id)
+        before = auth.password_stamp(conn, self.user_id)
+        r = auth.change_password(conn, self.user_id, "testpass", self.NEW, keep_session=True)
+        self.assertTrue(r["ok"])
+        self.assertIsNone(auth.verify_login(conn, "testuser", "testpass"))
+        self.assertEqual(auth.verify_login(conn, "testuser", self.NEW), self.user_id)
+        self.assertIsNone(auth.session_user(conn, other))                 # other device signed out
+        self.assertEqual(auth.session_user(conn, r["token"]), (self.user_id, "testuser"))
+        self.assertNotEqual(auth.password_stamp(conn, self.user_id), before)  # open tabs notice
+        self.assertIsNone(auth.change_password(conn, self.user_id, self.NEW, "another-pass")["token"])
+        conn.close()
+
+    def test_rejections_leave_the_password_alone(self):
+        conn = portfolio.connect(self.db)
+        for current, new in (("testpass", "short"), ("wrong", self.NEW), ("testpass", "testpass")):
+            r = auth.change_password(conn, self.user_id, current, new)
+            self.assertFalse(r["ok"])
+            self.assertTrue(r["error"])
+        self.assertEqual(auth.verify_login(conn, "testuser", "testpass"), self.user_id)
+        # "must be different" only once the current password is right, so it
+        # can't be used to confirm a guess
+        self.assertIn("wrong", auth.change_password(conn, self.user_id, "guess-123", "guess-123")["error"])
+        conn.close()
+
+    def test_wrong_current_passwords_hit_the_login_lockout(self):
+        conn = portfolio.connect(self.db)
+        for _ in range(auth.MAX_FAILED_LOGINS):
+            auth.change_password(conn, self.user_id, "wrong", self.NEW)
+        r = auth.change_password(conn, self.user_id, "testpass", self.NEW)
+        self.assertFalse(r["ok"])
+        self.assertIn("Too many", r["error"])
+        self.assertGreater(auth.attempt_login(conn, "testuser", "testpass")["locked_minutes"], 0)
+        conn.close()
+
+    def test_stamp_is_none_for_a_missing_account(self):
+        conn = portfolio.connect(self.db)
+        self.assertIsNone(auth.password_stamp(conn, 999999))
+        self.assertEqual(len(auth.password_stamp(conn, self.user_id)), 16)
+        conn.close()
+
+
 class StaySignedInTests(TempDBMixin, unittest.TestCase):
     def test_token_signs_in_until_it_expires(self):
         conn = portfolio.connect(self.db)
@@ -1973,6 +2019,14 @@ class CodeFreshTests(unittest.TestCase):
         self.assertEqual((a2.VERSION, a2.NEW), (2, True))
         self.assertIsNot(b2, b)  # the unchanged one is reloaded too
         self.cf.mark_loaded(self.dir)
+        self.assertEqual(self.cf.drop_stale(self.dir), {})
+
+    def test_modules_loaded_before_codefresh_count_as_stale(self):
+        self._load()  # loaded, never stamped - a server running before the safeguard
+        with unittest.mock.patch.object(self.cf, "_PREEXISTING", set(self.names)), \
+                contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(set(self.cf.drop_stale(self.dir)), set(self.names))
+        self._load()  # imported after codefresh (e.g. a lazy import): trusted
         self.assertEqual(self.cf.drop_stale(self.dir), {})
 
     def test_connection_pools_carry_over(self):

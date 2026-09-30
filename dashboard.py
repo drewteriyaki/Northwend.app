@@ -168,6 +168,9 @@ def _login() -> bool:
     with mid:
         st.title("Portfolio Tracker")
         st.caption("Sign in to see your portfolio.")
+        _notice = st.session_state.get("login_notice")
+        if _notice:
+            st.info(_notice)
         with st.form("login_form", border=True):
             user = st.text_input("Username", key="login_user")
             pw = st.text_input("Password", type="password", key="login_pw")
@@ -189,6 +192,7 @@ def _login() -> bool:
             conn.close()
         if user_id is not None:
             st.session_state.pop("signed_out", None)
+            st.session_state.pop("login_notice", None)
             st.session_state["user_id"] = user_id
             st.session_state["username"] = user
             st.session_state["session_token"] = token
@@ -245,6 +249,14 @@ if (st.session_state.get("session_token")
 LOGIN_ID = st.session_state["user_id"]
 _conn = connect(DB)
 try:
+    # A password change (here, on another device, or by an admin or advisor)
+    # signs out tabs that are already open, not just the saved cookies.
+    _stamp = auth.password_stamp(_conn, LOGIN_ID)
+    if st.session_state.setdefault("pw_stamp", _stamp) != _stamp:
+        st.session_state.clear()
+        st.session_state["signed_out"] = True
+        st.session_state["login_notice"] = "Your password was changed. Sign in again."
+        st.rerun()
     IS_ADVISOR = auth.is_advisor(_conn, LOGIN_ID)
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
     _active = st.session_state.get("active_user_id", LOGIN_ID)
@@ -282,7 +294,7 @@ if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
 # kept when an advisor switches accounts; everything else is per-account
-_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token")
+_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token", "pw_stamp")
 
 
 def _go(page):
@@ -332,8 +344,9 @@ def _add_client():
 
 def _set_client_password():
     pw = st.session_state.get("client_login_pw") or ""
-    if len(pw) < 8:
-        st.session_state["client_msg"] = ("error", "Use a password of at least 8 characters.")
+    if len(pw) < auth.MIN_PASSWORD_LENGTH:
+        st.session_state["client_msg"] = (
+            "error", f"Use a password of at least {auth.MIN_PASSWORD_LENGTH} characters.")
         return
     viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
     c = connect(DB)
@@ -346,6 +359,30 @@ def _set_client_password():
         c.close()
     st.session_state["client_login_pw"] = ""
     st.session_state["client_msg"] = ("success", "Login password set - the client can log in now.")
+
+
+def _change_password():
+    cur, new, again = (st.session_state.get(k) or "" for k in ("pw_current", "pw_new", "pw_again"))
+    if new != again:
+        st.session_state["pw_msg"] = ("error", "The new passwords don't match.")
+        return
+    c = connect(DB)
+    try:
+        # a stay-signed-in browser gets a fresh session; every other one ends
+        result = auth.change_password(c, st.session_state["user_id"], cur, new,
+                                      keep_session=bool(st.session_state.get("session_token")))
+        stamp = auth.password_stamp(c, st.session_state["user_id"]) if result["ok"] else None
+    finally:
+        c.close()
+    if not result["ok"]:
+        st.session_state["pw_msg"] = ("error", result["error"])
+        return
+    for k in ("pw_current", "pw_new", "pw_again"):
+        st.session_state[k] = ""
+    st.session_state["pw_stamp"] = stamp  # keeps this tab signed in
+    if result["token"]:
+        st.session_state["session_token"] = result["token"]  # the cookie follows on this run
+    st.session_state["pw_msg"] = ("success", "Password changed. Your other devices are signed out.")
 
 
 with st.sidebar:
@@ -386,6 +423,16 @@ with st.sidebar:
         st.caption(f"Your advisor: **{_advisor_display_name()}**")
     _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
     st.caption(f"Logged in as **{st.session_state['username']}**{_viewing}")
+    _pw_msg = st.session_state.pop("pw_msg", None)
+    with st.expander("Change password", expanded=bool(_pw_msg)):
+        if _pw_msg:
+            getattr(st, _pw_msg[0])(_pw_msg[1])
+        with st.form("change_pw_form", border=False):
+            st.text_input("Current password", type="password", key="pw_current")
+            st.text_input("New password", type="password", key="pw_new",
+                          help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
+            st.text_input("New password again", type="password", key="pw_again")
+            st.form_submit_button("Change password", on_click=_change_password, width="stretch")
     st.button("Log out", on_click=_logout, width="stretch")
     # sidebar handle, click-away to close, pull to refresh (see the file)
     with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:

@@ -43,17 +43,28 @@ def _ours(here: str) -> dict:
     return out
 
 
+# Our modules already loaded when this one was first imported - a server
+# that was running before codefresh existed. Their version is unknown, so the
+# first check treats them as stale rather than stamping old code as current.
+_PREEXISTING = set(_ours(os.path.dirname(os.path.abspath(__file__))))
+_SELF_STAMP = _stamp(__file__)
+
+
 def drop_stale(here: str) -> dict:
     """If any of our loaded modules changed on disk, remove all of them from
     sys.modules and return the old modules by name; otherwise return {}."""
     here = os.path.abspath(here)
     with _LOCK:
+        if _stamp(__file__) != _SELF_STAMP:
+            sys.modules.pop(__name__, None)  # this file changed: the next run imports the new one
         mods = _ours(here)
         stale = any(
-            getattr(m, _MARK, None) is not None and getattr(m, _MARK) != _stamp(m.__file__)
-            for m in mods.values())
+            m.__file__ and (_stamp(m.__file__) != getattr(m, _MARK) if getattr(m, _MARK, None)
+                            else name in _PREEXISTING)
+            for name, m in mods.items())
         if not stale:
             return {}
+        _PREEXISTING.clear()
         for name in mods:
             sys.modules.pop(name, None)
         print(f"codefresh: app files changed on disk; reloading {len(mods)} module(s)",

@@ -23,18 +23,13 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       `DOUBLE PRECISION`, checked in Neon (`c646b42`)
 - [x] Deploy safeguard: the app reloads all its modules together when a push
       changes them, so no reboot is needed (`1797e9d`)
-- [x] 2 - Tests run on GitHub on every push (this commit)
+- [x] 2 - Tests run on GitHub on every push (`6e12e00`)
+- [x] 3 - Change your own password from the sidebar; signs out other devices,
+      including tabs already open (this commit)
 
 ---
 
 ## Next up - in this order
-
-### 3. Change your own password - S
-**Why:** today only an admin (`manage_users.py`) or an advisor can change a
-password; nobody can change their own.
-**What:** a "Change password" form in the sidebar (current + new password),
-behind the same lockout; signs out other devices.
-**Done when:** a user changes their password and their other sessions end.
 
 ### 4. Friendly errors and error visibility - M
 **Why:** an unexpected error shows a raw traceback to users.
