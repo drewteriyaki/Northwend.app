@@ -23,6 +23,7 @@ import advising
 import alerts
 import auth
 import charts
+import disclosures
 import friendly_errors
 import learn
 import metrics as M
@@ -143,6 +144,21 @@ def _session_cookie() -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _render_disclosures(*, summary=True):
+    """The About and disclosures text (disclosures.py) - the About page, and
+    on the login screen for people who haven't signed in."""
+    if summary:
+        st.markdown(disclosures.SUMMARY)
+    for title, body in disclosures.SECTIONS:
+        st.subheader(title, anchor=False)
+        st.markdown(body.strip())
+    st.caption(f"Last updated {disclosures.LAST_UPDATED}.")
+
+
+def _toggle_about():
+    st.session_state["show_about"] = not st.session_state.get("show_about")
+
+
 def _login() -> bool:
     """Per-account login - every account is admin-provisioned (see
     manage_users.py); there is no signup anywhere in this app. Sets
@@ -184,6 +200,13 @@ def _login() -> bool:
                                    value=True, key="login_remember",
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Log in", type="primary", width="stretch")
+        st.caption(disclosures.SUMMARY)
+        st.button("Hide about and disclosures" if st.session_state.get("show_about")
+                  else "About and disclosures", key="login_about", type="tertiary",
+                  on_click=_toggle_about)
+    if st.session_state.get("show_about"):
+        with mid.container(border=True):
+            _render_disclosures(summary=False)  # the summary is just above
     if submitted:
         if not user or not pw:
             mid.error("Enter your username and password.")
@@ -295,7 +318,7 @@ PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
          "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT or IS_MANAGED_CLIENT else []),
          *(["Clients"] if IS_ADVISOR else []),
          "Watchlist", "Activity", "Income", "AI Assistant",
-         *(["Get started"] if HAS_HOLDINGS else [])]
+         *(["Get started"] if HAS_HOLDINGS else []), "About"]
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
@@ -2324,6 +2347,10 @@ if PAGE == "Clients":
     # about the advisor's clients, not the viewed account's data
     _page_header(PAGE, data=False)
     _render_clients()
+    st.stop()
+if PAGE == "About":
+    _page_header("About and disclosures", data=False)
+    _render_disclosures()
     st.stop()
 if not positions:
     # Blank-account onboarding: a brand-new admin-provisioned account has no

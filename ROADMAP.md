@@ -37,11 +37,13 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
 ### 5. Disclosures page - S - needs you
 **Why:** the app shows example funds, projections and AI answers to real
 people; advisors will ask what's said to their clients.
-**What:** an "About and disclosures" page (educational, not advice; how data
-is used and what's sent to the AI; not affiliated with any brokerage), linked
-from the login screen and sidebar. I draft it.
+**Built:** an "About and disclosures" page (educational, not advice;
+projections; how data is stored; what's sent to the AI; market data; not
+affiliated), last in the sidebar and expandable on the login screen. The
+wording lives in `disclosures.py`, with notes on which code each statement
+depends on.
 **Needs you:** have the final wording reviewed by someone qualified before
-launch.
+launch, and decide who people contact to delete their data. Then tick this.
 
 ### 6. Let a client import their own statements - S
 **Why:** some advisors will want clients to upload their own files.

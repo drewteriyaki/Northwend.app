@@ -1978,6 +1978,27 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class DisclosureTests(unittest.TestCase):
+    def test_text_is_safe_markdown_and_covers_the_basics(self):
+        import disclosures
+        text = disclosures.SUMMARY + "".join(t + b for t, b in disclosures.SECTIONS)
+        self.assertNotIn("$", text)  # Streamlit reads a pair of them as math
+        for must in ("not financial advice", "Anthropic", "percentages", "header row",
+                     "ticker", "Schwab", "hypothetical"):
+            self.assertIn(must.lower(), text.lower())
+
+    def test_the_ai_summary_it_describes_has_no_dollar_amounts(self):
+        # disclosures promise the AI sees weights only; hold the code to it
+        ctx = {"pos": {"symbol": "VTI", "account": "Brokerage 1234", "quantity": 123.0,
+                       "market_value": 45678.9}, "metrics": {}}
+        with unittest.mock.patch.object(advisor.M, "value",
+                                        side_effect=lambda k, c: {"pct_of_portfolio": 100.0,
+                                                                  "description": "Total Market"}.get(k)):
+            text = advisor.portfolio_summary([ctx], {"Brokerage 1234": 250.0})
+        for leak in ("45678", "45,678", "123", "Brokerage 1234", "250"):
+            self.assertNotIn(leak, text)
+
+
 class FriendlyErrorTests(unittest.TestCase):
     """An error in a page shows the friendly message, never the traceback
     (unless running locally with details on)."""
