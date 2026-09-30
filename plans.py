@@ -58,6 +58,8 @@ def save_plan(conn, user_id: int, fields: dict, set_by: int) -> dict:
         (user_id, plan.get("goal_type"), plan.get("goal_name"), plan.get("target_amount"),
          plan.get("target_date"), plan.get("monthly_contribution"), json.dumps(alloc),
          plan.get("notes"), set_by))
+    if "target_alloc" in fields:  # new targets replace any cleared by the class change
+        conn.execute("UPDATE plans SET targets_cleared = 0 WHERE user_id = ?", (user_id,))
     conn.commit()
     return get_plan(conn, user_id)
 

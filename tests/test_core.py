@@ -1990,6 +1990,144 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class AssetClassTests(unittest.TestCase):
+    AOR = {"quote_type": "ETF", "stock_pct": 0.6178, "bond_pct": 0.3754, "cash_pct": 0.0065,
+           "other_pct": 0.0002}
+
+    def test_yahoo_splits_funds_and_classes_stocks_and_money_market(self):
+        import asset_classes as ac
+        s = ac.from_yahoo(self.AOR)
+        self.assertAlmostEqual(sum(s.values()), 1.0)
+        self.assertAlmostEqual(s["Stocks"], 0.6178 / 0.9999, places=4)
+        self.assertEqual(ac.main_class(s), "Stocks")
+        self.assertEqual(ac.from_yahoo({"quote_type": "EQUITY"}), {"Stocks": 1.0})
+        self.assertEqual(ac.from_yahoo({"quote_type": "MONEYMARKET"}), {"Cash": 1.0})
+        self.assertIsNone(ac.from_yahoo({"quote_type": "ETF"}))       # no breakdown
+        self.assertIsNone(ac.from_yahoo(None))
+        self.assertEqual(ac.describe({"Bonds": 1.0}), "Bonds")
+        self.assertEqual(ac.describe({"Stocks": 0.62, "Bonds": 0.38}), "62% stocks / 38% bonds")
+
+    def test_override_beats_yahoo_beats_broker_type(self):
+        import asset_classes as ac
+        self.assertEqual(ac.split_for("AOR", "ETFs & Closed End Funds", self.AOR,
+                                      {"AOR": "Bonds"}), ({"Bonds": 1.0}, "override"))
+        self.assertEqual(ac.split_for("AOR", "ETFs & Closed End Funds", self.AOR)[1], "yahoo")
+        self.assertEqual(ac.split_for("BND", "Fixed Income", None), ({"Bonds": 1.0}, "broker"))
+        self.assertEqual(ac.split_for("XYZ", "ETFs & Closed End Funds", None),
+                         ({"Other": 1.0}, "broker"))
+        self.assertEqual(ac.split_for("X", "Equity", None, {"X": "Nonsense"})[1], "broker")
+
+    def test_allocate_splits_balanced_funds_and_falls_back_to_broker_type(self):
+        pos = [{"symbol": "AOR", "asset_type": "ETFs & Closed End Funds", "market_value": 1000,
+                "account": "A"},
+               {"symbol": "BND", "asset_type": "Fixed Income", "market_value": 500, "account": "A"},
+               {"symbol": "VTI", "asset_type": "ETFs & Closed End Funds", "market_value": 250,
+                "account": "A"}]
+        out = allocation.allocate(pos, {"A": 250}, {"AOR": {"Stocks": 0.6, "Bonds": 0.4}})
+        by = {r["label"]: r["value"] for r in out["by_asset_class"]}
+        self.assertEqual(by, {"Stocks": 600.0, "Bonds": 900.0, "Cash": 250.0, "Other": 250.0})
+        self.assertAlmostEqual(sum(r["pct"] for r in out["by_asset_class"]), 100.0)
+        self.assertIn("ETF / CEF", {r["label"] for r in out["by_asset_type"]})  # still there
+
+    def test_old_targets_convert_where_they_map(self):
+        import asset_classes as ac
+        self.assertEqual(ac.convert_targets({"Equity": 60, "Fixed Income": 35, "Cash": 5}),
+                         ({"Stocks": 60.0, "Bonds": 35.0, "Cash": 5.0}, False))
+        self.assertEqual(ac.convert_targets({"ETF / CEF": 70, "Fixed Income": 30}), ({}, True))
+        self.assertEqual(ac.convert_targets({"Stocks": 60, "Bonds": 40}),
+                         ({"Stocks": 60.0, "Bonds": 40.0}, False))
+        self.assertEqual(ac.convert_targets({"Option": 10}), ({}, True))
+        self.assertEqual(ac.convert_targets(None), ({}, False))
+
+
+class AssetClassStorageTests(TempDBMixin, unittest.TestCase):
+    def test_migration_moves_plans_and_models_once(self):
+        import asset_classes as ac
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw")
+        conn.execute("INSERT INTO plans (user_id, target_alloc) VALUES (?, ?)",
+                     (self.user_id, json.dumps({"Equity": 60, "Fixed Income": 40})))
+        conn.execute("INSERT INTO plans (user_id, target_alloc) VALUES (?, ?)",
+                     (other, json.dumps({"ETF / CEF": 100})))
+        conn.execute("INSERT INTO model_portfolios (advisor_id, name, target_alloc) VALUES (?, ?, ?)",
+                     (self.user_id, "Old", json.dumps({"Mutual Funds": 50, "Cash": 50})))
+        conn.commit()
+        self.assertEqual(ac.migrate_targets(conn),
+                         {"plans": 2, "plans_cleared": 1, "models": 1, "models_cleared": 1})
+        conn.commit()
+        self.assertEqual(plans.get_plan(conn, self.user_id)["target_alloc"],
+                         {"Stocks": 60.0, "Bonds": 40.0})
+        cleared = plans.get_plan(conn, other)
+        self.assertEqual((cleared["target_alloc"], cleared["targets_cleared"]), ({}, 1))
+        self.assertEqual(advising.list_models(conn, self.user_id)[0]["target_alloc"], {})
+        self.assertEqual(ac.migrate_targets(conn)["plans"], 0)          # nothing left to do
+        plans.save_plan(conn, other, {"target_alloc": {"Stocks": 100}}, other)
+        self.assertEqual(plans.get_plan(conn, other)["targets_cleared"], 0)  # note goes away
+        conn.close()
+
+    def test_fund_split_is_stored_and_read_back(self):
+        import asset_classes as ac
+        conn = portfolio.connect(self.db)
+        sync_history.upsert_info(conn, "AOR", {"name": "Balanced", **AssetClassTests.AOR})
+        sync_history.upsert_info(conn, "AAPL", {"quote_type": "EQUITY"})
+        conn.commit()
+        pos = [{"symbol": "AOR", "asset_type": "ETFs & Closed End Funds"},
+               {"symbol": "AAPL", "asset_type": "Equity"},
+               {"symbol": "NEW", "asset_type": "Fixed Income"}]
+        s = ac.splits(conn, pos, {"AAPL": "Other"})
+        self.assertEqual(ac.main_class(s["AOR"]), "Stocks")
+        self.assertEqual(s["AAPL"], {"Other": 1.0})                    # override wins
+        self.assertEqual(s["NEW"], {"Bonds": 1.0})                     # no Yahoo row yet
+        conn.close()
+
+
+class FetchFundSplitTests(unittest.TestCase):
+    """fetch_info asks Yahoo for a breakdown only for funds, and a failure
+    there leaves the fund unclassified instead of breaking the sync."""
+
+    def _fake_yf(self, info, asset_classes=None, fail=False):
+        calls = []
+
+        class FundsData:
+            @property
+            def asset_classes(self):
+                if fail:
+                    raise RuntimeError("no fund data")
+                return asset_classes
+
+        class Ticker:
+            def __init__(self, t):
+                self.info = info
+
+            @property
+            def funds_data(self):
+                calls.append("funds_data")
+                return FundsData()
+        return type(sys)("yf"), Ticker, calls
+
+    def _fetch(self, info, **kw):
+        fake, ticker_cls, calls = self._fake_yf(info, **kw)
+        fake.Ticker = ticker_cls
+        with unittest.mock.patch.object(sync_history, "yf", fake):
+            return sync_history.fetch_info("T"), calls
+
+    def test_fund_gets_its_split(self):
+        out, calls = self._fetch({"quoteType": "ETF", "category": "Allocation"},
+                                 asset_classes={"stockPosition": 0.6, "bondPosition": 0.38,
+                                                "cashPosition": 0.01, "preferredPosition": 0.01})
+        self.assertEqual(calls, ["funds_data"])
+        self.assertEqual((out["quote_type"], out["category"]), ("ETF", "Allocation"))
+        self.assertEqual((out["stock_pct"], out["bond_pct"], out["other_pct"]), (0.6, 0.38, 0.01))
+
+    def test_stock_makes_no_extra_request_and_failures_stay_blank(self):
+        out, calls = self._fetch({"quoteType": "EQUITY"})
+        self.assertEqual(calls, [])
+        self.assertIsNone(out["stock_pct"])
+        out, _ = self._fetch({"quoteType": "MUTUALFUND"}, fail=True)
+        self.assertIsNone(out["bond_pct"])
+        self.assertEqual(out["quote_type"], "MUTUALFUND")
+
+
 class DisclosureTests(unittest.TestCase):
     def test_text_is_safe_markdown_and_covers_the_basics(self):
         import disclosures

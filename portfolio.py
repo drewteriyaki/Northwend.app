@@ -343,6 +343,11 @@ def _ensure_schema(conn) -> None:
                         ("value_log", USER_ID_COL),
                         ("users", [("is_advisor", "INTEGER")]),
                         ("advisor_clients", [("client_can_import", "INTEGER")]),
+                        # what a fund holds, from Yahoo (asset_classes.py)
+                        ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),
+                                           ("stock_pct", "REAL"), ("bond_pct", "REAL"),
+                                           ("cash_pct", "REAL"), ("other_pct", "REAL")]),
+                        ("plans", [("targets_cleared", "INTEGER")]),
                         ("investor_profiles", PROFILE_EXTRA_COLS)):
         if is_pg:
             have = {r["column_name"] for r in conn.execute(
@@ -354,6 +359,11 @@ def _ensure_schema(conn) -> None:
             if name not in have:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} "
                              f"{'DOUBLE PRECISION' if is_pg and decl == 'REAL' else decl}")
+    # saved targets from before Stocks / Bonds / Cash / Other; a no-op once done
+    import asset_classes
+    moved = asset_classes.migrate_targets(conn)
+    if moved["plans"] or moved["models"]:
+        print(f"schema: targets moved to asset classes: {moved}", file=sys.stderr)
     if is_pg:
         widened = _widen_real_columns(conn, schema_text)
         if widened:

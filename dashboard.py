@@ -21,6 +21,7 @@ _OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
 import accounts
 import advising
 import alerts
+import asset_classes
 import auth
 import charts
 import disclosures
@@ -697,16 +698,19 @@ def _render_models():
                    "Plan page.")
     for m in models:
         with st.container(horizontal=True, vertical_alignment="center"):
-            st.markdown(f"**{m['name']}** - {advising.mix_text(m['target_alloc'])}", width="stretch")
+            st.markdown(f"**{m['name']}** - " + (advising.mix_text(m["target_alloc"]) or
+                        "*no targets - the old mix used ETF / CEF or Mutual Funds, which can't be "
+                        "moved to stocks / bonds. Save it again under the same name.*"),
+                        width="stretch")
             st.button(":material/delete:", key=f"model_del_{m['id']}", type="tertiary",
                       on_click=_delete_model, args=(m["id"],), help="Delete this model")
     with st.expander("New model portfolio"):
         with st.form("model_form", border=False):
             name = st.text_input("Name", max_chars=60, placeholder="e.g. Balanced 60/40",
                                  help="Saving with an existing name replaces that model.")
-            cols = st.columns(3)
-            mix = {t: cols[i % 3].number_input(f"{t} %", min_value=0.0, max_value=100.0,
-                                               step=5.0, format="%.0f", key=f"model_{t}")
+            cols = st.columns(len(advising.MODEL_ASSET_TYPES))
+            mix = {t: cols[i].number_input(f"{t} %", min_value=0.0, max_value=100.0,
+                                           step=5.0, format="%.0f", key=f"model_{t}")
                    for i, t in enumerate(advising.MODEL_ASSET_TYPES)}
             if st.form_submit_button("Save model", type="primary"):
                 c = connect(DB)
@@ -718,8 +722,8 @@ def _render_models():
                     st.rerun()
                 finally:
                     c.close()
-        st.caption("Targets are by asset type, the way holdings are grouped - an ETF counts "
-                   "as ETF / CEF whether it holds stocks or bonds.")
+        st.caption("Targets are by what holdings hold: a stock fund counts as stocks, a bond "
+                   "fund as bonds, and a balanced fund is split between them.")
 
 
 def _set_can_import(client_id):
@@ -934,7 +938,7 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
                 try:
                     steps = client_plan.next_steps(
                         anthropic.Anthropic(api_key=api_key), profile,
-                        advisor.portfolio_summary(contexts, cash_by_account),
+                        advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
                         client_plan.chat_transcript(display), memory)
                 except anthropic.AuthenticationError:
                     st.warning("The ANTHROPIC_API_KEY was rejected - the plan was made "
@@ -1240,9 +1244,13 @@ def _render_target_mix(alloc_rows):
     targets = load_alloc_targets()
     actual = {r["label"]: r["pct"] or 0.0 for r in alloc_rows}
     labels = sorted(set(actual) | set(targets), key=lambda lbl: -(actual.get(lbl) or 0.0))
+    if (load_plan() or {}).get("targets_cleared"):
+        st.info("Targets are now set by what holdings actually hold - stocks, bonds, cash - "
+                "instead of by fund type. The old target mix used ETF / CEF or Mutual Funds, "
+                "which can't be translated, so it was cleared. Set it again below.")
     if not targets:
-        st.caption("No targets yet. Set a target % for each asset type to see how far the "
-                   "portfolio is from its plan.")
+        st.caption("No targets yet. Set a target % for stocks, bonds and cash to see how far "
+                   "the portfolio is from its plan.")
     else:
         rows = ""
         for lbl in labels:
@@ -1266,8 +1274,8 @@ def _render_target_mix(alloc_rows):
             models = advising.list_models(conn, LOGIN_ID)
         finally:
             conn.close()
-        if models:
-            by_id = {m["id"]: m for m in models}
+        if any(m["target_alloc"] for m in models):
+            by_id = {m["id"]: m for m in models if m["target_alloc"]}
             c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
             pick = c1.selectbox("Apply a model portfolio", list(by_id), index=None,
                                 placeholder="Pick one of your models",
@@ -1279,11 +1287,11 @@ def _render_target_mix(alloc_rows):
     if CAN_MANAGE:
         with st.expander("Edit target mix"):
             with st.form("target_mix_form", border=False):
-                cols = st.columns(min(3, max(1, len(labels))))
-                new = {lbl: cols[i % len(cols)].number_input(
+                cols = st.columns(len(asset_classes.CLASSES))
+                new = {lbl: cols[i].number_input(
                            f"{lbl} %", min_value=0.0, max_value=100.0, step=5.0, format="%.0f",
                            value=float(targets.get(lbl, 0.0)), key=f"plan_target_{lbl}")
-                       for i, lbl in enumerate(labels)}
+                       for i, lbl in enumerate(asset_classes.CLASSES)}
                 if st.form_submit_button("Save target mix", type="primary"):
                     total = sum(new.values())
                     if total and abs(total - 100) > 0.5:
@@ -1777,7 +1785,7 @@ def _render_assistant(contexts, cash_by_account):
         with chat_box, st.chat_message("user"):
             st.markdown(prompt)
 
-        system = advisor.system_prompt(profile, advisor.portfolio_summary(contexts, cash_by_account),
+        system = advisor.system_prompt(profile, advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
                                        memory)
         updated = []
 
@@ -1919,6 +1927,8 @@ SERIES_DARK = ("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300",
 SERIES_OTHER = "#8a8a86"
 ASSET_SLOT = {"Equity": 0, "ETF / CEF": 1, "Cash": 2, "Fixed Income": 3, "Mutual Funds": 4,
               "Option": 6}
+# asset classes keep the colors of their nearest broker type
+CLASS_SLOT = {"Stocks": 0, "Bonds": 3, "Cash": 2, "Other": 6}
 
 
 def _slot_map(labels, fixed=None):
@@ -1960,7 +1970,7 @@ def _alloc_bar(rows, title, slots):
             f"<div class='pt-alloc-bar'>{segs}</div><div class='pt-legend'>{legend}</div>")
 
 
-def _account_mix(by_account, positions, cash_by_account, slots):
+def _account_mix(by_account, positions, cash_by_account, slots, group="by_asset_class"):
     """'By account': each account's share of the portfolio, with a thin bar
     of its own asset mix underneath - one view instead of a by-account bar
     plus a separate asset-mix chart per account. Mix colors match the asset
@@ -1971,7 +1981,7 @@ def _account_mix(by_account, positions, cash_by_account, slots):
     for r in by_account:
         acct = r["label"]
         mix = allocate([p for p in positions if p["account"] == acct],
-                       {acct: cash_by_account.get(acct, 0.0)})["by_asset_type"]
+                       {acct: cash_by_account.get(acct, 0.0)}, CLASS_SPLITS)[group]
         segs = ""
         for m in mix:
             if (m["value"] or 0) <= 0:
@@ -1988,6 +1998,50 @@ def _account_mix(by_account, positions, cash_by_account, slots):
                 f"<span class='pt-legend-val'>{fmt_money(r['value'])}</span></div>"
                 f"<div class='pt-alloc-bar pt-mini'>{segs}</div></div>")
     return out
+
+
+def _render_classification(positions):
+    """How each holding is classed (Stocks / Bonds / Cash / Other) and where
+    that came from; whoever manages the account can set a holding by hand."""
+    by_sym = {p["symbol"]: p for p in positions if p.get("symbol")}
+    if not by_sym:
+        return
+    rows = []
+    for s in sorted(by_sym):
+        split, source = asset_classes.split_for(s, by_sym[s].get("asset_type"), sec_info.get(s),
+                                                CLASS_OVERRIDES)
+        rows.append({"Symbol": s, "Holds": asset_classes.describe(split),
+                     "From": asset_classes.SOURCE_LABELS[source],
+                     "Set to": CLASS_OVERRIDES.get(s, "Automatic")})
+    n_guess = sum(r["From"] == asset_classes.SOURCE_LABELS["broker"] for r in rows)
+    with st.expander("How holdings are classified"
+                     + (f" · {n_guess} from broker type only" if n_guess else "")):
+        st.caption("Funds are split by what they hold, from Yahoo - a balanced fund counts part "
+                   "stocks, part bonds. Without Yahoo data a holding goes by its broker type "
+                   "(Equity is stocks, Fixed Income is bonds); **Sync history** fills the rest in."
+                   + (" Choose a holding below to decide its class yourself." if CAN_MANAGE
+                      else ""))
+        df = pd.DataFrame(rows)
+        st.dataframe(df if CAN_MANAGE else df.drop(columns=["Set to"]), hide_index=True,
+                     width="stretch")
+        if not CAN_MANAGE:
+            return
+        with st.form("class_override_form", border=False):
+            c1, c2, c3 = st.columns([2, 2, 1], vertical_alignment="bottom")
+            sym = c1.selectbox("Holding", sorted(by_sym), key="class_pick_symbol")
+            cls = c2.selectbox("Set to", ["Automatic", *asset_classes.CLASSES],
+                               key="class_pick_class",
+                               help="Automatic uses Yahoo, else the broker type.")
+            if c3.form_submit_button("Save", width="stretch"):
+                new = dict(CLASS_OVERRIDES)
+                if cls in asset_classes.CLASSES:
+                    new[sym] = cls
+                else:
+                    new.pop(sym, None)
+                p = _read_prefs()
+                p[asset_classes.OVERRIDES_PREF] = new  # kept for symbols not held right now
+                _write_prefs(p)
+                st.rerun()
 
 
 def _read_prefs():
@@ -2077,8 +2131,10 @@ def load_alloc_targets():
     never flagged, rather than implicitly meaning "target 0%". Targets saved
     before plans existed (in the settings) are used until the plan has some."""
     plan = load_plan()
-    saved = (plan or {}).get("target_alloc") or _read_prefs().get("alloc_targets") or {}
-    return {k: float(v) for k, v in saved.items() if v}
+    saved = (plan or {}).get("target_alloc")
+    if not saved:  # the pre-plans settings key, in the old broker-type groups
+        saved, _cleared = asset_classes.convert_targets(_read_prefs().get("alloc_targets"))
+    return {k: float(v) for k, v in (saved or {}).items() if v}
 
 
 def save_alloc_targets(targets: dict):
@@ -2427,6 +2483,11 @@ cash = sum(cash_by_account.values())
 # Deep Yahoo history (moving averages, volume, 52-wk, beta, P/E, sector).
 bar_stats = perf.bar_stats(DB)
 sec_info = perf.security_info(DB)
+# What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):
+# the account's own choice, else Yahoo's fund breakdown, else the broker type.
+CLASS_OVERRIDES = {s: c for s, c in (_read_prefs().get(asset_classes.OVERRIDES_PREF) or {}).items()
+                   if c in asset_classes.CLASSES}
+CLASS_SPLITS = asset_classes.splits_from(positions, sec_info, CLASS_OVERRIDES)
 
 _wl_conn = connect(DB)
 try:
@@ -2836,36 +2897,47 @@ if PAGE == "Dashboard":
     st.divider()
 
     # ---- allocation ----------------------------------------------------- #
-    alloc = allocate(positions, cash_by_account)
-    # One color per asset type across every allocation bar on the page.
-    _asset_slots = _slot_map({r["label"] for r in alloc["by_asset_type"]}, ASSET_SLOT)
+    alloc = allocate(positions, cash_by_account, CLASS_SPLITS)
+    # What the bars group by: asset class (what's held - targets and drift use
+    # this) or the broker's own asset type. One color per group across the page.
+    _by_type = st.session_state.get("alloc_group") == "Broker type"
+    _group = "by_asset_type" if _by_type else "by_asset_class"
+    _asset_slots = _slot_map({r["label"] for r in alloc[_group]},
+                             ASSET_SLOT if _by_type else CLASS_SLOT)
 
     al1, al2 = st.columns([0.75, 0.25])
     al1.subheader("Allocation")
-    _asset_labels = [r["label"] for r in alloc["by_asset_type"]]
     if CAN_MANAGE:
         with al2.popover("Targets", width="stretch"):
-            st.caption("Set a target % of portfolio for any asset type — leave at 0 for no target.")
+            st.caption("Set a target % of portfolio for stocks, bonds, cash or other - leave "
+                       "at 0 for no target.")
             _saved_targets = load_alloc_targets()
             _new_targets = {}
-            for _lbl in _asset_labels:
+            for _lbl in asset_classes.CLASSES:
                 _new_targets[_lbl] = st.number_input(
                     _lbl, min_value=0.0, max_value=100.0, step=1.0,
                     value=float(_saved_targets.get(_lbl, 0.0)), key=f"target_{_lbl}")
             _new_thresh = st.number_input(
                 "Flag drift beyond ± this many percentage points", min_value=0.5, max_value=50.0,
                 step=0.5, value=load_drift_threshold(), key="drift_threshold_input")
-            if _new_targets != _saved_targets:
+            if {k: v for k, v in _new_targets.items() if v} != _saved_targets:
                 save_alloc_targets(_new_targets)
             if _new_thresh != load_drift_threshold():
                 save_drift_threshold(_new_thresh)
+    st.segmented_control("Group by", ["Asset class", "Broker type"], default="Asset class",
+                         key="alloc_group", label_visibility="collapsed",
+                         help="Asset class is what holdings hold - a bond ETF counts as bonds. "
+                              "Broker type is how the statement labels them.")
 
+    _title = "By broker type" if _by_type else "By asset class"
     if len(alloc["by_account"]) > 1:
         a1, a2 = st.columns(2, gap="large")
-        a1.html(_alloc_bar(alloc["by_asset_type"], "By asset type", _asset_slots))
-        a2.html(_account_mix(alloc["by_account"], positions, cash_by_account, _asset_slots))
+        a1.html(_alloc_bar(alloc[_group], _title, _asset_slots))
+        a2.html(_account_mix(alloc["by_account"], positions, cash_by_account, _asset_slots,
+                             _group))
     else:
-        st.html(_alloc_bar(alloc["by_asset_type"], "By asset type", _asset_slots))
+        st.html(_alloc_bar(alloc[_group], _title, _asset_slots))
+    _render_classification(positions)
 
     if alloc["concentration"]:
         lines = "  \n".join(
@@ -2880,7 +2952,7 @@ if PAGE == "Dashboard":
     _targets = load_alloc_targets()
     if _targets:
         _thresh = load_drift_threshold()
-        _pct_by_label = {r["label"]: r["pct"] for r in alloc["by_asset_type"]}
+        _pct_by_label = {r["label"]: r["pct"] for r in alloc["by_asset_class"]}
         _drift = []
         for _lbl, _target in _targets.items():
             _actual = _pct_by_label.get(_lbl, 0.0) or 0.0
@@ -2896,7 +2968,7 @@ if PAGE == "Dashboard":
             )
             st.warning(f"Drifted beyond ±{_thresh:g} pts from target:  \n{lines}")
         else:
-            st.caption(f"All targeted asset types are within ±{_thresh:g} pts of target.")
+            st.caption(f"Every targeted asset class is within ±{_thresh:g} pts of target.")
 
     st.divider()
 
@@ -3438,7 +3510,8 @@ if PAGE == "Income":
 
 
 if PAGE == "Plan":
-    _render_plan(portfolio_value, tot_gl, allocate(positions, cash_by_account)["by_asset_type"])
+    _render_plan(portfolio_value, tot_gl,
+                 allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"])
 
 if PAGE == "Get started":
     _render_get_started(True, portfolio_value)

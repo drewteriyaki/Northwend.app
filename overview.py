@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import advisor
 import alerts
+import asset_classes
 import metrics as M
 from allocation import allocate
 from update_prices import latest_snapshot
@@ -66,9 +67,11 @@ def account_summary(conn, user_id: int, quotes: dict, rules=None) -> dict:
         "gain_pct": round(gain / cost * 100, 2) if cost else None,
         "n_positions": len(positions),
         "n_alerts": len(alerts.evaluate(contexts, rules)),
-        # % of portfolio by asset type, for comparing against a target mix
+        # % of portfolio by asset class, for comparing against a target mix
         "alloc_pct": {r["label"]: r["pct"] or 0.0 for r in allocate(
             [{**p, "live_market_value": M.eff_mv(c)} for p, c in zip(positions, contexts)],
-            cash_by_account)["by_asset_type"]},
+            cash_by_account,
+            asset_classes.splits(conn, positions, asset_classes.load_overrides(conn, user_id))
+        )["by_asset_class"]},
     })
     return out

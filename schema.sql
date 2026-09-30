@@ -291,7 +291,7 @@ CREATE TABLE IF NOT EXISTS plans (
     target_amount        REAL,
     target_date          TEXT,                  -- YYYY-MM-DD
     monthly_contribution REAL,
-    target_alloc         TEXT,                  -- JSON {asset type label: target %}
+    target_alloc         TEXT,                  -- JSON {asset class: target %} (asset_classes.py)
     notes                TEXT,
     set_by               INTEGER,               -- users.id of whoever last saved it
     updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -329,7 +329,7 @@ CREATE TABLE IF NOT EXISTS model_portfolios (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     advisor_id    INTEGER NOT NULL,
     name          TEXT    NOT NULL,
-    target_alloc  TEXT    NOT NULL,              -- JSON {asset type label: target %}
+    target_alloc  TEXT    NOT NULL,              -- JSON {asset class: target %} (asset_classes.py)
     updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 

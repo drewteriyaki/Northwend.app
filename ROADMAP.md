@@ -30,7 +30,11 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       code instead of a traceback; the full traceback and the same code go to
       the Streamlit Cloud log (`9c35e03`)
 - [x] 6 - "Client can import" switch on each client card; off by default, and
-      the plan, goal, target mix and limits stay the advisor's (this commit)
+      the plan, goal, target mix and limits stay the advisor's (`4be1bdc`)
+- [x] 7 - Stocks / Bonds / Cash / Other: funds split by what they hold (Yahoo's
+      fund breakdown), with a per-account override; allocation, targets, model
+      portfolios, drift, the plan PDF and the AI use it. Old targets converted
+      where they map, cleared with a note where they can't (this commit)
 
 ---
 
@@ -46,16 +50,6 @@ wording lives in `disclosures.py`, with notes on which code each statement
 depends on.
 **Needs you:** have the final wording reviewed by someone qualified before
 launch, and decide who people contact to delete their data. Then tick this.
-
-### 7. Stock vs bond funds - M
-**Why:** holdings are grouped by the broker's asset type, so every ETF is
-"ETF / CEF" whether it holds stocks or bonds - a true 60/40 target can't be
-set or tracked.
-**What:** classify each fund as stocks / bonds / cash / other from Yahoo's
-fund category, with a manual override; allocation, targets, model portfolios
-and drift use the new grouping.
-**Done when:** VTI shows as stocks and BND as bonds, and a 60/40 model
-portfolio tracks correctly.
 
 ### 8. Holdings without a Schwab file - M - needs you
 **Why:** beginners and non-Schwab investors have no file to import.

@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS model_portfolios (
     id            SERIAL  PRIMARY KEY,
     advisor_id    INTEGER NOT NULL,
     name          TEXT    NOT NULL,
-    target_alloc  TEXT    NOT NULL,              -- JSON {asset type label: target %}
+    target_alloc  TEXT    NOT NULL,              -- JSON {asset class: target %} (asset_classes.py)
     updated_at    TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
 );
 

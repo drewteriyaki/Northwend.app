@@ -8,7 +8,8 @@ a *Review* (a meeting - the latest one is the client's last review), a
 marked private is for the advisor only and never shown to the client.
 
 Model portfolios (`model_portfolios`) are an advisor's saved target mixes
-by asset type, applied to a client's plan in one step.
+by asset class (Stocks / Bonds / Cash / Other), applied to a client's plan
+in one step.
 """
 
 from __future__ import annotations
@@ -16,11 +17,13 @@ from __future__ import annotations
 import json
 from datetime import date
 
+from asset_classes import CLASSES
+
 NOTE_KINDS = ("Review", "Note", "Next step")
 REVIEW_EVERY_DAYS = 90       # a client is due for a review this long after the last one
 DRIFT_ATTENTION_PTS = 5.0    # a target-mix gap past this many points needs attention
-# asset types a model portfolio can target (the labels holdings are grouped by)
-MODEL_ASSET_TYPES = ("Equity", "ETF / CEF", "Mutual Funds", "Fixed Income", "Cash")
+# what a model portfolio targets: asset classes, not broker types (asset_classes.py)
+MODEL_ASSET_TYPES = CLASSES
 
 
 def advisor_of(conn, client_id: int) -> int | None:
@@ -143,7 +146,7 @@ def mix_text(mix: dict) -> str:
 # ---- attention ------------------------------------------------------------- #
 def max_drift(actual_pct: dict, targets: dict) -> float | None:
     """The largest gap, in percentage points, between the actual mix and the
-    target mix (over the asset types that have a target). None if no targets."""
+    target mix (over the asset classes that have a target). None if no targets."""
     if not targets:
         return None
     return max(abs((actual_pct.get(k) or 0.0) - t) for k, t in targets.items())

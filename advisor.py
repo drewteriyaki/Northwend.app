@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import metrics as M
 from allocation import CONCENTRATION_PCT, allocate
+from asset_classes import describe, from_asset_type
 
 MODEL = "claude-sonnet-5"
 MAX_TOKENS = 16000
@@ -253,19 +254,23 @@ def _num(v):
     return "n/a" if v is None else f"{v:.2f}"
 
 
-def portfolio_summary(contexts: list[dict], cash_by_account: dict) -> str:
+def portfolio_summary(contexts: list[dict], cash_by_account: dict,
+                      splits: dict | None = None) -> str:
     """Weights-only description of the holdings. `contexts` is dashboard.py's
-    per-position metric context list."""
+    per-position metric context list; `splits` is asset_classes.splits()."""
     if not contexts:
         return "No holdings yet - this person hasn't imported any positions."
 
-    alloc = allocate([c["pos"] for c in contexts], cash_by_account)
+    splits = splits or {}
+    alloc = allocate([c["pos"] for c in contexts], cash_by_account, splits)
     rows = []
     for c in contexts:
+        split = splits.get(c["pos"]["symbol"]) or from_asset_type(c["pos"].get("asset_type"))
         rows.append((
             M.value("pct_of_portfolio", c) or 0.0,
             f"- {c['pos']['symbol']} ({M.value('description', c) or 'unknown'}): "
             f"{_pct(M.value('pct_of_portfolio', c))} of portfolio; "
+            f"holds {describe(split)}; "
             f"type {M.value('asset_type', c) or 'unknown'}; "
             f"sector {M.value('sector', c) or 'n/a'}; "
             f"gain/loss {_pct(M.value('unrealized_pct', c))}; "
@@ -274,7 +279,7 @@ def portfolio_summary(contexts: list[dict], cash_by_account: dict) -> str:
         ))
     rows.sort(key=lambda r: r[0], reverse=True)
 
-    mix = ", ".join(f"{r['label']} {_pct(r['pct'])}" for r in alloc["by_asset_type"])
+    mix = ", ".join(f"{r['label']} {_pct(r['pct'])}" for r in alloc["by_asset_class"])
     n_accounts = len({c["pos"].get("account") for c in contexts} | set(cash_by_account))
     return "\n".join([
         f"{len(contexts)} positions across {n_accounts} account(s).",

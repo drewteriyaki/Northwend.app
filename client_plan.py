@@ -19,6 +19,7 @@ from fpdf import FPDF
 
 import advising
 import advisor
+import asset_classes
 import plans
 import alerts
 import metrics as M
@@ -49,8 +50,10 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
     profile = advisor.get_profile(conn, user_id)
     quotes = {c["pos"]["symbol"]: c.get("quote") or {} for c in contexts}
     summary = overview.account_summary(conn, user_id, quotes, rules)
+    splits = asset_classes.splits(conn, [c["pos"] for c in contexts],
+                                  asset_classes.load_overrides(conn, user_id))
     alloc = allocate([{**c["pos"], "live_market_value": M.eff_mv(c)} for c in contexts],
-                     cash_by_account)
+                     cash_by_account, splits)
     port = alloc["portfolio_value"]
 
     holdings = []
@@ -82,6 +85,7 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
         "missing": advisor.missing_fields(profile),
         "summary": summary,
         "cash": round(sum(float(v or 0.0) for v in cash_by_account.values()), 2),
+        "by_asset_class": alloc["by_asset_class"],
         "by_asset_type": alloc["by_asset_type"],
         "by_account": alloc["by_account"],
         "concentration": alloc["concentration"],
@@ -249,9 +253,9 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
              f"Gain/loss on cost: {_pct(s['gain_pct'], signed=True)}   "
              f"Positions: {s['n_positions']}")
 
-        heading("Allocation by asset type")
-        table(["Asset type", "Value", "Share"],
-              [(r["label"], _money(r["value"]), _pct(r["pct"])) for r in facts["by_asset_type"]],
+        heading("Allocation by asset class")
+        table(["Asset class", "Value", "Share"],
+              [(r["label"], _money(r["value"]), _pct(r["pct"])) for r in facts["by_asset_class"]],
               (90, 45, 30), ("LEFT", "RIGHT", "RIGHT"))
         if len(facts["by_account"]) > 1:
             heading("Allocation by account")

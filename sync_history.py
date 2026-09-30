@@ -63,7 +63,15 @@ _INFO_KEYS = {
     "week52_low": "fiftyTwoWeekLow",
     "avg_volume": "averageVolume",
     "avg_volume_10d": "averageVolume10days",
+    "quote_type": "quoteType",   # EQUITY / ETF / MUTUALFUND / MONEYMARKET ... (asset_classes.py)
+    "category": "category",      # a fund's category, e.g. "Intermediate Core Bond"
 }
+# A fund's split, from Ticker.funds_data.asset_classes (fractions). Preferred
+# and convertible shares count as other.
+_FUND_SPLIT_KEYS = {"stock_pct": ("stockPosition",), "bond_pct": ("bondPosition",),
+                    "cash_pct": ("cashPosition",),
+                    "other_pct": ("otherPosition", "preferredPosition", "convertiblePosition")}
+_FUND_TYPES = ("ETF", "MUTUALFUND")
 
 
 def _require_yf():
@@ -157,7 +165,26 @@ def fetch_info(ticker: str) -> dict:
     for col, key in _INFO_KEYS.items():
         v = raw.get(key)
         out[col] = v if v not in ("", "Infinity", "-Infinity") else None
+    out.update(fetch_fund_split(ticker) if out.get("quote_type") in _FUND_TYPES
+               else dict.fromkeys(_FUND_SPLIT_KEYS))
     return out
+
+
+def fetch_fund_split(ticker: str) -> dict:
+    """{stock_pct, bond_pct, cash_pct, other_pct} as fractions for a fund -
+    one extra Yahoo request, made only for ETFs and mutual funds. All None if
+    Yahoo has no breakdown; that fund then falls back to its broker type."""
+    empty = dict.fromkeys(_FUND_SPLIT_KEYS)
+    try:
+        raw = yf.Ticker(ticker).funds_data.asset_classes or {}
+    except Exception:
+        return empty
+    out = {}
+    for col, keys in _FUND_SPLIT_KEYS.items():
+        vals = [_num(raw.get(k)) for k in keys]
+        vals = [v for v in vals if v is not None]
+        out[col] = sum(vals) if vals else None
+    return out if any(v for v in out.values()) else empty
 
 
 # --------------------------------------------------------------------------- #
@@ -195,7 +222,7 @@ def upsert_intraday(conn: sqlite3.Connection, ticker: str, interval: str, rows) 
 
 
 def upsert_info(conn: sqlite3.Connection, ticker: str, info: dict) -> None:
-    cols = list(_INFO_KEYS.keys())
+    cols = list(_INFO_KEYS.keys()) + list(_FUND_SPLIT_KEYS.keys())
     conn.execute(
         f"INSERT INTO security_info (ticker, {', '.join(cols)}, fetched_at) "
         f"VALUES (?, {', '.join('?' for _ in cols)}, datetime('now')) "
