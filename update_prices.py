@@ -137,7 +137,8 @@ def apply_live_prices(conn: sqlite3.Connection, snapshot: str, user_id: int,
                       fresh: dict, applied_at: str | None = None) -> int:
     """Write live_price / live_market_value / live_unrealized_gain[_pct] / live_price_at
     onto every position in `snapshot` (for `user_id`) whose ticker has a fresh
-    price. Returns the count."""
+    price. A position with no cost (pasted or typed in without one) still gets
+    its live price and value; only its gain stays blank. Returns the count."""
     applied_at = applied_at or utc_now_iso()
     rows = conn.execute(
         "SELECT id, symbol, quantity, cost_basis FROM positions WHERE snapshot_date = ? AND user_id = ?",
@@ -145,11 +146,12 @@ def apply_live_prices(conn: sqlite3.Connection, snapshot: str, user_id: int,
     updated = 0
     for r in rows:
         price = fresh.get(r["symbol"])
-        if price is None or r["quantity"] is None or r["cost_basis"] is None:
+        if price is None or r["quantity"] is None:
             continue
         live_mv = round(price * r["quantity"], 2)
-        live_gl = round(live_mv - r["cost_basis"], 2)
-        live_glp = (live_gl / r["cost_basis"] * 100) if r["cost_basis"] else None
+        cost = r["cost_basis"]
+        live_gl = round(live_mv - cost, 2) if cost is not None else None
+        live_glp = (live_gl / cost * 100) if cost else None
         conn.execute(
             "UPDATE positions SET live_price = ?, live_market_value = ?, live_unrealized_gain = ?, "
             "live_unrealized_gain_pct = ?, live_price_at = ? WHERE id = ?",

@@ -2075,6 +2075,20 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
         self.assertEqual((r2["fetched"], calls2), (0, {"finnhub": [], "yahoo": []}))
         conn.close()
 
+    def test_a_holding_without_cost_still_gets_its_live_price(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        self._hold(conn, self.user_id, [{"Symbol": "VTI", "Shares": 3},              # no cost
+                                        {"Symbol": "BND", "Shares": 2, "Total cost": 100}])
+        _, fh, yh = self._fakes()
+        lp.freshen(conn, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh)
+        got = {r["symbol"]: (r["live_price"], r["live_market_value"], r["live_unrealized_gain"])
+               for r in conn.execute("SELECT symbol, live_price, live_market_value, "
+                                     "live_unrealized_gain FROM positions WHERE user_id = ?",
+                                     (self.user_id,))}
+        self.assertEqual(got, {"VTI": (101.0, 303.0, None), "BND": (101.0, 202.0, 102.0)})
+        conn.close()
+
     def test_a_symbol_with_no_price_is_not_asked_every_minute(self):
         import live_prices as lp
         conn = portfolio.connect(self.db)
