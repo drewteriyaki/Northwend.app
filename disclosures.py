@@ -7,6 +7,8 @@ Each statement about data here must stay true to the code:
   no dollar amounts, share counts or account names), the profile answers,
   the chat, and the assistant's saved notes (advisor.system_prompt).
 - AI import fallback: the header row only (ai_parse.map_columns).
+- Screenshots: opt-in, the images themselves (screenshot_read.read); only
+  symbols / shares / cost / percent / cash survive screenshot_read.clean().
 - Market data: tickers only (update_prices.py / news.py -> Finnhub,
   sync_history.py -> Yahoo Finance).
 - Passwords: PBKDF2 with a per-user salt; stay-signed-in cookies hold a random
@@ -83,6 +85,12 @@ Anthropic. When you use them, the app sends:
   portfolio - never dollar amounts, share counts, account names or numbers,
 - what you type in the chat, and short notes the assistant saved from earlier
   conversations.
+
+If you choose to **read holdings from screenshots**, the images you upload are sent
+to the AI so it can read them - that's the only time an image leaves the app, and
+you're asked first. Crop them to just your holdings list. Only symbols, share
+counts and cost are taken from what it reads, and the images aren't saved.
+(Pasted text is different: the app reads it itself and nothing is sent.)
 
 If a statement file isn't in a format the app recognizes, it may send the file's
 **column-header row only** to work out which column is which. The values in the

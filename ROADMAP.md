@@ -43,7 +43,10 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       percentages-only portfolio; disclosures updated (`5f3fea3`)
 - [x] 9c - Paste your holdings from any brokerage's website (read by the app, no
       AI); "what we'll keep" before every save; the no-login promise; delete
-      all my holdings, self-serve (this commit)
+      all my holdings, self-serve (`18b0b75`)
+- [x] 9d - Holdings from screenshots: opt-in, read by the AI, images never
+      kept; the answer is re-checked so only symbols / shares / cost survive
+      (this commit)
 
 ---
 
@@ -59,12 +62,6 @@ wording lives in `disclosures.py`, with notes on which code each statement
 depends on.
 **Needs you:** have the final wording reviewed by someone qualified before
 launch, and decide who people contact to delete their data. Then tick this.
-
-### 9d. Holdings from screenshots - M
-**Why:** app-only brokers (phones) make copying and exporting hard.
-**What:** opt-in: screenshots are sent to the AI to read symbols and share
-counts, which fill the same review form; images are never kept; a nudge to
-crop to just the holdings list; the disclosures say so.
 
 ### 9b. Any brokerage's CSV - L
 **Why:** people will come from every brokerage, and each exports a different

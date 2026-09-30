@@ -29,6 +29,7 @@ import friendly_errors
 import learn
 import manual_entry
 import paste_parse
+import screenshot_read
 import sample_data
 import metrics as M
 import news
@@ -2468,6 +2469,13 @@ def _manual_from_paste():
         ss["me_paste_msg"] = ("warning", "Couldn't find any holdings in that text. Try copying "
                               "just the positions table, or type lines like `VTI 10`.")
         return
+    ss["me_paste_msg"] = _manual_fill(found)
+
+
+def _manual_fill(found):
+    """Replace the form's rows with `found` (paste_parse.parse() / screenshot_read
+    shape). Returns the (kind, message) to show."""
+    ss = st.session_state
     acct = _manual_last_account()
     ss["me_ids"], ss["me_cash_ids"] = [], []
     for h in found["holdings"]:
@@ -2476,10 +2484,52 @@ def _manual_from_paste():
     _manual_add_cash({"Account": acct, "Cash": found["cash"] if found["mode"] == "Shares" else None})
     ss["me_mode"] = found["mode"]
     n = len(found["holdings"])
-    ss["me_paste_msg"] = ("success", f"Found {n} holding{'s' if n != 1 else ''}"
+    return ("success", f"Found {n} holding{'s' if n != 1 else ''}"
                           + (f" and {fmt_money(found['cash'])} cash" if found["cash"] else "")
                           + " - check them below, then look up prices. Type is set to Other; "
                             "Yahoo works out what each one holds.")
+
+
+def _render_screenshot_reader():
+    """Read from screenshots: opt-in, the images go to Anthropic's AI (see
+    screenshot_read.py). They're read from memory and never kept."""
+    ss = st.session_state
+    msg = ss.pop("me_shot_msg", None)
+    with st.expander(":material/photo_camera: Read from screenshots (uses AI)",
+                     expanded=bool(msg)):
+        key = _anthropic_key()
+        if not key:
+            st.caption("Reading screenshots needs the AI, which isn't set up on this site.")
+            return
+        st.caption("For phone apps and sites where copying is hard. **Crop each screenshot to "
+                   "just your holdings list first** - the whole image is sent to Anthropic's AI "
+                   "to read it. Only symbols, share counts and cost are taken from what it "
+                   "reads, and the images aren't saved.")
+        shots = st.file_uploader(
+            "Screenshots", type=sorted(screenshot_read.MEDIA_TYPES), accept_multiple_files=True,
+            key=f"me_shots_{ss.get('me_shots_n', 0)}", label_visibility="collapsed")
+        agreed = st.checkbox("Send these images to Anthropic's AI to read them",
+                             key="me_shots_ok")
+        if msg:
+            getattr(st, msg[0])(msg[1])
+        if st.button("Read screenshots", key="me_shots_btn", disabled=not (shots and agreed)):
+            images, errors = screenshot_read.check_images([(f.name, f.getvalue()) for f in shots])
+            if errors:
+                st.error("  \n".join(errors))
+                return
+            with st.spinner("Reading your screenshots..."):
+                found = screenshot_read.read(images, key)
+            del images, shots  # nothing of the images is kept past this point
+            ss["me_shots_n"] = ss.get("me_shots_n", 0) + 1   # empties the uploader
+            ss["me_shots_ok"] = False
+            if found["error"]:
+                ss["me_shot_msg"] = ("error", found["error"])
+            elif not found["holdings"]:
+                ss["me_shot_msg"] = ("warning", "No holdings could be read from those "
+                                     "screenshots. Try cropping closer to the list.")
+            else:
+                ss["me_shot_msg"] = _manual_fill(found)
+            st.rerun(scope="fragment")
 
 
 def _manual_clear():
@@ -2533,6 +2583,7 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
         _pm = ss.pop("me_paste_msg", None)
         if _pm:
             getattr(st, _pm[0])(_pm[1])
+    _render_screenshot_reader()
     st.segmented_control("How to enter them", ["Shares", "Percentages"], key="me_mode",
                          required=True, on_change=lambda: ss.pop("me_review", None))
     pct_mode = ss.get("me_mode") == "Percentages"

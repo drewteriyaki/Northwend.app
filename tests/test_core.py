@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 import unittest.mock
 from datetime import date, datetime, timedelta, timezone
@@ -2001,6 +2002,68 @@ class AppFilesCompileTests(unittest.TestCase):
                 with self.subTest(name):
                     py_compile.compile(os.path.join(REPO, name), doraise=True,
                                        cfile=os.path.join(tempfile.gettempdir(), "pt_compile.pyc"))
+
+
+class ScreenshotReadTests(unittest.TestCase):
+    """Roadmap 9d: holdings from screenshots, read by the AI (a fake client here)."""
+
+    class _Client:
+        def __init__(self, reply=None, exc=None):
+            self.reply, self.exc, self.sent = reply, exc, None
+            outer = self
+
+            class _Messages:
+                def create(self, **kw):
+                    outer.sent = kw
+                    if outer.exc:
+                        raise outer.exc
+                    return types.SimpleNamespace(content=[types.SimpleNamespace(
+                        type="text", text=outer.reply)])
+            self.messages = _Messages()
+
+    def test_images_are_checked_before_anything_is_sent(self):
+        import screenshot_read as sr
+        ok, errors = sr.check_images([("a.PNG", b"x"), ("b.jpg", b"y")])
+        self.assertEqual(([mt for _, mt in ok], errors), (["image/png", "image/jpeg"], []))
+        _, errors = sr.check_images([("doc.pdf", b"x"), ("big.png", b"x" * (sr.MAX_BYTES + 1))])
+        self.assertEqual(len(errors), 2)
+        _, errors = sr.check_images([(f"{i}.png", b"x") for i in range(sr.MAX_IMAGES + 1)])
+        self.assertIn("Up to", errors[0])
+
+    def test_answer_is_rechecked_and_overlaps_counted_once(self):
+        import screenshot_read as sr
+        reply = json.dumps({"holdings": [
+            {"symbol": "vti", "shares": "10", "cost_basis": 2500, "percent": None},
+            {"symbol": "VTI", "shares": 10, "cost_basis": 2500},          # overlapping shot
+            {"symbol": "Vanguard Total Bond", "shares": 5},              # a name, not a ticker
+            {"symbol": "Z12345678", "shares": 1},                         # an account number
+            {"symbol": "BND", "shares": "$1,861.50"},                     # still a number...
+            {"symbol": "AAPL", "shares": 0}, {"symbol": "MSFT", "shares": True}],
+            "cash": "$120.50", "balance": 99999})
+        client = self._Client("Here you go:\n" + reply)
+        out = sr.read([(b"png-bytes", "image/png")], "key", client=client, model="m")
+        self.assertIsNone(out["error"])
+        self.assertEqual([(h["Symbol"], h["Shares"], h["Total cost"]) for h in out["holdings"]],
+                         [("VTI", 10.0, 2500.0), ("BND", 1861.5, None)])
+        self.assertEqual(out["cash"], 120.5)
+        self.assertNotIn("99999", repr(out))
+        sent = client.sent["messages"][0]["content"]
+        self.assertEqual((sent[0]["type"], sent[0]["source"]["media_type"]), ("image", "image/png"))
+        self.assertIn("Do not include names, account numbers", sent[-1]["text"])
+
+    def test_percentages_and_failures(self):
+        import anthropic
+        import screenshot_read as sr
+        pct = sr.clean({"holdings": [{"symbol": "VTI", "percent": "60%"},
+                                     {"symbol": "BND", "percent": 40},
+                                     {"symbol": "XX", "percent": 250}]})
+        self.assertEqual((pct["mode"], [h["Percent"] for h in pct["holdings"]]),
+                         ("Percentages", [60.0, 40.0]))
+        out = sr.read([(b"x", "image/png")], "key", client=self._Client("I can't read that"), model="m")
+        self.assertIn("couldn't be understood", out["error"])
+        err = anthropic.APIConnectionError(request=None)  # a network failure
+        out = sr.read([(b"x", "image/png")], "key", client=self._Client(exc=err), model="m")
+        self.assertEqual((out["holdings"], bool(out["error"])), ([], True))
 
 
 class PasteParseTests(unittest.TestCase):
