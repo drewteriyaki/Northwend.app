@@ -56,7 +56,10 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       (crypto around the clock, mutual funds hourly), shared across viewers;
       the Refresh button is gone (this commit)
 - [x] Brand: Waypoint, with Sage as the guide (Ask Sage); Get started is a
-      route of numbered waypoints (this commit)
+      route of numbered waypoints (`513b468`)
+- [x] Live prices for holdings entered without a cost (`7a43922`)
+- [x] 10 - Remember where you were: the page (and an advisor's client,
+      re-checked every load) is kept in the address (this commit)
 
 ---
 
@@ -93,12 +96,6 @@ layout; today only Schwab's imports reliably.
 and Schwab import (real samples, numbers blanked), and an unknown layout can
 be fixed by hand in the column check.
 **Needs you:** sample exports from real brokerages, numbers blanked out.
-
-### 10. Remember where you were - S
-**Why:** a reload lands on Dashboard, and an advisor loses the client they
-were viewing.
-**What:** keep the page (and, for an advisor, the viewed client, re-checked
-against their access) in the URL.
 
 ---
 

@@ -333,6 +333,13 @@ try:
         st.rerun()
     IS_ADVISOR = auth.is_advisor(_conn, LOGIN_ID)
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
+    if "active_user_id" not in st.session_state:
+        # a fresh session (reload, bookmark): start on the client in the address,
+        # if any - re-checked by can_view just below, like every other run
+        try:
+            st.session_state["active_user_id"] = int(st.query_params.get("client", LOGIN_ID))
+        except ValueError:
+            pass
     _active = st.session_state.get("active_user_id", LOGIN_ID)
     if not auth.can_view(_conn, LOGIN_ID, _active):
         _active = LOGIN_ID
@@ -367,6 +374,18 @@ PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
          *(["Clients"] if IS_ADVISOR else []),
          "Watchlist", "Activity", "Income", "AI Assistant",
          *(["Get started"] if HAS_HOLDINGS else []), "About"]
+
+
+def _slug(page):
+    """A page's name in the address: 'Ask Sage' -> 'ask-sage'."""
+    return _label(page).lower().replace(" ", "-")
+
+
+if "page" not in st.session_state:
+    # a fresh session: start on the page in the address (?page=plan), if it's
+    # one this account can open
+    st.session_state["page"] = {_slug(p): p for p in PAGES}.get(
+        str(st.query_params.get("page", "")).lower(), PAGES[0])
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
@@ -562,6 +581,11 @@ with st.sidebar:
         st.html(f"<script>{_fh.read()}</script>", unsafe_allow_javascript=True)
 
 PAGE = st.session_state["page"]
+# Keep where you are in the address, so a reload or a bookmark comes back here
+# (read above, for a fresh session). The client is re-checked on every load.
+_want_qp = {"page": _slug(PAGE), **({"client": str(USER_ID)} if USER_ID != LOGIN_ID else {})}
+if dict(st.query_params) != _want_qp:
+    st.query_params.from_dict(_want_qp)
 
 
 def _anthropic_key() -> str | None:
