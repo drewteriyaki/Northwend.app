@@ -331,7 +331,8 @@ def _ensure_schema(conn) -> None:
     if is_pg:
         conn.execute("SELECT pg_advisory_xact_lock(CAST(? AS BIGINT))", (SCHEMA_ADVISORY_LOCK_ID,))
     with open(schema_path, "r", encoding="utf-8") as fh:
-        conn.executescript(fh.read())
+        schema_text = fh.read()
+    conn.executescript(schema_text)
     for table, cols in (("positions", LIVE_POSITION_COLS),
                         ("price_history", PRICE_HISTORY_EXTRA_COLS),
                         ("transactions", TRANSACTIONS_EXTRA_COLS),
@@ -350,8 +351,36 @@ def _ensure_schema(conn) -> None:
             have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
         for name, decl in cols:
             if name not in have:
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} "
+                             f"{'DOUBLE PRECISION' if is_pg and decl == 'REAL' else decl}")
+    if is_pg:
+        widened = _widen_real_columns(conn, schema_text)
+        if widened:
+            print(f"schema: {len(widened)} REAL column(s) changed to DOUBLE PRECISION: "
+                  + ", ".join(widened), file=sys.stderr)
     conn.commit()
+
+
+def _widen_real_columns(conn, schema_text: str) -> list[str]:
+    """Postgres REAL is a 4-byte float - about 7 significant digits, so money
+    over roughly $1M loses cents (SQLite's REAL is 8-byte and fine). Change
+    every REAL column in this app's own tables (those schema_pg.sql creates)
+    to DOUBLE PRECISION, one ALTER per table so each is rewritten once.
+    Existing values keep what float4 stored; everything written afterwards is
+    exact to the cent. Once converted there's nothing left to do. Returns the
+    "table.column" names it changed."""
+    ours = set(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", schema_text))
+    by_table: dict[str, list[str]] = {}
+    for r in conn.execute(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND data_type = 'real' "
+            "ORDER BY table_name, ordinal_position").fetchall():
+        if r["table_name"] in ours:
+            by_table.setdefault(r["table_name"], []).append(r["column_name"])
+    for table, cols in by_table.items():
+        conn.execute(f'ALTER TABLE "{table}" ' + ", ".join(
+            f'ALTER COLUMN "{c}" TYPE DOUBLE PRECISION' for c in cols))
+    return [f"{t}.{c}" for t, cols in by_table.items() for c in cols]
 
 
 def connect(db_path: str):

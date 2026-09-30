@@ -175,6 +175,9 @@ class SchemaSetupRaceTests(unittest.TestCase):
             def __iter__(self):
                 return iter([])
 
+            def fetchall(self):
+                return []
+
         class FakeRaw:
             def cursor(self):
                 return FakeCursor()
@@ -1524,6 +1527,85 @@ class AdvisingTests(TempDBMixin, unittest.TestCase):
                                    "Profile incomplete"])
         self.assertIn("No goal", advising.attention(has_data=False, goal_status=None, review="never",
                                                     n_alerts=0, drift=None, profile_done=True))
+
+
+class PostgresPrecisionTests(unittest.TestCase):
+    """Postgres REAL is 4-byte and loses cents on large amounts, so every
+    decimal column must be DOUBLE PRECISION there - new databases via
+    schema_pg.sql, older ones converted by _widen_real_columns()."""
+
+    @staticmethod
+    def _columns(sql_text):
+        out = {}
+        for m in re.finditer(r"CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\n\);", sql_text, re.S):
+            for line in m.group(2).splitlines():
+                parts = line.split("--")[0].split()
+                if len(parts) >= 2 and parts[0].isidentifier() and parts[0].upper() != "PRIMARY":
+                    out[(m.group(1), parts[0])] = " ".join(parts[1:3]).rstrip(",").upper()
+        return out
+
+    def test_every_sqlite_real_column_is_double_precision_on_postgres(self):
+        with open(os.path.join(REPO, "schema.sql"), encoding="utf-8") as fh:
+            lite = self._columns(fh.read())
+        with open(os.path.join(REPO, "schema_pg.sql"), encoding="utf-8") as fh:
+            pg = self._columns(fh.read())
+        reals = [k for k, t in lite.items() if t.startswith("REAL")]
+        self.assertGreater(len(reals), 40)
+        for key in reals:
+            self.assertTrue(pg[key].startswith("DOUBLE PRECISION"), key)
+        self.assertFalse([k for k, t in pg.items() if t.startswith("REAL")])
+
+    def test_older_database_real_columns_are_widened_once_per_table(self):
+        executed = []
+        reals = [("positions", "cost_basis"), ("positions", "market_value"),
+                 ("daily_bars", "close"), ("someone_elses_table", "x")]
+
+        class Col:
+            def __init__(self, name):
+                self.name = name
+
+        class FakeCursor:
+            def __init__(self):
+                self.rows, self.description = [], None
+
+            def execute(self, sql, params=None):
+                executed.append(sql)
+                if "data_type = 'real'" in sql:
+                    self.rows = list(reals)
+                    self.description = [Col("table_name"), Col("column_name")]
+                elif "information_schema.columns WHERE table_name" in sql:
+                    # every back-filled column already there except one REAL one
+                    self.rows = [(c,) for c in ("live_price_at", "user_id", "is_advisor")
+                                 + tuple(n for n, _ in portfolio.PROFILE_EXTRA_COLS)
+                                 + ("live_price", "live_market_value", "live_unrealized_gain_pct",
+                                    "day_open", "day_high", "day_low", "realized_gain")]
+                    self.description = [Col("column_name")]
+                else:
+                    self.rows, self.description = [], None
+
+            def __iter__(self):
+                return iter(self.rows)
+
+            def fetchall(self):
+                return list(self.rows)
+
+        class FakeRaw:
+            def cursor(self):
+                return FakeCursor()
+
+            def commit(self):
+                executed.append("COMMIT")
+
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            portfolio._ensure_schema(pgcompat.ConnWrapper(FakeRaw()))
+        alters = [q for q in executed if q.startswith('ALTER TABLE "')]
+        self.assertEqual(alters, [
+            'ALTER TABLE "positions" ALTER COLUMN "cost_basis" TYPE DOUBLE PRECISION, '
+            'ALTER COLUMN "market_value" TYPE DOUBLE PRECISION',
+            'ALTER TABLE "daily_bars" ALTER COLUMN "close" TYPE DOUBLE PRECISION'])  # not someone else's
+        self.assertIn("ALTER TABLE positions ADD COLUMN live_unrealized_gain DOUBLE PRECISION", executed)
+        self.assertEqual(executed[-1], "COMMIT")
+        self.assertIn("3 REAL column(s)", err.getvalue())
 
 
 class ClientPlanTests(TempDBMixin, unittest.TestCase):

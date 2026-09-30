@@ -46,6 +46,16 @@ branch — see "DEPLOYING CHANGES" below. If it shows a stale error after
 a push, go to the app → "Manage app" → Reboot.
 
 
+DATABASE PRECISION CHECK  (live Postgres)
+--------------------------------------------
+The app changes any 4-byte REAL column to DOUBLE PRECISION on its own when
+it starts (portfolio._widen_real_columns; the Streamlit Cloud log says
+"schema: N REAL column(s) changed..."). To confirm nothing is left, run in
+Neon's SQL editor - it should return no rows:
+  SELECT table_name, column_name FROM information_schema.columns
+  WHERE table_schema = current_schema() AND data_type = 'real';
+
+
 MANAGING LOGIN ACCOUNTS  (manage_users.py)
 --------------------------------------------
 Create one account (prompts for password, hidden as you type):

@@ -28,12 +28,13 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
 **Why:** the older money columns in Postgres (`positions`, `account_totals`,
 `transactions`, `price_history`, `value_log`, ...) are `REAL`, which in Postgres
 is a 4-byte float: amounts over about $1M lose cents. SQLite (local) is fine.
-**What:** a one-time migration that changes them to `DOUBLE PRECISION`, plus
-`schema_pg.sql` updated so new databases start right. Take a Neon backup/branch
-first.
+**What:** the app converts every `REAL` column to `DOUBLE PRECISION` itself
+when it starts (`portfolio._widen_real_columns`, under the setup lock), and
+`schema_pg.sql` now creates them that way. Built and tested; runs on the
+first start after it's pushed. Take a Neon backup branch first.
 **Done when:** every money column in Neon is `double precision` and totals
 match before and after.
-**Needs you:** OK to run it against the live database.
+**Needs you:** a Neon backup branch, then the OK to push (pushing runs it).
 
 ### 2. Run the tests on every push - S
 **Why:** 130 tests only run when someone runs them by hand; a broken commit
