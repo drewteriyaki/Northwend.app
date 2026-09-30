@@ -3,6 +3,7 @@
 //   - a sidebar handle at the middle of the sidebar's right edge, in place of
 //     Streamlit's small top-corner arrows
 //   - the sidebar closes when you click or tap outside it
+//   - the phone tab bar's background follows the light / dark theme
 //   - pull down from the top of the page on a touch screen to refresh prices
 //     (it presses a button keyed "pt_refresh" when the page has one; prices
 //     now update on their own, so the dashboard doesn't show one)
@@ -69,6 +70,17 @@
   `;
   document.head.appendChild(style);
 
+  // ---- phone tab bar background ------------------------------------------
+  // The bottom tab bar (dashboard.py, key "pt_tabbar") needs a solid
+  // background that follows light/dark; the theme can change without the page
+  // rerunning, so keep --pt-bg equal to the page's own background.
+  const syncBg = () => {
+    const bg = getComputedStyle(q(".stApp") || document.body).backgroundColor;
+    if (bg) document.documentElement.style.setProperty("--pt-bg", bg);
+  };
+  syncBg();
+  setInterval(syncBg, 1000);
+
   // ---- sidebar handle ----------------------------------------------------
   const handle = document.createElement("button");
   handle.id = "pt-sb-handle";
@@ -131,6 +143,17 @@
   document.addEventListener("click", (e) => {
     if (window.innerWidth < 768 && e.target instanceof Element &&
         e.target.closest('[class*="st-key-nav_"]')) setTimeout(() => setOpen(false), 150);
+  }, true);
+
+  // the phone tab bar's More menu is a popover, which stays open after a
+  // choice - close it, the same way its own button would
+  document.addEventListener("click", (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest('[data-testid="stPopoverBody"] button'))
+      return;
+    setTimeout(() => {
+      const more = q('.st-key-pt_tabbar [data-testid="stPopoverButton"][aria-expanded="true"]');
+      if (more) more.click();
+    }, 120);
   }, true);
 
   window.addEventListener("resize", () => track(200));

@@ -98,8 +98,8 @@ Then tick this.
 
 ## Polish - smaller items, any order
 
-- [ ] **Phone navigation** - a bottom tab bar or fewer top-level pages instead
-      of a sidebar you open. (M)
+- [x] **Phone navigation** - a bottom tab bar on narrow screens (Home, Plan,
+      Sage, Watch or Clients, More); the sidebar stays on wider ones.
 - [ ] **Watchlist** - price and today's change next to each ticker without
       tapping in. (S)
 - [ ] **Income** - estimated income by month, not just a yearly total. (S)

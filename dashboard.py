@@ -112,8 +112,31 @@ st.html("""<style>
 /* a slider's end label can poke past a phone's edge; never scroll sideways */
 [data-testid="stMain"] { overflow-x: hidden; }
 @media (max-width: 640px) {
-  [data-testid="stMainBlockContainer"] { padding: 3.75rem 1rem 3rem; }
+  [data-testid="stMainBlockContainer"] { padding: 3.75rem 1rem 6rem; }
   h1 { font-size: 1.6rem !important; }
+}
+/* phone tab bar (_render_tab_bar): pinned to the bottom on narrow screens,
+   hidden on wider ones where the sidebar is the menu. --pt-bg is the page's
+   own background, kept in step with light/dark by ui_enhancements.js. */
+.st-key-pt_tabbar { display: none !important; }
+@media (max-width: 640px) {
+  .st-key-pt_tabbar {
+    display: flex !important; position: fixed; left: 0; right: 0; bottom: 0; z-index: 999990;
+    justify-content: space-around; gap: 0 !important;
+    padding: .3rem .25rem calc(.3rem + env(safe-area-inset-bottom));
+    background: var(--pt-bg, #0e1117); border-top: 1px solid rgba(128,128,128,.25);
+  }
+  .st-key-pt_tabbar > div { flex: 1 1 0; min-width: 0; }
+  .st-key-pt_tabbar button {
+    width: 100%; min-height: 3.1rem; padding: .15rem .1rem; border: none;
+  }
+  .st-key-pt_tabbar button p { font-size: .7rem; line-height: 1.15; text-align: center; }
+  /* the icon on its own line, above the label */
+  .st-key-pt_tabbar button p span[role="img"] {
+    display: block !important; font-size: 1.4rem; line-height: 1.2; margin: 0 auto;
+  }
+  /* More opens a menu; its dropdown arrow would push it out of line */
+  .st-key-pt_tabbar [data-testid="stPopoverButton"] [aria-hidden="true"] { display: none; }
 }
 .pt-status { font-size: .8rem; opacity: .65; margin-top: -.6rem; }
 .pt-hero-label { font-size: .85rem; opacity: .7; }
@@ -580,6 +603,41 @@ with st.sidebar:
     with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:
         st.html(f"<script>{_fh.read()}</script>", unsafe_allow_javascript=True)
 
+# Phones: the main pages as a tab bar along the bottom, plus More for the rest
+# (CSS above shows it only on narrow screens; the sidebar stays the menu on
+# wider ones). Four tabs: the pages people open most, for this kind of account.
+TAB_ICONS = {"Get started": (":material/route:", "Start"), "Dashboard": (":material/home:", "Home"),
+             "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", GUIDE),
+             "Watchlist": (":material/visibility:", "Watch"),
+             "Clients": (":material/groups:", "Clients")}
+TABS = ([p for p in ("Dashboard", "Clients", "Plan", "AI Assistant") if p in PAGES] if IS_ADVISOR
+        else ([] if HAS_HOLDINGS else ["Get started"])
+        + [p for p in ("Dashboard", "Plan", "AI Assistant", "Watchlist") if p in PAGES])[:4]
+
+
+def _render_tab_bar():
+    with st.container(horizontal=True, key="pt_tabbar"):
+        for p in TABS:
+            icon, short = TAB_ICONS[p]
+            st.button(f"{icon} {short}", key=f"tab_{p}", on_click=_go, args=(p,),
+                      type="primary" if PAGE == p else "tertiary", help=_label(p))
+        more = [p for p in PAGES if p not in TABS]
+        with st.popover(":material/menu: More", type="primary" if PAGE in more else "tertiary"):
+            for p in more:
+                st.button(_label(p), key=f"more_{p}", on_click=_go, args=(p,), width="stretch",
+                          type="primary" if PAGE == p else "secondary")
+            if CAN_IMPORT:
+                st.divider()
+                st.button(":material/content_paste: Paste or type holdings", key="more_manual",
+                          on_click=_open_holdings_dialog, args=("manual",), width="stretch")
+                st.button(":material/upload_file: Upload a CSV", key="more_import",
+                          on_click=_open_holdings_dialog, args=("import",), width="stretch")
+            st.divider()
+            st.caption(f"Logged in as **{st.session_state['username']}**"
+                       + (f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else "")
+                       + ". The full menu is in the side panel (the arrow at the left edge).")
+            st.button("Log out", key="more_logout", on_click=_logout, width="stretch")
+
 PAGE = st.session_state["page"]
 # Keep where you are in the address, so a reload or a bookmark comes back here
 # (read above, for a fresh session). The client is re-checked on every load.
@@ -598,6 +656,9 @@ def _disclosures_seen():
     finally:
         c.close()
     st.session_state["disclosures_seen"] = disclosures.LAST_UPDATED
+
+
+_render_tab_bar()  # phones only (see the CSS); fixed to the bottom, so its place here doesn't matter
 
 
 # The disclosures promise to say when they change: once per new version, after
