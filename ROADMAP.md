@@ -18,30 +18,16 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
 - [x] Phase 1 - plans and goals, money in vs growth, settings in the database (`16996e6`)
 - [x] Phase 2 - Get started path for new investors (`ae6be46`)
 - [x] Phase 3 - advisor tools and a read-only client view (`ea0346c`)
-- [x] Login lockout after too many wrong passwords (this commit)
+- [x] Login lockout after too many wrong passwords (`eac5b77`)
+- [x] 1 - Precise money columns: every Postgres `REAL` column is now
+      `DOUBLE PRECISION`, checked in Neon (`c646b42`)
+- [x] Deploy safeguard: the app reloads all its modules together when a push
+      changes them, so no reboot is needed (`1797e9d`)
+- [x] 2 - Tests run on GitHub on every push (this commit)
 
 ---
 
 ## Next up - in this order
-
-### 1. Precise money columns on the live database - S - needs you
-**Why:** the older money columns in Postgres (`positions`, `account_totals`,
-`transactions`, `price_history`, `value_log`, ...) are `REAL`, which in Postgres
-is a 4-byte float: amounts over about $1M lose cents. SQLite (local) is fine.
-**What:** the app converts every `REAL` column to `DOUBLE PRECISION` itself
-when it starts (`portfolio._widen_real_columns`, under the setup lock), and
-`schema_pg.sql` now creates them that way. Built and tested; runs on the
-first start after it's pushed. Take a Neon backup branch first.
-**Done when:** every money column in Neon is `double precision` and totals
-match before and after.
-**Needs you:** a Neon backup branch, then the OK to push (pushing runs it).
-
-### 2. Run the tests on every push - S
-**Why:** 130 tests only run when someone runs them by hand; a broken commit
-deploys straight to the live app.
-**What:** a GitHub Actions job that runs `python -m unittest discover -s tests`
-on each push.
-**Done when:** a push shows a green (or red) test check on GitHub.
 
 ### 3. Change your own password - S
 **Why:** today only an admin (`manage_users.py`) or an advisor can change a

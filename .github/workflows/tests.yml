@@ -1,0 +1,25 @@
+name: Tests
+
+# Runs the unit tests on every push and pull request, so a broken commit
+# shows a red check on GitHub instead of only surfacing on the live app.
+# The tests use temporary SQLite files and mocks only - no secrets, no
+# network, and never the live Neon database.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}  # allow manual runs from the Actions tab
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run tests
+        run: python -m unittest discover -s tests
