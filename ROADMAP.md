@@ -154,8 +154,8 @@ website's Create account button to everyone.
 
 - [x] **Phone navigation** - a bottom tab bar on narrow screens (Home, Plan,
       Sage, Watch or Clients, More); the sidebar stays on wider ones.
-- [ ] **Watchlist** - price and today's change next to each ticker without
-      tapping in. (S)
+- [x] **Watchlist** - a row per ticker with its live price and today's change,
+      tap to open its chart, remove from the row; Enter adds a ticker.
 - [ ] **Income** - estimated income by month, not just a yearly total. (S)
 - [ ] **Activity** - a useful empty state that explains how activity appears. (S)
 - [ ] **Speed** - measure page loads on the live database and cut the slowest

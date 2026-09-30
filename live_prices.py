@@ -139,26 +139,31 @@ def _record_yahoo(conn, ticker, data, error, ok):
 
 def freshen(conn, user_id: int, finnhub_key: str | None, *, now: datetime | None = None,
             finnhub=None, yahoo=None) -> dict:
-    """Fetch whatever quotes are due for this account's holdings and apply the
-    newest known price of every holding to its positions. `finnhub(symbol)` and
-    `yahoo(symbol)` return (data, error) and are for tests.
+    """Fetch whatever quotes are due for this account's holdings and watchlist,
+    and apply the newest known price of every holding to its positions.
+    `finnhub(symbol)` and `yahoo(symbol)` return (data, error) and are for tests.
 
-    Returns {"fetched": n, "updated": positions changed, "as_of": newest quote
-    time (UTC) or None, "live": whether anything updates on its own right now}."""
+    Returns {"fetched": n, "updated": positions changed, "watch_fetched":
+    watchlist tickers fetched, "as_of": newest quote time (UTC) of a holding or
+    None, "live": whether anything updates on its own right now}."""
     now = now or datetime.now(timezone.utc)
     finnhub = finnhub or (lambda s: fetch_quote(s, finnhub_key, 8.0) if finnhub_key
                           else ({}, "no FINNHUB_API_KEY"))
     yahoo = yahoo or yahoo_quote
     snap = latest_snapshot(conn, user_id)
-    if not snap:
-        return {"fetched": 0, "updated": 0, "as_of": None, "live": False}
     held = {r["symbol"]: r["asset_type"] for r in conn.execute(
         "SELECT DISTINCT symbol, asset_type FROM positions WHERE snapshot_date = ? AND user_id = ?",
-        (snap, user_id))}
+        (snap, user_id))} if snap else {}
+    watched = [r["ticker"] for r in conn.execute(
+        "SELECT ticker FROM watchlist WHERE user_id = ?", (user_id,))]
     kinds = {s: kind(s, t) for s, t in held.items()}
-    fetched = 0
+    for w in watched:
+        kinds.setdefault(w, kind(w, None))
+    if not kinds:
+        return {"fetched": 0, "updated": 0, "watch_fetched": 0, "as_of": None, "live": False}
+    fetched, watch_fetched = 0, 0
     with _LOCK:
-        tried = _last_tried(conn, list(held))  # read inside the lock: another viewer may have just fetched
+        tried = _last_tried(conn, list(kinds))  # read inside the lock: another viewer may have just fetched
         for sym, k in sorted(kinds.items()):
             if not due(k, tried.get(sym), now):
                 continue
@@ -171,9 +176,29 @@ def freshen(conn, user_id: int, finnhub_key: str | None, *, now: datetime | None
                 ok = bool(data) and not err and bool(data.get("c"))
                 _record_yahoo(conn, sym, data, err, ok)
             fetched += 1
+            watch_fetched += sym not in held
         latest = _latest(conn, list(held))
     prices = {s: p for s, (p, _) in latest.items() if p}
-    updated = apply_live_prices(conn, snap, user_id, prices, utc_now_iso()) if fetched else 0
+    held_fetched = fetched - watch_fetched
+    updated = apply_live_prices(conn, snap, user_id, prices, utc_now_iso()) if held_fetched else 0
     as_of = max((t for _, t in latest.values() if t), default=None)
-    return {"fetched": fetched, "updated": updated, "as_of": as_of,
-            "live": market_open(now) or "crypto" in kinds.values()}
+    return {"fetched": fetched, "updated": updated, "watch_fetched": watch_fetched,
+            "as_of": as_of, "live": market_open(now) or "crypto" in kinds.values()}
+
+
+def quotes(conn, tickers) -> dict:
+    """{ticker: {"price", "prev_close", "change", "pct_change", "fetched_at"}}
+    from each ticker's newest successful quote - for the watchlist rows."""
+    tickers = sorted(set(tickers))
+    if not tickers:
+        return {}
+    ph = ", ".join("?" for _ in tickers)
+    rows = conn.execute(
+        "SELECT ph.ticker, ph.price, ph.prev_close, ph.change, ph.pct_change, ph.fetched_at "
+        "FROM price_history ph JOIN ("
+        f" SELECT ticker, MAX(fetched_at) m FROM price_history WHERE ok = 1 AND ticker IN ({ph})"
+        " GROUP BY ticker) last ON ph.ticker = last.ticker AND ph.fetched_at = last.m "
+        "WHERE ph.ok = 1", tuple(tickers)).fetchall()
+    return {r["ticker"]: {"price": r["price"], "prev_close": r["prev_close"],
+                          "change": r["change"], "pct_change": r["pct_change"],
+                          "fetched_at": _parse(r["fetched_at"])} for r in rows}

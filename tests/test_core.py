@@ -2057,6 +2057,19 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
         self.assertEqual((r2["fetched"], calls2), (0, {"finnhub": [], "yahoo": []}))
         conn.close()
 
+    def test_watchlist_tickers_get_live_quotes_too(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        watchlist.add(conn, self.user_id, "NVDA")                    # no holdings at all
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(conn, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh)
+        self.assertEqual((r["fetched"], r["watch_fetched"], r["updated"]), (1, 1, 0))
+        self.assertEqual(calls["finnhub"], ["NVDA"])
+        q = lp.quotes(conn, ["NVDA", "NONE"])
+        self.assertEqual(set(q), {"NVDA"})
+        self.assertEqual((q["NVDA"]["price"], q["NVDA"]["prev_close"]), (101.0, 100.0))
+        conn.close()
+
     def test_a_holding_without_cost_still_gets_its_live_price(self):
         import live_prices as lp
         conn = portfolio.connect(self.db)
