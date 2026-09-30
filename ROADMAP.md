@@ -34,7 +34,10 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
 - [x] 7 - Stocks / Bonds / Cash / Other: funds split by what they hold (Yahoo's
       fund breakdown), with a per-account override; allocation, targets, model
       portfolios, drift, the plan PDF and the AI use it. Old targets converted
-      where they map, cleared with a note where they can't (this commit)
+      where they map, cleared with a note where they can't (`815158a`)
+- [x] 8 - Enter holdings by hand (any brokerage, no file): priced at save from
+      Finnhub, then Yahoo; saved through the same write_snapshot() as an
+      import, with the usual "what changed" review (this commit)
 
 ---
 
@@ -50,13 +53,6 @@ wording lives in `disclosures.py`, with notes on which code each statement
 depends on.
 **Needs you:** have the final wording reviewed by someone qualified before
 launch, and decide who people contact to delete their data. Then tick this.
-
-### 8. Holdings without a Schwab file - M - needs you
-**Why:** beginners and non-Schwab investors have no file to import.
-**What:** type in holdings by hand (symbol, shares, cost), stored as a
-snapshot like an import, so everything else works unchanged.
-**Needs you:** OK to add a second way of writing snapshots next to the CSV
-import.
 
 ### 9. Other brokers' CSV files - M
 **Why:** the AI header-mapping fallback exists but hasn't been tried on real

@@ -1990,6 +1990,88 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class ManualEntryTests(TempDBMixin, unittest.TestCase):
+    ROWS = [{"Account": "Roth", "Symbol": " vti ", "Shares": 10, "Total cost": 2000.0,
+             "Type": "ETF"},
+            {"Account": "", "Symbol": "VTSAX", "Shares": "5.5", "Total cost": None,
+             "Type": "Mutual fund"},
+            {"Account": "Roth", "Symbol": "", "Shares": None, "Total cost": None, "Type": "ETF"}]
+
+    def test_validate_cleans_rows_and_reports_problems(self):
+        import manual_entry as me
+        clean, cash, errors = me.validate(self.ROWS, [{"Account": "Roth", "Cash": "1,000"}])
+        self.assertEqual(errors, [])
+        self.assertEqual([(h["account"], h["symbol"], h["quantity"], h["asset_type"]) for h in clean],
+                         [("Roth", "VTI", 10.0, "ETFs & Closed End Funds"),
+                          (me.DEFAULT_ACCOUNT, "VTSAX", 5.5, "Mutual Funds")])  # blank row dropped
+        self.assertEqual(cash, {"Roth": 1000.0})
+        bad = [{"Symbol": "VTI", "Shares": 0}, {"Symbol": "", "Shares": 3},
+               {"Symbol": "B@D", "Shares": 1}, {"Symbol": "X", "Shares": 1, "Total cost": "abc"},
+               {"Symbol": "Y", "Shares": 1}, {"Symbol": "Y", "Shares": 2}]
+        _, _, errors = me.validate(bad, [{"Account": "A", "Cash": -5}])
+        text = " ".join(errors)
+        for bit in ("more than 0", "add a symbol", "doesn't look like", "dollar amount",
+                    "listed twice", "Cash for A"):
+            self.assertIn(bit, text)
+        self.assertEqual(me.validate([], [])[2], ["Add at least one holding or some cash."])
+        # cash on the default name follows a single renamed account
+        one = [{"Account": "Roth", "Symbol": "VTI", "Shares": 1}]
+        self.assertEqual(me.validate(one, [{"Account": me.DEFAULT_ACCOUNT, "Cash": 50}])[1],
+                         {"Roth": 50.0})
+        two = one + [{"Account": "Taxable", "Symbol": "BND", "Shares": 1}]
+        self.assertEqual(me.validate(two, [{"Account": "", "Cash": 50}])[1],
+                         {me.DEFAULT_ACCOUNT: 50.0})  # ambiguous: left alone
+
+    def test_lookup_prefers_finnhub_then_yahoo_and_keeps_known_names(self):
+        import manual_entry as me
+        asked = []
+        found = me.lookup(["VTI", "VTSAX", "NOPE"],
+                          finnhub_quote=lambda s: {"VTI": 300.0}.get(s),
+                          yahoo_info=lambda s: asked.append(s) or {"VTSAX": (150.0, "Vanguard TSM")
+                                                                   }.get(s, (None, None)),
+                          known_names={"VTI": "Vanguard Total Stock"})
+        self.assertEqual(found["VTI"], {"price": 300.0, "name": "Vanguard Total Stock"})
+        self.assertEqual(found["VTSAX"], {"price": 150.0, "name": "Vanguard TSM"})
+        self.assertIsNone(found["NOPE"]["price"])
+        self.assertNotIn("VTI", asked)  # had a price and a name: no Yahoo call
+
+    def test_saved_like_an_import_and_replaces_the_same_day(self):
+        import manual_entry as me
+        clean, cash, _ = me.validate(self.ROWS, [{"Account": "Roth", "Cash": 500}])
+        found = {"VTI": {"price": 300.0, "name": "Total Stock"},
+                 "VTSAX": {"price": 150.0, "name": None}}
+        meta, rows, totals, errors = me.build(clean, cash, found, today=date(2026, 9, 29))
+        self.assertEqual(errors, [])
+        self.assertEqual(rows[0]["market_value"], 3000.0)
+        self.assertEqual(rows[0]["reported_gain"], 1000.0)
+        conn = portfolio.connect(self.db)
+        portfolio.write_snapshot(conn, self.user_id, meta, rows, totals, me.SOURCE)
+        self.assertEqual(update_prices.latest_snapshot(conn, self.user_id), "2026-09-29")
+        got = {r["symbol"]: r["market_value"] for r in conn.execute(
+            "SELECT symbol, market_value FROM positions WHERE user_id = ?", (self.user_id,))}
+        self.assertEqual(got, {"VTI": 3000.0, "VTSAX": 825.0})
+        cash_rows = {r["account"]: r["cash_value"] for r in conn.execute(
+            "SELECT account, cash_value FROM account_totals WHERE user_id = ?", (self.user_id,))}
+        self.assertEqual(cash_rows, {"Roth": 500.0, me.DEFAULT_ACCOUNT: None})
+        # saving again the same day replaces, it doesn't add
+        meta2, rows2, totals2, _ = me.build(clean[:1], {}, found, today=date(2026, 9, 29))
+        portfolio.write_snapshot(conn, self.user_id, meta2, rows2, totals2, me.SOURCE)
+        self.assertEqual(conn.execute("SELECT COUNT(*) n FROM positions WHERE user_id = ?",
+                                      (self.user_id,)).fetchone()["n"], 1)
+        conn.close()
+
+    def test_missing_price_is_an_error_and_prefill_round_trips(self):
+        import manual_entry as me
+        clean, _, _ = me.validate(self.ROWS[:1], [])
+        self.assertIn("check the symbol", me.build(clean, {}, {"VTI": {"price": None}})[3][0])
+        holdings, cash = me.prefill([{"account": "Roth", "symbol": "VTI", "quantity": 10,
+                                      "cost_basis": 2000.0, "asset_type": "Fixed Income"}],
+                                    {"Roth": 250.0, "Empty": 0})
+        self.assertEqual(holdings[0]["Type"], "Bond")
+        self.assertEqual(cash, [{"Account": "Roth", "Cash": 250.0}])
+        self.assertEqual(me.validate(holdings, cash)[2], [])
+
+
 class AssetClassTests(unittest.TestCase):
     AOR = {"quote_type": "ETF", "stock_pct": 0.6178, "bond_pct": 0.3754, "cash_pct": 0.0065,
            "other_pct": 0.0002}

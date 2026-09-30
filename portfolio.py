@@ -450,33 +450,15 @@ POSITION_COLS = [
 ]
 
 
-def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
-                api_key: str | None = None) -> dict:
-    """Parse a Schwab Positions export and write it into an open connection,
-    scoped to `user_id`.
-
-    This is the shared entry point: `cmd_import` (CLI) and the Streamlit dashboard
-    both call it. It upserts the `snapshots` row, then replaces `positions` and
-    `account_totals` for the file's snapshot date. Re-importing *any* file for a
-    date that is already loaded replaces that date wholesale for THIS user only
-    (keyed on `snapshot_date` + `user_id`), so a re-downloaded export with a new
-    filename still works, and two different users importing a CSV for the same
-    calendar date never touch each other's rows. Returns a summary dict; it does
-    not print or verify.
-
-    `api_key` (an Anthropic key) is optional and enables parse_csv_smart()'s
-    AI-assisted fallback for a file whose headers don't match the strict
-    Schwab shape - see ai_parse.py. None (the default) means exactly
-    today's behavior: strict parsing only.
-    """
-    src = os.path.abspath(csv_path)
-    if not os.path.isfile(src):
-        raise FileNotFoundError(src)
-
-    parse_info: dict = {}
-    meta, rows, totals = parse_csv_smart(src, api_key, parse_info)
+def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dict,
+                   src: str) -> None:
+    """Save one snapshot for `user_id`, in one transaction: replace any
+    snapshot already saved for meta["snapshot_date"] (whatever its source),
+    then write its positions and account totals. `meta`, `rows` and `totals`
+    are parse_csv()'s shapes; `src` names where it came from (the CSV's path,
+    or manual_entry.SOURCE). Shared by import_csv() and hand entry
+    (manual_entry.py)."""
     snapshot_date = meta["snapshot_date"]
-
     with conn:
         # Replace-by-date: drop any prior import of this date (whatever its file),
         # then the rows below re-establish it from `src`. Scoped to user_id so
@@ -516,6 +498,36 @@ def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
               t["reported_market_value"], t["reported_gain"], t["reported_gain_pct"], src, user_id)
              for acct, t in totals.items()],
         )
+
+
+def import_csv(conn: sqlite3.Connection, csv_path: str, user_id: int,
+                api_key: str | None = None) -> dict:
+    """Parse a Schwab Positions export and write it into an open connection,
+    scoped to `user_id`.
+
+    This is the shared entry point: `cmd_import` (CLI) and the Streamlit dashboard
+    both call it. It upserts the `snapshots` row, then replaces `positions` and
+    `account_totals` for the file's snapshot date. Re-importing *any* file for a
+    date that is already loaded replaces that date wholesale for THIS user only
+    (keyed on `snapshot_date` + `user_id`), so a re-downloaded export with a new
+    filename still works, and two different users importing a CSV for the same
+    calendar date never touch each other's rows. Returns a summary dict; it does
+    not print or verify.
+
+    `api_key` (an Anthropic key) is optional and enables parse_csv_smart()'s
+    AI-assisted fallback for a file whose headers don't match the strict
+    Schwab shape - see ai_parse.py. None (the default) means exactly
+    today's behavior: strict parsing only.
+    """
+    src = os.path.abspath(csv_path)
+    if not os.path.isfile(src):
+        raise FileNotFoundError(src)
+
+    parse_info: dict = {}
+    meta, rows, totals = parse_csv_smart(src, api_key, parse_info)
+    snapshot_date = meta["snapshot_date"]
+
+    write_snapshot(conn, user_id, meta, rows, totals, src)
 
     accounts = sorted({r["account"] for r in rows})
     return {
