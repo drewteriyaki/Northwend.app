@@ -308,6 +308,15 @@ CREATE TABLE IF NOT EXISTS login_failures (
     locked_until  TEXT
 );
 
+-- Column layouts of brokerage CSVs seen before (csv_import.py): a fingerprint
+-- of the column NAMES -> which column holds which field. No holdings or
+-- personal data - so the next file with the same columns needs no questions.
+CREATE TABLE IF NOT EXISTS csv_layouts (
+    signature   TEXT PRIMARY KEY,
+    mapping     TEXT NOT NULL,                   -- JSON {field: column index}
+    updated_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

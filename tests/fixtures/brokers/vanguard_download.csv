@@ -1,0 +1,9 @@
+Account Number,Investment Name,Symbol,Shares,Share Price,Total Value,
+12345678,Vanguard Total Stock Mkt Idx Adm,VTSAX,15.321,182.65,2798.38,
+12345678,Vanguard Total Intl Stock Index Admiral,VTIAX,30.5,37.10,1131.55,
+12345678,Vanguard Federal Money Market Fund,VMFXX,410.22,1.00,410.22,
+
+
+
+Account Number,Trade Date,Settlement Date,Transaction Type,Transaction Description,Investment Name,Symbol,Shares,Share Price,Principal Amount,Commissions and Fees,Net Amount,Accrued Interest,Account Type,
+12345678,2026-09-15,2026-09-16,Buy,Buy,Vanguard Total Stock Mkt Idx Adm,VTSAX,1.5,180.00,-270.00,0.0,-270.00,0.0,CASH,

@@ -24,6 +24,7 @@ import alerts
 import asset_classes
 import auth
 import charts
+import csv_import
 import disclosures
 import friendly_errors
 import learn
@@ -63,7 +64,7 @@ friendly_errors.install(show_details=not pgcompat.is_postgres_dsn(DB)
 TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts and cost "
               "are saved - never balances or full account numbers.")
 NOT_KEPT = ("Not kept: the file, image or pasted text itself, balances and gains, and account "
-            "numbers beyond their last 3 digits. Holding names come from Yahoo.")
+            "numbers beyond their last 3 digits.")
 
 # The brand: Waypoint, with Sage as the guide (the AI Assistant). Pages keep
 # their internal names (session state, links, `if PAGE == ...`); PAGE_LABELS
@@ -2607,6 +2608,54 @@ def _manual_save(meta, rows, totals, txns, source):
         conn.close()
 
 
+def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_holdings",
+                     after=None):
+    """"What we'll keep", the change summary and Save, for holdings about to be
+    saved as a snapshot - hand entry, paste, screenshots and non-Schwab CSVs.
+    `after` runs once saved (e.g. clearing the form)."""
+    st.markdown("**What we'll keep**")
+    st.dataframe(pd.DataFrame([{
+        "Account": accounts.mask_number(r["account"]), "Symbol": r["symbol"],
+        "Name": r["description"] or "",
+        "Shares": round(r["quantity"], 4), "Value": fmt_money(r["market_value"]),
+        **({} if pct_mode else {"Total cost": fmt_money(r["cost_basis"])
+                                if r["cost_basis"] is not None else ""})}
+        for r in rows]), hide_index=True, width="stretch")
+    total = sum(r["market_value"] for r in rows) + sum(t["cash_value"] or 0 for t in totals.values())
+    conn = connect(DB)
+    try:
+        base_date = conn.execute(
+            "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
+            (meta["snapshot_date"], USER_ID)).fetchone()["d"]
+        base_rows = [dict(r) for r in conn.execute(
+            "SELECT account, symbol, description, quantity, cost_basis, market_value "
+            "FROM positions WHERE snapshot_date = ? AND user_id = ?",
+            (base_date, USER_ID))] if base_date else []
+    finally:
+        conn.close()
+    d = diff_positions(base_rows, rows)
+    # a pretend portfolio has no real buys and sells to record
+    txns = [] if pct_mode else synthesize_transactions(d, meta["snapshot_date"], source)
+    _md(f"Total **{fmt_money(total)}**"
+        + (" (pretend)" if pct_mode else " today")
+        + f" · {len(d['new'])} new, {len(d['increased']) + len(d['decreased'])} changed, "
+          f"{len(d['closed'])} removed since "
+          f"{_fmt_date(base_date) if base_date else 'nothing yet'}.")
+    st.caption(NOT_KEPT)
+    if st.button("Save holdings", type="primary", key=key):
+        try:
+            _manual_save(meta, rows, totals, txns, source)
+        except DBError as exc:
+            st.error(f"Saving failed, nothing was changed: {exc}")
+        else:
+            st.session_state["import_flash"] = (f"Saved {len(rows)} holding(s) for "
+                                  f"{_fmt_date(meta['snapshot_date'])}.")
+            if after:
+                after()
+            _after_import()
+            st.rerun()
+
+
 @st.dialog("Add or update holdings", width="large", on_dismiss=_dialog_closed)
 def _manual_dialog(current_positions, current_cash, current_source=None):
     """Type in holdings (no file needed); saved as today's snapshot, like an import.
@@ -2703,47 +2752,9 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     if price_errors:
         st.error("  \n".join(price_errors))
         return
-    st.markdown("**What we'll keep**")
-    st.dataframe(pd.DataFrame([{
-        "Account": accounts.mask_number(r["account"]), "Symbol": r["symbol"],
-        "Name": r["description"] or "",
-        "Shares": round(r["quantity"], 4), "Value": fmt_money(r["market_value"]),
-        **({} if pct_mode else {"Total cost": fmt_money(r["cost_basis"])
-                                if r["cost_basis"] is not None else ""})}
-        for r in rows]), hide_index=True, width="stretch")
-    total = sum(r["market_value"] for r in rows) + sum(t["cash_value"] or 0 for t in totals.values())
-    conn = connect(DB)
-    try:
-        base_date = conn.execute(
-            "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
-            (meta["snapshot_date"], USER_ID)).fetchone()["d"]
-        base_rows = [dict(r) for r in conn.execute(
-            "SELECT account, symbol, description, quantity, cost_basis, market_value "
-            "FROM positions WHERE snapshot_date = ? AND user_id = ?",
-            (base_date, USER_ID))] if base_date else []
-    finally:
-        conn.close()
-    source = manual_entry.PCT_SOURCE if pct_mode else manual_entry.SOURCE
-    d = diff_positions(base_rows, rows)
-    # a pretend portfolio has no real buys and sells to record
-    txns = [] if pct_mode else synthesize_transactions(d, meta["snapshot_date"], source)
-    _md(f"Total **{fmt_money(total)}**"
-        + (" (pretend)" if pct_mode else " today")
-        + f" · {len(d['new'])} new, {len(d['increased']) + len(d['decreased'])} changed, "
-          f"{len(d['closed'])} removed since "
-          f"{_fmt_date(base_date) if base_date else 'nothing yet'}.")
-    st.caption(NOT_KEPT)
-    if st.button("Save holdings", type="primary", key="me_save"):
-        try:
-            _manual_save(meta, rows, totals, txns, source)
-        except DBError as exc:
-            st.error(f"Saving failed, nothing was changed: {exc}")
-        else:
-            ss["import_flash"] = (f"Saved {len(rows)} holding(s) for "
-                                  f"{_fmt_date(meta['snapshot_date'])}.")
-            _manual_clear()
-            _after_import()
-            st.rerun()
+    _review_and_save(meta, rows, totals,
+                     manual_entry.PCT_SOURCE if pct_mode else manual_entry.SOURCE,
+                     pct_mode=pct_mode, key="me_save", after=_manual_clear)
 
 
 def _load_sample():
@@ -2767,13 +2778,117 @@ def _clear_sample():
     _after_import()
 
 
+CSV_FIELDS = ("symbol", "quantity", "cost", "avg_cost", "value", "percent", "account",
+              "account_number", "description")
+
+
+def _import_any_csv(src_path, source_name):
+    """A positions CSV from any brokerage other than Schwab: find the table,
+    check the columns (matched by name, a remembered layout, or the AI from
+    column names and cell kinds only), then the usual review and save."""
+    ss = st.session_state
+    with open(src_path, "rb") as fh:
+        rows = csv_import.read_rows(fh.read())
+    header_i, problem = csv_import.find_header(rows)
+    if problem == "transactions":
+        st.warning("This looks like **transaction history** (buys and sells), not your current "
+                   "holdings. Export your **Positions** or **Holdings** instead - or copy the "
+                   "positions table from your brokerage's website and use **Paste or type "
+                   "holdings**.")
+        return
+    if header_i is None:
+        header_i = csv_import.guess_header(rows)
+    if header_i is None:
+        st.error("Couldn't find a table of holdings in this file. Try your brokerage's "
+                 "Positions export, or paste the positions table instead.")
+        return
+    header = rows[header_i]
+    sig = csv_import.signature(header)
+    conn = connect(DB)
+    try:
+        known = csv_import.remembered(conn, header)
+    finally:
+        conn.close()
+    mapping = known or csv_import.auto_mapping(header)
+    if not csv_import.usable(mapping) and _anthropic_key():
+        cache = ss.setdefault("csv_ai_maps", {})
+        if sig not in cache:
+            with st.spinner("Working out the columns..."):
+                cache[sig] = csv_import.ai_mapping(header, csv_import.sample_shapes(rows, header_i),
+                                                   _anthropic_key())
+        mapping = {**mapping, **(cache[sig] or {})}
+
+    names = [f"{c or '(blank)'}  ·  column {i + 1}" for i, c in enumerate(header)]
+    with st.expander("Check the columns", expanded=not (known and csv_import.usable(mapping))):
+        st.caption("Which column holds what. Only these are read; every other column is "
+                   "ignored." + (" This layout was remembered from an earlier file." if known
+                                 else ""))
+        cols = st.columns(3)
+        chosen = {}
+        for n, field in enumerate(CSV_FIELDS):
+            pick = cols[n % 3].selectbox(
+                csv_import.LABELS.get(field, "Account number"), [None, *range(len(header))],
+                index=(mapping[field] + 1) if field in mapping else 0,
+                format_func=lambda i: "—" if i is None else names[i], key=f"csvmap_{sig[:10]}_{field}")
+            if pick is not None:
+                chosen[field] = pick
+    if not csv_import.usable(chosen):
+        st.info("Choose at least the **Symbol** column and **Shares** (or **Value**).")
+        return
+    found = csv_import.parse(rows, chosen, filename=source_name.replace("upload: ", ""))
+    if not found["holdings"]:
+        st.warning("No holdings were found with these columns - check the choices above.")
+        return
+    if found["mode"] == "Percentages":
+        st.info("This file only has percentages, no share counts. Use **Paste or type holdings** "
+                "in the sidebar and its Percentages mode instead.")
+        return
+
+    clean, cash, errors = manual_entry.validate(
+        [{"Account": h["Account"], "Symbol": h["Symbol"], "Shares": h["Shares"],
+          "Total cost": h["Total cost"], "Type": "Other"} for h in found["holdings"]],
+        [{"Account": a, "Cash": v} for a, v in found["cash"].items()])
+    if errors:
+        st.error("  \n".join(errors))
+        return
+    _md(f"Found **{len(clean)} holding(s)**"
+        + (f" and {fmt_money(sum(cash.values()))} cash" if cash else "")
+        + f" from {_fmt_date(found['snapshot_date'])}.")
+    # values from the file where it has them; today's price for the rest
+    prices = {h["Symbol"]: {"price": round(h["Value"] / h["Shares"], 6), "name": h["Name"]}
+              for h in found["holdings"] if h["Value"] and h["Shares"]}
+    missing = [h["symbol"] for h in clean if h["symbol"] not in prices]
+    if missing:
+        key = f"csv_prices_{sig[:10]}"
+        if key not in ss:
+            with st.spinner("Looking up prices..."):
+                ss[key] = manual_entry.lookup(
+                    missing, finnhub_quote=manual_entry.finnhub_price(resolve_key(None, ENV_PATH)),
+                    yahoo_info=manual_entry.yahoo_price_and_name)
+        prices.update(ss[key])
+    meta, prow, totals, price_errors = manual_entry.build(
+        clean, cash, prices, today=date.fromisoformat(found["snapshot_date"]))
+    if price_errors:
+        st.error("  \n".join(price_errors))
+        return
+    meta["as_of_text"] = f"Imported from {os.path.basename(source_name.replace('upload: ', ''))}"
+
+    def _remember_layout():
+        c = connect(DB)
+        try:
+            csv_import.remember(c, header, chosen)  # column names only
+        finally:
+            c.close()
+    _review_and_save(meta, prow, totals, source_name, key="csv_any_save", after=_remember_layout)
+
+
 @st.dialog("Import a positions CSV", width="large", on_dismiss=_dialog_closed)
 def _import_dialog():
     """Upload a new Schwab Positions export, preview what changed, confirm."""
     st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
     st.caption(
-        "Upload a fresh Schwab **Positions** export. You'll see exactly what changed "
-        "before anything is saved."
+        "Upload your brokerage's **Positions** (or Holdings) export - Schwab, Fidelity, "
+        "Vanguard, E*TRADE or any other. You'll check it before anything is saved."
     )
     st.caption(":material/lock: " + TRUST_LINE)
     up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
@@ -2800,9 +2915,12 @@ def _import_preview(src_path, source_name):
     elif src_path:
         _parse_info: dict = {}
         try:
-            _meta, new_rows, _ = parse_csv_smart(src_path, _anthropic_key(), _parse_info)
-        except SystemExit as exc:
-            st.error(f"Couldn't parse this file: {exc}")
+            # Schwab's own layout, strictly; any other file goes to csv_import below
+            # (it replaces the old Schwab-shaped AI fallback for these uploads)
+            _meta, new_rows, _ = parse_csv_smart(src_path, None, _parse_info)
+        except SystemExit:
+            # not a Schwab export: any other brokerage's layout (csv_import.py)
+            _import_any_csv(src_path, source_name)
         else:
             if _parse_info.get("ai_assisted"):
                 st.info("This file's headers didn't match the expected format, so Claude "
@@ -2876,7 +2994,7 @@ def _import_preview(src_path, source_name):
                            "names. " + NOT_KEPT)
                 if st.button("Confirm import", type="primary", key="csv_confirm"):
                     try:
-                        info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),
+                        info = import_csv(_conn, src_path, USER_ID, None,
                                           source_name=source_name)
                         # Replace-by-date: this date's inferred transactions are
                         # rewritten from the new file's diff.
@@ -3086,15 +3204,20 @@ if not positions:
     up = st.file_uploader("Positions export (.csv)", type=["csv"], key="onboard_csv_upload")
     if up is not None:
         _conn = connect(DB)
+        info = None
         try:
             with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
-                info = import_csv(_conn, src_path, USER_ID, _anthropic_key(),
-                                  source_name=upload_label(up.name))
+                try:
+                    info = import_csv(_conn, src_path, USER_ID, None,
+                                      source_name=upload_label(up.name))
+                except SystemExit:
+                    # not a Schwab export: any other brokerage's layout (csv_import.py)
+                    _import_any_csv(src_path, upload_label(up.name))
         except DBError as exc:
             st.error(f"Import failed: {exc}")
-        except SystemExit as exc:
-            st.error(f"Couldn't parse this file: {exc}")
-        else:
+        finally:
+            _conn.close()
+        if info is not None:
             note = " (Claude helped interpret this file's headers — worth a spot check.)" \
                 if info["ai_assisted"] else ""
             st.session_state["import_flash"] = (
@@ -3102,8 +3225,6 @@ if not positions:
                 f"{info['n_positions']} positions.{note}")
             _after_import()
             st.rerun()
-        finally:
-            _conn.close()
     st.stop()
 
 cash = sum(cash_by_account.values())

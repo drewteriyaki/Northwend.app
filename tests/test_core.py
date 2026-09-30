@@ -2004,6 +2004,87 @@ class AppFilesCompileTests(unittest.TestCase):
                                        cfile=os.path.join(tempfile.gettempdir(), "pt_compile.pyc"))
 
 
+class AnyBrokerCsvTests(TempDBMixin, unittest.TestCase):
+    """Roadmap 9b: positions CSVs from any brokerage (csv_import.py)."""
+    DIR = os.path.join(os.path.dirname(__file__), "fixtures", "brokers")
+    TODAY = date(2026, 9, 30)
+
+    def _read(self, name, mapping=None):
+        import csv_import as ci
+        with open(os.path.join(self.DIR, name), "rb") as fh:
+            rows = ci.read_rows(fh.read())
+        hi, problem = ci.find_header(rows)
+        if problem:
+            return rows, problem, None
+        m = mapping or ci.auto_mapping(rows[hi])
+        return rows, None, ci.parse(rows, m, filename=name, today=self.TODAY)
+
+    @staticmethod
+    def _held(r):
+        return [(h["Account"], h["Symbol"], h["Shares"], h["Total cost"]) for h in r["holdings"]]
+
+    def test_fidelity(self):
+        _, _, r = self._read("fidelity_positions.csv")
+        self.assertEqual(self._held(r), [("Individual Z12345678", "VTI", 10.0, 2500.0),
+                                         ("Individual Z12345678", "BND", 25.5, 1900.0),
+                                         ("ROTH IRA Z87654321", "FXAIX", 20.123, 4000.0)])
+        self.assertEqual(r["cash"], {"Individual Z12345678": 1234.56})   # SPAXX** money market
+        self.assertEqual(r["snapshot_date"], "2026-09-28")               # "Date downloaded" footer
+        self.assertEqual(accounts.mask_number("Individual Z12345678"), "Individual ...678")
+
+    def test_vanguard_stops_at_its_transactions_section(self):
+        _, _, r = self._read("vanguard_download.csv")
+        self.assertEqual([(s, q) for _, s, q, _ in self._held(r)],
+                         [("VTSAX", 15.321), ("VTIAX", 30.5), ("VMFXX", 410.22)])
+        self.assertEqual(r["snapshot_date"], "2026-09-30")   # not the trade date below
+
+    def test_etrade_per_share_cost_and_cash(self):
+        _, _, r = self._read("etrade_portfolio.csv")
+        self.assertEqual([(s, q, c) for _, s, q, c in self._held(r)],
+                         [("AAPL", 12.0, 1899.96), ("SCHD", 120.0, 3120.0), ("VXUS", 33.1, 1986.0)])
+        self.assertEqual(r["cash"], {"": 812.4})
+        self.assertEqual(r["snapshot_date"], "2026-09-28")
+
+    def test_transaction_exports_are_recognized(self):
+        _, problem, _ = self._read("robinhood_activity.csv")
+        self.assertEqual(problem, "transactions")
+
+    def test_an_unknown_layout_with_decimal_commas(self):
+        import csv_import as ci
+        rows, problem, _ = self._read("odd_layout.csv")
+        self.assertEqual(problem, "no header")
+        hi = ci.guess_header(rows)
+        self.assertEqual(rows[hi][0], "Ticker Code")
+        shapes = ci.sample_shapes(rows, hi)
+        self.assertEqual(shapes[0], ["SHORT_CODE", "NUMBER", "NUMBER", "NUMBER"])  # never values
+        r = ci.parse(rows, {"symbol": 0, "quantity": 1, "cost": 2, "value": 3}, today=self.TODAY)
+        self.assertEqual(self._held(r), [("", "VTI", 4.0, 1000.0), ("", "BND", 10.0, 700.0)])
+
+    def test_ai_mapping_is_validated_and_layouts_are_remembered(self):
+        import csv_import as ci
+        header = ["Ticker Code", "Units Held", "Book Cost", "Cur. Val"]
+        client = ScreenshotReadTests._Client(
+            '{"symbol": 0, "quantity": 1, "cost": 2, "value": 3, "percent": 9, "bogus": 1}')
+        m = ci.ai_mapping(header, [["SHORT_CODE", "NUMBER", "NUMBER", "NUMBER"]], "key",
+                          client=client, model="m")
+        self.assertEqual(m, {"symbol": 0, "quantity": 1, "cost": 2, "value": 3})  # 9 is out of range
+        prompt = client.sent["messages"][0]["content"]
+        self.assertIn("SHORT_CODE", prompt)
+        conn = portfolio.connect(self.db)
+        self.assertIsNone(ci.remembered(conn, header))
+        ci.remember(conn, header, m)
+        self.assertEqual(ci.remembered(conn, [" ticker code ", "Units Held", "Book Cost", "Cur. Val"]), m)
+        stored = conn.execute("SELECT * FROM csv_layouts").fetchone()
+        self.assertNotIn("VTI", repr(dict(stored)))                  # names only, no data
+        conn.close()
+
+    def test_numbers(self):
+        import csv_import as ci
+        for raw, want in (("$1,234.56", 1234.56), ("(12.30)", -12.3), ("1000,00", 1000.0),
+                          ("1,234", 1234.0), ("12,5%", 12.5), ("--", None), ("Cur. Val", None)):
+            self.assertEqual(ci._num(raw), want, raw)
+
+
 class LivePricesTests(TempDBMixin, unittest.TestCase):
     """Prices keep themselves current (no Refresh button): live_prices.freshen."""
     OPEN = datetime(2026, 9, 29, 15, 0, tzinfo=timezone.utc)      # Tue 11:00 ET

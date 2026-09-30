@@ -1,0 +1,353 @@
+"""Positions CSVs from any brokerage.
+
+Schwab's own export keeps its dedicated reader (portfolio.parse_csv); every
+other file comes here. Brokerages lay their exports out differently -
+Fidelity puts the account on every row, Vanguard follows the holdings with a
+transactions section, E*TRADE opens with an account summary - so this reader:
+
+1. finds the holdings table anywhere in the file (skipping titles, notes,
+   footers, totals and pending-activity rows; following one section per
+   account, and stopping at a transactions section);
+2. matches its columns by name (FIELDS), then - for anything still missing -
+   by a remembered layout for the same column names, or by asking the AI,
+   which sees only the column names and the *shape* of a few rows ("text",
+   "number", "money"), never the values;
+3. reads each holding's symbol, shares, cost (total, or per share x shares),
+   value and account, and money-market / cash lines as cash;
+4. recognizes a transactions export and says so instead of guessing.
+
+The result fills the same review step as hand entry (manual_entry.py), so
+every row is checked, and account numbers are cut to their last 3 digits on
+save. The file itself is never kept.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import re
+from datetime import date, datetime, timezone
+
+from paste_parse import _is_ticker
+
+# field -> header names, normalized by _norm() (lowercase, "%" -> "percent",
+# no $ ( ) # * . , and single spaces)
+FIELDS = {
+    "symbol": ("symbol", "ticker", "symbol/cusip", "sym", "security symbol", "ticker symbol",
+               "symbol / cusip"),
+    "quantity": ("quantity", "qty", "shares", "units", "shares owned", "share count", "position",
+                 "quantity/shares", "shares/units", "quantity held", "qty shares", "share qty"),
+    "cost": ("cost basis", "cost basis total", "total cost", "cost", "total cost basis", "book value",
+             "cost basis total dollar", "total cost basis dollar", "adjusted cost basis",
+             "cost basis dollar"),
+    "avg_cost": ("average cost", "avg cost", "average cost basis", "price paid", "cost per share",
+                 "unit cost", "average price", "avg price", "avg cost basis", "cost/share",
+                 "purchase price", "average unit cost"),
+    "value": ("market value", "current value", "value", "total value", "equity", "marketvalue",
+              "market value dollar", "current market value", "total market value", "mkt value",
+              "position value"),
+    "percent": ("percent of account", "percent of portfolio", "weight", "allocation",
+                "portfolio percent", "percent of holdings", "percent of total", "percent of acct",
+                "portfolio weight"),
+    "account": ("account name", "account", "acct", "account name/number", "account type",
+                "account nickname"),
+    # kept apart so a name and a number can both be used ("Individual Z12345678",
+    # which is saved as "Individual ...678")
+    "account_number": ("account number", "account #", "account no", "acct number",
+                       "account num"),
+    "description": ("description", "name", "investment name", "security description", "security",
+                    "security name", "fund name"),
+}
+LABELS = {"symbol": "Symbol", "quantity": "Shares", "cost": "Total cost",
+          "avg_cost": "Cost per share", "value": "Value", "percent": "% of portfolio",
+          "account": "Account", "description": "Name"}
+# a header with any of these is a transactions export, not holdings
+_TXN_WORDS = ("trade date", "transaction type", "trans code", "activity date", "process date",
+              "settle date", "settlement date", "transaction date", "action", "run date",
+              "transaction")
+_CASH_WORDS = ("money market", "cash", "sweep", "core position", "fdic")
+_DATE_RES = [
+    (re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b"), lambda m: (int(m[3]), int(m[1]), int(m[2]))),
+    (re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b"), lambda m: (int(m[1]), int(m[2]), int(m[3]))),
+    (re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ .-](\d{1,2}),?[ -](\d{4})\b",
+                re.I),
+     lambda m: (int(m[3]), datetime.strptime(m[1][:3].title(), "%b").month, int(m[2]))),
+]
+
+
+def _norm(cell) -> str:
+    c = str(cell or "").strip().lower().replace(" ", " ").replace("%", " percent ")
+    c = re.sub(r"[$()#*.,:]", " ", c)
+    return re.sub(r"\s+", " ", c).strip()
+
+
+def _field(cell) -> str | None:
+    c = _norm(cell)
+    for field, names in FIELDS.items():
+        if c in names:
+            return field
+    return None
+
+
+def _num(cell):
+    """A number from a cell ("$1,234.50", "(12.30)", "5.00%", "--") or None."""
+    t = str(cell or "").strip().replace(" ", "")
+    if not t or t in ("--", "-", "n/a", "N/A"):
+        return None
+    neg = t.startswith("(") or t.startswith("-")
+    # a decimal comma ("1.234,56" or "12,5") - a comma followed by 3 digits is
+    # a thousands separator instead ("1,234")
+    if re.search(r",\d{1,2}\)?%?$", t) and not re.search(r"\.\d+$", t):
+        t = t.replace(".", "").replace(",", ".")
+    t = re.sub(r"[^\d.]", "", t)
+    if not re.search(r"\d", t) or t.count(".") > 1:
+        return None
+    return -float(t) if neg else float(t)
+
+
+def shape(cell) -> str:
+    """What a cell looks like, for the AI - never the value itself."""
+    t = str(cell or "").strip()
+    if not t or t in ("--", "-"):
+        return "EMPTY"
+    if any(r.search(t) for r, _ in _DATE_RES):
+        return "DATE"
+    if t.endswith("%") and _num(t) is not None:
+        return "PERCENT"
+    if "$" in t and _num(t) is not None:
+        return "MONEY"
+    if _num(t) is not None and re.fullmatch(r"[\s\d,.()+-]+", t):
+        return "NUMBER"
+    if _is_ticker(t.upper().rstrip("*")) and len(t) <= 6:
+        return "SHORT_CODE"
+    return "TEXT"
+
+
+def read_rows(data: bytes) -> list[list[str]]:
+    """The file's rows, whatever its encoding and delimiter."""
+    for enc in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            text = data.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    sample = "\n".join(text.splitlines()[:40])
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+    except csv.Error:
+        dialect = csv.excel
+    return [[c.strip() for c in row] for row in csv.reader(io.StringIO(text), dialect)]
+
+
+def signature(header: list[str]) -> str:
+    """A layout's fingerprint: its column names, normalized."""
+    return hashlib.sha1(json.dumps([_norm(c) for c in header]).encode()).hexdigest()
+
+
+def _is_txn_header(cells) -> bool:
+    names = {_norm(c) for c in cells}
+    return any(w in names for w in _TXN_WORDS)
+
+
+def find_header(rows) -> tuple[int | None, str | None]:
+    """(index of the holdings header row, problem). The header is the first row
+    naming a symbol column and a shares, value or percent column."""
+    for i, row in enumerate(rows):
+        fields = {_field(c) for c in row}
+        if "symbol" in fields and fields & {"quantity", "value", "percent"}:
+            return (None, "transactions") if _is_txn_header(row) else (i, None)
+    for row in rows:
+        if _is_txn_header(row) and len([c for c in row if c]) >= 3:
+            return None, "transactions"
+    return None, "no header"
+
+
+def guess_header(rows) -> int | None:
+    """For a layout FIELDS doesn't know: the first row of plain text cells that
+    sits above a row with a ticker-like code and a number - the column check
+    (or the AI) then says which column is which."""
+    for i, row in enumerate(rows[:-1]):
+        cells = [c for c in row if c]
+        if len(cells) < 2 or any(shape(c) not in ("TEXT", "SHORT_CODE") for c in cells):
+            continue
+        nxt = next((r for r in rows[i + 1:] if any(r)), [])
+        kinds = [shape(c) for c in nxt]
+        if "SHORT_CODE" in kinds and ({"NUMBER", "MONEY"} & set(kinds)):
+            return i
+    return None
+
+
+def auto_mapping(header: list[str]) -> dict:
+    """{field: column index} for the columns named in FIELDS."""
+    out = {}
+    for i, cell in enumerate(header):
+        f = _field(cell)
+        if f and f not in out:
+            out[f] = i
+    return out
+
+
+def usable(mapping: dict) -> bool:
+    return "symbol" in mapping and bool({"quantity", "value", "percent"} & set(mapping))
+
+
+def _snapshot_date(rows, header_i, data_end, filename, today) -> str:
+    """The export's own date, from lines outside the table or the file name,
+    else today. Never a date after today."""
+    texts = [" ".join(r) for r in rows[:header_i]] + [" ".join(r) for r in rows[data_end:]]
+    texts.append(filename or "")
+    found = []
+    for t in texts:
+        for rx, parts in _DATE_RES:
+            for m in rx.finditer(t):
+                try:
+                    d = date(*parts(m))
+                except ValueError:
+                    continue
+                if d <= today:
+                    found.append(d)
+    return (max(found) if found else today).isoformat()
+
+
+def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None) -> dict:
+    """Holdings from `rows` with `mapping`: {"holdings": [{Account, Symbol,
+    Shares, Total cost, Value, Percent}], "cash": {account: amount},
+    "snapshot_date", "mode", "skipped": rows that weren't holdings}."""
+    today = today or date.today()
+    header_i, _ = find_header(rows)
+    if header_i is None:
+        header_i = guess_header(rows)
+    if header_i is None:
+        header_i = -1
+    header = rows[header_i] if header_i >= 0 else []
+    width = max(mapping.values(), default=0) + 1
+
+    def cell(row, field):
+        i = mapping.get(field)
+        return row[i] if i is not None and i < len(row) else ""
+
+    section_account, holdings, cash, skipped = None, [], {}, 0
+    data_end, txn_start = header_i + 1, len(rows)
+    for j in range(header_i + 1, len(rows)):
+        row = rows[j]
+        filled = [c for c in row if c]
+        if not filled:
+            continue
+        if _is_txn_header(row):
+            txn_start = j
+            break  # a transactions section follows the holdings (Vanguard)
+        if [_norm(c) for c in row[:len(header)]] == [_norm(c) for c in header]:
+            continue  # the header repeated for the next account
+        if len(filled) == 1 and len(row) < width or (len(filled) == 1 and not _num(filled[0])):
+            section_account = filled[0]  # an account heading line
+            continue
+        acct = cell(row, "account") or section_account or ""
+        number = cell(row, "account_number")
+        if number and number not in acct:
+            acct = f"{acct} {number}".strip()
+        raw_sym = cell(row, "symbol").strip()
+        sym = raw_sym.upper().rstrip("*").strip()
+        desc = cell(row, "description")
+        value = _num(cell(row, "value"))
+        is_cash = raw_sym.endswith("**") or sym in ("CASH", "CASH & CASH INVESTMENTS") or \
+            any(w in (desc or raw_sym).lower() for w in _CASH_WORDS) and not _num(cell(row, "quantity"))
+        if is_cash:
+            if value:
+                cash[acct] = round(cash.get(acct, 0.0) + value, 2)
+            data_end = j + 1
+            continue
+        if not _is_ticker(sym):
+            skipped += 1
+            continue
+        qty = _num(cell(row, "quantity"))
+        cost = _num(cell(row, "cost"))
+        avg = _num(cell(row, "avg_cost"))
+        if cost is None and avg is not None and qty:
+            cost = round(avg * qty, 2)
+        pct = _num(cell(row, "percent"))
+        if qty is None and value is None and pct is None:
+            skipped += 1
+            continue
+        holdings.append({"Account": acct, "Symbol": sym, "Shares": qty, "Total cost": cost,
+                         "Value": value, "Percent": pct, "Name": desc or None})
+        data_end = j + 1
+    with_shares = [h for h in holdings if h["Shares"]]
+    mode = "Shares" if with_shares or not holdings else "Percentages"
+    return {"holdings": with_shares if mode == "Shares" else holdings, "cash": cash,
+            "snapshot_date": _snapshot_date(rows[:txn_start], max(header_i, 0), data_end,
+                                            filename, today),
+            "mode": mode, "skipped": skipped}
+
+
+def sample_shapes(rows, header_i: int, n: int = 3) -> list[list[str]]:
+    """The shape of the first few rows under the header - what the AI may see."""
+    out = []
+    for row in rows[header_i + 1:]:
+        if len([c for c in row if c]) >= 2:
+            out.append([shape(c) for c in row])
+        if len(out) >= n:
+            break
+    return out
+
+
+AI_PROMPT = """A brokerage positions export has these column names (JSON array):
+{header}
+and the first rows look like this (each cell replaced by its kind - the values are
+not shown): {shapes}
+Which column index (0-based) holds each field? Fields: symbol (ticker), quantity
+(shares held), cost (TOTAL cost basis), avg_cost (cost PER SHARE), value (current market
+value), percent (% of the account/portfolio), account (account name or number),
+description (security name). Use null when no column holds a field.
+Return ONLY a JSON object like {{"symbol": 0, "quantity": 3, "cost": null, ...}}."""
+
+
+def ai_mapping(header, shapes, api_key, *, client=None, model=None) -> dict | None:
+    """Ask the AI to map columns from their names and cell kinds only."""
+    import anthropic
+    if model is None:
+        from ai_parse import MODEL as model
+    client = client or anthropic.Anthropic(api_key=api_key, timeout=30.0)
+    prompt = AI_PROMPT.format(header=json.dumps(header), shapes=json.dumps(shapes))
+    try:
+        resp = client.messages.create(model=model, max_tokens=400,
+                                      messages=[{"role": "user", "content": prompt}])
+    except anthropic.APIError:
+        return None
+    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    m = re.search(r"\{.*\}", text, re.S)
+    try:
+        raw = json.loads(m.group(0)) if m else None
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    out = {f: v for f, v in raw.items()
+           if f in FIELDS and isinstance(v, int) and not isinstance(v, bool) and 0 <= v < len(header)}
+    return out if usable(out) else None
+
+
+# ---- remembered layouts ----------------------------------------------------- #
+def remembered(conn, header) -> dict | None:
+    row = conn.execute("SELECT mapping FROM csv_layouts WHERE signature = ?",
+                       (signature(header),)).fetchone()
+    if not row:
+        return None
+    try:
+        m = json.loads(row["mapping"])
+    except ValueError:
+        return None
+    m = {f: v for f, v in m.items() if isinstance(v, int) and 0 <= v < len(header)}
+    return m if usable(m) else None
+
+
+def remember(conn, header, mapping: dict) -> None:
+    """Keep a layout's column mapping (column names only - no data) so the
+    next file with the same columns needs no questions."""
+    conn.execute("INSERT INTO csv_layouts (signature, mapping, updated_at) VALUES (?, ?, ?) "
+                 "ON CONFLICT (signature) DO UPDATE SET mapping = excluded.mapping, "
+                 "updated_at = excluded.updated_at",
+                 (signature(header), json.dumps(mapping),
+                  datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+    conn.commit()
