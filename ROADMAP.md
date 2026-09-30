@@ -25,18 +25,14 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
       changes them, so no reboot is needed (`1797e9d`)
 - [x] 2 - Tests run on GitHub on every push (`6e12e00`)
 - [x] 3 - Change your own password from the sidebar; signs out other devices,
-      including tabs already open (this commit)
+      including tabs already open (`8a55015`)
+- [x] 4 - Friendly errors: "Something went wrong" with Try again and an error
+      code instead of a traceback; the full traceback and the same code go to
+      the Streamlit Cloud log (this commit)
 
 ---
 
 ## Next up - in this order
-
-### 4. Friendly errors and error visibility - M
-**Why:** an unexpected error shows a raw traceback to users.
-**What:** catch errors per page, show "Something went wrong - try again",
-and keep the details in the Streamlit Cloud logs.
-**Done when:** a forced error shows the friendly message and the log has the
-full traceback.
 
 ### 5. Disclosures page - S - needs you
 **Why:** the app shows example funds, projections and AI answers to real

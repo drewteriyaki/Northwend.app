@@ -23,6 +23,7 @@ import advising
 import alerts
 import auth
 import charts
+import friendly_errors
 import learn
 import metrics as M
 import news
@@ -43,6 +44,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Defaults to ./portfolio.db; set PORTFOLIO_DB to point at another file (handy for
 # trying the importer against a throwaway copy).
 DB = os.environ.get("PORTFOLIO_DB") or os.path.join(HERE, "portfolio.db")
+
+# An unexpected error shows "something went wrong" instead of a traceback; the
+# traceback goes to the log. Details show on screen only for a local run.
+friendly_errors.install(show_details=not pgcompat.is_postgres_dsn(DB)
+                        and st.get_option("client.showErrorDetails") in ("full", True, "true"))
 
 GREEN = "#16a34a"
 RED = "#dc2626"

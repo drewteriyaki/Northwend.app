@@ -1,0 +1,61 @@
+"""Friendly errors: an unexpected error shows a short "something went wrong"
+message with a Try again button instead of a raw traceback.
+
+Streamlit logs the full traceback itself (the Streamlit Cloud logs, or the
+terminal locally) and then calls the run's on_script_error handler, which
+this installs. A short error code is shown and logged next to the traceback,
+so a user's report can be matched to the log. Running locally, the details
+are also shown under an expander.
+
+on_script_error is set on the run's context (Streamlit 1.62+). If a future
+Streamlit drops it, install() returns False and the default error box shows.
+"""
+
+from __future__ import annotations
+
+import secrets
+import sys
+
+import streamlit as st
+
+MESSAGE = ("Something went wrong on this page. Try again, or open another page from "
+           "the menu. If it keeps happening, mention error code **{ref}**.")
+
+
+def install(*, show_details: bool = False) -> bool:
+    """Use the friendly message for any error in this run. show_details adds
+    the traceback under an expander (for local use only)."""
+    try:
+        from streamlit.runtime.scriptrunner_utils.script_run_context import get_script_run_ctx
+        ctx = get_script_run_ctx()
+    except Exception:
+        return False
+    if ctx is None or not hasattr(ctx, "on_script_error"):
+        return False
+    handler = lambda ex: _show(ex, show_details)  # noqa: E731
+    ctx.on_script_error = handler
+    # A click starts a new run whose button callbacks run before any page
+    # code, so this run's setting would come too late for them. The browser
+    # session hands its handler to each new run - set it there as well (best
+    # effort: private to Streamlit, so skipped quietly if it ever changes).
+    try:
+        from streamlit.runtime import Runtime
+        if Runtime.exists():
+            info = Runtime.instance()._session_mgr.get_session_info(ctx.session_id)
+            if info is not None and hasattr(info.session, "_on_script_error"):
+                info.session._on_script_error = handler
+    except Exception:
+        pass
+    return True
+
+
+def _show(ex: Exception, show_details: bool) -> bool:
+    ref = secrets.token_hex(3)
+    # Streamlit has just logged the full traceback; this ties the code to it.
+    print(f"error code {ref}: {type(ex).__name__} (traceback just above)", file=sys.stderr)
+    st.error(MESSAGE.format(ref=ref), icon=":material/error:")
+    st.button("Try again", key="pt_error_retry", type="primary")
+    if show_details:
+        with st.expander("Details (shown only when running locally)"):
+            st.exception(ex)
+    return True  # handled: don't show Streamlit's own error box

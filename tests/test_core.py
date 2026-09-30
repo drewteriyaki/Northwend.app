@@ -1978,6 +1978,47 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
 
+class FriendlyErrorTests(unittest.TestCase):
+    """An error in a page shows the friendly message, never the traceback
+    (unless running locally with details on)."""
+
+    SCRIPT = """
+import sys
+sys.path.insert(0, {repo!r})
+import friendly_errors
+import streamlit as st
+friendly_errors.install(show_details={details})
+st.write("before the error")
+raise RuntimeError("secret detail")
+"""
+
+    def _run(self, details):
+        from streamlit.testing.v1 import AppTest
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            at = AppTest.from_string(self.SCRIPT.format(repo=REPO, details=details)).run()
+        return at, err.getvalue()
+
+    def test_hosted_shows_the_message_and_logs_the_code(self):
+        at, log = self._run(False)
+        self.assertEqual(len(at.exception), 0)                      # no traceback on screen
+        msg = at.error[0].value
+        self.assertIn("Something went wrong", msg)
+        self.assertNotIn("secret detail", msg)
+        code = re.search(r"\*\*([0-9a-f]{6})\*\*", msg).group(1)
+        self.assertIn(f"error code {code}", log)                    # matches the log line
+        self.assertEqual([b.label for b in at.button], ["Try again"])
+        self.assertEqual(at.markdown[0].value, "before the error")  # the page so far stays
+
+    def test_local_run_can_show_details(self):
+        at, _ = self._run(True)
+        self.assertEqual(len(at.exception), 1)
+        self.assertIn("secret detail", at.exception[0].message)
+
+    def test_install_outside_a_streamlit_run_does_nothing(self):
+        import friendly_errors
+        self.assertFalse(friendly_errors.install())
+
+
 class CodeFreshTests(unittest.TestCase):
     """A deploy that changes a module's file reloads all of the app's modules."""
 
