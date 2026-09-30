@@ -588,6 +588,39 @@ if dict(st.query_params) != _want_qp:
     st.query_params.from_dict(_want_qp)
 
 
+def _disclosures_seen():
+    """Remember (per login) that this version of the disclosures was seen."""
+    c = connect(DB)
+    try:
+        p = prefs.load(c, LOGIN_ID)
+        p["disclosures_seen"] = disclosures.LAST_UPDATED
+        prefs.save(c, LOGIN_ID, p)
+    finally:
+        c.close()
+    st.session_state["disclosures_seen"] = disclosures.LAST_UPDATED
+
+
+# The disclosures promise to say when they change: once per new version, after
+# sign-in (and once for everyone at first). Opening About counts as seen.
+if "disclosures_seen" not in st.session_state:
+    _dc = connect(DB)
+    try:
+        st.session_state["disclosures_seen"] = prefs.load(_dc, LOGIN_ID).get("disclosures_seen")
+    finally:
+        _dc.close()
+if PAGE == "About" and st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
+    _disclosures_seen()
+if st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
+    with st.container(border=True, horizontal=True, vertical_alignment="center"):
+        st.markdown(f":material/info: **About and disclosures** - what {APP_NAME} is, how your "
+                    "data is used and what's sent to the AI - "
+                    + ("was updated on " + disclosures.LAST_UPDATED + "."
+                       if st.session_state["disclosures_seen"] else "worth a quick read."),
+                    width="stretch")
+        st.button("Read it", key="disc_read", on_click=lambda: (_disclosures_seen(), _go("About")))
+        st.button("Got it", key="disc_ok", type="tertiary", on_click=_disclosures_seen)
+
+
 def _anthropic_key() -> str | None:
     """Same resolution order as resolve_key() uses for FINNHUB_API_KEY -
     .env locally, then the OS environment (which is how Streamlit

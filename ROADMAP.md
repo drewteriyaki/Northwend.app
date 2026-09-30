@@ -77,13 +77,22 @@ Sizes: **S** = an hour or two, **M** = a session, **L** = several sessions.
 ### 5. Disclosures page - S - needs you
 **Why:** the app shows example funds, projections and AI answers to real
 people; advisors will ask what's said to their clients.
-**Built:** an "About and disclosures" page (educational, not advice;
-projections; how data is stored; what's sent to the AI; market data; not
-affiliated), last in the sidebar and expandable on the login screen. The
+**Built:** an "About and disclosures" page, last in the sidebar and on the
+login screen: who runs it (individual, free beta, 18+), not advice,
+projections, for advisors, your data (what's kept, retention, deleting),
+security, cookies and tracking (usage statistics turned off), services used,
+what's sent to the AI, market data, no guarantees, not affiliated, and how
+changes are announced - a one-time notice after sign-in when it changes. The
 wording lives in `disclosures.py`, with notes on which code each statement
 depends on.
-**Needs you:** have the final wording reviewed by someone qualified before
-launch, and decide who people contact to delete their data. Then tick this.
+**Needs you:**
+- Fill in `OPERATOR_NAME` and `CONTACT` in `disclosures.py` (a dedicated
+  address like support@ is best) - the page shows placeholders until then.
+- Have the final wording reviewed by someone qualified before launch; they
+  may want separate Terms of Use and a Privacy Policy.
+- Delete the Neon backup branch from the precision change once you're
+  comfortable - it's a full copy of the data the retention line doesn't cover.
+Then tick this.
 
 ---
 

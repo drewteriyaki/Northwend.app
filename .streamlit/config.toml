@@ -5,6 +5,11 @@
 # Viewer options only: no Deploy button or developer menu for app users.
 toolbarMode = "viewer"
 
+[browser]
+# No anonymous usage statistics sent from visitors' browsers to Streamlit -
+# the disclosures page says the app doesn't track people.
+gatherUsageStats = false
+
 # A light and a dark theme, so the app can switch between them (the
 # sidebar's Theme control). Blue accent in both, so the app's own color
 # never reads as a loss (red) or gain (green).

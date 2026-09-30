@@ -2545,8 +2545,16 @@ class DisclosureTests(unittest.TestCase):
         text = disclosures.SUMMARY + "".join(t + b for t, b in disclosures.SECTIONS)
         self.assertNotIn("$", text)  # Streamlit reads a pair of them as math
         for must in ("not financial advice", "Anthropic", "percentages", "column names",
-                     "ticker", "Schwab", "hypothetical"):
+                     "ticker", "any brokerage", "hypothetical", "18 and over", "as-is",
+                     "For advisors", "Cookies", "How long it's kept", "Neon", "GitHub"):
             self.assertIn(must.lower(), text.lower())
+        # until they're filled in, the page shows the placeholders plainly
+        self.assertEqual(disclosures.placeholders(), ["OPERATOR_NAME", "CONTACT"])
+        self.assertIn("[contact email]", text)
+
+    def test_the_no_tracking_promise_matches_the_config(self):
+        with open(os.path.join(REPO, ".streamlit", "config.toml"), encoding="utf-8") as fh:
+            self.assertIn("gatherUsageStats = false", fh.read())
 
     def test_the_ai_summary_it_describes_has_no_dollar_amounts(self):
         # disclosures promise the AI sees weights only; hold the code to it
