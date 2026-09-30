@@ -96,6 +96,60 @@ Then tick this.
 
 ---
 
+## Launch - a public website, and the app on your own domain
+
+Two pieces: a **website** (home, what we do, how it works, disclosures, Log in /
+Create account) built as an ordinary website, and the **app** - this Streamlit
+app - at `app.<your domain>`, restyled to match. The app stays in Streamlit;
+only its look changes.
+
+### L1. Name and domain - S - needs you
+**What:** trademark check for "Waypoint" (USPTO, finance and investing), then
+buy the domain (.com or .app, or a close variant like `usewaypoint.com`) and
+check the social and app-store handles.
+**Done when:** you own the domain and the name is clear to use.
+
+### L2. Brand and design in Claude Design - M - needs you
+**What:** a design system (logo - the flag and compass are a start - colors,
+type, voice), the website's home and sign-up pages, and a restyle of the
+app's key screens (Dashboard, Plan, Ask Sage, the phone tab bar).
+**Note:** Streamlit can take the colors, fonts, logo and spacing, not a fully
+custom layout - design the website freely, and give the app the same brand
+rather than an identical layout.
+**Done when:** the designs are ready to hand back here.
+
+### L3. The website - M
+**What:** build the home page, "what we do" / how it works, disclosures and
+contact from the L2 designs, with Log in and Create account buttons that go to
+the app. Host it on Vercel, Netlify or Cloudflare Pages (usually free) on the
+L1 domain.
+**Done when:** `<your domain>` is live and its buttons open the app.
+
+### L4. Move the app to its own domain - M
+**Why:** Streamlit Community Cloud only serves `….streamlit.app` addresses.
+**What:** run the same app on a host with custom domains - Render, Railway,
+Fly.io or Google Cloud Run (roughly $5-25 a month) - at `app.<your domain>`;
+move the secrets; Neon and the GitHub scheduled jobs stay as they are. Apply
+the L2 colors, fonts and logo (`.streamlit/config.toml` and the app's CSS).
+**Done when:** the app runs at `app.<your domain>` and the old address points
+there.
+
+### L5. Create an account yourself - L
+**Why:** accounts are made by an admin or an advisor today.
+**What:** sign-up with email verification; "forgot password" by email (an
+email service such as Resend or Postmark); bot protection on the form;
+agreeing to the terms and disclosures; limits on AI use per account so costs
+stay predictable (a free tier).
+**Done when:** a stranger can create an account from the website, confirm
+their email, reset a forgotten password, and use the app within its limits.
+
+### L6. Launch - S - needs you
+**What:** the item-5 disclosures review done (and any Terms of Use / Privacy
+Policy the reviewer asks for), a last pass on the live site, then open the
+website's Create account button to everyone.
+
+---
+
 ## Polish - smaller items, any order
 
 - [x] **Phone navigation** - a bottom tab bar on narrow screens (Home, Plan,
