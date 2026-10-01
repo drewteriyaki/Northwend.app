@@ -1986,6 +1986,59 @@ class AnyBrokerCsvTests(TempDBMixin, unittest.TestCase):
             self.assertEqual(ci._num(raw), want, raw)
 
 
+class IncomeByMonthTests(TempDBMixin, unittest.TestCase):
+    TODAY = date(2026, 9, 30)
+
+    def test_quarterly_payer_repeats_its_months_at_todays_shares(self):
+        import income
+        conn = portfolio.connect(self.db)
+        bars = [("SCHD", d, 28.0, 1000, div) for d, div in (
+            ("2025-10-08", 0.25), ("2025-12-10", 0.26), ("2026-03-25", 0.26), ("2026-06-24", 0.27),
+            ("2026-06-25", 0.0), ("2024-12-11", 0.20))]                  # too old to count
+        bars += [("BRK.B", "2026-09-01", 400.0, 10, 0.0)]                # synced, never pays
+        conn.executemany("INSERT INTO daily_bars (ticker, date, close, volume, dividend) "
+                         "VALUES (?,?,?,?,?)", bars)
+        conn.commit()
+        tickers = ["SCHD", "BRK.B", "NEWCO", "VTI"]
+        synced = income.has_history(conn, tickers)
+        self.assertEqual(synced, {"SCHD", "BRK.B"})
+        paid = income.payments(conn, tickers, self.TODAY)
+        plan = income.schedule(
+            [{"symbol": "SCHD", "quantity": 100, "annual": 300.0},       # dates win over the yield
+             {"symbol": "BRK.B", "quantity": 2, "annual": None},
+             {"symbol": "NEWCO", "quantity": 10, "annual": 120.0}],      # yield only: spread
+            paid, synced, self.TODAY)
+        months = {r["month"]: r for r in plan["months"]}
+        self.assertEqual(list(months)[0], "2026-09")
+        self.assertEqual(len(months), 12)
+        self.assertAlmostEqual(months["2026-12"]["by_symbol"]["SCHD"], 26.0)
+        self.assertAlmostEqual(months["2027-03"]["by_symbol"]["SCHD"], 26.0)
+        self.assertAlmostEqual(months["2026-10"]["by_symbol"]["SCHD"], 25.0)
+        self.assertNotIn("SCHD", months["2026-11"]["by_symbol"])
+        self.assertAlmostEqual(months["2026-10"]["by_symbol"]["NEWCO"], 10.0)
+        self.assertEqual((plan["spread"], plan["none"]), (["NEWCO"], ["BRK.B"]))
+        self.assertAlmostEqual(plan["total"], 25 + 26 + 26 + 27 + 120)
+        conn.close()
+
+    def test_the_sync_keeps_each_days_dividend(self):
+        import pandas as pd
+        df = pd.DataFrame({"Open": [1.0, 1.0], "High": [1.0, 1.0], "Low": [1.0, 1.0],
+                           "Close": [1.0, 1.0], "Adj Close": [1.0, 1.0], "Volume": [5, 5],
+                           "Dividends": [0.0, 0.31]},
+                          index=pd.to_datetime(["2026-09-01", "2026-09-02"]))
+        fake = type(sys)("yf")
+        fake.Ticker = lambda t: types.SimpleNamespace(history=lambda **kw: df)
+        with unittest.mock.patch.object(sync_history, "yf", fake):
+            rows, err = sync_history.fetch_bars("SCHD")
+        self.assertEqual(([r["dividend"] for r in rows], err), ([0.0, 0.31], ""))
+        conn = portfolio.connect(self.db)
+        sync_history.upsert_bars(conn, "SCHD", rows)
+        conn.commit()
+        self.assertEqual(conn.execute("SELECT dividend FROM daily_bars WHERE date = '2026-09-02'"
+                                      ).fetchone()["dividend"], 0.31)
+        conn.close()
+
+
 class LivePricesTests(TempDBMixin, unittest.TestCase):
     """Prices keep themselves current (no Refresh button): live_prices.freshen."""
     OPEN = datetime(2026, 9, 29, 15, 0, tzinfo=timezone.utc)      # Tue 11:00 ET

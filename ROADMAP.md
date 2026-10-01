@@ -156,7 +156,7 @@ website's Create account button to everyone.
       Sage, Watch or Clients, More); the sidebar stays on wider ones.
 - [x] **Watchlist** - a row per ticker with its live price and today's change,
       tap to open its chart, remove from the row; Enter adds a ticker.
-- [ ] **Income** - estimated income by month, not just a yearly total. (S)
+- [x] **Income** - estimated income by month, not just a yearly total. (S) - next 12 months by ex-dividend month, from the past year's payments (saved by the nightly sync) at today's shares.
 - [ ] **Activity** - a useful empty state that explains how activity appears. (S)
 - [x] **Speed** - pages read only the account's own tickers and the time span
       needed (Dashboard 73 -> 50 queries, ~30% faster); the price table keeps

@@ -3300,6 +3300,66 @@ def _pick_watchlist():
     st.session_state["holdings_pill"] = None
 
 
+def _render_income_by_month(income_rows):
+    """The next 12 months of estimated dividend income (income.py): each
+    holding's past year of payments repeated, times the shares held now."""
+    import income
+    today = datetime.now().date()
+    qty, annual = {}, {}
+    for p in positions:
+        qty[p["symbol"]] = qty.get(p["symbol"], 0.0) + (p.get("quantity") or 0.0)
+    for r in income_rows:
+        annual[r["symbol"]] = annual.get(r["symbol"], 0.0) + r["est_income"]
+    c = connect(DB)
+    try:
+        synced = income.has_history(c, qty)
+        paid = income.payments(c, qty, today)
+    finally:
+        c.close()
+    # payment dates come with the price history; fetch it once for holdings
+    # synced before dividends were kept
+    unsynced = sorted(set(qty) - synced)
+    if unsynced and not st.session_state.get("income_synced"):
+        st.session_state["income_synced"] = True
+        _sync_history(unsynced, quick=True)
+    plan = income.schedule([{"symbol": s, "quantity": q, "annual": annual.get(s)}
+                            for s, q in sorted(qty.items())], paid, synced, today)
+    if not plan["total"]:
+        if unsynced:
+            st.caption("Payment dates fill in with tonight's price history.")
+        return
+
+    st.subheader("Next 12 months", anchor=False)
+    months = plan["months"]
+    peak = max(months, key=lambda r: r["total"])
+    label = lambda m: datetime.strptime(m + "-01", "%Y-%m-%d").strftime("%b %Y")  # noqa: E731
+    mc1, mc2 = st.columns(2)
+    mc1.metric("Estimated income, next 12 months", fmt_money(plan["total"]))
+    mc2.metric("Biggest month", label(peak["month"]), fmt_money(peak["total"]),
+               delta_color="off", delta_arrow="off")
+    chart_df = pd.DataFrame([{"Month": label(r["month"]), "order": i,
+                              "Income": 0.0 if _hidden() else r["total"],
+                              "Paid by": ", ".join(s for s, v in sorted(
+                                  r["by_symbol"].items(), key=lambda kv: -kv[1]) if v)}
+                             for i, r in enumerate(months)])
+    color = (SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0]
+    bars = alt.Chart(chart_df).mark_bar(color=color, cornerRadiusTopLeft=3,
+                                        cornerRadiusTopRight=3).encode(
+        x=alt.X("Month:N", sort=alt.SortField("order"), title=None,
+                axis=alt.Axis(labelAngle=0, labelExpr="slice(datum.label, 0, 3)")),
+        y=alt.Y("Income:Q", title=None, axis=alt.Axis(format="$,.0f", labels=not _hidden())),
+        tooltip=[alt.Tooltip("Month:N"), alt.Tooltip("Income:Q", format="$,.2f"),
+                 alt.Tooltip("Paid by:N")])
+    st.altair_chart(bars, width="stretch")
+    notes = ["By ex-dividend month - the money usually arrives a few weeks later. Each holding "
+             "repeats its last year of payments at today's share count; dividends can change."]
+    if plan["spread"]:
+        notes.append("No payment dates yet for " + ", ".join(plan["spread"])
+                     + " - its yearly estimate is spread evenly across the months.")
+    st.caption(" ".join(notes))
+    st.divider()
+
+
 def _open_watch(sym):
     """A watchlist row: open (or close again) its chart and stats below."""
     st.session_state["holdings_pill"] = None
@@ -4108,10 +4168,11 @@ if PAGE == "Income":
             "reinvest": {1: "Yes", 0: "No"}.get(p.get("reinvest")), "account": p["account"],
         })
 
+    _render_income_by_month(_income_rows)
+
     if not _income_rows:
-        st.caption("No dividend-yield data on any position yet — it comes from your brokerage "
-                   "export's **Dividend Yield** / **Pay Date** columns, not Yahoo, so it's only "
-                   "there if your broker's file includes them.")
+        st.caption("No dividend-yield figures from your brokerage's file - the table of yields "
+                   "below appears when your broker's export includes a **Dividend Yield** column.")
     else:
         _total_income = sum(r["est_income"] for r in _income_rows)
         _yield_on_holdings = (_total_income / tot_mv * 100) if tot_mv else None

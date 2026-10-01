@@ -167,6 +167,9 @@ def _ensure_schema(conn) -> None:
     conn.executescript(schema_text)
     for table, cols in (("positions", LIVE_POSITION_COLS),
                         ("price_history", PRICE_HISTORY_EXTRA_COLS),
+                        # dividend per share paid on that day's ex-date, 0 if none
+                        # (income.py) - None until the bar is re-synced
+                        ("daily_bars", [("dividend", "REAL")]),
                         ("transactions", TRANSACTIONS_EXTRA_COLS),
                         ("snapshots", USER_ID_COL),
                         ("positions", USER_ID_COL),

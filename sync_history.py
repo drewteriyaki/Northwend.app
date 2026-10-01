@@ -125,6 +125,9 @@ def fetch_bars(ticker: str, period: str = DEFAULT_PERIOD):
             "close": _num(r.get("Close")),
             "adj_close": _num(r.get("Adj Close")),
             "volume": int(_num(r.get("Volume"))) if _num(r.get("Volume")) is not None else None,
+            # Yahoo's daily history already carries each dividend (per share,
+            # on its ex-date) - kept for the Income page's monthly estimate
+            "dividend": _num(r.get("Dividends")) or 0.0,
         })
     return rows, ""
 
@@ -192,7 +195,7 @@ def fetch_fund_split(ticker: str) -> dict:
 # --------------------------------------------------------------------------- #
 # store
 # --------------------------------------------------------------------------- #
-_BAR_COLS = ["ticker", "date", "open", "high", "low", "close", "adj_close", "volume"]
+_BAR_COLS = ["ticker", "date", "open", "high", "low", "close", "adj_close", "volume", "dividend"]
 
 
 def upsert_bars(conn: sqlite3.Connection, ticker: str, rows) -> int:
@@ -201,8 +204,9 @@ def upsert_bars(conn: sqlite3.Connection, ticker: str, rows) -> int:
         f"VALUES ({', '.join('?' for _ in _BAR_COLS)}, datetime('now')) "
         "ON CONFLICT(ticker, date) DO UPDATE SET "
         "open=excluded.open, high=excluded.high, low=excluded.low, close=excluded.close, "
-        "adj_close=excluded.adj_close, volume=excluded.volume, fetched_at=excluded.fetched_at",
-        [tuple([ticker] + [r[c] for c in _BAR_COLS[1:]]) for r in rows],
+        "adj_close=excluded.adj_close, volume=excluded.volume, dividend=excluded.dividend, "
+        "fetched_at=excluded.fetched_at",
+        [tuple([ticker] + [r.get(c) for c in _BAR_COLS[1:]]) for r in rows],
     )
     return len(rows)
 
