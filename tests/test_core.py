@@ -3699,6 +3699,25 @@ class TxnImportTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(got["since"], "2026-09-18")
         self.assertIsNone(income.received(self.conn, self.user_id + 99, date(2026, 10, 1)))
 
+    def test_imported_deposits_are_money_added_once(self):
+        import plans
+        import reports
+        import txn_import
+        plans.add_contribution(self.conn, self.user_id, "2026-08-20", 100.0, "before")
+        plans.add_contribution(self.conn, self.user_id, "2026-09-15", 500.0, "same deposit")
+        found = self._parse("schwab_activity.csv")   # Sep 1-26: +500 deposit, -100 journal
+        txn_import.save(self.conn, self.user_id, found["rows"], "upload: s.csv")
+        moves = plans.money_moves(self.conn, self.user_id)
+        hand = {m["note"]: m["counted"] for m in moves if m["source"] == "hand"}
+        self.assertEqual(hand, {"before": True, "same deposit": False})
+        # the deposit counts once; the journal between own accounts doesn't count
+        self.assertEqual(plans.money_added(self.conn, self.user_id, "2026-09-01", "2026-09-30"),
+                         500.0)
+        self.assertEqual(plans.month_total(self.conn, self.user_id, 2026, 8), 100.0)
+        facts = reports.build(self.conn, self.user_id, date(2026, 9, 1), date(2026, 9, 30),
+                              value_now=None, today=date(2026, 10, 1))
+        self.assertEqual(facts["money_in"], 500.0)
+
     def test_two_equal_buys_on_a_day_stay_two(self):
         import txn_import
         row = {"account": "A", "trade_date": "2026-09-01", "action": "BUY", "symbol": "VTI",

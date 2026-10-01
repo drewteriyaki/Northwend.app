@@ -207,6 +207,8 @@ def _render_contributions(plan, today):
     try:
         this_month = plans.month_total(conn, USER_ID, today.year, today.month)
         recent = plans.list_contributions(conn, USER_ID, limit=10)
+        moves = plans.money_moves(conn, USER_ID)[:10]
+        window = plans.imported_window(conn, USER_ID)
     finally:
         conn.close()
     planned = float((plan or {}).get("monthly_contribution") or 0.0)
@@ -231,7 +233,11 @@ def _render_contributions(plan, today):
                         finally:
                             c.close()
                         st.rerun()
-            st.caption("Logged by hand - importing a statement doesn't add these.")
+            st.caption("Importing your brokerage's **activity** history adds its deposits and "
+                       "withdrawals by itself; a holdings statement doesn't."
+                       + (f" Entries you log between {_fmt_date(window[0])} and "
+                          f"{_fmt_date(window[1])} aren't counted - that history already has "
+                          "the real figures." if window else ""))
             if recent:
                 by_id = {r["id"]: r for r in recent}
                 c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
@@ -246,13 +252,20 @@ def _render_contributions(plan, today):
                     finally:
                         c.close()
                     st.rerun()
-    if recent:
+    if moves:
+        def _note(m):
+            tag = ("from your brokerage" if m["source"] == "brokerage"
+                   else "not counted - in your imported history" if not m["counted"] else "")
+            text = " · ".join(x for x in (m["note"] or "", tag) if x)
+            return html.escape(text)
         st.html("<div class='pt-legend'>" + "".join(
             "<div class='pt-legend-row'>"
-            f"<span class='pt-legend-val' style='text-align:left'>{_fmt_date(r['date'])}</span>"
-            f"<span class='pt-legend-label'>{html.escape(r['note'] or '')}</span>"
-            f"<span class='pt-legend-pct'>{_tone(r['amount'], _signed_money(r['amount']))}</span>"
-            "</div>" for r in recent) + "</div>")
+            f"<span class='pt-legend-val' style='text-align:left'>{_fmt_date(m['date'])}</span>"
+            f"<span class='pt-legend-label'>{_note(m)}</span>"
+            f"<span class='pt-legend-pct'>"
+            + (_tone(m["amount"], _signed_money(m["amount"])) if m["counted"]
+               else f"<s>{_signed_money(m['amount'])}</s>")
+            + "</span></div>" for m in moves) + "</div>")
 
 
 def _render_money_in(value, growth):

@@ -58,10 +58,8 @@ def build(conn, client_id: int, start: date, end: date, *, value_now: float | No
         v_end = value_now
     else:
         v_end = _value_between(conn, client_id, end - timedelta(days=14), end, latest=True)
-    row = conn.execute("SELECT SUM(amount) AS s FROM contributions WHERE user_id = ? AND "
-                       "date >= ? AND date <= ?", (client_id, start.isoformat(),
-                                                   end.isoformat())).fetchone()
-    money_in = float(row["s"] or 0.0)
+    # logged by hand, or from imported activity history (plans.money_added)
+    money_in = plans.money_added(conn, client_id, start.isoformat(), end.isoformat())
     growth = (v_end - v_start - money_in) if v_start is not None and v_end is not None else None
     plan = plans.get_plan(conn, client_id)
     goal = None

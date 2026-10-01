@@ -86,11 +86,47 @@ def list_contributions(conn, user_id: int, limit: int = 50) -> list[dict]:
         "ORDER BY date DESC, id DESC LIMIT ?", (user_id, limit))]
 
 
+# ---- money added: logged by hand, or from an imported activity export ------ #
+def imported_window(conn, user_id: int) -> tuple[str, str] | None:
+    """(first, last) date of the imported activity history (txn_import.py)."""
+    row = conn.execute("SELECT MIN(trade_date) AS a, MAX(trade_date) AS b FROM transactions "
+                       "WHERE user_id = ? AND origin = 'imported'", (user_id,)).fetchone()
+    return (row["a"], row["b"]) if row and row["a"] else None
+
+
+def money_moves(conn, user_id: int, start: str | None = None, end: str | None = None) -> list[dict]:
+    """Money added (+) or taken out (-), newest first: hand-logged entries
+    and the deposits and withdrawals in imported activity history.
+    [{"id", "date", "amount", "note", "source": "hand" | "brokerage",
+    "counted"}]. A hand entry dated inside the imported history isn't
+    counted - the history already has the real figure (moves between your
+    own accounts and money-market sweeps are never money added)."""
+    start, end = start or "0000-00-00", end or "9999-99-99"
+    window = imported_window(conn, user_id)
+    out = [{"id": r["id"], "date": r["date"], "amount": float(r["amount"]), "note": r["note"],
+            "source": "hand",
+            "counted": not (window and window[0] <= r["date"] <= window[1])}
+           for r in conn.execute("SELECT id, date, amount, note FROM contributions WHERE "
+                                 "user_id = ? AND date >= ? AND date <= ?", (user_id, start, end))]
+    out += [{"id": r["id"], "date": r["trade_date"], "amount": float(r["amount"]),
+             "note": r["description"], "source": "brokerage", "counted": True}
+            for r in conn.execute(
+                "SELECT id, trade_date, amount, description FROM transactions WHERE user_id = ? "
+                "AND origin = 'imported' AND action IN ('DEPOSIT', 'WITHDRAWAL') AND amount IS "
+                "NOT NULL AND trade_date >= ? AND trade_date <= ?", (user_id, start, end))]
+    out.sort(key=lambda m: (m["date"], m["source"] == "brokerage", m["id"]), reverse=True)
+    return out
+
+
+def money_added(conn, user_id: int, start: str, end: str) -> float:
+    """Net money added between two dates (YYYY-MM-DD, inclusive)."""
+    return round(sum(m["amount"] for m in money_moves(conn, user_id, start, end)
+                     if m["counted"]), 2)
+
+
 def month_total(conn, user_id: int, year: int, month: int) -> float:
     prefix = f"{year:04d}-{month:02d}-"
-    row = conn.execute("SELECT SUM(amount) AS s FROM contributions WHERE user_id = ? AND date LIKE ?",
-                       (user_id, prefix + "%")).fetchone()
-    return float(row["s"] or 0.0)
+    return money_added(conn, user_id, prefix + "01", prefix + "31")
 
 
 def money_in_history(conn, user_id: int) -> list[dict]:

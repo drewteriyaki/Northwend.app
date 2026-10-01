@@ -519,7 +519,7 @@ started, the Plan and Ask Northwend - always optional.
 
 ## Later
 
-- [ ] **Real transactions** - import a brokerage's activity export (any
+- [x] **Real transactions** - import a brokerage's activity export (any
       brokerage) for the real history instead of inferring it. (L)
       Decided (Oct 1): imported history replaces worked-out rows for the same
       account and dates; the same Upload a CSV button tells the two kinds of
@@ -543,5 +543,10 @@ started, the Plan and Ask Northwend - always optional.
         sold than it shows bought. Worked out again after every import.
         Income: "Received, last 12 months" - dividends and interest actually
         paid, by month, from the imported history (`income.received`).
-  - [ ] **Phase 3** - deposits and withdrawals as money added (plans, reports).
+  - [x] **Phase 3 - money added** - imported deposits and withdrawals count
+        as money added (`plans.money_moves` / `money_added`): the Plan page's
+        "This month" and list (marked "from your brokerage"), and progress
+        reports' money in. Hand-logged entries dated inside the imported
+        history aren't counted (shown crossed out) - it has the real
+        figures. Moves between your own accounts and sweeps never count.
 - [ ] **Packaging** - `pyproject.toml` and console entry points. (S)
