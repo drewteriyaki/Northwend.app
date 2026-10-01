@@ -500,6 +500,45 @@ class IntradayTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(interval, "1d")
         self.assertEqual(len(rows), 2)                              # last-2 fallback, not empty
 
+    def test_value_chart_picks_finest_interval_with_points(self):
+        self._seed()
+        rec = lambda days: [r for r in perf.history(self.db, self.user_id, days=days)
+                            if r["source"] == "reconstructed"]
+        self.assertEqual(len(rec(1)), 10)                           # the 1m bars
+        self.assertEqual(len(rec(30)), 800)                         # 1m/15m too short -> 5m
+        conn = portfolio.connect(self.db)
+        conn.execute("DELETE FROM intraday_bars WHERE interval = '1m' AND ts < ?",
+                     ((datetime.now(timezone.utc) - timedelta(minutes=1, seconds=30))
+                      .strftime("%Y-%m-%dT%H:%M:%SZ"),))
+        conn.commit()
+        conn.close()
+        day = rec(1)                                                # one 1m point left -> 5m
+        self.assertEqual(len(day), 288)                             # a day of 5-minute bars
+
+    def test_same_fund_in_two_accounts_counts_both(self):
+        conn = portfolio.connect(self.db)
+        meta = {"snapshot_date": "2026-01-02", "as_of_text": ""}
+        rows = [{"snapshot_date": "2026-01-02", "account": acct, "symbol": "AAA",
+                 "quantity": q, "cost_basis": c, "market_value": q * 100}
+                for acct, q, c in (("IRA", 3.0, 300.0), ("Brokerage", 7.0, 650.0))]
+        portfolio.write_snapshot(conn, self.user_id, meta, rows,
+                                 {"IRA": {"cash_value": 20.0, "reported_cost_basis": None,
+                                          "reported_market_value": None, "reported_gain": None,
+                                          "reported_gain_pct": None}}, "test")
+        conn.executemany("INSERT INTO daily_bars (ticker, date, close, volume) VALUES (?,?,?,1)",
+                         [("AAA", "2026-01-01", 100.0), ("AAA", "2026-01-02", 110.0)])
+        conn.commit()
+        loaded = [dict(r) for r in conn.execute("SELECT * FROM positions WHERE user_id = ?",
+                                                (self.user_id,))]
+        self.assertEqual(perf._basis(conn, self.user_id),
+                         ("2026-01-02", {"AAA": (10.0, 950.0)}, 20.0))
+        conn.close()
+        basis = perf.basis_of("2026-01-02", loaded, {"IRA": 20.0})
+        self.assertEqual(basis, ("2026-01-02", {"AAA": (10.0, 950.0)}, 20.0))
+        last = perf.history(self.db, self.user_id, basis=basis)[-1]
+        self.assertAlmostEqual(last["portfolio_value"], 10 * 110.0 + 20.0)
+        self.assertEqual(perf.holdings_coverage(self.db, self.user_id, basis), (["AAA"], []))
+
     def test_ticker_has_bars_and_has_intraday(self):
         self.assertFalse(perf.has_intraday(self.db))
         self._seed()
@@ -1650,6 +1689,19 @@ class RefreshAllUsersTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(summary["updated_by_user"], {self.user_id: 3, other: 3})
         prices = {r["live_price"] for r in conn.execute("SELECT live_price FROM positions")}
         self.assertEqual(prices, {50.0})
+
+        # straight after (the open app fetched them a moment ago): nothing fetched again,
+        # the recent quotes are still applied
+        fetched.clear()
+        conn.execute("UPDATE positions SET live_price = NULL")
+        conn.commit()
+        with unittest.mock.patch.object(update_prices, "fetch_quote", side_effect=fake_quote):
+            again = update_prices.refresh_all_users(conn, "key", delay=0)
+        self.assertEqual((fetched, again["reused"], again["failed"]), ([], 3, 0))
+        self.assertEqual(again["updated_by_user"], {self.user_id: 3, other: 3})
+        with unittest.mock.patch.object(update_prices, "fetch_quote", side_effect=fake_quote):
+            update_prices.refresh_all_users(conn, "key", delay=0, reuse_within=timedelta(0))
+        self.assertEqual(sorted(fetched), ["AAA", "BBB", "CCC"])     # older than allowed: fetched
         conn.close()
 
 

@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 try:  # Windows consoles default to cp1252; keep our own output ASCII regardless.
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -188,11 +188,14 @@ def _fetch_quotes(conn, tickers, key, *, delay, timeout, on_quote=None):
 
 
 def refresh_all_users(conn: sqlite3.Connection, key: str, *, delay: float = 0.25,
-                      timeout: float = 10.0, on_quote=None) -> dict:
+                      timeout: float = 10.0, on_quote=None,
+                      reuse_within: timedelta = timedelta(minutes=10)) -> dict:
     """Refresh every account with positions: each distinct ticker across all
     accounts' latest snapshots is fetched once (keeps within Finnhub's free
     rate limit however many accounts hold it), then applied to each account.
-    Returns {tickers, ok, failed, results, updated_by_user, applied_at}."""
+    A ticker quoted within `reuse_within` (the open app fetches every minute,
+    live_prices.py) isn't fetched again - that quote is applied instead.
+    Returns {tickers, ok, failed, reused, results, updated_by_user, applied_at}."""
     snapshots = {}
     for r in conn.execute("SELECT DISTINCT user_id FROM positions WHERE user_id IS NOT NULL"):
         snap = latest_snapshot(conn, r["user_id"])
@@ -201,12 +204,19 @@ def refresh_all_users(conn: sqlite3.Connection, key: str, *, delay: float = 0.25
     tickers = sorted({r["symbol"] for uid, snap in snapshots.items() for r in conn.execute(
         "SELECT DISTINCT symbol FROM positions WHERE user_id = ? AND snapshot_date = ?",
         (uid, snap))})
-    fresh, results = _fetch_quotes(conn, tickers, key, delay=delay, timeout=timeout,
-                                   on_quote=on_quote)
+    import live_prices  # imported here: live_prices imports this module
+    since = datetime.now(timezone.utc) - reuse_within
+    recent = {t: price for t, (price, at) in live_prices._latest(conn, tickers).items()
+              if at and at >= since}
+    fresh, results = _fetch_quotes(conn, [t for t in tickers if t not in recent], key,
+                                   delay=delay, timeout=timeout, on_quote=on_quote)
+    fetched_ok = len(fresh)
+    fresh.update(recent)
     applied_at = utc_now_iso()
     updated = {uid: (apply_live_prices(conn, snap, uid, fresh, applied_at) if fresh else 0)
                for uid, snap in snapshots.items()}
-    return {"tickers": len(tickers), "ok": len(fresh), "failed": len(tickers) - len(fresh),
+    return {"tickers": len(tickers), "ok": fetched_ok, "reused": len(recent),
+            "failed": len(tickers) - len(fresh),
             "results": results, "updated_by_user": updated, "applied_at": applied_at}
 
 
@@ -280,10 +290,11 @@ def main(argv=None) -> int:
         print(f"Fetching Finnhub quotes for all accounts (key ...{key[-4:]}):\n")
         summary = refresh_all_users(conn, key, delay=args.delay, timeout=args.timeout,
                                     on_quote=show_all)
-        print(f"\n{summary['ok']} quote(s) stored, {summary['failed']} failed.")
+        print(f"\n{summary['ok']} quote(s) stored, {summary['failed']} failed, "
+              f"{summary['reused']} already fresh (not fetched again).")
         for uid, n in summary["updated_by_user"].items():
             print(f"  {auth.get_username(conn, uid) or uid}: {n} position(s) updated")
-        return 0 if summary["ok"] else 1
+        return 0 if summary["ok"] or summary["reused"] else 1
 
     user_id = auth.get_user_id(conn, args.user)
     if user_id is None:

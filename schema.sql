@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS daily_bars (
     fetched_at TEXT    NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (ticker, date)
 );
-CREATE INDEX IF NOT EXISTS idx_daily_bars_ticker ON daily_bars (ticker, date);
+-- (the primary key already indexes (ticker, date); an old copy is dropped in portfolio._ensure_schema)
 
 -- Intraday OHLCV, several resolutions, fetched from Yahoo via sync_history.py.
 -- Yahoo only keeps a limited look-back per resolution (roughly: 1m ~ 8 days,
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS intraday_bars (
     fetched_at TEXT    NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (ticker, interval, ts)
 );
-CREATE INDEX IF NOT EXISTS idx_intraday_bars_lookup ON intraday_bars (ticker, interval, ts);
+-- (the primary key already indexes (ticker, interval, ts))
 
 -- Point-in-time fundamentals / reference data, fetched alongside the bars.
 -- One row per ticker, replaced on each sync.

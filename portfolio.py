@@ -135,6 +135,13 @@ TRANSACTIONS_EXTRA_COLS = [
 # these 5 tables (unlike watchlist, which was empty everywhere and could
 # just get user_id baked into its CREATE TABLE directly - see schema.sql).
 USER_ID_COL = [("user_id", "INTEGER")]
+USER_INDEXES = [
+    ("idx_snapshots_user", "snapshots", "user_id, snapshot_date"),
+    ("idx_positions_user", "positions", "user_id, snapshot_date"),
+    ("idx_account_totals_user", "account_totals", "user_id, snapshot_date"),
+    ("idx_transactions_user", "transactions", "user_id, trade_date"),
+    ("idx_value_log_user", "value_log", "user_id, logged_at"),
+]
 
 
 # Investing-profile questions and the assistant's memory, added after
@@ -194,6 +201,13 @@ def _ensure_schema(conn) -> None:
             if name not in have:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} "
                              f"{'DOUBLE PRECISION' if is_pg and decl == 'REAL' else decl}")
+    # Indexes led by user_id - nearly every read is "this account's ...". Made
+    # here, after the back-fill above, since older databases only now have
+    # the column. The two dropped ones duplicated their table's primary key.
+    for name, table, cols in USER_INDEXES:
+        conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({cols})")
+    for name in ("idx_daily_bars_ticker", "idx_intraday_bars_lookup"):
+        conn.execute(f"DROP INDEX IF EXISTS {name}")
     # saved targets from before Stocks / Bonds / Cash / Other; a no-op once done
     import asset_classes
     moved = asset_classes.migrate_targets(conn)

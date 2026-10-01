@@ -3120,6 +3120,8 @@ if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
 snapshot, positions, cash_by_account, quotes = load()
+# what the value chart prices, from the holdings just loaded (no re-reads)
+PERF_BASIS = perf.basis_of(snapshot, positions, cash_by_account)
 _src_conn = connect(DB)
 try:
     # an import, a hand entry, a percentages portfolio or the example portfolio
@@ -3278,7 +3280,7 @@ if "value_logged" not in st.session_state:
 # Holdings with no Yahoo history yet (a first import, or a new position):
 # fetch it once per visit so the charts fill in without a manual sync. Runs
 # before the header so the header's one-shot messages survive its rerun.
-_covered, _missing = perf.holdings_coverage(DB, USER_ID)
+_covered, _missing = perf.holdings_coverage(DB, USER_ID, PERF_BASIS)
 # ...and holdings Yahoo was never asked to describe (what a fund holds -
 # asset_classes.py). quote_type is None until asked, "" if Yahoo had nothing.
 _undescribed = sorted({p["symbol"] for p in positions
@@ -3538,12 +3540,14 @@ if PAGE == "Dashboard":
     # backfill, before the nightly intraday sync) a short range can come back
     # empty - then show the shortest wider range that has data, and say so.
     _shown_rng = prng
-    _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[prng], include_app_open=False)
+    _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[prng], include_app_open=False,
+                         basis=PERF_BASIS)
     for _wider in charts.RANGE_LABELS[charts.RANGE_LABELS.index(prng) + 1:]:
         if len(_hist) >= 2:
             break
         _shown_rng = _wider
-        _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[_wider], include_app_open=False)
+        _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[_wider], include_app_open=False,
+                             basis=PERF_BASIS)
     if _shown_rng != prng and len(_hist) >= 2:
         st.caption(f"No {prng} data yet - showing {_shown_rng}. Intraday history loads each evening.")
     if len(_hist) < 2:

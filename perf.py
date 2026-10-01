@@ -177,7 +177,8 @@ def _snapshot_aggregates(conn, user_id: int, snapshot_date: str) -> dict:
 
 
 def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct: bool = True,
-            include_snapshots: bool = False, include_app_open: bool = True) -> list[dict]:
+            include_snapshots: bool = False, include_app_open: bool = True,
+            basis=None) -> list[dict]:
     """Merged time series for the performance chart: every `value_log` row
     (source 'app_open') and a reconstructed portfolio-value line (source
     'reconstructed': current holdings x that bar's close + cash, one point per
@@ -192,7 +193,7 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
     like `ticker_series()` does: the finest interval covering `days` that
     Yahoo's intraday bars actually have data for, falling back to daily, and
     finally to the last 2 points overall so the chart is never empty. Sorted
-    by time.
+    by time. `basis` (basis_of()) skips re-reading the latest holdings.
     """
     conn = connect(db_path)
     try:
@@ -217,7 +218,8 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
                     rec[c] = r[c]
                 rows.append(rec)
         if reconstruct:
-            basis = _basis(conn, user_id)  # holdings and cash, read once per chart
+            if basis is None:
+                basis = _basis(conn, user_id)  # holdings and cash, read once per chart
             rows.extend(_reconstructed_daily_rows(conn, basis) if days is None
                         else _reconstruct_best(conn, basis, days))
         rows.sort(key=lambda x: x["t"])
@@ -230,21 +232,25 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
         conn.close()
 
 
-def holdings_coverage(db_path: str, user_id: int):
-    """(covered_tickers, missing_tickers) for the latest snapshot vs daily_bars."""
+def holdings_coverage(db_path: str, user_id: int, basis=None):
+    """(covered_tickers, missing_tickers) for the latest snapshot vs daily_bars.
+    `basis` (basis_of()) skips re-reading the latest holdings."""
     conn = connect(db_path)
     try:
-        return _coverage(conn, user_id)
+        return _coverage(conn, user_id, basis)
     finally:
         conn.close()
 
 
-def _coverage(conn, user_id: int):
-    snap = conn.execute("SELECT MAX(snapshot_date) d FROM positions WHERE user_id = ?",
-                        (user_id,)).fetchone()["d"]
-    held = [r["symbol"] for r in conn.execute(
-        "SELECT DISTINCT symbol FROM positions WHERE snapshot_date = ? AND user_id = ?",
-        (snap, user_id))]
+def _coverage(conn, user_id: int, basis=None):
+    if basis is not None:
+        held = sorted(basis[1])
+    else:
+        snap = conn.execute("SELECT MAX(snapshot_date) d FROM positions WHERE user_id = ?",
+                            (user_id,)).fetchone()["d"]
+        held = [r["symbol"] for r in conn.execute(
+            "SELECT DISTINCT symbol FROM positions WHERE snapshot_date = ? AND user_id = ?",
+            (snap, user_id))]
     have = {r["ticker"] for r in conn.execute(
         "SELECT DISTINCT ticker FROM daily_bars WHERE ticker IN (%s)"
         % ",".join("?" * len(held)), held)} if held else set()
@@ -258,14 +264,29 @@ def _basis(conn, user_id: int):
                         (user_id,)).fetchone()["d"]
     if not snap:
         return None, {}, 0.0
-    holdings = {r["symbol"]: (r["quantity"] or 0.0, r["cost_basis"] or 0.0)
-                for r in conn.execute(
-                    "SELECT symbol, quantity, cost_basis FROM positions WHERE snapshot_date = ? AND user_id = ?",
-                    (snap, user_id))}
+    rows = conn.execute(
+        "SELECT symbol, quantity, cost_basis FROM positions WHERE snapshot_date = ? AND user_id = ?",
+        (snap, user_id)).fetchall()
     cash = conn.execute(
         "SELECT COALESCE(SUM(cash_value), 0) c FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
         (snap, user_id)).fetchone()["c"]
-    return snap, holdings, cash
+    return snap, _by_symbol(rows), cash
+
+
+def basis_of(snapshot, positions, cash_by_account) -> tuple:
+    """_basis() from holdings already loaded (the dashboard's load()) - no
+    queries. Pass it to history() / holdings_coverage() as `basis`."""
+    return snapshot, _by_symbol(positions), sum(v or 0.0 for v in cash_by_account.values())
+
+
+def _by_symbol(rows) -> dict:
+    """{symbol: (quantity, cost)}, summed over accounts - the same fund held
+    in two accounts counts both."""
+    out: dict = {}
+    for r in rows:
+        q, c = out.get(r["symbol"], (0.0, 0.0))
+        out[r["symbol"]] = (q + (r["quantity"] or 0.0), c + (r["cost_basis"] or 0.0))
+    return out
 
 
 def _in(tickers) -> tuple[str, tuple]:
@@ -364,8 +385,22 @@ def _reconstruct_best(conn, basis, days: int) -> list[dict]:
     """Reconstructed portfolio-value rows at the finest resolution whose
     Yahoo look-back covers `days` and that actually has >=2 points within the
     window; [] if nothing qualifies (caller falls back further). Only the
-    window (plus a short lead-in) is read."""
-    for interval in _intervals_for(days):
+    window (plus a short lead-in) is read. One query first counts each
+    intraday interval's points in the window, so only an interval that
+    qualifies is read - not one query per interval tried."""
+    tried = _intervals_for(days)
+    intraday = [i for i in tried if i != "1d"]
+    points = {}
+    if intraday and basis[1]:
+        where, tick_params = _in(basis[1])
+        points = {r["iv"]: r["n"] for r in conn.execute(
+            "SELECT b.interval AS iv, COUNT(DISTINCT b.ts) AS n FROM intraday_bars b "
+            f"WHERE b.interval IN ({', '.join('?' for _ in intraday)}) AND b.close IS NOT NULL "
+            "AND b.ts >= ?" + where.replace("ticker", "b.ticker") + " GROUP BY b.interval",
+            (*intraday, _cutoff_ts(days), *tick_params))}
+    for interval in tried:
+        if interval != "1d" and points.get(interval, 0) < 2:
+            continue
         rows = (_reconstructed_daily_rows(conn, basis, _cutoff_daily(days + LEAD_IN_DAYS))
                 if interval == "1d"
                 else _reconstructed_intraday_rows(conn, basis, interval,

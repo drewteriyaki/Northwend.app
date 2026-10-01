@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS daily_bars (
     fetched_at TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
     PRIMARY KEY (ticker, date)
 );
-CREATE INDEX IF NOT EXISTS idx_daily_bars_ticker ON daily_bars (ticker, date);
+-- (the primary key already indexes (ticker, date); an old copy is dropped in portfolio._ensure_schema)
 
 CREATE TABLE IF NOT EXISTS intraday_bars (
     ticker     TEXT    NOT NULL,
@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS intraday_bars (
     fetched_at TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
     PRIMARY KEY (ticker, interval, ts)
 );
-CREATE INDEX IF NOT EXISTS idx_intraday_bars_lookup ON intraday_bars (ticker, interval, ts);
+-- (the primary key already indexes (ticker, interval, ts))
 
 CREATE TABLE IF NOT EXISTS security_info (
     ticker         TEXT    PRIMARY KEY,
