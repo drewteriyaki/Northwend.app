@@ -229,6 +229,12 @@ failed price job is found by a user first.
 unexpected error (friendly_errors.py: what failed and where - never the
 person's data) and when a scheduled job fails; at most one email per kind
 of error per hour, and a list on the Admin page's System panel.
+- [x] **Built** - `error_alerts.py`: an unexpected error (friendly_errors)
+      or a failed scheduled job (a `failure()` step in scheduled-sync.yml)
+      emails ALERT_EMAIL (default support@) - type, file, function, line and
+      the error code, never the message or anyone's data. One email per kind
+      per hour across processes (`error_events`); only hosted copies email.
+      Admin > System lists them, with Clear the list.
 
 ### R2. Two-step sign-in for advisors - M
 **Why:** an advisor's login opens every client's portfolio; one stolen
@@ -237,6 +243,14 @@ password exposes the whole book.
 for advisors and admins, optional for everyone on the Account page; a few
 one-time backup codes; "remember this device for 30 days" on the
 stay-signed-in cookie; the admin can reset it for someone locked out.
+- [x] **Built** - `two_step.py` + `views/two_step.py`: after the password
+      (or a stay-signed-in cookie, setup or reset link), a 6-digit code from
+      an app on the phone (TOTP, no new library for the codes; `segno` for
+      the QR picture), or one of 8 one-time backup codes. Advisors and
+      admins set it up right after signing in; investors turn it on or off
+      on Account. "Don't ask again on this device" (30 days) rides on the
+      stay-signed-in session. Admin > Reset two-step (or `manage_users.py
+      reset-two-step`) turns it off and signs them out everywhere.
 
 ### L6. Launch - S - needs you
 **What:** the item-5 disclosures review done (and any Terms of Use / Privacy
@@ -306,6 +320,11 @@ window. The accounts comparison and column settings only in the full view.
 ### S4. A shorter menu for investors - S
 Home, Plan, Ask Northwend, Learn (Get started) and More (Watchlist,
 Activity, Income, Account, About) - the rest is one tap away, not gone.
+- [x] **Built** - the investor's menu is Home, Plan, Ask Northwend and Learn
+      (Get started), then More - a small window with Watchlist, Activity,
+      Income, Account, About (and Advisor notes / Admin when they apply); More
+      looks selected on those pages. The phone tab bar matches. Advisors keep
+      the full menu; old ?page=get-started links still open Learn.
 
 ### S5. Learn more links - S
 A small "Learn more" next to the ideas the app explains (index funds,
@@ -579,6 +598,13 @@ portfolio's total, and what that adds up to over 10 and 30 years. Beside it,
 what a typical low-cost fund of the same kind charges - as education, never
 "switch to X". Funds without a known expense ratio say so. One window from
 Home (after S2) and a step in Learn.
+- [x] **Built** - `fees.py` + `views/fees.py`: a Fee check card on Home
+      (the yearly total in one line) opens a window - each fund's expense
+      ratio in dollars a year, the total, and over 10 / 30 years at 6% (fees
+      plus the growth they'd have earned); beside each, what low-cost index
+      funds of its kind often charge. Unknown fees, single stocks and cash
+      say so. Also under Learn the basics. The nightly sync now keeps
+      `security_info.expense_ratio` (a fraction).
 
 ---
 

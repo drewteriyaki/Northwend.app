@@ -5,11 +5,13 @@
 #
 # The Account page: the signed-in person's own account - what's on it, their
 # name, email (changed only through a link to the new address), password,
-# other signed-in devices, a copy of their data, and deleting it. Always the
+# other signed-in devices, two-step sign-in (set up with views/two_step.py's
+# steps), a copy of their data, and deleting it. Always the
 # login's own account (LOGIN_ID), even while an advisor is viewing a client.
 # ruff: noqa: F821
 
 import admin
+import two_step
 
 
 def _acct_msg(kind, text):
@@ -66,6 +68,76 @@ def _acct_sign_out_others():
               else "No other devices were signed in.")
 
 
+def _acct_two_step_start():
+    st.session_state["acct_two_step_setup"] = True
+    st.session_state.pop("two_step_secret", None)   # a fresh key each time
+
+
+def _acct_two_step_cancel():
+    st.session_state.pop("acct_two_step_setup", None)
+    st.session_state.pop("two_step_secret", None)
+
+
+def _acct_two_step(action):
+    """'off' or 'codes' (new backup codes), after a code or the password."""
+    uid = st.session_state["user_id"]
+    answer = st.session_state.get("acct_two_step_answer") or ""
+    c = connect(DB)
+    try:
+        res = (two_step.disable(c, uid, answer) if action == "off"
+               else two_step.new_backup_codes(c, uid, answer))
+    finally:
+        c.close()
+    st.session_state["acct_two_step_answer"] = ""
+    if not res["ok"]:
+        _acct_msg("error", res["error"])
+        return
+    if action == "off":
+        _two_step_done(None)   # this tab stays signed in
+        _acct_msg("success", "Two-step sign-in is off. You can turn it back on here any time.")
+    else:
+        st.session_state["two_step_codes"] = ("acct", res["backup_codes"])
+        _acct_msg("success", "Here are your new backup codes - the old ones no longer work.")
+
+
+def _render_two_step(state):
+    """The two-step sign-in part of Password and devices."""
+    st.markdown("**Two-step sign-in**")
+    if state["on"]:
+        st.session_state.pop("acct_two_step_setup", None)
+        st.caption(":material/verified_user: On - after your password, you type a code from "
+                   "the app on your phone. "
+                   + (f"{state['backup_left']} backup code{'s' if state['backup_left'] != 1 else ''}"
+                      " left." if state["backup_left"] else "No backup codes left - make new "
+                                                          "ones below.")
+                   + (" It's always on for advisor and admin accounts." if state["required"]
+                      else ""))
+        _two_step_codes_box("acct")
+        with st.expander("Backup codes" if state["required"]
+                         else "Backup codes, or turn it off"):
+            st.text_input("A code from your app, or your password", type="password",
+                          key="acct_two_step_answer", autocomplete="one-time-code")
+            with st.container(horizontal=True):
+                st.button("Make new backup codes", key="acct_two_step_codes",
+                          on_click=_acct_two_step, args=("codes",))
+                if not state["required"]:
+                    st.button("Turn off two-step sign-in", key="acct_two_step_off",
+                              on_click=_acct_two_step, args=("off",))
+            st.caption("New backup codes replace the old ones.")
+        return
+    if not st.session_state.get("acct_two_step_setup"):
+        with st.container(horizontal=True, vertical_alignment="center"):
+            st.caption("Add a second step when you sign in: a 6-digit code from an app on your "
+                       "phone, so your password alone isn't enough. Optional, and you can turn "
+                       "it off again.", width="stretch")
+            st.button("Set it up", key="acct_two_step_start", on_click=_acct_two_step_start)
+        return
+    with st.container(border=True):
+        _two_step_setup("acct")
+        st.button("Cancel", key="acct_two_step_cancel", type="tertiary",
+                  on_click=_acct_two_step_cancel)
+
+
 def _acct_delete():
     if (st.session_state.get("acct_delete_word") or "").strip().upper() != "DELETE":
         _acct_msg("error", "Type DELETE to confirm.")
@@ -96,13 +168,13 @@ def _acct_facts(c):
     advisor = auth.get_username(c, advisor_id) if advisor_id else None
     pending = auth.pending_email_change(c, LOGIN_ID)
     can_delete = not (IS_ADMIN or CLIENTS or advisor_id)
-    return dict(row), sessions, advisor, pending, can_delete
+    return dict(row), sessions, advisor, pending, can_delete, two_step.status(c, LOGIN_ID)
 
 
 def _render_account():
     c = connect(DB)
     try:
-        me, sessions, advisor, pending, can_delete = _acct_facts(c)
+        me, sessions, advisor, pending, can_delete, two_step_state = _acct_facts(c)
     finally:
         c.close()
     msg = st.session_state.pop("acct_msg", None)
@@ -127,6 +199,7 @@ def _render_account():
             ("Account", kind),
             ("Member since", _fmt_date(str(me["created_at"])[:10])),
             ("Signed in on", f"{max(sessions, 1)} device{'s' if max(sessions, 1) != 1 else ''}"),
+            ("Two-step sign-in", "on" if two_step_state["on"] else "off"),
         )))
 
     # ---- name ---------------------------------------------------------------- #
@@ -179,6 +252,7 @@ def _render_account():
                    "everywhere except here.", width="stretch")
         st.button("Sign out other devices", key="acct_sign_out_others",
                   on_click=_acct_sign_out_others)
+    _render_two_step(two_step_state)
 
     # ---- your data ------------------------------------------------------------ #
     st.subheader("Your data", anchor=False)

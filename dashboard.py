@@ -75,9 +75,13 @@ def _view(name):
         exec(compile(fh.read(), path, "exec"), globals())  # noqa: S102
 
 # An unexpected error shows "something went wrong" instead of a traceback; the
-# traceback goes to the log. Details show on screen only for a local run.
+# traceback goes to the log. Details show on screen only for a local run. The
+# hosted copies (live, staging) also email the admin about it (error_alerts.py,
+# once an hour per kind); every copy lists it on Admin > System.
 friendly_errors.install(show_details=not pgcompat.is_postgres_dsn(DB)
-                        and st.get_option("client.showErrorDetails") in ("full", True, "true"))
+                        and st.get_option("client.showErrorDetails") in ("full", True, "true"),
+                        alert_db=DB, copy="Staging" if STAGING else "Live",
+                        send_alerts=pgcompat.is_postgres_dsn(DB))
 
 # said wherever people decide what to share (import, hand entry, paste)
 TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts and cost "
@@ -244,6 +248,12 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
    hidden on wider ones where the sidebar is the menu. --pt-bg is the page's
    own background, kept in step with light/dark by ui_enhancements.js. */
 .st-key-pt_tabbar { display: none !important; }
+/* the More menus (the investor's sidebar, the phone tab bar): while open, an
+   unselected More keeps its usual text color - Streamlit dims it to a dark
+   blue that's hard to read on the dark sidebar */
+.st-key-pt_more [data-testid="stPopoverButton"][kind="tertiary"][aria-expanded="true"],
+.st-key-pt_tabbar [data-testid="stPopoverButton"][kind="tertiary"][aria-expanded="true"] {
+  color: inherit; }
 /* the sign-up form's hidden field (_signup): people never see it, bots fill it in */
 .st-key-signup_website { display: none !important; }
 @media (max-width: 640px) {
@@ -785,8 +795,9 @@ def _login() -> bool:
         return _reset_setup(str(reset))
     _take_confirm_link()
     _take_email_change_link()
+    # signed in, however it happened: two-step sign-in comes next (views/two_step.py)
     if st.session_state.get("user_id"):
-        return True
+        return _two_step_gate()
     cookie = _session_cookie()
     if cookie and not st.session_state.get("signed_out"):
         conn = connect(DB)
@@ -797,7 +808,7 @@ def _login() -> bool:
         if found:
             st.session_state["user_id"], st.session_state["username"] = found
             st.session_state["session_token"] = cookie
-            return True
+            return _two_step_gate()
         st.session_state["signed_out"] = True  # a dead cookie: remove it below
     if st.session_state.get("signed_out") and cookie:
         st.html(_cookie_script(None), unsafe_allow_javascript=True)
@@ -890,6 +901,9 @@ def _logout():
     st.session_state["signed_out"] = True
 
 
+# two-step sign-in: the code / setup pages _login() shows after the password
+_view("two_step")
+
 if not _login():
     st.stop()
 # Just signed in with "stay signed in": put the token in the browser's cookie.
@@ -957,6 +971,10 @@ INVESTOR_VIEW = not IS_ADVISOR or ON_CLIENT
 # advisor app, whose home is Your clients. (Its internal name stays
 # "Dashboard"; old ?page=dashboard links still open it.)
 PAGE_LABELS["Dashboard"] = "Portfolio" if IS_ADVISOR else "Home"
+# Get started is "Learn" in the investor menu (ROADMAP S4); an advisor's
+# copy, in a client's account too, keeps "Get started".
+if not IS_ADVISOR:
+    PAGE_LABELS["Get started"] = "Learn"
 st.session_state["active_user_id"] = USER_ID
 ACTIVE_NAME = (MY_NAME if USER_ID == LOGIN_ID
                else dict(CLIENTS).get(USER_ID, "client"))
@@ -984,14 +1002,29 @@ else:
 if IS_ADMIN:
     PAGES.append("Admin")
 
+# The menu (ROADMAP S4). Investors get a short one - Home, Plan, Ask Northwend
+# and Learn - and More for the rest (Advisor notes, Watchlist, Activity,
+# Income, Account, About, Admin): one tap away, not gone. The sidebar and the
+# phone tab bar show the same split. Advisors keep the full list. PAGES stays
+# every page this account can open (the address, ?page=, checks against it).
+MAIN_PAGES = ("Get started", "Dashboard", "Plan", "AI Assistant")
+if IS_ADVISOR:
+    MENU, MORE = list(PAGES), []
+else:
+    MENU = [p for p in PAGES if p in MAIN_PAGES]
+    MORE = [p for p in PAGES if p not in MAIN_PAGES]
+
 
 def _slug(page):
     """A page's name in the address: 'Ask Northwend' -> 'ask-northwend'."""
     return _label(page).lower().replace(" ", "-")
 
 
-# addresses saved before a page was renamed still open it
-OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients", "dashboard": "Dashboard"}
+# addresses saved before a page was renamed still open it - and a link made in
+# the other experience (Home / Portfolio, Learn / Get started)
+OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients", "dashboard": "Dashboard",
+             "home": "Dashboard", "portfolio": "Dashboard",
+             "get-started": "Get started", "learn": "Get started"}
 
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
@@ -1003,7 +1036,7 @@ if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
 # kept when an advisor switches accounts; everything else is per-account
-_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token", "pw_stamp")
+_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token", "pw_stamp", "two_step_ok")
 
 
 def _go(page):
@@ -1201,9 +1234,19 @@ with st.sidebar:
                          for r, on in (("Advisor", IS_ADVISOR), ("Admin", IS_ADMIN)) if on))
     else:
         st.caption(TAGLINE)
-    for _p in PAGES:
+    for _p in MENU:
         st.button(_label(_p), key=f"nav_{_p}", on_click=_go, args=(_p,), width="stretch",
                   type="primary" if st.session_state["page"] == _p else "tertiary")
+    if MORE:
+        # the rest of the investor's pages in a small window; More looks
+        # selected while one of them is open (ui_enhancements.js closes the
+        # window after a choice)
+        with st.popover("More", key="pt_more", width="stretch",
+                        type="primary" if st.session_state["page"] in MORE else "tertiary"):
+            for _p in MORE:
+                st.button(_label(_p), key=f"nav_{_p}", on_click=_go, args=(_p,),
+                          width="stretch",
+                          type="primary" if st.session_state["page"] == _p else "tertiary")
     st.divider()
 
     if IS_ADVISOR:
@@ -1300,16 +1343,17 @@ with st.sidebar:
 
 # Phones: the main pages as a tab bar along the bottom, plus More for the rest
 # (CSS above shows it only on narrow screens; the sidebar stays the menu on
-# wider ones). Four tabs: the pages people open most, for this kind of account.
-TAB_ICONS = {"Get started": (":material/route:", "Start"),
+# wider ones). Four tabs: the pages people open most, for this kind of account -
+# for an investor, the same short menu as the sidebar (MENU; More is MORE).
+TAB_ICONS = {"Get started": ((":material/route:", "Start") if IS_ADVISOR
+                             else (":material/school:", "Learn")),
              "Dashboard": ((":material/pie_chart:", "Portfolio") if IS_ADVISOR
                            else (":material/home:", "Home")),
              "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", GUIDE),
              "Watchlist": (":material/visibility:", "Watch"),
              "Clients": (":material/groups:", "Clients")}
 TABS = ([p for p in ("Clients", "Dashboard", "Plan", "AI Assistant") if p in PAGES] if IS_ADVISOR
-        else ([] if HAS_HOLDINGS else ["Get started"])
-        + [p for p in ("Dashboard", "Plan", "AI Assistant", "Watchlist") if p in PAGES])[:4]
+        else MENU)[:4]
 
 
 def _render_tab_bar():
@@ -1511,6 +1555,9 @@ _view("proposals")
 
 # milestones and gear: the "milestone reached" window and Your kit (gear.py)
 _view("kit")
+
+# Fee check: each fund's yearly fee in dollars, in a window (fees.py)
+_view("fees")
 
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")

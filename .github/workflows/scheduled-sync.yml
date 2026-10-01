@@ -14,6 +14,8 @@ name: Scheduled sync (hosted Postgres)
 # and, for the advisors' Monday email (weekly_email.py; skipped until set):
 #   RESEND_API_KEY    the same key the app sends email with
 #   APP_URL           the app's address, for the link in the email
+# A job that fails emails the admin (error_alerts.py, at most once an hour per
+# job) with RESEND_API_KEY, to the ALERT_EMAIL secret or support@northwend.app.
 # The refresh job covers every account (--all-users, each ticker fetched
 # once); sync_history.py is account-agnostic too, since market data is
 # shared across accounts.
@@ -46,6 +48,13 @@ jobs:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python update_prices.py --db "$DATABASE_URL" --all-users
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Refresh live prices" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   sync:
     if: github.event.schedule == '30 21 * * 1-5' || github.event_name == 'workflow_dispatch'
@@ -61,6 +70,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python sync_history.py --db "$DATABASE_URL"
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Sync price history" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   weekly-email:
     if: github.event.schedule == '30 12 * * 1'
@@ -78,3 +94,10 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           APP_URL: ${{ secrets.APP_URL }}
         run: python weekly_email.py --db "$DATABASE_URL"
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Advisors' Monday email" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

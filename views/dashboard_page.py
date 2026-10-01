@@ -66,7 +66,7 @@ def _route_words(step, gp, monthly, plan):
                 "an update keeps your route and plan accurate.", "Update holdings",
                 ("dialog", "manual"))
     if k == "learn":
-        return (f"Waypoint {step['number']}: {step['title']}", "Next on your Get started route.",
+        return (f"Waypoint {step['number']}: {step['title']}", f"Next on your route in {_label('Get started')}.",
                 "Continue", ("page", "Get started"))
     if k == "reached":
         return ("You've reached your goal", "Well done. Set your next goal whenever you're "
@@ -146,6 +146,7 @@ if PAGE == "Dashboard":
     if INVESTOR_VIEW:
         _render_route()
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
+        render_fee_card()                     # fee check (views/fees.py)
         check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #

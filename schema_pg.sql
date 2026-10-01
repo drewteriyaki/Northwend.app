@@ -239,7 +239,17 @@ CREATE TABLE IF NOT EXISTS login_sessions (
     token_hash  TEXT    PRIMARY KEY,
     user_id     INTEGER NOT NULL,
     created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
-    expires_at  TEXT    NOT NULL
+    expires_at  TEXT    NOT NULL,
+    two_step_until TEXT
+);
+
+-- Two-step sign-in - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS two_step (
+    user_id           INTEGER PRIMARY KEY,
+    totp_secret       TEXT    NOT NULL,
+    backup_codes_hash TEXT    NOT NULL DEFAULT '',
+    enabled_at        TEXT    NOT NULL,
+    last_token_step   INTEGER NOT NULL DEFAULT 0
 );
 
 -- One-time setup links an advisor sends a client (auth.create_invite): the
@@ -402,6 +412,19 @@ CREATE TABLE IF NOT EXISTS csv_layouts (
     signature   TEXT PRIMARY KEY,
     mapping     TEXT NOT NULL,                   -- JSON {field: column index}
     updated_at  TEXT NOT NULL
+);
+
+-- Errors and failed jobs, one row per kind - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS error_events (
+    kind        TEXT PRIMARY KEY,
+    source      TEXT    NOT NULL,                -- 'app' or 'job'
+    error_type  TEXT    NOT NULL,
+    place       TEXT    NOT NULL,
+    line        INTEGER,
+    first_seen  TEXT    NOT NULL,                -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    last_seen   TEXT    NOT NULL,
+    times       INTEGER NOT NULL DEFAULT 1,
+    emailed_at  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);

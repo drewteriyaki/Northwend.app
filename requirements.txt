@@ -39,3 +39,8 @@ anthropic==1.8.0
 
 # Client plan PDF export (client_plan.py) - pure Python, no system libraries.
 fpdf2==2.8.8
+
+# The QR code shown when setting up two-step sign-in (views/two_step.py) - pure
+# Python, no dependencies of its own. Optional: without it the setup shows the
+# key and a link instead. The codes themselves (two_step.py) are stdlib only.
+segno==1.6.6

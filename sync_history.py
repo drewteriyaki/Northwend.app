@@ -72,6 +72,22 @@ _FUND_SPLIT_KEYS = {"stock_pct": ("stockPosition",), "bond_pct": ("bondPosition"
                     "cash_pct": ("cashPosition",),
                     "other_pct": ("otherPosition", "preferredPosition", "convertiblePosition")}
 _FUND_TYPES = ("ETF", "MUTUALFUND")
+# A fund's yearly fee (fees.py), stored as a FRACTION (0.0003 = 0.03%). Yahoo
+# gives it in mixed units (checked against VOO 0.03%, VTSAX 0.04%, FXAIX
+# 0.015% in Oct 2026): info's netExpenseRatio is in PERCENT (VOO: 0.03), its
+# annualReportExpenseRatio (mutual funds only) and funds_data.fund_operations'
+# "Annual Report Expense Ratio" are fractions (VTSAX: 0.0004).
+_MAX_EXPENSE_RATIO = 0.10   # 10% a year: anything above is a unit mix-up, not a fee
+
+
+def _expense_ratio(raw: dict):
+    """A fund's expense ratio as a fraction from Yahoo's info, or None. The
+    net figure (after any fee waiver - what holders actually pay) first."""
+    net = _num(raw.get("netExpenseRatio"))
+    for v in ((net / 100) if net is not None else None, _num(raw.get("annualReportExpenseRatio"))):
+        if v is not None and 0 <= v < _MAX_EXPENSE_RATIO:
+            return v
+    return None
 
 
 def _require_yf():
@@ -170,26 +186,59 @@ def fetch_info(ticker: str) -> dict:
         out[col] = v if v not in ("", "Infinity", "-Infinity") else None
     if raw and out.get("quote_type") is None:
         out["quote_type"] = ""  # asked, and Yahoo has no type for it (None = never asked)
-    out.update(fetch_fund_split(ticker) if out.get("quote_type") in _FUND_TYPES
-               else dict.fromkeys(_FUND_SPLIT_KEYS))
+    fund = out.get("quote_type") in _FUND_TYPES
+    out["expense_ratio"] = _expense_ratio(raw) if fund else None
+    if not fund:
+        out.update(dict.fromkeys(_FUND_SPLIT_KEYS))
+        return out
+    details = fetch_fund_split(ticker)
+    # the same fund-details reply also has the yearly fee and, for a mutual
+    # fund (whose info has no category), its category
+    extra_ratio, extra_category = details.pop("_expense_ratio", None), details.pop("_category", None)
+    out.update(details)
+    if out["expense_ratio"] is None:
+        out["expense_ratio"] = extra_ratio
+    if not out.get("category") and extra_category:
+        out["category"] = extra_category
+    return out
+
+
+def _fund_extras(fd) -> dict:
+    """The expense ratio (a fraction) and category from a funds_data object
+    whose reply is already in hand - no further request."""
+    out = {"_expense_ratio": None, "_category": None}
+    try:
+        ops = fd.fund_operations
+        v = _num(ops.loc["Annual Report Expense Ratio"].iloc[0])
+        if v is not None and 0 <= v < _MAX_EXPENSE_RATIO:
+            out["_expense_ratio"] = v
+    except Exception:
+        pass
+    try:
+        out["_category"] = (fd.fund_overview or {}).get("categoryName") or None
+    except Exception:
+        pass
     return out
 
 
 def fetch_fund_split(ticker: str) -> dict:
     """{stock_pct, bond_pct, cash_pct, other_pct} as fractions for a fund -
     one extra Yahoo request, made only for ETFs and mutual funds. All None if
-    Yahoo has no breakdown; that fund then falls back to its broker type."""
+    Yahoo has no breakdown; that fund then falls back to its broker type.
+    Also `_expense_ratio` / `_category` from the same reply (fetch_info
+    takes them out)."""
     empty = dict.fromkeys(_FUND_SPLIT_KEYS)
     try:
-        raw = yf.Ticker(ticker).funds_data.asset_classes or {}
+        fd = yf.Ticker(ticker).funds_data
+        raw = fd.asset_classes or {}
     except Exception:
-        return empty
+        return empty   # nothing came back: don't ask again for the extras
     out = {}
     for col, keys in _FUND_SPLIT_KEYS.items():
         vals = [_num(raw.get(k)) for k in keys]
         vals = [v for v in vals if v is not None]
         out[col] = sum(vals) if vals else None
-    return out if any(v for v in out.values()) else empty
+    return {**(out if any(v for v in out.values()) else empty), **_fund_extras(fd)}
 
 
 # --------------------------------------------------------------------------- #
@@ -228,7 +277,7 @@ def upsert_intraday(conn: sqlite3.Connection, ticker: str, interval: str, rows) 
 
 
 def upsert_info(conn: sqlite3.Connection, ticker: str, info: dict) -> None:
-    cols = list(_INFO_KEYS.keys()) + list(_FUND_SPLIT_KEYS.keys())
+    cols = list(_INFO_KEYS.keys()) + list(_FUND_SPLIT_KEYS.keys()) + ["expense_ratio"]
     conn.execute(
         f"INSERT INTO security_info (ticker, {', '.join(cols)}, fetched_at) "
         f"VALUES (?, {', '.join('?' for _ in cols)}, datetime('now')) "

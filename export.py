@@ -37,9 +37,11 @@ OWN = [
     ("from_your_advisor_proposals", "proposals", "client_id", " AND status != 'draft'"),
     ("from_your_advisor_reports", "progress_reports", "client_id", ""),
     ("your_model_portfolios", "model_portfolios", "advisor_id", ""),
+    # when two-step sign-in was turned on - its key and backup codes never
+    ("two_step_sign_in", "two_step", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
-SECRET_PARTS = {"password", "salt", "token", "hash", "ip"}   # whole parts of a column name
+SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
 ACCOUNT_COLUMNS = ("username", "email", "email_verified_at", "created_at", "last_login_at",
                    "terms_version", "terms_accepted_at", "is_advisor")
 
@@ -55,9 +57,10 @@ Open them in any spreadsheet. Dates are UTC.
 - watchlist.csv, settings.csv, account_names.csv: your choices in the app
 - ai_use.csv: how many AI requests you made each month (not what you asked)
 - from_your_advisor_*.csv: what your advisor shared with you, if you have one
+- two_step_sign_in.csv: when you turned on two-step sign-in, if you did
 
 Not included: your password and sign-in records, which are never stored in a
-readable form. Uploaded files and screenshots were never kept, so there's
+readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's
 nothing to export for them.
 """
 

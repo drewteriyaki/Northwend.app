@@ -5,7 +5,9 @@ Streamlit logs the full traceback itself (the Streamlit Cloud logs, or the
 terminal locally) and then calls the run's on_script_error handler, which
 this installs. A short error code is shown and logged next to the traceback,
 so a user's report can be matched to the log. Running locally, the details
-are also shown under an expander.
+are also shown under an expander. The error's type and where it happened
+(never its message or anyone's data) are also noted for the admin, who is
+emailed at most once an hour per kind (error_alerts.py).
 
 on_script_error is set on the run's context (Streamlit 1.62+). If a future
 Streamlit drops it, install() returns False and the default error box shows.
@@ -22,9 +24,13 @@ MESSAGE = ("Something went wrong on this page. Try again, or open another page f
            "the menu. If it keeps happening, mention error code **{ref}**.")
 
 
-def install(*, show_details: bool = False) -> bool:
+def install(*, show_details: bool = False, alert_db: str | None = None,
+            copy: str = "", send_alerts: bool = True) -> bool:
     """Use the friendly message for any error in this run. show_details adds
-    the traceback under an expander (for local use only)."""
+    the traceback under an expander (for local use only). With alert_db, the
+    error is also noted there and the admin emailed (error_alerts.py, at most
+    once an hour per kind; send_alerts=False only notes it). copy names this
+    copy of the app in the email (Live, Staging)."""
     try:
         from streamlit.runtime.scriptrunner_utils.script_run_context import get_script_run_ctx
         ctx = get_script_run_ctx()
@@ -32,7 +38,8 @@ def install(*, show_details: bool = False) -> bool:
         return False
     if ctx is None or not hasattr(ctx, "on_script_error"):
         return False
-    handler = lambda ex: _show(ex, show_details)  # noqa: E731
+    alert = {"db": alert_db, "copy": copy, "send": send_alerts}
+    handler = lambda ex: _show(ex, show_details, alert)  # noqa: E731
     ctx.on_script_error = handler
     # A click starts a new run whose button callbacks run before any page
     # code, so this run's setting would come too late for them. The browser
@@ -49,10 +56,17 @@ def install(*, show_details: bool = False) -> bool:
     return True
 
 
-def _show(ex: Exception, show_details: bool) -> bool:
+def _show(ex: Exception, show_details: bool, alert: dict | None = None) -> bool:
     ref = secrets.token_hex(3)
     # Streamlit has just logged the full traceback; this ties the code to it.
     print(f"error code {ref}: {type(ex).__name__} (traceback just above)", file=sys.stderr)
+    if alert and alert.get("db"):
+        try:  # in the background, and never a second error
+            import error_alerts
+            error_alerts.report(alert["db"], ex, ref=ref, copy=alert.get("copy") or "",
+                                send=alert.get("send", True))
+        except Exception:
+            pass
     st.error(MESSAGE.format(ref=ref), icon=":material/error:")
     st.button("Try again", key="pt_error_retry", type="primary")
     if show_details:

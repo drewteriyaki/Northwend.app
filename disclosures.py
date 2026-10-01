@@ -18,6 +18,10 @@ Each statement about data here must stay true to the code:
 - Passwords: PBKDF2 with a per-user salt; stay-signed-in cookies hold a random
   token whose hash is stored; 5 wrong passwords lock a username for 15
   minutes (auth.py).
+- Two-step sign-in (two_step.py): TOTP; the key is stored readable (needed to
+  check codes), backup codes as SHA-256 hashes; never exported or shown to
+  an admin; wrong codes lock like passwords; "remember this device" is a
+  date on the stay-signed-in session (login_sessions.two_step_until).
 - Sign-up: the email is the login, not shown to others or sent to the AI; only
   Resend gets it, to deliver the confirm / reset emails (mailer.py, auth.sign_up);
   bot checks keep only a SHA-256 of the internet address for a day (signups table); the version agreed to is stored (users.terms_version).
@@ -154,6 +158,11 @@ to them (not ones you mark private); you can see everything in their account.
     ("Security", """
 - **Passwords** are stored only as a salted, one-way hash, never as text. After
   5 wrong passwords a username is locked for 15 minutes.
+- **Two-step sign-in:** after your password, a 6-digit code from an app on your
+  phone, so a password alone isn't enough. Advisor and admin accounts always use
+  it; anyone can turn it on from the **Account** page. Backup codes are stored
+  only as a scrambled copy. On a device you trust you can skip the code for 30
+  days.
 - **New accounts:** to stop automated sign-ups, only a few accounts can be
   made from one internet address each day. For that, a scrambled copy of the
   address (not the address itself) is kept for one day.

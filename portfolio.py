@@ -198,8 +198,12 @@ def _ensure_schema(conn) -> None:
                         # what a fund holds, from Yahoo (asset_classes.py)
                         ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),
                                            ("stock_pct", "REAL"), ("bond_pct", "REAL"),
-                                           ("cash_pct", "REAL"), ("other_pct", "REAL")]),
+                                           ("cash_pct", "REAL"), ("other_pct", "REAL"),
+                                           # a fund's yearly fee, a fraction (fees.py)
+                                           ("expense_ratio", "REAL")]),
                         ("plans", [("targets_cleared", "INTEGER")]),
+                        # "remember this device" for two-step sign-in (two_step.py)
+                        ("login_sessions", [("two_step_until", "TEXT")]),
                         ("investor_profiles", PROFILE_EXTRA_COLS)):
         if is_pg:
             have = {r["column_name"] for r in conn.execute(

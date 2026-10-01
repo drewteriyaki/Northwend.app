@@ -53,9 +53,14 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   fundamentals; nightly job).
 - Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`,
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
-  snapshot differences), `plans.py`, `overview.py` (advisor clients).
+  snapshot differences), `plans.py`, `overview.py` (advisor clients), `fees.py` +
+  `views/fees.py` (Fee check; `security_info.expense_ratio` is a fraction - Yahoo's
+  `netExpenseRatio` is a percent, the others fractions: `sync_history._expense_ratio`).
 - People: `auth.py` (logins, sessions, client setup links, self-serve sign-up,
-  confirm / reset links, advisor requests), `admin.py` + `views/admin.py` (the
+  confirm / reset links, advisor requests), `two_step.py` + `views/two_step.py`
+  (two-step sign-in: `_two_step_gate()` runs inside `_login()` after any way in;
+  required for advisors and admins - an AppTest signing one in sets
+  `two_step_ok`, see tests/test_menu.py; `manage_users.py reset-two-step`), `admin.py` + `views/admin.py` (the
   Admin portal: logins only, never holdings; admins made only from outside the app: `manage_users.py make-admin` or the
   `NORTHWEND_ADMINS` secret (a list of logins); its System panel shows the copy's
   version, database, email and keys (set or not, never values); a new table with account data must be added to
@@ -79,7 +84,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
-  (reloads changed modules on deploy), `friendly_errors.py`.
+  (reloads changed modules on deploy), `friendly_errors.py` (the "something went wrong"
+  message; it also hands the error to `error_alerts.py`, R1: type and place only, no
+  user_id, emailed to ALERT_EMAIL at most once an hour per kind, hosted copies only -
+  a new scheduled job needs its own "Tell the admin it failed" step, a test checks).
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
@@ -104,6 +112,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   function used while the page is being drawn (sign-in, the sidebar) must be
   defined above that point. Button callbacks run later, so they can sit anywhere.
   A new view file needs its `_view("name")` line (a test checks they match).
+- The investor menu is `MENU` plus `MORE` (the sidebar's More popover `pt_more` and
+  the phone tab bar); advisors get all of `PAGES`. A new investor page goes in `MORE`
+  unless it belongs in `MAIN_PAGES`. A label change (`PAGE_LABELS`; investors see
+  Get started as "Learn") changes its `?page=` slug: add the old one to `OLD_SLUGS`.
 - Never name the folder `pages/`: Streamlit turns that into its own page menu.
 - Edit files with the Edit tool. Python patch scripts inside Bash heredocs have
   turned `\n` in strings into real newlines before.

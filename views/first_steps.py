@@ -203,8 +203,8 @@ def _fs_screen_bring():
                   on_click=_fs_finish, args=("import",))
         st.button(":material/science: Try an example", key="fs_example",
                   on_click=_fs_finish, args=("example",))
-    st.caption("Don't have an account yet? Finish here, and Get started walks you through "
-               "opening one.")
+    st.caption(f"Don't have an account yet? Finish here, and the {_label('Get started')} page "
+               "walks you through opening one.")
 
 
 def render_first_steps(has_holdings):
@@ -253,7 +253,8 @@ def render_first_steps(has_holdings):
                 st.button(":material/arrow_back: Back", key="fs_back", on_click=_fs_move,
                           args=(i, -1))
             st.button("Skip for now", key="fs_skip", type="tertiary", on_click=_fs_skip,
-                      help="Go to Get started instead - it has everything on one page, and you "
+                      help=f"Go to the {_label('Get started')} page instead - it has "
+                           "everything on one page, and you "
                            "can come back to these steps there.")
             st.space("stretch")
             last = i == len(steps) - 1

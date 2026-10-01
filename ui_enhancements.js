@@ -180,14 +180,16 @@
         e.target.closest('[class*="st-key-nav_"]')) setTimeout(() => setOpen(false), 150);
   }, true);
 
-  // the phone tab bar's More menu is a popover, which stays open after a
-  // choice - close it, the same way its own button would
+  // the More menus (the phone tab bar's, and the sidebar's for investors,
+  // key "pt_more") are popovers, which stay open after a choice - close
+  // them, the same way their own button would
+  const OPEN_MORE = ['.st-key-pt_tabbar', '.st-key-pt_more']
+    .map((s) => s + ' [data-testid="stPopoverButton"][aria-expanded="true"]').join(", ");
   document.addEventListener("click", (e) => {
     if (!(e.target instanceof Element) || !e.target.closest('[data-testid="stPopoverBody"] button'))
       return;
     setTimeout(() => {
-      const more = q('.st-key-pt_tabbar [data-testid="stPopoverButton"][aria-expanded="true"]');
-      if (more) more.click();
+      document.querySelectorAll(OPEN_MORE).forEach((more) => more.click());
     }, 120);
   }, true);
 

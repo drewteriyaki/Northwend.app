@@ -210,6 +210,7 @@ def _step_basics(monthly, years, done):
             if st.button("Read", key=f"basics_{k}", type="tertiary",
                          icon=":material/open_in_new:"):
                 _basics_window(k, monthly, years)
+    render_fee_step()   # your own funds' fees, once there are holdings (views/fees.py)
     _done_button("basics", done)
 
 

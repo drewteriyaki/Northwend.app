@@ -269,11 +269,27 @@ CREATE TABLE IF NOT EXISTS account_labels (
 -- "Stay signed in": one row per signed-in browser. Only a SHA-256 hash of
 -- the cookie's random token is stored, so a copy of this table can't be used
 -- to sign in. Rows are deleted on logout and on a password change.
+-- two_step_until: "remember this device" (two_step.remember_device) - until
+-- then this browser isn't asked for a two-step code (NULL: it is).
 CREATE TABLE IF NOT EXISTS login_sessions (
     token_hash  TEXT    PRIMARY KEY,
     user_id     INTEGER NOT NULL,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-    expires_at  TEXT    NOT NULL                     -- 'YYYY-MM-DD HH:MM:SS' UTC
+    expires_at  TEXT    NOT NULL,                    -- 'YYYY-MM-DD HH:MM:SS' UTC
+    two_step_until TEXT                              -- 'YYYY-MM-DD HH:MM:SS' UTC
+);
+
+-- Two-step sign-in (two_step.py, ROADMAP R2): one row per login that has it
+-- on. The authenticator app's secret key has to be readable to check codes,
+-- so it is never shown again after setup, never exported and never shown to
+-- an admin. Backup codes are kept only as SHA-256 hashes (space-separated,
+-- unused ones only). last_token_step stops one code being used twice.
+CREATE TABLE IF NOT EXISTS two_step (
+    user_id           INTEGER PRIMARY KEY,
+    totp_secret       TEXT    NOT NULL,              -- base32
+    backup_codes_hash TEXT    NOT NULL DEFAULT '',
+    enabled_at        TEXT    NOT NULL,              -- 'YYYY-MM-DD HH:MM:SS' UTC
+    last_token_step   INTEGER NOT NULL DEFAULT 0
 );
 
 -- One-time setup links an advisor sends a client (auth.create_invite): the
@@ -449,6 +465,21 @@ CREATE TABLE IF NOT EXISTS csv_layouts (
     signature   TEXT PRIMARY KEY,
     mapping     TEXT NOT NULL,                   -- JSON {field: column index}
     updated_at  TEXT NOT NULL
+);
+
+-- Unexpected errors and failed scheduled jobs, one row per kind (error_alerts.py):
+-- the error's type and the file/function where it happened - never its message,
+-- anyone's data or a user_id. Limits the admin's alert emails to one an hour.
+CREATE TABLE IF NOT EXISTS error_events (
+    kind        TEXT PRIMARY KEY,                -- 'KeyError in views/plan.py, _render_tab'
+    source      TEXT    NOT NULL,                -- 'app' or 'job'
+    error_type  TEXT    NOT NULL,
+    place       TEXT    NOT NULL,                -- 'views/plan.py, _render_tab' or the job
+    line        INTEGER,                         -- line of the latest one
+    first_seen  TEXT    NOT NULL,                -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    last_seen   TEXT    NOT NULL,
+    times       INTEGER NOT NULL DEFAULT 1,
+    emailed_at  TEXT                             -- last alert email, NULL if none
 );
 
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);

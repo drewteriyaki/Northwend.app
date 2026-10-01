@@ -10,6 +10,7 @@ created (there is no signup anywhere in the web app itself).
   python manage_users.py link | unlink <advisor> <client>
   python manage_users.py clients <advisor>
   python manage_users.py make-admin | remove-admin <username>
+  python manage_users.py reset-two-step <username>
 
 --db can go before or after the command. Without it: the PORTFOLIO_DB
 environment variable if it's set, else ./portfolio.db. Commands that change
@@ -237,6 +238,23 @@ def cmd_unlock(args) -> int:
     return 0
 
 
+def cmd_reset_two_step(args) -> int:
+    """For someone locked out of two-step sign-in (lost phone and backup
+    codes) - an admin's own account too. Signs the account out everywhere."""
+    import two_step
+    conn = connect(args.db)
+    uid = auth.get_user_id(conn, args.username)
+    if uid is None:
+        print(f"No such user: '{args.username}'.")
+        return 1
+    was_on = two_step.reset(conn, uid)
+    print((f"Two-step sign-in reset for '{args.username}'" if was_on
+           else f"'{args.username}' didn't have two-step sign-in on") +
+          f" in {where(args.db)}; signed out everywhere. Advisors and admins set it up "
+          "again when they next sign in.")
+    return 0
+
+
 def cmd_set_ai_unlimited(args, flag: bool) -> int:
     import ai_usage
     conn = connect(args.db)
@@ -318,6 +336,8 @@ def main(argv=None) -> int:
     sub.add_parser("clients", help="list an advisor's clients").add_argument("advisor")
     sub.add_parser("unlock", help="clear a login lock after too many wrong passwords"
                    ).add_argument("username")
+    sub.add_parser("reset-two-step", help="turn off two-step sign-in for someone who lost "
+                   "their phone (signs them out everywhere)").add_argument("username")
     for name, help_text in (("ai-unlimited", "lift the monthly AI limits for an account"),
                             ("ai-limited", "give an account the normal monthly AI limits")):
         sub.add_parser(name, help=help_text).add_argument("username")
@@ -349,6 +369,8 @@ def main(argv=None) -> int:
         return cmd_clients(args)
     if args.cmd == "unlock":
         return cmd_unlock(args)
+    if args.cmd == "reset-two-step":
+        return cmd_reset_two_step(args)
     if args.cmd in ("ai-unlimited", "ai-limited"):
         return cmd_set_ai_unlimited(args, args.cmd == "ai-unlimited")
     if args.cmd == "ai-usage":

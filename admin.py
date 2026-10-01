@@ -18,6 +18,7 @@ import secrets
 from datetime import datetime, timezone
 
 import auth
+import two_step
 
 # Every table that holds one account's data, and the columns that point at an
 # account. delete_account() clears all of them; a test fails when a new
@@ -31,6 +32,7 @@ ACCOUNT_TABLES = {
     "invites": ("user_id", "created_by"), "advisor_clients": ("advisor_id", "client_id"),
     "advisor_notes": ("advisor_id", "client_id"), "model_portfolios": ("advisor_id",),
     "proposals": ("advisor_id", "client_id"), "progress_reports": ("advisor_id", "client_id"),
+    "two_step": ("user_id",),
 }
 # columns that only record who last changed something - cleared, not deleted
 ACCOUNT_REFERENCES = {"plans": ("set_by",)}
@@ -70,7 +72,7 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
     (a client's advisor's username), clients (an advisor's count),
     ai_unlimited, signed_up (made it themselves), created_at, last_login_at,
     locked (a wrong-password lock is running), request (an advisor request
-    waiting)."""
+    waiting), two_step (two-step sign-in is on - never its key)."""
     now = now or datetime.now(timezone.utc)
     stamp = now.strftime("%Y-%m-%d %H:%M:%S")
     advisor_of = {r["client_id"]: r["advisor"] for r in conn.execute(
@@ -83,6 +85,7 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
         "SELECT username_key FROM login_failures WHERE locked_until > ?", (stamp,))}
     waiting = {r["user_id"] for r in conn.execute(
         "SELECT user_id FROM advisor_requests WHERE decision IS NULL")}
+    two_step_on = {r["user_id"] for r in conn.execute("SELECT user_id FROM two_step")}
     listed = listed_admins()
     out = []
     for r in conn.execute("SELECT id, username, email, email_verified_at, is_advisor, is_admin, "
@@ -98,8 +101,10 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
             "advisor": advisor_of.get(r["id"]), "clients": n_clients.get(r["id"], 0),
             "ai_unlimited": bool(r["ai_unlimited"]), "signed_up": bool(r["terms_version"]),
             "created_at": r["created_at"], "last_login_at": r["last_login_at"],
-            "locked": auth._login_key(r["username"]) in locked,
-            "request": r["id"] in waiting,
+            # wrong passwords, or wrong two-step codes (two_step.py)
+            "locked": bool({auth._login_key(r["username"]), two_step._fail_key(r["id"])}
+                           & locked),
+            "request": r["id"] in waiting, "two_step": r["id"] in two_step_on,
         })
     return out
 

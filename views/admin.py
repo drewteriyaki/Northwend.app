@@ -12,7 +12,9 @@
 import secrets
 
 import admin
+import error_alerts
 import hosting
+import two_step
 
 
 def _admin_do(fn):
@@ -69,7 +71,18 @@ def _admin_temp_password(user_id):
 
 def _admin_unlock(username):
     _admin_do(lambda c: (auth.unlock_login(c, username),
-                         ("success", f"Unlocked {username}."))[1])
+                         two_step.unlock(c, auth.get_user_id(c, username)),
+                         ("success", f"Unlocked {username}."))[2])
+
+
+def _admin_reset_two_step(user_id, username):
+    def act(c):
+        two_step.reset(c, user_id)
+        return ("success", f"Two-step sign-in is reset for {username}, and they're signed out "
+                           "everywhere. They sign in with their password"
+                + (" and set it up again straight away." if two_step.status(c, user_id)["required"]
+                   else "; they can turn it on again on their Account page."))
+    _admin_do(act)
 
 
 def _admin_advisor(username, flag):
@@ -165,6 +178,30 @@ def _admin_test_email():
     _admin_do(act)
 
 
+def _admin_clear_errors():
+    _admin_do(lambda c: (error_alerts.clear(c), ("success", "Cleared the list of errors."))[1])
+
+
+def _render_errors(c):
+    """Recent unexpected errors and failed jobs, one line per kind, newest
+    first (error_alerts.py). Type and place only - never anyone's data."""
+    rows = error_alerts.recent(c)
+    st.markdown("**Recent errors**")
+    if not rows:
+        st.caption("None noted. Unexpected errors and failed scheduled jobs show up here.")
+        return
+    st.dataframe(pd.DataFrame([{
+        "Last seen": _admin_when(r["last_seen"]),
+        "What": "Scheduled job failed" if r["source"] == "job" else r["error_type"],
+        "Where": r["place"] + (f", line {r['line']}" if r["line"] else ""),
+        "Times": r["times"], "Since": _admin_when(r["first_seen"]),
+        "Emailed": _admin_when(r["emailed_at"]) if r["emailed_at"] else "",
+    } for r in rows]), hide_index=True, width="stretch")
+    st.button("Clear the list", key="admin_clear_errors", on_click=_admin_clear_errors,
+              help="Starts the list afresh. A cleared kind is emailed again the next time "
+                   "it happens.")
+
+
 def _render_system(c):
     """Developer facts about this copy of the app - never a secret's value."""
     from manage_users import where
@@ -187,6 +224,8 @@ def _render_system(c):
         ("Address", _app_address() or "unknown"),
         ("Database", where(DB)),
         ("Email", mail),
+        ("Error alerts", f"emailed to {error_alerts.alert_to()}, at most once an hour per kind"
+         if pgcompat.is_postgres_dsn(DB) else "listed below only - a local copy doesn't email"),
         ("AI (Anthropic key)", "set" if _anthropic_key() else "not set - AI features are off"),
         ("Live prices (Finnhub key)", "set" if resolve_key(None) else "not set"),
         ("Last price update", _admin_when(last_price)),
@@ -202,6 +241,7 @@ def _render_system(c):
     st.caption("Settings like keys and NORTHWEND_ADMINS live in the app's Secrets (Streamlit "
                "Cloud: Manage app, Settings, Secrets; Render: Environment). Only whether a key "
                "is set is shown here, never its value.")
+    _render_errors(c)
 
 
 def _admin_when(stamp):
@@ -277,7 +317,8 @@ def _render_admin():
         "Email confirmed": "-" if a["confirmed"] is None else ("yes" if a["confirmed"] else "no"),
         "Advisor": a["advisor"] or "", "Clients": str(a["clients"]) if a["clients"] else "",
         "Created": _admin_when(a["created_at"]), "Last sign-in": _admin_when(a["last_login_at"]),
-        "Locked": "locked" if a["locked"] else "", "AI limits": "none" if a["ai_unlimited"] else "",
+        "Locked": "locked" if a["locked"] else "", "Two-step": "on" if a["two_step"] else "",
+        "AI limits": "none" if a["ai_unlimited"] else "",
     } for a in shown]), hide_index=True, width="stretch")
 
     pick = st.selectbox("Open an account", [a["id"] for a in shown], index=None,
@@ -297,6 +338,7 @@ def _render_admin():
                 facts.append(f"client of **{a['advisor']}**")
             if a["clients"]:
                 facts.append(f"**{a['clients']}** client{'s' if a['clients'] != 1 else ''}")
+            facts.append("two-step sign-in on" if a["two_step"] else "two-step sign-in off")
             st.markdown(" · ".join(facts))
             if temp and temp[0] == pick:
                 st.code(temp[1], language=None)
@@ -331,6 +373,15 @@ def _render_admin():
                                      placeholder="Pick an advisor")
                         st.button("Link", key="admin_link", on_click=_admin_link,
                                   args=(pick, a["username"]))
+            if a["two_step"]:
+                with st.expander("Reset two-step sign-in"):
+                    st.caption("For someone who lost their phone and their backup codes. Only "
+                               "do this once you're sure it's really them (for example, they "
+                               "wrote from the account's email). It turns two-step off and "
+                               "signs them out everywhere; advisors and admins set it up again "
+                               "as soon as they sign in. Their key is never shown here.")
+                    st.button("Reset two-step sign-in", key="admin_two_step_reset",
+                              on_click=_admin_reset_two_step, args=(pick, a["username"]))
             if not a["is_admin"]:
                 with st.expander("Delete this account"):
                     st.caption("Deletes the login and everything it holds - holdings, plan, "
