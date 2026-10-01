@@ -18,9 +18,12 @@ Each statement about data here must stay true to the code:
 - Passwords: PBKDF2 with a per-user salt; stay-signed-in cookies hold a random
   token whose hash is stored; 5 wrong passwords lock a username for 15
   minutes (auth.py).
-- Sign-up: the email is the login, not shown to others or sent anywhere
-  (auth.sign_up); bot checks keep only a SHA-256 of the internet address for
-  a day (signups table); the version agreed to is stored (users.terms_version).
+- Sign-up: the email is the login, not shown to others or sent to the AI; only
+  Resend gets it, to deliver the confirm / reset emails (mailer.py, auth.sign_up);
+  bot checks keep only a SHA-256 of the internet address for a day (signups table); the version agreed to is stored (users.terms_version).
+  Email links: hashed, one-time, confirm 3 days / reset 60 minutes; email-send
+  limits keep only hashes for a day (email_tokens / email_sends). Unconfirmed
+  self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI).
 - Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
@@ -39,7 +42,7 @@ MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
 OPERATOR_NAME = ""          # e.g. your name, or a company name once you have one
-CONTACT = ""                # e.g. support@yourdomain - a dedicated address is best
+CONTACT = "support@northwend.app"
 
 _OPERATOR = OPERATOR_NAME or "[operator name]"
 _CONTACT = CONTACT or "[contact email]"
@@ -89,8 +92,10 @@ to them (not ones you mark private); you can see everything in their account.
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
   cost, value and account names), your plan and goals, your investing-profile
   answers, notes, and settings. If you created your account yourself, also
-  your email address - it's only your login, never shown to anyone else or sent
-  to the AI - and which version of this page you agreed to.
+  your email address - used only to sign in and to send you account emails
+  (confirming the address, resetting your password), never shown to anyone else
+  or sent to the AI - and which version of this page you agreed to. Northwend
+  sends no newsletters or marketing email.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
   cut to its last 3 digits before it's saved. Pasted text is read by the app
@@ -139,6 +144,8 @@ to run the site.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
 - **GitHub** runs the scheduled price updates.
+- **Resend** delivers the account emails (confirming your address, resetting
+  your password); it receives only your email address and that message.
 
 Each has its own privacy policy.
 """),

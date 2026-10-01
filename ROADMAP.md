@@ -159,8 +159,16 @@ their email, reset a forgotten password, and use the app within its limits.
       (version stored), bot checks (hidden field, too-fast form, 3 accounts per
       address a day, 20 app-wide an hour); normal AI limits. Sign in with email or
       username. (auth.sign_up, dashboard `_signup`)
-- [ ] **Email confirmation and "forgot password"** - once an email service (and
-      the L1 domain) is picked: fill `users.email_verified_at`, reset links.
+- [x] **Email confirmation and "forgot password"** - Resend on northwend.app
+      (`mailer.py`, from hello@, replies to support@). A confirm link after
+      sign-up (3 days; "Send it again" notice); the AI features wait until it's
+      confirmed (`ai_usage.CONFIRM_FOR_AI`). "Forgot password?" sends a one-hour
+      reset link with the same answer whether or not there's an account; a reset
+      signs out everywhere and counts as confirming. Links hashed and one-time;
+      send limits by hashed email and address. `MAIL_DRY_RUN=1` logs instead of
+      sending. Contact in the disclosures is support@northwend.app.
+- [ ] **Needs you:** sign up on the live app with your own email to check the
+      real email arrives (and a reset); fill in `OPERATOR_NAME`.
 
 ### L6. Launch - S - needs you
 **What:** the item-5 disclosures review done (and any Terms of Use / Privacy

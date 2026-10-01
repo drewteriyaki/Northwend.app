@@ -1305,6 +1305,153 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         self.assertIn("tomorrow", self._sign_up(email="taken@example.com")["error"])
 
 
+class EmailLinkTests(TempDBMixin, unittest.TestCase):
+    """Confirming an email and resetting a password from emailed links (auth.py)."""
+
+    NOW = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+        made = auth.sign_up(self.conn, "Pat@Example.com", "firstpass1", agreed=True, adult=True,
+                            terms_version="v", ip="203.0.113.9", seconds_open=10, now=self.NOW)
+        self.uid = made["user_id"]
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def test_confirm_link_works_once_and_unlocks_the_ai(self):
+        import ai_usage
+        self.assertFalse(auth.email_status(self.conn, self.uid)["confirmed"])
+        st_ = ai_usage.status(self.conn, self.uid, "chat", now=self.NOW)
+        self.assertFalse(st_["ok"])
+        self.assertTrue(st_["unconfirmed"])
+        self.assertIn("Confirm your email", ai_usage.used_up_text(st_, "chat"))
+        # accounts made by an admin have no email and are never held back
+        self.assertTrue(ai_usage.status(self.conn, self.user_id, "chat", now=self.NOW)["ok"])
+
+        link = auth.start_confirmation(self.conn, self.uid, ip="203.0.113.9", now=self.NOW)
+        self.assertEqual(link["to"], "pat@example.com")
+        stored = [r["token_hash"] for r in self.conn.execute("SELECT token_hash FROM email_tokens")]
+        self.assertNotIn(link["token"], stored)                  # only the hash is kept
+        done = auth.confirm_email(self.conn, link["token"], now=self.NOW)
+        self.assertTrue(done["ok"])
+        self.assertTrue(auth.email_status(self.conn, self.uid)["confirmed"])
+        self.assertTrue(ai_usage.status(self.conn, self.uid, "chat", now=self.NOW)["ok"])
+        self.assertFalse(auth.confirm_email(self.conn, link["token"], now=self.NOW)["ok"])  # used
+        self.assertFalse(auth.start_confirmation(self.conn, self.uid, now=self.NOW)["ok"])
+
+    def test_confirm_links_expire_are_replaced_and_limited(self):
+        first = auth.start_confirmation(self.conn, self.uid, now=self.NOW)
+        soon = auth.start_confirmation(self.conn, self.uid, now=self.NOW + timedelta(minutes=1))
+        self.assertFalse(soon["ok"])
+        self.assertIn("just sent", soon["error"])
+        later = self.NOW + timedelta(minutes=3)
+        second = auth.start_confirmation(self.conn, self.uid, now=later)
+        self.assertTrue(second["ok"])
+        self.assertFalse(auth.confirm_email(self.conn, first["token"], now=later)["ok"])  # replaced
+        expired = later + timedelta(days=auth.CONFIRM_DAYS, minutes=1)
+        self.assertFalse(auth.confirm_email(self.conn, second["token"], now=expired)["ok"])
+        t = self.NOW
+        for _ in range(auth.CONFIRMS_PER_DAY - 2):
+            t += timedelta(minutes=5)
+            self.assertTrue(auth.start_confirmation(self.conn, self.uid, now=t)["ok"])
+        self.assertIn("tomorrow", auth.start_confirmation(
+            self.conn, self.uid, now=t + timedelta(minutes=5))["error"])
+
+    def test_reset_answer_is_the_same_with_or_without_an_account(self):
+        known = auth.request_password_reset(self.conn, "PAT@example.com", ip="1.2.3.4", now=self.NOW)
+        unknown = auth.request_password_reset(self.conn, "nobody@example.com", ip="1.2.3.4",
+                                              now=self.NOW)
+        self.assertEqual((known["ok"], known["error"]), (unknown["ok"], unknown["error"]))
+        self.assertEqual(known["to"], "pat@example.com")
+        self.assertIsNone(unknown["token"])
+        self.assertIn("email address", auth.request_password_reset(
+            self.conn, "not-an-email", now=self.NOW)["error"])
+
+    def test_reset_sets_the_password_signs_out_and_confirms(self):
+        session = auth.create_session(self.conn, self.uid, now=self.NOW)
+        for _ in range(3):  # a lock from wrong guesses
+            auth.attempt_login(self.conn, "pat@example.com", "wrong", now=self.NOW)
+        req = auth.request_password_reset(self.conn, "pat@example.com", now=self.NOW)
+        self.assertEqual(auth.reset_info(self.conn, req["token"], now=self.NOW)["email"],
+                         "pat@example.com")
+        self.assertIn("at least", auth.reset_password(self.conn, req["token"], "short",
+                                                      now=self.NOW)["error"])
+        done = auth.reset_password(self.conn, req["token"], "secondpass2", now=self.NOW)
+        self.assertTrue(done["ok"])
+        self.assertEqual(auth.verify_login(self.conn, "pat@example.com", "secondpass2"), self.uid)
+        self.assertIsNone(auth.verify_login(self.conn, "pat@example.com", "firstpass1"))
+        self.assertIsNone(auth.session_user(self.conn, session, now=self.NOW))  # signed out
+        self.assertTrue(auth.email_status(self.conn, self.uid)["confirmed"])
+        self.assertFalse(auth.reset_password(self.conn, req["token"], "thirdpass3",
+                                             now=self.NOW)["ok"])                 # used up
+        stale = auth.request_password_reset(self.conn, "pat@example.com",
+                                            now=self.NOW + timedelta(minutes=1))
+        late = self.NOW + timedelta(minutes=auth.RESET_MINUTES + 2)
+        self.assertIsNone(auth.reset_info(self.conn, stale["token"], now=late))  # expired
+
+    def test_reset_limits_per_email_and_per_address(self):
+        for i in range(auth.RESETS_PER_EMAIL_PER_HOUR):
+            self.assertTrue(auth.request_password_reset(
+                self.conn, "pat@example.com", ip=f"10.0.0.{i}", now=self.NOW)["ok"])
+        self.assertIn("in an hour", auth.request_password_reset(
+            self.conn, "pat@example.com", ip="10.0.0.99", now=self.NOW)["error"])
+        # one address asking for many different emails
+        t = self.NOW + timedelta(hours=2)
+        for i in range(auth.EMAILS_PER_ADDRESS_PER_HOUR):
+            auth.request_password_reset(self.conn, f"x{i}@example.com", ip="198.51.100.5", now=t)
+        self.assertIn("from here", auth.request_password_reset(
+            self.conn, "y@example.com", ip="198.51.100.5", now=t)["error"])
+        keys = [r["email_key"] for r in self.conn.execute("SELECT email_key FROM email_sends")]
+        self.assertTrue(all("@" not in k for k in keys))  # hashes, not addresses
+
+
+class MailerTests(unittest.TestCase):
+    """mailer.py: the request sent to Resend, and the dry run."""
+
+    def _env(self, **values):
+        import mailer
+        return unittest.mock.patch.object(mailer, "_setting", lambda name: values.get(name, ""))
+
+    def test_sends_to_resend_with_the_key(self):
+        import mailer
+        seen = {}
+
+        class _Resp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout):
+            seen.update(url=req.full_url, auth=req.get_header("Authorization"),
+                        body=json.loads(req.data))
+            return _Resp()
+
+        with self._env(RESEND_API_KEY="re_test"), \
+                unittest.mock.patch.object(mailer.urllib.request, "urlopen", fake_urlopen):
+            self.assertTrue(mailer.reset_password("pat@example.com", "https://x/?reset=abc", 60))
+        self.assertEqual(seen["url"], mailer.API_URL)
+        self.assertEqual(seen["auth"], "Bearer re_test")
+        self.assertEqual(seen["body"]["to"], ["pat@example.com"])
+        self.assertEqual(seen["body"]["from"], mailer.SENDER)
+        self.assertIn("https://x/?reset=abc", seen["body"]["text"])
+        self.assertIn("https://x/?reset=abc", seen["body"]["html"])
+
+    def test_dry_run_and_missing_key_never_call_out(self):
+        import mailer
+        boom = unittest.mock.Mock(side_effect=AssertionError("network used"))
+        with unittest.mock.patch.object(mailer.urllib.request, "urlopen", boom), \
+                contextlib.redirect_stderr(io.StringIO()) as log:
+            with self._env(MAIL_DRY_RUN="1", RESEND_API_KEY="re_test"):
+                self.assertTrue(mailer.confirm_email("pat@example.com", "https://x/?confirm=t", 3))
+            with self._env():
+                self.assertFalse(mailer.confirm_email("pat@example.com", "https://x/?confirm=t", 3))
+        self.assertIn("?confirm=t", log.getvalue())
+        self.assertIn("RESEND_API_KEY isn't set", log.getvalue())
+
+
 class BulkCreateTests(TempDBMixin, unittest.TestCase):
     def test_parse_user_list_skips_blanks_and_comments(self):
         text = "alice,pw1\n\n# a comment\nbob\n  carol , pw3  \n"
@@ -2909,11 +3056,12 @@ class DisclosureTests(unittest.TestCase):
         self.assertNotIn("$", text)  # Streamlit reads a pair of them as math
         for must in ("not financial advice", "Anthropic", "percentages", "column names",
                      "ticker", "any brokerage", "hypothetical", "18 and over", "as-is",
-                     "For advisors", "Cookies", "How long it's kept", "Neon", "GitHub"):
+                     "For advisors", "Cookies", "How long it's kept", "Neon", "GitHub",
+                     "Resend", "support@northwend.app"):
             self.assertIn(must.lower(), text.lower())
-        # until they're filled in, the page shows the placeholders plainly
-        self.assertEqual(disclosures.placeholders(), ["OPERATOR_NAME", "CONTACT"])
-        self.assertIn("[contact email]", text)
+        # until it's filled in, the page shows the placeholder plainly
+        self.assertEqual(disclosures.placeholders(), ["OPERATOR_NAME"])
+        self.assertIn("[operator name]", text)
 
     def test_the_no_tracking_promise_matches_the_config(self):
         with open(os.path.join(REPO, ".streamlit", "config.toml"), encoding="utf-8") as fh:

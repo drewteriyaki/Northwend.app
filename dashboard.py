@@ -31,6 +31,7 @@ import disclosures
 import friendly_errors
 import learn
 import live_prices
+import mailer
 import manual_entry
 import paste_parse
 import screenshot_read
@@ -243,6 +244,36 @@ def _session_cookie() -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _app_address() -> str:
+    """This app's web address without its ?query, for links to send people."""
+    base = (st.context.url or "").split("?")[0].split("#")[0]
+    if base:
+        return base
+    host = st.context.headers.get("host") or ""   # e.g. behind a proxy, or older Streamlit
+    if not host:
+        return ""
+    local = host.startswith(("localhost", "127.0.0.1"))
+    proto = st.context.headers.get("x-forwarded-proto") or ("http" if local else "https")
+    return f"{proto}://{host}/"
+
+
+def _send_confirmation(user_id) -> tuple[bool, str]:
+    """Email this account a confirm-your-email link (auth.start_confirmation,
+    mailer.py). (sent, a message to show)."""
+    conn = connect(DB)
+    try:
+        res = auth.start_confirmation(conn, user_id, ip=st.context.ip_address)
+    finally:
+        conn.close()
+    if not res["ok"]:
+        return False, res["error"]
+    if not mailer.confirm_email(res["to"], f"{_app_address()}?confirm={res['token']}",
+                                auth.CONFIRM_DAYS):
+        return False, "We couldn't send the email just now. Please try again in a few minutes."
+    return True, (f"We sent a link to {res['to']}. It can take a minute - check your spam "
+                  "folder too.")
+
+
 def _render_disclosures(*, summary=True):
     """The About and disclosures text (disclosures.py) - the About page, and
     on the login screen for people who haven't signed in."""
@@ -355,8 +386,8 @@ def _signup() -> bool:
                                    value=True, key="signup_remember",
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Create account", type="primary", width="stretch")
-        st.caption("There's no password reset by email yet, so keep your password somewhere "
-                   "safe.")
+        st.caption("We'll email you a link to confirm your address - it unlocks the AI guide "
+                   "and lets you reset your password if you ever forget it.")
         with st.container(horizontal=True):
             st.button("Hide about and disclosures" if st.session_state.get("show_about")
                       else "About and disclosures", key="signup_about", type="tertiary",
@@ -387,14 +418,143 @@ def _signup() -> bool:
     if not result["ok"]:
         mid.error(result["error"])
         return False
+    sent, note = _send_confirmation(result["user_id"])
     st.session_state.clear()  # whoever was signed in on this browser before
     st.session_state["user_id"] = result["user_id"]
     st.session_state["username"] = result["username"]
     st.session_state["session_token"] = session
     st.session_state["import_flash"] = f"Your account is ready. Welcome to {APP_NAME}!"
+    st.session_state["email_flash"] = (sent, "Confirm your email: " + note[0].lower() + note[1:]
+                                       if sent else note)
     if "signup" in st.query_params:
         del st.query_params["signup"]
     st.rerun()
+
+
+def _show_forgot(flag):
+    """Switch the sign-in screen between Log in and Forgot password."""
+    st.session_state["show_forgot"] = flag
+    st.session_state.pop("forgot_sent", None)
+
+
+def _forgot() -> bool:
+    """The "Forgot password?" page: an email address in, a reset link out
+    (auth.request_password_reset, mailer.py). The answer is the same whether
+    or not there's an account, so it can't be used to find out who has one."""
+    submitted = False
+    _, mid, _ = st.columns([1, 1.4, 1])
+    with mid:
+        st.title(f"{APP_ICON} {APP_NAME}")
+        st.subheader("Reset your password", anchor=False)
+        sent_to = st.session_state.get("forgot_sent")
+        if sent_to:
+            st.success(f"If there's an account for {sent_to}, we've sent it a link to choose a "
+                       f"new password. The link works for {auth.RESET_MINUTES} minutes - check "
+                       "your spam folder too.")
+        else:
+            st.caption("Enter the email you signed up with and we'll send you a link to choose "
+                       "a new password.")
+            with st.form("forgot_form", border=True):
+                email = st.text_input("Email", key="forgot_email", autocomplete="email",
+                                      placeholder="name@example.com")
+                submitted = st.form_submit_button("Send me a link", type="primary",
+                                                  width="stretch")
+        st.caption("Your account was set up by an advisor or an administrator? Ask them to "
+                   "reset your password.")
+        st.button("Back to sign in", key="forgot_back", type="tertiary",
+                  on_click=_show_forgot, args=(False,))
+    if sent_to or not submitted:
+        return False
+    conn = connect(DB)
+    try:
+        res = auth.request_password_reset(conn, email, ip=st.context.ip_address)
+    finally:
+        conn.close()
+    if not res["ok"]:
+        mid.error(res["error"])
+        return False
+    if res["token"]:  # a failure is logged by mailer; the answer must look the same either way
+        mailer.reset_password(res["to"], f"{_app_address()}?reset={res['token']}",
+                              auth.RESET_MINUTES)
+    st.session_state["forgot_sent"] = auth.normalize_email(email)
+    st.rerun()
+
+
+def _reset_setup(token: str) -> bool:
+    """The page a reset link opens: choose a new password, then signed in
+    (everywhere else signed out). False until then."""
+    conn = connect(DB)
+    try:
+        info = auth.reset_info(conn, token)
+    finally:
+        conn.close()
+    _, mid, _ = st.columns([1, 1.4, 1])
+    with mid:
+        st.title(f"{APP_ICON} {APP_NAME}")
+        if info is None:
+            st.error("This reset link has expired or was already used. You can ask for a new one.")
+            if st.button("Go to sign in", type="primary"):
+                del st.query_params["reset"]
+                st.rerun()
+            return False
+        st.subheader("Choose a new password", anchor=False)
+        with st.form("reset_form", border=True):
+            st.text_input("Email", value=info["email"], disabled=True)
+            pw = st.text_input("New password", type="password", key="reset_pw",
+                               autocomplete="new-password",
+                               help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
+            again = st.text_input("Type it again", type="password", key="reset_pw_again",
+                                  autocomplete="new-password")
+            remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
+                                   value=True, key="reset_remember",
+                                   help="Leave this off on a shared or public computer.")
+            submitted = st.form_submit_button("Save new password", type="primary",
+                                              width="stretch")
+        st.caption("Saving signs you out on every other device.")
+    if not submitted:
+        return False
+    if pw != again:
+        mid.error("The two passwords don't match.")
+        return False
+    conn = connect(DB)
+    try:
+        result = auth.reset_password(conn, token, pw)
+        session = (auth.create_session(conn, result["user_id"])
+                   if result["ok"] and remember else None)
+    finally:
+        conn.close()
+    if not result["ok"]:
+        mid.error(result["error"])
+        return False
+    st.session_state.clear()  # whoever was signed in on this browser before
+    st.session_state["user_id"] = result["user_id"]
+    st.session_state["username"] = result["username"]
+    st.session_state["session_token"] = session
+    st.session_state["import_flash"] = "Your new password is saved. Welcome back!"
+    del st.query_params["reset"]
+    st.rerun()
+
+
+def _take_confirm_link():
+    """A confirm-your-email link (?confirm=...): mark the email confirmed and
+    say so - on the sign-in screen, and once signed in."""
+    token = st.query_params.get("confirm")
+    if not token:
+        return
+    conn = connect(DB)
+    try:
+        res = auth.confirm_email(conn, str(token))
+    finally:
+        conn.close()
+    del st.query_params["confirm"]
+    if res["ok"]:
+        msg = f"Your email is confirmed - thank you! The AI guide, Ask {GUIDE}, is ready."
+    else:
+        msg = res["error"] + " If you still need to confirm, send a new link after signing in."
+    st.session_state["email_flash"] = (res["ok"], msg)
+    st.session_state["email_state"] = None  # look it up again
+    st.session_state["login_notice"] = msg + ("" if st.session_state.get("user_id")
+                                              else " Sign in to continue.")
 
 
 def _login() -> bool:
@@ -411,6 +571,10 @@ def _login() -> bool:
     invite = st.query_params.get("invite")
     if invite:  # a client's setup link (auth.create_invite)
         return _invite_setup(str(invite))
+    reset = st.query_params.get("reset")
+    if reset:  # a reset-your-password link (auth.request_password_reset)
+        return _reset_setup(str(reset))
+    _take_confirm_link()
     if st.session_state.get("user_id"):
         return True
     cookie = _session_cookie()
@@ -429,6 +593,8 @@ def _login() -> bool:
         st.html(_cookie_script(None), unsafe_allow_javascript=True)
     if st.session_state.get("show_signup", "signup" in st.query_params):
         return _signup()
+    if st.session_state.get("show_forgot"):
+        return _forgot()
 
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
@@ -445,6 +611,8 @@ def _login() -> bool:
                                    value=True, key="login_remember",
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Log in", type="primary", width="stretch")
+        st.button("Forgot password?", key="login_forgot", type="tertiary",
+                  on_click=_show_forgot, args=(True,))
         st.button("New here? Create an account", key="login_to_signup", width="stretch",
                   on_click=_show_signup, args=(True,))
         st.caption(disclosures.SUMMARY)
@@ -478,7 +646,8 @@ def _login() -> bool:
         if result["locked_minutes"]:
             m = result["locked_minutes"]
             mid.error(f"Too many attempts. Try again in {m} minute{'s' if m != 1 else ''}, "
-                      "or ask whoever manages your account to reset your password.")
+                      "or choose a new one with Forgot password? (if an advisor manages your "
+                      "account, ask them).")
         elif result["attempts_left"] <= 2:
             mid.error(f"Wrong email, username or password. {result['attempts_left']} more "
                       f"attempt{'s' if result['attempts_left'] != 1 else ''} before a "
@@ -678,19 +847,6 @@ def _create_invite():
     finally:
         c.close()
     st.session_state[f"invite_link_{target}"] = f"{_app_address()}?invite={token}"
-
-
-def _app_address() -> str:
-    """This app's web address without its ?query, for links to send people."""
-    base = (st.context.url or "").split("?")[0].split("#")[0]
-    if base:
-        return base
-    host = st.context.headers.get("host") or ""   # e.g. behind a proxy, or older Streamlit
-    if not host:
-        return ""
-    local = host.startswith(("localhost", "127.0.0.1"))
-    proto = st.context.headers.get("x-forwarded-proto") or ("http" if local else "https")
-    return f"{proto}://{host}/"
 
 
 def _cancel_invite():
@@ -939,6 +1095,36 @@ if st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
                     width="stretch")
         st.button("Read it", key="disc_read", on_click=lambda: (_disclosures_seen(), _go("About")))
         st.button("Got it", key="disc_ok", type="tertiary", on_click=_disclosures_seen)
+
+
+def _resend_confirmation():
+    sent, note = _send_confirmation(LOGIN_ID)
+    st.session_state["email_flash"] = (sent, note)
+
+
+# A self-serve account's email waits to be confirmed (auth.confirm_email): a
+# notice with "Send it again" until it is. Looked up each run only while
+# waiting - the link may be opened in another tab - then remembered.
+if st.session_state.get("email_state") is None:
+    _ec = connect(DB)
+    try:
+        _es = auth.email_status(_ec, LOGIN_ID)
+    finally:
+        _ec.close()
+    if not _es["email"] or _es["confirmed"]:
+        st.session_state["email_state"] = "done"
+    _waiting_email = None if st.session_state.get("email_state") else _es["email"]
+else:
+    _waiting_email = None
+_email_flash = st.session_state.pop("email_flash", None)
+if _email_flash:
+    (st.success if _email_flash[0] else st.warning)(_email_flash[1])
+if _waiting_email:
+    with st.container(border=True, horizontal=True, vertical_alignment="center"):
+        st.markdown(f":material/mail: **Confirm your email** - open the link we sent to "
+                    f"{_waiting_email}. It unlocks Ask {GUIDE} and the other AI features, and "
+                    "lets you reset your password if you forget it.", width="stretch")
+        st.button("Send it again", key="email_resend", on_click=_resend_confirmation)
 
 
 def _anthropic_key() -> str | None:

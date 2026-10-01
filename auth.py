@@ -1,7 +1,7 @@
 """Individual login accounts. Created by an admin (manage_users.py), by an
 advisor for a client (create_client), or by people themselves with their
-email address (sign_up - the email is the login; confirming it waits for an
-email service). A client chooses their own password from a one-time setup
+email address (sign_up - the email is the login, confirmed from an emailed
+link; a forgotten password is reset the same way). A client chooses their own password from a one-time setup
 link the advisor sends (create_invite / accept_invite), so no password is
 ever shared.
 
@@ -381,6 +381,168 @@ def _note_signup(conn, key: str, stamp: str, *, ok: bool) -> None:
     conn.execute("INSERT INTO signups (address_key, created_at, ok) VALUES (?, ?, ?)",
                  (key, stamp, 1 if ok else 0))
     conn.commit()
+
+
+# --------------------------------------------------------------------------- #
+# email links: confirming the address, resetting a password (mailer.py sends)
+# --------------------------------------------------------------------------- #
+CONFIRM_DAYS = 3            # how long a confirm-your-email link works
+RESET_MINUTES = 60          # how long a reset-your-password link works
+CONFIRM_GAP_MINUTES = 2     # "send it again" waits this long after the last one
+CONFIRMS_PER_DAY = 5        # confirm emails to one address a day
+RESETS_PER_EMAIL_PER_HOUR = 3
+EMAILS_PER_ADDRESS_PER_HOUR = 10  # any of these emails asked for from one internet address
+
+
+def _email_key(email: str) -> str:
+    """The send limits' key for an email address: hashed, so the limits
+    don't keep the addresses people type."""
+    return hashlib.sha256(normalize_email(email).encode("utf-8")).hexdigest()
+
+
+def _email_limit(conn, purpose: str, email: str, ip: str | None, now: datetime) -> str | None:
+    """Why another `purpose` email can't go out now, or None if it can. The
+    request is counted either way (it's keyed on what was typed, so a limit
+    says nothing about whether an account exists). Counts older than a day
+    are tidied away."""
+    stamp, ekey, akey = _utc(now), _email_key(email), _address_key(ip)
+    hour_ago = _utc(now - timedelta(hours=1))
+    conn.execute("DELETE FROM email_sends WHERE sent_at < ?", (_utc(now - timedelta(days=1)),))
+    rows = conn.execute("SELECT sent_at FROM email_sends WHERE email_key = ? AND purpose = ? "
+                        "ORDER BY sent_at DESC", (ekey, purpose)).fetchall()
+    from_here = conn.execute("SELECT COUNT(*) AS n FROM email_sends WHERE address_key = ? "
+                             "AND sent_at >= ?", (akey, hour_ago)).fetchone()["n"] if akey else 0
+    reason = None
+    if from_here >= EMAILS_PER_ADDRESS_PER_HOUR:
+        reason = "Too many emails asked for from here. Please try again in an hour."
+    elif purpose == "confirm":
+        if rows and rows[0]["sent_at"] > _utc(now - timedelta(minutes=CONFIRM_GAP_MINUTES)):
+            reason = ("We just sent one - check your inbox and spam folder. You can send "
+                      "another in a couple of minutes.")
+        elif len(rows) >= CONFIRMS_PER_DAY:
+            reason = "That's a lot of emails for one day. Please try again tomorrow."
+    elif purpose == "reset":
+        if sum(r["sent_at"] >= hour_ago for r in rows) >= RESETS_PER_EMAIL_PER_HOUR:
+            reason = ("We've sent a few reset emails already - check your inbox and spam "
+                      "folder, or try again in an hour.")
+    if reason is None:
+        conn.execute("INSERT INTO email_sends (email_key, address_key, purpose, sent_at) "
+                     "VALUES (?, ?, ?, ?)", (ekey, akey, purpose, stamp))
+    conn.commit()
+    return reason
+
+
+def _create_email_token(conn, user_id: int, purpose: str, email: str, now: datetime) -> str:
+    """A one-time link token; replaces this account's earlier one for the same
+    purpose. Only its hash is stored."""
+    token = secrets.token_urlsafe(32)
+    life = timedelta(days=CONFIRM_DAYS) if purpose == "confirm" else timedelta(minutes=RESET_MINUTES)
+    conn.execute("DELETE FROM email_tokens WHERE (user_id = ? AND purpose = ?) OR expires_at <= ?",
+                 (user_id, purpose, _utc(now)))
+    conn.execute("INSERT INTO email_tokens (token_hash, user_id, purpose, email, created_at, "
+                 "expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+                 (_token_hash(token), user_id, purpose, email, _utc(now), _utc(now + life)))
+    conn.commit()
+    return token
+
+
+def _email_token(conn, token: str | None, purpose: str, now: datetime) -> dict | None:
+    """{"user_id", "username", "email"} for a live link whose email is still
+    the account's, else None (unknown, expired, used, or the email changed)."""
+    if not token:
+        return None
+    row = conn.execute(
+        "SELECT t.user_id, u.username, u.email FROM email_tokens t JOIN users u ON u.id = t.user_id "
+        "WHERE t.token_hash = ? AND t.purpose = ? AND t.expires_at > ? AND t.email = u.email",
+        (_token_hash(token), purpose, _utc(now))).fetchone()
+    return dict(row) if row else None
+
+
+def email_status(conn, user_id: int) -> dict:
+    """{"email": the account's email or None, "confirmed": bool}. Accounts made
+    by an admin or advisor have no email."""
+    row = conn.execute("SELECT email, email_verified_at FROM users WHERE id = ?",
+                       (user_id,)).fetchone()
+    return {"email": row["email"] if row else None,
+            "confirmed": bool(row and row["email_verified_at"])}
+
+
+def start_confirmation(conn, user_id: int, *, ip: str | None = None,
+                       now: datetime | None = None) -> dict:
+    """A confirm-your-email link for this account's (unconfirmed) email.
+    Returns {"ok", "error", "to", "token"}; the caller emails the link."""
+    now = now or datetime.now(timezone.utc)
+    st_ = email_status(conn, user_id)
+    if not st_["email"] or st_["confirmed"]:
+        return {"ok": False, "error": "There's no email waiting to be confirmed.",
+                "to": None, "token": None}
+    reason = _email_limit(conn, "confirm", st_["email"], ip, now)
+    if reason:
+        return {"ok": False, "error": reason, "to": None, "token": None}
+    return {"ok": True, "error": None, "to": st_["email"],
+            "token": _create_email_token(conn, user_id, "confirm", st_["email"], now)}
+
+
+def confirm_email(conn, token: str, *, now: datetime | None = None) -> dict:
+    """Open a confirm link: the email is marked confirmed and the link used
+    up. Returns {"ok", "error", "user_id", "email"}."""
+    now = now or datetime.now(timezone.utc)
+    info = _email_token(conn, token, "confirm", now)
+    if info is None:
+        return {"ok": False, "user_id": None, "email": None,
+                "error": "This link has expired or was already used."}
+    conn.execute("UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) "
+                 "WHERE id = ?", (_utc(now), info["user_id"]))
+    conn.execute("DELETE FROM email_tokens WHERE user_id = ? AND purpose = 'confirm'",
+                 (info["user_id"],))
+    conn.commit()
+    return {"ok": True, "error": None, "user_id": info["user_id"], "email": info["email"]}
+
+
+def request_password_reset(conn, email: str, *, ip: str | None = None,
+                           now: datetime | None = None) -> dict:
+    """The "Forgot password?" request: {"ok", "error", "to", "token"}. ok is False only
+    when a limit is hit or the email isn't one; otherwise the answer looks
+    the same whether or not there's an account - "to"/"token" are set only
+    when there is one, for the caller to send, and never shown."""
+    now = now or datetime.now(timezone.utc)
+    email = normalize_email(email)
+    if not valid_email(email):
+        return {"ok": False, "error": "Enter your email address, like name@example.com.",
+                "to": None, "token": None}
+    reason = _email_limit(conn, "reset", email, ip, now)
+    if reason:
+        return {"ok": False, "error": reason, "to": None, "token": None}
+    row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if row is None:
+        return {"ok": True, "error": None, "to": None, "token": None}
+    return {"ok": True, "error": None, "to": email,
+            "token": _create_email_token(conn, row["id"], "reset", email, now)}
+
+
+def reset_info(conn, token: str | None, *, now: datetime | None = None) -> dict | None:
+    return _email_token(conn, token, "reset", now or datetime.now(timezone.utc))
+
+
+def reset_password(conn, token: str, password: str, *, now: datetime | None = None) -> dict:
+    """Choose a new password from a reset link. Signs the account out
+    everywhere and clears any lockout (set_password); opening the link also
+    proves the email, so it counts as confirmed. Returns {"ok", "error",
+    "user_id", "username"}."""
+    now = now or datetime.now(timezone.utc)
+    info = reset_info(conn, token, now=now)
+    if info is None:
+        return {"ok": False, "user_id": None, "username": None,
+                "error": "This reset link has expired or was already used. Ask for a new one."}
+    if len(password or "") < MIN_PASSWORD_LENGTH:
+        return {"ok": False, "user_id": None, "username": None,
+                "error": f"Use a password of at least {MIN_PASSWORD_LENGTH} characters."}
+    conn.execute("DELETE FROM email_tokens WHERE user_id = ? AND purpose = 'reset'",
+                 (info["user_id"],))
+    conn.execute("UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) "
+                 "WHERE id = ?", (_utc(now), info["user_id"]))
+    set_password(conn, info["username"], password)  # commits all three
+    return {"ok": True, "error": None, "user_id": info["user_id"], "username": info["username"]}
 
 
 def get_user_id(conn: sqlite3.Connection, username: str) -> int | None:

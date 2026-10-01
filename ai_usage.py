@@ -18,6 +18,8 @@ from datetime import date, datetime, timezone
 # per account per month
 LIMITS = {"chat": 100, "screenshot": 10, "csv": 20, "plan": 5}
 ADVISOR_SCALE = 5
+# self-serve accounts use the AI only once their email is confirmed
+CONFIRM_FOR_AI = True
 # how each allowance is named to people: (one, many)
 NOUNS = {"chat": ("message", "messages"), "screenshot": ("screenshot read", "screenshot reads"),
          "csv": ("CSV read", "CSV reads"), "plan": ("plan write-up", "plan write-ups")}
@@ -43,6 +45,17 @@ def limit_for(conn, user_id: int, kind: str) -> int | None:
     return LIMITS[kind] * (ADVISOR_SCALE if row and row["is_advisor"] else 1)
 
 
+def awaiting_confirmation(conn, user_id: int) -> bool:
+    """A self-serve account whose email isn't confirmed yet: the AI features
+    wait until it is (when CONFIRM_FOR_AI), so made-up sign-ups can't run up
+    AI costs. Accounts from an admin or advisor have no email - never waiting."""
+    if not CONFIRM_FOR_AI:
+        return False
+    row = conn.execute("SELECT email, email_verified_at FROM users WHERE id = ?",
+                       (user_id,)).fetchone()
+    return bool(row and row["email"] and not row["email_verified_at"])
+
+
 def used(conn, user_id: int, kind: str, now: datetime | None = None) -> int:
     row = conn.execute("SELECT used FROM ai_usage WHERE user_id = ? AND month = ? AND kind = ?",
                        (user_id, month_of(now), kind)).fetchone()
@@ -51,11 +64,14 @@ def used(conn, user_id: int, kind: str, now: datetime | None = None) -> int:
 
 def status(conn, user_id: int, kind: str, now: datetime | None = None) -> dict:
     """{"used", "limit" (None = unlimited), "left" (None = unlimited), "ok"
-    (one more is allowed), "resets" (a date)}."""
+    (one more is allowed), "resets" (a date), "unconfirmed" (waiting on the
+    email to be confirmed - then ok is False)}."""
     n, limit = used(conn, user_id, kind, now), limit_for(conn, user_id, kind)
     left = None if limit is None else max(0, limit - n)
-    return {"used": n, "limit": limit, "left": left, "ok": left is None or left > 0,
-            "resets": resets_on(now)}
+    waiting = awaiting_confirmation(conn, user_id)
+    return {"used": n, "limit": limit, "left": left,
+            "ok": not waiting and (left is None or left > 0),
+            "resets": resets_on(now), "unconfirmed": waiting}
 
 
 def record(conn, user_id: int, kind: str, now: datetime | None = None) -> None:
@@ -80,6 +96,10 @@ def left_text(st: dict, kind: str) -> str:
 
 
 def used_up_text(st: dict, kind: str) -> str:
+    """Why `kind` can't be used right now - for any status() with ok False."""
+    if st.get("unconfirmed"):
+        return ("Confirm your email to use this - open the link we sent you (you can send "
+                "it again from the note at the top of the page).")
     one, many = NOUNS[kind]
     return (f"You've used this month's {st['limit']} {many if st['limit'] != 1 else one}. "
             f"They start again on {st['resets']:%B} {st['resets'].day}.")

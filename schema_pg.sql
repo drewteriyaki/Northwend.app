@@ -336,6 +336,24 @@ CREATE TABLE IF NOT EXISTS signups (
     ok           INTEGER NOT NULL                -- 1 = an account was made
 );
 
+-- Emailed one-time links - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS email_tokens (
+    token_hash  TEXT    PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    purpose     TEXT    NOT NULL,                -- 'confirm' or 'reset'
+    email       TEXT    NOT NULL,
+    created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
+    expires_at  TEXT    NOT NULL
+);
+
+-- Emails asked for - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS email_sends (
+    email_key    TEXT NOT NULL,
+    address_key  TEXT NOT NULL,                  -- '' if unknown
+    purpose      TEXT NOT NULL,
+    sent_at      TEXT NOT NULL                   -- 'YYYY-MM-DD HH:MM:SS' UTC
+);
+
 -- Column layouts of brokerage CSVs seen before (csv_import.py): a fingerprint
 -- of the column NAMES -> which column holds which field. No holdings or
 -- personal data - so the next file with the same columns needs no questions.
