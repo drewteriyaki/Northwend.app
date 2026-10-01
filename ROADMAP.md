@@ -161,6 +161,13 @@ website's Create account button to everyone.
 - [x] **Speed** - pages read only the account's own tickers and the time span
       needed (Dashboard 73 -> 50 queries, ~30% faster); the price table keeps
       minute-by-minute quotes for a week, then one close per ticker per day.
+- [x] **Backend** - the value chart finds its bar size in one query and reuses the
+      loaded holdings (Dashboard 39 -> 25 statements); per-account indexes; the
+      15-minute job skips prices the app fetched in the last 10 minutes; a fund
+      held in two accounts now counts both on the chart. `CLAUDE.md` added.
+- [ ] **Split dashboard.py** - one file per page (Income, Activity, Plan, ...) so
+      each change reads a few hundred lines, not 4,000+. Moves code only; the
+      tests and a browser pass on each page check nothing changed. (M)
 - [ ] **Accessibility** - contrast, keyboard use and screen-reader labels on
       the custom HTML parts (hero, chips, bars). (S)
 - [ ] **Advisor invites** - a one-time setup link for a new client instead of
