@@ -1387,6 +1387,36 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class ClientOnboardingTests(TempDBMixin, unittest.TestCase):
+    """Client onboarding by link (ROADMAP G6): an advisor adds a client by
+    email, emails the setup link, the client sets a password."""
+
+    def test_client_by_email_and_emailed_setup_link(self):
+        import mailer
+        conn = portfolio.connect(self.db)
+        auth.set_advisor(conn, "testuser", True)
+        cid = auth.create_client(conn, self.user_id, " Pat.Client@Example.com ")
+        self.assertEqual(auth.get_username(conn, cid), "pat.client@example.com")
+        self.assertEqual(auth.email_status(conn, cid), {"email": "pat.client@example.com",
+                                                        "confirmed": False})
+        with self.assertRaises(ValueError):
+            auth.create_client(conn, self.user_id, "pat.client@EXAMPLE.com")   # taken
+        with self.assertRaises(ValueError):
+            auth.create_client(conn, self.user_id, "not-an@email")
+        token = auth.create_invite(conn, self.user_id, cid)
+        sent = {}
+        with unittest.mock.patch.object(mailer, "send", lambda to, subject, text, html=None:
+                                        sent.update(to=to, subject=subject, text=text) or True):
+            mailer.client_invite("pat.client@example.com", f"https://x/?invite={token}",
+                                 "Sam Advisor (Acme)", auth.INVITE_DAYS)
+        self.assertIn("Sam Advisor (Acme) invited you", sent["subject"])
+        self.assertIn(f"?invite={token}", sent["text"])
+        self.assertTrue(auth.accept_invite(conn, token, "clientpass1")["ok"])
+        self.assertTrue(auth.email_status(conn, cid)["confirmed"])   # the advisor vouched
+        self.assertEqual(auth.verify_login(conn, "Pat.Client@example.com", "clientpass1"), cid)
+        conn.close()
+
+
 class WhatIfTests(unittest.TestCase):
     """The what-if playground's arithmetic (plans.months_to_reach, mix_return)."""
 

@@ -85,6 +85,19 @@ def confirm_email(to: str, link: str, days: int) -> bool:
                 _html(lines, ("Confirm my email", link)))
 
 
+def client_invite(to: str, link: str, advisor_name: str, days: int) -> bool:
+    """An advisor's setup link for their client (auth.create_invite)."""
+    lines = [f"{advisor_name} has set up a Northwend account for you, to follow your "
+             "investments and plan together.",
+             "Choose your password - only you will know it - then answer a few quick questions "
+             "about your goals and how you feel about ups and downs, so your advisor can prepare "
+             "for your first conversation.",
+             f"The link works once, for {days} days. Not expecting this? You can ignore it."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nSet up your account: {link}\n\n{lines[2]}\n"
+    return send(to, f"{advisor_name} invited you to Northwend", text,
+                _html(lines, ("Set up my account", link)))
+
+
 def account_created(to: str, link: str, days: int) -> bool:
     """An account the admin made for someone: a link to choose their password."""
     lines = ["A Northwend account has been set up for you. Choose your password to sign "

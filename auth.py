@@ -293,7 +293,11 @@ def accept_invite(conn, token: str, password: str, *, now: datetime | None = Non
         return {"ok": False, "error": f"Use a password of at least {MIN_PASSWORD_LENGTH} "
                 "characters.", "user_id": None, "username": None}
     conn.execute("DELETE FROM invites WHERE user_id = ?", (info["user_id"],))
-    set_password(conn, info["username"], password)  # commits both
+    # an email the advisor gave counts as confirmed once the client is in
+    conn.execute("UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) "
+                 "WHERE id = ? AND email IS NOT NULL", (_utc(now or datetime.now(timezone.utc)),
+                                                        info["user_id"]))
+    set_password(conn, info["username"], password)  # commits all three
     return {"ok": True, "error": None, "user_id": info["user_id"], "username": info["username"]}
 
 
@@ -694,12 +698,26 @@ def create_client(conn: sqlite3.Connection, advisor_id: int, username: str,
                   password: str | None = None) -> int:
     """Create an account managed by `advisor_id`. Without a password it gets a
     random one nobody knows, so only the advisor can reach it until they set
-    a real one with set_password(). Raises ValueError for a non-advisor or
-    an invalid username, and the backend's integrity error for a taken one."""
+    a real one with set_password() or a setup link (create_invite). An email
+    address becomes the login and the account's email, so the setup link can
+    be emailed (ROADMAP G6). Raises ValueError for a non-advisor, an invalid
+    username or email, or an email already in use, and the backend's
+    integrity error for a taken username."""
     if not is_advisor(conn, advisor_id):
         raise ValueError("only advisors can create client accounts")
-    if not valid_username(username):
+    email = normalize_email(username) if "@" in (username or "") else None
+    if email is not None:
+        # an email address is the login, as at sign-up, so the setup link can be emailed
+        if not valid_email(email):
+            raise ValueError("that doesn't look like an email address")
+        if conn.execute("SELECT 1 FROM users WHERE lower(username) = ? OR email = ?",
+                        (email, email)).fetchone():
+            raise ValueError(f"there's already an account for {email}")
+        username = email
+    elif not valid_username(username):
         raise ValueError("usernames are 1-50 letters, digits, or . _ @ -")
     client_id = create_user(conn, username, password or secrets.token_urlsafe(32))
+    if email is not None:
+        conn.execute("UPDATE users SET email = ? WHERE id = ?", (email, client_id))
     link_client(conn, advisor_id, client_id)
     return client_id

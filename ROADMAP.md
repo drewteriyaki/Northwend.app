@@ -330,6 +330,12 @@ investors on their own goal and for advisors in meetings.
 ### G6. Client onboarding by link - M
 **What:** the client answers the goals and risk questionnaire from their
 setup link, so the advisor has a ready profile before the first meeting.
+- [x] **Built** - Add client takes an email (it becomes the login and the
+      account's email); Client login gets "Email <address> a setup link",
+      sent from Northwend in the advisor's name; after choosing a password the
+      client lands on Get started with a welcome asking for the goals and risk
+      questions ("your advisor sees your answers"). Opening the link counts as
+      confirming the email the advisor gave.
 
 ### G7. Meeting prep - M
 **What:** one click before a review: what changed since the last one, goal

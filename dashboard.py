@@ -398,7 +398,12 @@ def _invite_setup(token: str) -> bool:
     st.session_state["user_id"] = result["user_id"]
     st.session_state["username"] = result["username"]
     st.session_state["session_token"] = session
-    st.session_state["import_flash"] = "Your login is ready. Welcome!"
+    # straight to the goals and risk questions, so the advisor has a ready
+    # profile before the first meeting (ROADMAP G6)
+    st.session_state["page"] = "Get started"
+    st.session_state["import_flash"] = (
+        "Your login is ready. Welcome! First, a few quick questions about your goals and how "
+        "you feel about ups and downs - about two minutes. Your advisor sees your answers.")
     del st.query_params["invite"]
     st.rerun()
 
@@ -922,6 +927,7 @@ def _add_client():
     c = connect(DB)
     try:
         client_id = auth.create_client(c, st.session_state["user_id"], name, pw)
+        name = auth.get_username(c, client_id) or name   # an email is stored lower-cased
     except ValueError as exc:
         st.session_state["client_msg"] = ("error", str(exc))
         return
@@ -931,7 +937,9 @@ def _add_client():
     finally:
         c.close()
     _switch_to(client_id)
-    st.session_state["client_msg"] = ("success", f"Added client '{name}' - you're now viewing them.")
+    st.session_state["client_msg"] = (
+        "success", f"Added client '{name}' - you're now viewing them."
+        + (" Open Client login to email them a setup link." if "@" in name else ""))
 
 
 def _set_client_password():
@@ -966,6 +974,36 @@ def _create_invite():
     finally:
         c.close()
     st.session_state[f"invite_link_{target}"] = f"{_app_address()}?invite={token}"
+
+
+def _email_invite():
+    """Email the client being viewed a fresh setup link (ROADMAP G6): they
+    choose a password, then answer the goals and risk questions."""
+    viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
+    c = connect(DB)
+    try:
+        email = auth.email_status(c, target)["email"]
+        if not email:
+            st.session_state["client_msg"] = ("error", "Add an email address for this client "
+                                                       "first.")
+            return
+        token = auth.create_invite(c, viewer, target)
+        card = prefs.load(c, viewer).get("advisor_card") or {}
+    except ValueError:
+        st.session_state["client_msg"] = ("error", "You can only invite your own clients.")
+        return
+    finally:
+        c.close()
+    name = card.get("name") or st.session_state["username"]
+    if card.get("firm"):
+        name += f" ({card['firm']})"
+    sent = mailer.client_invite(email, f"{_app_address()}?invite={token}", name,
+                                auth.INVITE_DAYS)
+    st.session_state.pop(f"invite_link_{target}", None)
+    st.session_state["client_msg"] = (
+        ("success", f"Sent the setup link to {email}. It works for {auth.INVITE_DAYS} days.")
+        if sent else ("error", "The email couldn't be sent just now - create a link and send "
+                               "it yourself instead."))
 
 
 def _cancel_invite():
@@ -1047,7 +1085,10 @@ with st.sidebar:
         if _msg:
             getattr(st, _msg[0])(_msg[1])
         with st.expander("Add client"):
-            st.text_input("Username", key="new_client_name")
+            st.text_input("Email or username", key="new_client_name",
+                          help="With their email address you can email them a setup link: "
+                               "they choose a password and answer the goals and risk questions "
+                               "before your first meeting.")
             st.text_input("Login password (optional)", type="password", key="new_client_pw",
                           help="Best left blank: then send them a setup link (Client login) "
                                "so they choose their own. Or leave them without a login.")
@@ -1058,8 +1099,14 @@ with st.sidebar:
                 _c = connect(DB)
                 try:
                     _pending = auth.pending_invite(_c, USER_ID)
+                    _client_email = auth.email_status(_c, USER_ID)["email"]
                 finally:
                     _c.close()
+                if _client_email:
+                    st.button(f"Email {_client_email} a setup link", key="invite_email",
+                              type="primary", on_click=_email_invite, width="stretch",
+                              help="They choose a password, then answer the goals and risk "
+                                   "questions - you'll see their answers.")
                 if _pending:  # (_fmt_date is defined further down)
                     _d = datetime.strptime(_pending[:10], "%Y-%m-%d")
                     _until = f"{_d:%b} {_d.day}"
@@ -1075,7 +1122,8 @@ with st.sidebar:
                                f"{_until}. A new link replaces it.")
                 st.button("Create a new setup link" if _pending else "Create setup link",
                           key="invite_create", on_click=_create_invite, width="stretch",
-                          type="primary")
+                          type="secondary" if _client_email else "primary",
+                          help="A link to copy and send yourself.")
                 if _pending:
                     st.button("Cancel the link", key="invite_cancel", on_click=_cancel_invite,
                               width="stretch", type="tertiary")
