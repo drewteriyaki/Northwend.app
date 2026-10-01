@@ -1942,6 +1942,18 @@ class AppFilesCompileTests(unittest.TestCase):
                     py_compile.compile(os.path.join(REPO, name), doraise=True,
                                        cfile=os.path.join(tempfile.gettempdir(), "pt_compile.pyc"))
 
+    def test_injected_styles_and_script_have_no_tag_like_text(self):
+        # Streamlit's sanitizer drops a whole <style> or <script> whose text
+        # looks like it holds an HTML tag - a comment saying "<html>" once
+        # left the entire app unstyled. Only the wrapping tags may appear.
+        tag = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*[\s>/]")
+        with open(os.path.join(REPO, "dashboard.py"), encoding="utf-8") as fh:
+            css = re.search(r'st\.html\("""<style>(.*?)</style>"""\)', fh.read(), re.S).group(1)
+        with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
+            js = fh.read()
+        self.assertEqual(tag.findall(css), [])
+        self.assertEqual(tag.findall(js), [])
+
 
 class AnyBrokerCsvTests(TempDBMixin, unittest.TestCase):
     """Roadmap 9b: positions CSVs from any brokerage (csv_import.py)."""

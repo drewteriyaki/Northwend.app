@@ -95,8 +95,8 @@ def _dialog_closed():
     st.session_state["dialog_open"] = False
 
 
-GREEN = "#16a34a"
-RED = "#dc2626"
+# up / down text colors with AA contrast on each theme (as --pt-up / --pt-down)
+SIGN_COLORS = {"light": ("#15803d", "#b91c1c"), "dark": ("#4ade80", "#f87171")}
 
 st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide",
                    initial_sidebar_state="auto")
@@ -106,6 +106,16 @@ st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide",
 # allocation bars below. Text inherits the theme's colors; only marks and
 # gain/loss figures carry their own.
 st.html("""<style>
+/* up / down / warning colors that pass WCAG AA contrast (4.5:1) on each
+   theme's background; ui_enhancements.js marks the theme on the page root */
+:root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; }
+:root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24; }
+/* read by screen readers, not shown */
+.pt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important;
+    transition-duration: .01ms !important; } }
 [data-testid="stStatusWidget"], [data-testid="stAppDeployButton"], .stAppDeployButton {
   display: none !important; }
 [data-testid="stMainBlockContainer"] { padding-top: 3rem; }
@@ -138,14 +148,14 @@ st.html("""<style>
   /* More opens a menu; its dropdown arrow would push it out of line */
   .st-key-pt_tabbar [data-testid="stPopoverButton"] [aria-hidden="true"] { display: none; }
 }
-.pt-status { font-size: .8rem; opacity: .65; margin-top: -.6rem; }
+.pt-status { font-size: .8rem; opacity: .75; margin-top: -.6rem; }
 .pt-hero-label { font-size: .85rem; opacity: .7; }
 .pt-hero-value { font-size: 2.6rem; font-weight: 700; line-height: 1.15;
   font-variant-numeric: tabular-nums; }
 .pt-hero-delta { font-size: 1rem; font-weight: 600; margin-top: .15rem; }
-.pt-hero-sub { font-size: .8rem; opacity: .65; margin-top: .2rem; }
-.pt-up { color: #16a34a; } .pt-down { color: #dc2626; }
-.pt-live { color: #16a34a; }
+.pt-hero-sub { font-size: .8rem; opacity: .75; margin-top: .2rem; }
+.pt-up { color: var(--pt-up); } .pt-down { color: var(--pt-down); }
+.pt-live { color: var(--pt-up); }
 .pt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .6rem; margin-top: 1rem; }
 .pt-stat { border: 1px solid rgba(128,128,128,.25); border-radius: .5rem;
@@ -167,12 +177,12 @@ st.html("""<style>
 .pt-legend-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; }
 .pt-legend-pct { font-weight: 600; font-variant-numeric: tabular-nums; }
-.pt-legend-val { opacity: .65; font-variant-numeric: tabular-nums; min-width: 5.5rem;
+.pt-legend-val { opacity: .75; font-variant-numeric: tabular-nums; min-width: 5.5rem;
   text-align: right; }
 .pt-acct { margin-bottom: .8rem; }
 .pt-acct .pt-legend-row { margin-bottom: .3rem; }
 .pt-alloc-bar.pt-mini { height: 8px; margin-bottom: 0; }
-.pt-warn { color: #c98500; } .pt-muted { opacity: .7; }
+.pt-warn { color: var(--pt-warn); } .pt-muted { opacity: .7; }
 .pt-wl-name { font-size: .85rem; opacity: .7; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 .pt-wl-quote { text-align: right; font-size: .9rem; line-height: 1.3;
@@ -1326,7 +1336,7 @@ def _render_plan_status(plan, value, today):
         "<div class='pt-goal'><div class='pt-goal-top'>"
         f"<span class='pt-chip {tone}'>{label}</span>"
         f"<span class='pt-goal-pct'>{mask_or(f'{pct:.1f}%')} of {fmt_money0(target)}</span></div>"
-        f"<div class='pt-goal-track'><div class='pt-goal-fill' style='width:{min(100.0, pct):.1f}%'>"
+        f"<div class='pt-goal-track' aria-hidden='true'><div class='pt-goal-fill' style='width:{min(100.0, pct):.1f}%'>"
         "</div></div>"
         f"<div class='pt-goal-sub'>{fmt_money0(prog['current'])} now · goal {fmt_money0(target)} by "
         f"{when} · {_time_left(prog['months'])} · "
@@ -1480,7 +1490,7 @@ def _render_target_mix(alloc_rows):
                      f"<span class='pt-legend-pct'>{mask_or(f'{a:.1f}%')}</span>"
                      f"<span class='pt-legend-val'>target {'—' if t is None else f'{t:g}%'}</span>"
                      f"<span class='pt-legend-val'>{mask_or(diff) if diff else ''}</span></div>"
-                     "<div class='pt-mix-track'>"
+                     "<div class='pt-mix-track' aria-hidden='true'>"
                      f"<div class='pt-mix-fill' style='width:{min(100.0, a):.1f}%'></div>"
                      + (f"<div class='pt-mix-target' style='left:{min(100.0, t):.1f}%'></div>"
                         if t is not None else "")
@@ -1635,7 +1645,8 @@ def _render_mix_bar(weights):
                    f"<span class='pt-legend-pct'>{pct}%</span></div>"
                    f"<div class='pt-goal-sub' style='margin:0 0 .5rem 1.1rem'>Examples: "
                    f"{', '.join(b['examples'])}</div>")
-    st.html(f"<div class='pt-alloc-bar'>{segs}</div><div class='pt-legend'>{legend}</div>")
+    st.html(f"<div class='pt-alloc-bar' aria-hidden='true'>{segs}</div>"
+            f"<div class='pt-legend'>{legend}</div>")
 
 
 def _step_profile(advisor, profile, missing):
@@ -2098,7 +2109,8 @@ def fmt_pct(v):
 def color_sign(v):
     if _hidden() or v is None or pd.isna(v) or v == 0:
         return ""
-    return f"color: {GREEN}; font-weight: 600" if v > 0 else f"color: {RED}; font-weight: 600"
+    up, down = SIGN_COLORS["dark" if st.context.theme.type == "dark" else "light"]
+    return f"color: {up if v > 0 else down}; font-weight: 600"
 
 
 def fmt_price(v):
@@ -2140,7 +2152,7 @@ def _stat_tiles(ctx, keys, ncols=4):
         with cols[i % ncols]:
             st.caption(m.label)
             if m.color_sign and not _hidden() and not _blank(v) and v != 0:
-                st.markdown(f"<span style='font-weight:600;color:{GREEN if v > 0 else RED}'>"
+                st.markdown(f"<span class='{'pt-up' if v > 0 else 'pt-down'}' style='font-weight:600'>"
                             f"{text}</span>", unsafe_allow_html=True)
             else:
                 st.markdown(f"**{text}**")
@@ -2194,7 +2206,8 @@ def _alloc_bar(rows, title, slots):
                    f"<span class='pt-legend-pct'>{pct}</span>"
                    f"<span class='pt-legend-val'>{fmt_money(r['value'])}</span></div>")
     return (f"<div class='pt-alloc-title'>{_h.escape(title)}</div>"
-            f"<div class='pt-alloc-bar'>{segs}</div><div class='pt-legend'>{legend}</div>")
+            f"<div class='pt-alloc-bar' aria-hidden='true'>{segs}</div>"
+            f"<div class='pt-legend'>{legend}</div>")
 
 
 def _account_mix(by_account, positions, cash_by_account, slots, group="by_asset_class"):
@@ -2209,12 +2222,13 @@ def _account_mix(by_account, positions, cash_by_account, slots, group="by_asset_
         acct = r["label"]
         mix = allocate([p for p in positions if p["account"] == acct],
                        {acct: cash_by_account.get(acct, 0.0)}, CLASS_SPLITS)[group]
-        segs = ""
+        segs, tips = "", []
         for m in mix:
             if (m["value"] or 0) <= 0:
                 continue
             i = slots.get(m["label"])
             tip = m["label"] if _hidden() or m["pct"] is None else f"{m['label']} {m['pct']:.1f}%"
+            tips.append(tip)
             segs += (f"<div class='pt-alloc-seg' style='flex:{m['value']} 0 0;"
                      f"background:{colors[i] if i is not None else SERIES_OTHER}' "
                      f"title='{_h.escape(tip, quote=True)}'></div>")
@@ -2223,7 +2237,9 @@ def _account_mix(by_account, positions, cash_by_account, slots, group="by_asset_
                 f"<span class='pt-legend-label'>{_h.escape(acct)}</span>"
                 f"<span class='pt-legend-pct'>{pct}</span>"
                 f"<span class='pt-legend-val'>{fmt_money(r['value'])}</span></div>"
-                f"<div class='pt-alloc-bar pt-mini'>{segs}</div></div>")
+                # the mix is only in the segments' tooltips, so say it for screen readers
+                f"<div class='pt-alloc-bar pt-mini' role='img' aria-label="
+                f"'{_h.escape(acct + ' mix: ' + ', '.join(tips), quote=True)}'>{segs}</div></div>")
     return out
 
 
@@ -3048,7 +3064,7 @@ def _live_status():
         age = (datetime.now(timezone.utc) - as_of).total_seconds()
         ago = ("just now" if age < 90 else f"{int(age // 60)} min ago" if age < 3600
                else _fmt_when(as_of))
-        prices = f"<span class='pt-live'>●</span> Live · prices updated {ago}"
+        prices = f"<span class='pt-live' aria-hidden='true'>●</span> Live · prices updated {ago}"
     elif as_of:
         prices = f"Market closed · prices as of {_fmt_when(as_of)}"
     else:
@@ -3417,7 +3433,8 @@ if PAGE == "Dashboard":
     if hide_amounts:
         _day_html = f"{MASK} today"
     elif n_live:
-        _arrow = "▲" if day_change_total >= 0 else "▼"
+        _arrow = (f"<span aria-hidden='true'>{'▲' if day_change_total >= 0 else '▼'}</span>"
+                  f"<span class='pt-sr'>{'Up' if day_change_total >= 0 else 'Down'}</span>")
         _day_html = _tone(day_change_total, f"{_arrow} {fmt_money(abs(day_change_total))}"
                           + (f" ({_day_pct:+.2f}%)" if _day_pct is not None else "") + " today")
     else:

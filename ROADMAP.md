@@ -168,8 +168,12 @@ website's Create account button to everyone.
 - [ ] **Split dashboard.py** - one file per page (Income, Activity, Plan, ...) so
       each change reads a few hundred lines, not 4,000+. Moves code only; the
       tests and a browser pass on each page check nothing changed. (M)
-- [ ] **Accessibility** - contrast, keyboard use and screen-reader labels on
-      the custom HTML parts (hero, chips, bars). (S)
+- [x] **Accessibility** - contrast, keyboard use and screen-reader labels on
+      the custom HTML parts (hero, chips, bars). (S) - up/down/warning colors
+      pass AA contrast in light and dark (switching with the theme), dim text
+      darkened; bars hidden from screen readers where the legend says the same,
+      described where it doesn't; arrows and icon-only buttons named; less motion
+      when the device asks for it.
 - [ ] **Advisor invites** - a one-time setup link for a new client instead of
       sharing a password. (M)
 - [ ] **Review reminders** - a weekly summary for advisors of clients due a

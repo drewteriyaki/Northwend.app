@@ -55,6 +55,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Every per-account query filters `user_id = ?`; advisors see clients only via `can_view`.
 - Account numbers are masked to the last 3 digits (`accounts.mask_number`);
   uploads are never stored (`portfolio.temp_upload`).
+- Never write tag-like text (`<html>`, `<div>`) in comments inside the app's
+  `<style>` block or `ui_enhancements.js`: Streamlit drops the whole block
+  (a test checks). Colors go through the `--pt-up` / `--pt-down` / `--pt-warn` variables.
 - Edit files with the Edit tool. Python patch scripts inside Bash heredocs have
   turned `\n` in strings into real newlines before.
 - Commit messages: `git commit -F -` with a heredoc (PowerShell breaks on quotes).

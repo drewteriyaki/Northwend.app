@@ -74,12 +74,47 @@
   // The bottom tab bar (dashboard.py, key "pt_tabbar") needs a solid
   // background that follows light/dark; the theme can change without the page
   // rerunning, so keep --pt-bg equal to the page's own background.
+  // The same check marks the theme on the page root (data-pt-theme), which picks the
+  // up / down / warning colors in dashboard.py's styles.
   const syncBg = () => {
     const bg = getComputedStyle(q(".stApp") || document.body).backgroundColor;
-    if (bg) document.documentElement.style.setProperty("--pt-bg", bg);
+    if (!bg) return;
+    const root = document.documentElement;
+    root.style.setProperty("--pt-bg", bg);
+    const [r, g, b] = (bg.match(/\d+/g) || [255, 255, 255]).map(Number);
+    const theme = 0.299 * r + 0.587 * g + 0.114 * b < 128 ? "dark" : "light";
+    if (root.dataset.ptTheme !== theme) root.dataset.ptTheme = theme;
   };
   syncBg();
   setInterval(syncBg, 1000);
+
+  // ---- names for icon-only buttons ---------------------------------------
+  // A button showing only an icon would be read out as the icon's name
+  // ("close"); give screen readers what it does. Keyed by the widget key.
+  const ICON_LABELS = [
+    [/^st-key-wl_del_(.+)$/, (m) => `Remove ${m[1]} from your watchlist`],
+    [/^st-key-model_del_/, () => "Delete this model portfolio"],
+    [/^st-key-me_del_/, () => "Remove this holding"],
+    [/^st-key-me_cdel_/, () => "Remove this cash line"],
+    [/^st-key-pt_hide$/, (m, btn) =>
+      btn.textContent.includes("visibility_off") ? "Show amounts" : "Hide amounts"],
+  ];
+  const labelIconButtons = () => {
+    document.querySelectorAll('[class*="st-key-"] button').forEach((btn) => {
+      const holder = btn.closest('[class*="st-key-"]');
+      const cls = [...holder.classList].find((c) => c.startsWith("st-key-"));
+      for (const [re, label] of ICON_LABELS) {
+        const m = cls && cls.match(re);
+        if (m) {
+          const text = label(m, btn);
+          if (btn.getAttribute("aria-label") !== text) btn.setAttribute("aria-label", text);
+          break;
+        }
+      }
+    });
+  };
+  labelIconButtons();
+  setInterval(labelIconButtons, 1000);
 
   // ---- sidebar handle ----------------------------------------------------
   const handle = document.createElement("button");
