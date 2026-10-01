@@ -381,7 +381,7 @@ def _render_week_summary(summary, *, where):
                           on_click=_open_from_summary, args=(r["user_id"],),
                           help=f"Open {r['name']}'s dashboard")
         if len(items) > WEEK_LIST_MAX:
-            st.caption(f"and {len(items) - WEEK_LIST_MAX} more on the Clients page.")
+            st.caption(f"and {len(items) - WEEK_LIST_MAX} more on Your clients.")
 
 
 # Advisors: once a week (from Monday), the first visit opens with this week's
@@ -410,7 +410,7 @@ if IS_ADVISOR and CLIENTS and PAGE != "Clients":
                             f"{'s' if len(_summary['attention']) != 1 else ''} to look at.")
                 _render_week_summary(_summary, where="notice")
                 with st.container(horizontal=True):
-                    st.button("Open clients", key="week_clients", type="primary",
+                    st.button("Your clients", key="week_clients", type="primary",
                               on_click=lambda: (_week_seen(), _go("Clients")))
                     st.button("Got it", key="week_ok", type="tertiary", on_click=_week_seen,
                               help="Hide this until next week")

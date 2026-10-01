@@ -1305,6 +1305,73 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         self.assertIn("tomorrow", self._sign_up(email="taken@example.com")["error"])
 
 
+class AdvisorRequestTests(TempDBMixin, unittest.TestCase):
+    """Asking for advisor access (auth.request_advisor): nobody makes themselves
+    an advisor; the admin approves or declines (manage_users.py)."""
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+        made = auth.sign_up(self.conn, "adv@example.com", "goodpass1", agreed=True, adult=True,
+                            terms_version="v", seconds_open=10)
+        self.uid = made["user_id"]
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def _run(self, *args):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = manage_users.main(["--db", self.db, *args])
+        return code, out.getvalue()
+
+    def test_details_are_checked(self):
+        self.assertIn("firm", auth.advisor_request_error("", "123"))
+        self.assertIn("licence", auth.advisor_request_error("Acme Wealth", " "))
+        self.assertIn("firm", auth.advisor_request_error("x" * 101, "123"))
+        self.assertIsNone(auth.advisor_request_error("Acme Wealth", "CRD 1234567"))
+        with self.assertRaises(ValueError):
+            auth.request_advisor(self.conn, self.uid, "", "")
+
+    def test_a_request_is_not_advisor_access_until_approved(self):
+        auth.request_advisor(self.conn, self.uid, " Acme Wealth ", "1234567")
+        self.assertFalse(auth.is_advisor(self.conn, self.uid))
+        req = auth.advisor_request(self.conn, self.uid)
+        self.assertEqual((req["firm"], req["licence"], req["decision"]),
+                         ("Acme Wealth", "1234567", None))
+        code, out = self._run("advisor-requests")
+        self.assertIn("adv@example.com", out)
+        self.assertIn("Acme Wealth", out)
+        code, out = self._run("make-advisor", "adv@example.com")
+        self.assertEqual(code, 0)
+        self.assertTrue(auth.is_advisor(self.conn, self.uid))
+        self.assertEqual(auth.advisor_request(self.conn, self.uid)["decision"], "approved")
+        self.assertIn("No advisor requests", self._run("advisor-requests")[1])
+
+    def test_decline_keeps_an_investor_account(self):
+        auth.request_advisor(self.conn, self.uid, "Acme Wealth", "1234567")
+        code, _ = self._run("decline-advisor", "adv@example.com")
+        self.assertEqual(code, 0)
+        self.assertFalse(auth.is_advisor(self.conn, self.uid))
+        self.assertEqual(auth.advisor_request(self.conn, self.uid)["decision"], "declined")
+        self.assertEqual(self._run("decline-advisor", "adv@example.com")[0], 1)  # none waiting
+        # asking again replaces the old request and waits for a new decision
+        auth.request_advisor(self.conn, self.uid, "Acme Wealth", "7654321")
+        self.assertIsNone(auth.advisor_request(self.conn, self.uid)["decision"])
+        self.assertIsNone(auth.advisor_request(self.conn, self.user_id))   # never asked
+
+    def test_the_admin_is_emailed_the_details(self):
+        import mailer
+        sent = {}
+        with unittest.mock.patch.object(mailer, "send",
+                                        lambda to, subject, text, html=None: sent.update(
+                                            to=to, subject=subject, text=text) or True):
+            mailer.advisor_request("adv@example.com", "Acme Wealth", "1234567")
+        self.assertEqual(sent["to"], mailer.REPLY_TO)
+        self.assertIn("Acme Wealth", sent["subject"])
+        self.assertIn("make-advisor adv@example.com", sent["text"])
+
+
 class EmailLinkTests(TempDBMixin, unittest.TestCase):
     """Confirming an email and resetting a password from emailed links (auth.py)."""
 

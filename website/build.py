@@ -27,6 +27,7 @@ import disclosures  # noqa: E402
 SITE_URL = "https://northwend.app"
 APP_URL = "https://portfoliotracker-kh8dkygevdqrwwcg4fdcok.streamlit.app/"  # the live app (Streamlit Community Cloud)
 SIGNUP_URL = APP_URL + "?signup=1"                # opens the app's Create account form
+ADVISOR_SIGNUP_URL = APP_URL + "?signup=advisor"  # ...with "I'm a financial advisor" chosen
 FONTS = ("Figtree-Variable-latin.woff2", "Newsreader-Variable-latin.woff2")
 COPYRIGHT_YEAR = "2026"   # fixed, so a rebuild in a new year changes nothing by itself
 
@@ -107,7 +108,8 @@ def render() -> dict[str, str]:
     """Every text file of the site: {path under public/: content}."""
     with open(os.path.join(HERE, "templates", "base.html"), encoding="utf-8") as fh:
         base = fh.read()
-    common = {"APP_URL": APP_URL, "SIGNUP_URL": SIGNUP_URL, "CHECK": CHECK,
+    common = {"APP_URL": APP_URL, "SIGNUP_URL": SIGNUP_URL,
+              "ADVISOR_SIGNUP_URL": ADVISOR_SIGNUP_URL, "CHECK": CHECK,
               "YEAR": COPYRIGHT_YEAR}
     out = {}
     for name, (template, title, description, path) in PAGES.items():

@@ -89,7 +89,7 @@ APP_NAME = "Northwend"
 TAGLINE = "Your guide from first step to goal."
 GUIDE = APP_NAME  # the AI guide shares the app's name: "Ask Northwend"
 APP_ICON = ":material/flag:"
-PAGE_LABELS = {"AI Assistant": f"Ask {GUIDE}"}
+PAGE_LABELS = {"AI Assistant": f"Ask {GUIDE}", "Clients": "Your clients"}
 
 
 def _label(page):
@@ -130,10 +130,15 @@ st.html("""<style>
    is the brand blue for bars and marks; line a hairline; line-strong the edge
    of a control (3:1); sunken the track behind a bar. */
 :root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; --pt-compass: #2a78d6;
-  --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; --pt-dawn-soft: #fbebc9; }
+  --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; --pt-dawn-soft: #fbebc9;
+  --pt-link: #1d5fae; --pt-compass-soft: #e3eefb; }
 :root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24;
   --pt-compass: #3987e5; --pt-line: #2a3847; --pt-line-strong: #62748a; --pt-sunken: #1c2a38;
-  --pt-dawn-soft: #3a2f17; }
+  --pt-dawn-soft: #3a2f17; --pt-link: #7cb3f2; --pt-compass-soft: #16304d; }
+/* the advisor app's role chip, and the bar shown while inside a client's account */
+.pt-role { color: var(--pt-link); background: var(--pt-compass-soft); border-color: transparent;
+  margin: -.4rem 0 .4rem; }
+.st-key-pt_viewing { background: var(--pt-compass-soft); border-color: var(--pt-compass) !important; }
 /* the staging app's banner (STAGING): text in the theme's own color */
 .pt-staging { background: var(--pt-dawn-soft); border: 1px solid var(--pt-warn); border-radius: .5rem;
   padding: .5rem .9rem; font-size: .9rem; font-weight: 600; }
@@ -386,12 +391,20 @@ def _show_signup(flag):
         del st.query_params["signup"]
 
 
+SIGNUP_ROLES = {"investor": "For my own investing", "advisor": "I'm a financial advisor"}
+
+
 def _signup() -> bool:
-    """The Create account page (auth.sign_up): an email, a password, and
-    agreeing to the disclosures. A new account is signed in straight away and
-    starts on Get started. Linkable as ?signup=1. False until it's made."""
+    """The Create account page (auth.sign_up): how they'll use Northwend, an
+    email, a password, and agreeing to the disclosures. A new account is
+    signed in straight away and starts on Get started. An advisor's account
+    starts as an investor account with a request for advisor access
+    (auth.request_advisor) that the admin approves. Linkable as ?signup=1, or
+    ?signup=advisor to start on the advisor choice. False until it's made."""
     # when the form first appeared - one sent sooner than a person could is asked again
     st.session_state.setdefault("signup_opened", time.time())
+    st.session_state.setdefault("signup_role", "advisor" if st.query_params.get("signup")
+                                == "advisor" else "investor")
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
         st.title(f"{APP_ICON} {APP_NAME}")
@@ -399,6 +412,10 @@ def _signup() -> bool:
         st.caption(f"Free while {APP_NAME} is in beta. Your email is just your login: it's never "
                    "shown to anyone or sent to the AI, and you never connect a brokerage. You can "
                    "start with an example portfolio or percentages instead of real numbers.")
+        role = st.segmented_control("How will you use Northwend?", list(SIGNUP_ROLES),
+                                    format_func=SIGNUP_ROLES.get, key="signup_role",
+                                    width="stretch") or "investor"
+        firm = licence = ""
         with st.form("signup_form", border=True):
             email = st.text_input("Email", key="signup_email", autocomplete="email",
                                   placeholder="name@example.com")
@@ -409,6 +426,15 @@ def _signup() -> bool:
             again = st.text_input("Type it again", type="password", key="signup_pw_again",
                                   autocomplete="new-password")
             st.text_input("Website", key="signup_website")  # hidden (see the CSS); bots fill it
+            if role == "advisor":
+                st.caption("Advisor tools are for licensed professionals, so we check each "
+                           "request first - usually within two working days. Until then you "
+                           "can explore Northwend as an investor.")
+                firm = st.text_input("Firm name", key="signup_firm", max_chars=100)
+                licence = st.text_input("CRD or licence number", key="signup_licence",
+                                        max_chars=40,
+                                        help="Your individual CRD number (FINRA BrokerCheck) or "
+                                             "the licence number where you're registered.")
             adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="signup_adult")
             agreed = st.checkbox("I've read and agree to the About and disclosures",
                                  key="signup_agree",
@@ -434,6 +460,9 @@ def _signup() -> bool:
     if pw != again:
         mid.error("The two passwords don't match.")
         return False
+    if role == "advisor" and auth.advisor_request_error(firm, licence):
+        mid.error(auth.advisor_request_error(firm, licence))
+        return False
     conn = connect(DB)
     try:
         result = auth.sign_up(conn, email, pw, agreed=agreed, adult=adult,
@@ -445,17 +474,25 @@ def _signup() -> bool:
             # they just agreed to this version, so no "worth a quick read" banner
             prefs.save(conn, result["user_id"], {"disclosures_seen": disclosures.LAST_UPDATED})
             session = auth.create_session(conn, result["user_id"]) if remember else None
+            if role == "advisor":
+                auth.request_advisor(conn, result["user_id"], firm, licence)
     finally:
         conn.close()
     if not result["ok"]:
         mid.error(result["error"])
         return False
+    if role == "advisor":  # a failure is logged by mailer; `advisor-requests` lists it anyway
+        mailer.advisor_request(result["username"], firm.strip(), licence.strip())
     sent, note = _send_confirmation(result["user_id"])
     st.session_state.clear()  # whoever was signed in on this browser before
     st.session_state["user_id"] = result["user_id"]
     st.session_state["username"] = result["username"]
     st.session_state["session_token"] = session
-    st.session_state["import_flash"] = f"Your account is ready. Welcome to {APP_NAME}!"
+    st.session_state["import_flash"] = (
+        f"Your account is ready. Welcome to {APP_NAME}!" + (
+            " We're checking your advisor details; advisor tools appear once they're "
+            "approved. Until then, have a look around as an investor."
+            if role == "advisor" else ""))
     st.session_state["email_flash"] = (sent, "Confirm your email: " + note[0].lower() + note[1:]
                                        if sent else note)
     if "signup" in st.query_params:
@@ -738,6 +775,8 @@ try:
         st.rerun()
     IS_ADVISOR = auth.is_advisor(_conn, LOGIN_ID)
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
+    # an investor account that asked for advisor access (shown in the sidebar)
+    ADVISOR_REQUEST = None if IS_ADVISOR else auth.advisor_request(_conn, LOGIN_ID)
     if "active_user_id" not in st.session_state:
         # a fresh session (reload, bookmark): start on the client in the address,
         # if any - re-checked by can_view just below, like every other run
@@ -772,13 +811,23 @@ ACTIVE_NAME = (st.session_state["username"] if USER_ID == LOGIN_ID
 # read once, the first time, so they carry over (prefs.py)
 PREFS_PATH = os.path.join(HERE, f".dashboard_prefs.{USER_ID}.json")
 
-# Get started leads for an account with nothing imported yet (and is where it
-# lands); once there are holdings it moves to the end as a reference.
-PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
-         "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT or IS_MANAGED_CLIENT else []),
-         *(["Clients"] if IS_ADVISOR else []),
-         "Watchlist", "Activity", "Income", "AI Assistant",
-         *(["Get started"] if HAS_HOLDINGS else []), "About"]
+# Two experiences (ROADMAP G1). Investors - and clients of an advisor - get the
+# investor app: Get started leads for an account with nothing imported yet
+# (and is where it lands); once there are holdings it moves to the end as a
+# reference. Advisors get the advisor app: it opens on Your clients, and the
+# portfolio pages below it are for whichever account is being viewed; Get
+# started only appears when that's a client's.
+if IS_ADVISOR:
+    _start = ["Get started"] if ON_CLIENT else []
+    PAGES = ["Clients", *([] if HAS_HOLDINGS else _start),
+             "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
+             "Watchlist", "Activity", "Income", "AI Assistant",
+             *(_start if HAS_HOLDINGS else []), "About"]
+else:
+    PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
+             "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
+             "Watchlist", "Activity", "Income", "AI Assistant",
+             *(["Get started"] if HAS_HOLDINGS else []), "About"]
 
 
 def _slug(page):
@@ -787,7 +836,7 @@ def _slug(page):
 
 
 # addresses saved before a page was renamed still open it
-OLD_SLUGS = {"ask-sage": "AI Assistant"}
+OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients"}
 
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
@@ -827,6 +876,12 @@ def _on_viewing_change():
 def _open_client(account_id):
     _switch_to(account_id)
     st.session_state["page"] = "Dashboard"
+
+
+def _back_to_clients():
+    """The viewing bar's way out of a client's account."""
+    _switch_to(st.session_state["user_id"])
+    st.session_state["page"] = "Clients"
 
 
 def _add_client():
@@ -941,7 +996,10 @@ def _open_holdings_dialog(kind):
 
 with st.sidebar:
     st.markdown(f"### {APP_ICON} {APP_NAME}")
-    st.caption(TAGLINE)
+    if IS_ADVISOR:
+        st.html("<span class='pt-chip pt-role'>Advisor</span>")
+    else:
+        st.caption(TAGLINE)
     for _p in PAGES:
         st.button(_label(_p), key=f"nav_{_p}", on_click=_go, args=(_p,), width="stretch",
                   type="primary" if st.session_state["page"] == _p else "tertiary")
@@ -1015,6 +1073,13 @@ with st.sidebar:
                                     "Dark are also in the ⋮ menu at the top right.")
     if IS_MANAGED_CLIENT:
         st.caption(f"Your advisor: **{_advisor_display_name()}**")
+    if ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None:
+        st.caption(f":material/hourglass_top: **Advisor access requested** for "
+                   f"{ADVISOR_REQUEST['firm']}. We're checking your details - usually within "
+                   "two working days. Advisor tools appear here once it's approved.")
+    elif ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] == "declined":
+        st.caption("Your request for advisor access wasn't approved. Questions: "
+                   f"{disclosures.CONTACT}")
     _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
     st.caption(f"Logged in as **{st.session_state['username']}**{_viewing}")
     _pw_msg = st.session_state.pop("pw_msg", None)
@@ -1047,7 +1112,7 @@ TAB_ICONS = {"Get started": (":material/route:", "Start"), "Dashboard": (":mater
              "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", GUIDE),
              "Watchlist": (":material/visibility:", "Watch"),
              "Clients": (":material/groups:", "Clients")}
-TABS = ([p for p in ("Dashboard", "Clients", "Plan", "AI Assistant") if p in PAGES] if IS_ADVISOR
+TABS = ([p for p in ("Clients", "Dashboard", "Plan", "AI Assistant") if p in PAGES] if IS_ADVISOR
         else ([] if HAS_HOLDINGS else ["Get started"])
         + [p for p in ("Dashboard", "Plan", "AI Assistant", "Watchlist") if p in PAGES])[:4]
 
@@ -1106,6 +1171,16 @@ def _disclosures_seen():
 
 
 _render_tab_bar()  # phones only (see the CSS); fixed to the bottom, so its place here doesn't matter
+
+# An advisor inside a client's account always sees whose it is, at the top of
+# every page, with the way back - so nobody edits the wrong person's plan.
+if ON_CLIENT:
+    with st.container(border=True, horizontal=True, vertical_alignment="center",
+                      key="pt_viewing"):
+        st.markdown(f":material/visibility: Viewing **{ACTIVE_NAME}**'s account",
+                    width="stretch")
+        st.button("Back to your clients", key="viewing_back", type="tertiary",
+                  on_click=_back_to_clients)
 
 
 # The disclosures promise to say when they change: once per new version, after
@@ -1812,7 +1887,7 @@ if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor no
     st.stop()
 if PAGE == "Clients":
     # about the advisor's clients, not the viewed account's data
-    _page_header(PAGE, data=False)
+    _page_header(_label(PAGE), data=False)
     _render_clients()
     st.stop()
 if PAGE == "About":

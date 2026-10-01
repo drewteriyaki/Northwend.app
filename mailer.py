@@ -85,6 +85,16 @@ def confirm_email(to: str, link: str, days: int) -> bool:
                 _html(lines, ("Confirm my email", link)))
 
 
+def advisor_request(email: str, firm: str, licence: str) -> bool:
+    """Tell the admin (the support address) that an account asked for advisor
+    access, with what to check."""
+    text = (f"{email} asked for advisor access.\n\nFirm: {firm}\nCRD or licence number: "
+            f"{licence}\n\nCheck it (BrokerCheck: https://brokercheck.finra.org), then run\n"
+            f"  python manage_users.py make-advisor {email}\nor\n"
+            f"  python manage_users.py decline-advisor {email}\n")
+    return send(REPLY_TO, f"Advisor request: {firm}", text)
+
+
 def reset_password(to: str, link: str, minutes: int) -> bool:
     lines = ["Someone - hopefully you - asked to reset the password for your Northwend "
              "account.",

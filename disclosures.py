@@ -23,7 +23,9 @@ Each statement about data here must stay true to the code:
   bot checks keep only a SHA-256 of the internet address for a day (signups table); the version agreed to is stored (users.terms_version).
   Email links: hashed, one-time, confirm 3 days / reset 60 minutes; email-send
   limits keep only hashes for a day (email_tokens / email_sends). Unconfirmed
-  self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI).
+  self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI). Advisor
+  sign-ups store firm + licence (advisor_requests) and email them to the
+  support address (mailer.advisor_request) for the admin to check.
 - Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
@@ -95,7 +97,8 @@ to them (not ones you mark private); you can see everything in their account.
   your email address - used only to sign in and to send you account emails
   (confirming the address, resetting your password), never shown to anyone else
   or sent to the AI - and which version of this page you agreed to. Northwend
-  sends no newsletters or marketing email.
+  sends no newsletters or marketing email. If you ask for advisor access, also
+  your firm's name and your CRD or licence number, so it can be checked.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
   cut to its last 3 digits before it's saved. Pasted text is read by the app

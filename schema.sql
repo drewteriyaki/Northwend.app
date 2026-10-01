@@ -388,6 +388,18 @@ CREATE TABLE IF NOT EXISTS email_tokens (
     expires_at  TEXT    NOT NULL
 );
 
+-- Asking for advisor access (auth.request_advisor): the firm and CRD or
+-- licence number the admin checks before making the account an advisor
+-- (manage_users.py make-advisor / decline-advisor). One row per account.
+CREATE TABLE IF NOT EXISTS advisor_requests (
+    user_id       INTEGER PRIMARY KEY,
+    firm          TEXT    NOT NULL,
+    licence       TEXT    NOT NULL,
+    requested_at  TEXT    NOT NULL,              -- 'YYYY-MM-DD HH:MM:SS' UTC
+    decision      TEXT,                          -- NULL while waiting, 'approved', 'declined'
+    decided_at    TEXT
+);
+
 -- Emails asked for, for the limits on them (auth._email_limit). Hashes of the
 -- email typed and the internet address only; kept for a day.
 CREATE TABLE IF NOT EXISTS email_sends (

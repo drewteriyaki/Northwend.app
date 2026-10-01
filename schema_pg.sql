@@ -346,6 +346,16 @@ CREATE TABLE IF NOT EXISTS email_tokens (
     expires_at  TEXT    NOT NULL
 );
 
+-- Asking for advisor access - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS advisor_requests (
+    user_id       INTEGER PRIMARY KEY,
+    firm          TEXT    NOT NULL,
+    licence       TEXT    NOT NULL,
+    requested_at  TEXT    NOT NULL,              -- 'YYYY-MM-DD HH:MM:SS' UTC
+    decision      TEXT,                          -- NULL while waiting, 'approved', 'declined'
+    decided_at    TEXT
+);
+
 -- Emails asked for - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS email_sends (
     email_key    TEXT NOT NULL,

@@ -139,6 +139,33 @@ def cmd_set_advisor(args, flag: bool) -> int:
     return 0
 
 
+def cmd_advisor_requests(args) -> int:
+    """Accounts waiting for advisor access: check the firm and licence (e.g.
+    FINRA BrokerCheck or the SEC's adviser search for a CRD number), then
+    make-advisor or decline-advisor."""
+    conn = connect(args.db)
+    rows = auth.pending_advisor_requests(conn)
+    if not rows:
+        print("No advisor requests waiting.")
+        return 0
+    for r in rows:
+        print(f"  {r['username']:<30} {r['firm']:<30} licence {r['licence']:<14} "
+              f"asked {r['requested_at']}")
+    print("\nCheck each one (BrokerCheck: https://brokercheck.finra.org), then "
+          "make-advisor <username> or decline-advisor <username>.")
+    return 0
+
+
+def cmd_decline_advisor(args) -> int:
+    conn = connect(args.db)
+    if not auth.decline_advisor(conn, args.username):
+        print(f"'{args.username}' has no advisor request waiting.")
+        return 1
+    print(f"Declined '{args.username}''s advisor request - the account stays an investor "
+          "account.")
+    return 0
+
+
 def _two_ids(conn, advisor, client):
     a, c = auth.get_user_id(conn, advisor), auth.get_user_id(conn, client)
     for name, uid in ((advisor, a), (client, c)):
@@ -240,9 +267,12 @@ def main(argv=None) -> int:
 
     sub.add_parser("list", help="list existing accounts")
 
-    for name, help_text in (("make-advisor", "let an account manage client accounts"),
-                            ("remove-advisor", "take advisor rights away from an account")):
+    for name, help_text in (("make-advisor", "let an account manage client accounts "
+                                             "(approves its advisor request)"),
+                            ("remove-advisor", "take advisor rights away from an account"),
+                            ("decline-advisor", "turn down an account's advisor request")):
         sub.add_parser(name, help=help_text).add_argument("username")
+    sub.add_parser("advisor-requests", help="accounts waiting for advisor access")
     for name, help_text in (("link", "make <client> a client of <advisor>"),
                             ("unlink", "remove <client> from <advisor>'s clients")):
         p = sub.add_parser(name, help=help_text)
@@ -265,6 +295,10 @@ def main(argv=None) -> int:
         return cmd_bulk_create(args)
     if args.cmd in ("make-advisor", "remove-advisor"):
         return cmd_set_advisor(args, args.cmd == "make-advisor")
+    if args.cmd == "advisor-requests":
+        return cmd_advisor_requests(args)
+    if args.cmd == "decline-advisor":
+        return cmd_decline_advisor(args)
     if args.cmd == "link":
         return cmd_link(args)
     if args.cmd == "unlink":

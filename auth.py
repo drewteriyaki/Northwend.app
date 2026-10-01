@@ -572,9 +572,68 @@ def is_advisor(conn: sqlite3.Connection, user_id: int) -> bool:
 
 
 def set_advisor(conn: sqlite3.Connection, username: str, flag: bool) -> bool:
-    """Returns False if no such user."""
+    """Returns False if no such user. Making someone an advisor also approves
+    their advisor request, if they made one (request_advisor)."""
     cur = conn.execute("UPDATE users SET is_advisor = ? WHERE username = ?",
                        (1 if flag else 0, username))
+    if flag and cur.rowcount:
+        conn.execute("UPDATE advisor_requests SET decision = 'approved', decided_at = ? "
+                     "WHERE user_id = (SELECT id FROM users WHERE username = ?) "
+                     "AND decision IS NULL", (_utc(datetime.now(timezone.utc)), username))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+# --------------------------------------------------------------------------- #
+# asking for advisor access - nobody makes themselves an advisor
+# --------------------------------------------------------------------------- #
+def advisor_request_error(firm: str, licence: str) -> str | None:
+    """What's wrong with an advisor request's details, or None."""
+    firm, licence = (firm or "").strip(), (licence or "").strip()
+    if not firm or len(firm) > 100:
+        return "Enter your firm's name (up to 100 characters)."
+    if not licence or len(licence) > 40:
+        return "Enter your CRD or licence number (up to 40 characters)."
+    return None
+
+
+def request_advisor(conn, user_id: int, firm: str, licence: str, *,
+                    now: datetime | None = None) -> None:
+    """Record that this account asked for advisor access. The admin checks the
+    firm and licence and approves it (set_advisor / manage_users.py
+    make-advisor) or declines it (decline_advisor); until then the account
+    is an ordinary investor account. A new request replaces an earlier one."""
+    error = advisor_request_error(firm, licence)
+    if error:
+        raise ValueError(error)
+    now = now or datetime.now(timezone.utc)
+    conn.execute("DELETE FROM advisor_requests WHERE user_id = ?", (user_id,))
+    conn.execute("INSERT INTO advisor_requests (user_id, firm, licence, requested_at) "
+                 "VALUES (?, ?, ?, ?)", (user_id, firm.strip(), licence.strip(), _utc(now)))
+    conn.commit()
+
+
+def advisor_request(conn, user_id: int) -> dict | None:
+    """{"firm", "licence", "requested_at", "decision" (None while waiting,
+    'approved' or 'declined')} or None if the account never asked."""
+    row = conn.execute("SELECT firm, licence, requested_at, decision FROM advisor_requests "
+                       "WHERE user_id = ?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def pending_advisor_requests(conn) -> list[dict]:
+    """Requests waiting for a decision, oldest first, with the username."""
+    return [dict(r) for r in conn.execute(
+        "SELECT u.username, r.firm, r.licence, r.requested_at FROM advisor_requests r "
+        "JOIN users u ON u.id = r.user_id WHERE r.decision IS NULL ORDER BY r.requested_at")]
+
+
+def decline_advisor(conn, username: str, *, now: datetime | None = None) -> bool:
+    """Turn down a waiting request. False if there was none."""
+    now = now or datetime.now(timezone.utc)
+    cur = conn.execute("UPDATE advisor_requests SET decision = 'declined', decided_at = ? "
+                       "WHERE user_id = (SELECT id FROM users WHERE username = ?) "
+                       "AND decision IS NULL", (_utc(now), username))
     conn.commit()
     return cur.rowcount > 0
 

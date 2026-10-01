@@ -247,6 +247,14 @@ admin tools, if ever added, get their own labelled Admin area for your
 account only.
 **Done when:** each kind of account lands in its own experience, and nobody
 can make themselves an advisor.
+- [x] **Built** - sign-up asks "For my own investing" / "I'm a financial
+      advisor" (`?signup=advisor` preselects it; the website's For advisors
+      button uses it); an advisor's firm and CRD/licence go to
+      `advisor_requests` and to support@ by email; `manage_users.py
+      advisor-requests`, `make-advisor` (approves), `decline-advisor`. Advisor
+      app opens on Your clients with an Advisor chip; the "Viewing <client>'s
+      account · Back to your clients" bar on every page while inside a client.
+      Investor app unchanged until G2. Disclosures list the advisor details.
 
 ### G2. "Your route" home for investors - M
 **What:** the investor home opens on the goal and the next step ("74% of the
@@ -291,6 +299,58 @@ the email side allows it.
 **What:** all clients in one view, sorted by who needs attention (off track,
 drifted, review due, inactive) - the advisor home in G1, grown from the
 weekly review summary.
+
+---
+
+## Find an advisor - a marketplace for online advice - later
+
+Like online therapy platforms, for money: investors can go it alone (the
+default, free) and, whenever they want a human, find a verified advisor and
+meet online. Advisors get clients and the tools in G1-G9 to serve them.
+
+### M0. Legal and business model first - needs you
+**Why:** paying or being paid for client referrals, advisor ratings and
+testimonials, and taking payments for advice are all regulated (in the US
+the SEC Marketing Rule and state rules for "promoters"/solicitors; whether
+Northwend itself must register depends on how it is paid and what it
+recommends). **What:** with a securities lawyer: how Northwend earns
+(advisors pay a subscription or listing fee - simplest - vs a share of
+fees or per-client referral fees), advisor terms of use, what Northwend may
+say about an advisor, insurance. Every M item below waits for this.
+
+### M1. Verified advisor profiles and a directory - M
+Built on G1's checked advisors: a profile (credentials such as CFP or CFA,
+CRD, fee model - flat, hourly or a share of assets - specialties such as
+first-time investors or retirement, languages, availability) with
+"licence checked on <date>"; investors browse and filter.
+
+### M2. Get matched - M
+A short "what do you want help with" questionnaire (reusing G3's profile)
+that suggests a few advisors who fit: specialty, fee model, budget.
+
+### M3. Request, consent and connect - M
+The investor sends a request; when the advisor accepts, they become the
+advisor's client. The investor chooses what to share first (holdings,
+plan, goals) and can leave at any time (their data stays theirs).
+Replaces "advisor sees everything" for marketplace clients.
+
+### M4. Secure messages - M/L
+Client-advisor messages in the app, kept for the advisor's record-keeping
+duties and exportable.
+
+### M5. Meetings - M
+Booking against the advisor's availability, video through a link to Zoom,
+Google Meet or Teams (not built in-house), email reminders.
+
+### M6. Payments - L
+Clients pay advisors through Northwend (e.g. Stripe Connect) - only once M0
+settles how this may work.
+
+### M7. Reviews - later
+Client reviews of advisors, only in the form M0's advice allows.
+
+Entry points for the investor app: "Want a human? Find an advisor" in Get
+started, the Plan and Ask Northwend - always optional.
 
 ---
 
