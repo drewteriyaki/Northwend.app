@@ -85,6 +85,16 @@ def confirm_email(to: str, link: str, days: int) -> bool:
                 _html(lines, ("Confirm my email", link)))
 
 
+def report_ready(to: str, link: str, advisor_name: str, period: str) -> bool:
+    """A progress report is waiting - no figures in the email itself."""
+    lines = [f"{advisor_name} has shared your progress report for {period}.",
+             "Sign in to read it - for your privacy, the figures stay in Northwend and aren't "
+             "sent by email."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n"
+    return send(to, f"Your progress report for {period}", text,
+                _html(lines, ("Read my report", link)))
+
+
 def client_invite(to: str, link: str, advisor_name: str, days: int) -> bool:
     """An advisor's setup link for their client (auth.create_invite)."""
     lines = [f"{advisor_name} has set up a Northwend account for you, to follow your "

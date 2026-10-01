@@ -361,6 +361,20 @@ CREATE TABLE IF NOT EXISTS proposals (
     responded_at  TEXT
 );
 
+-- Progress reports - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS progress_reports (
+    id            SERIAL  PRIMARY KEY,
+    advisor_id    INTEGER NOT NULL,
+    client_id     INTEGER NOT NULL,
+    period_label  TEXT    NOT NULL,              -- e.g. "Q3 2026"
+    period_start  TEXT    NOT NULL,              -- YYYY-MM-DD
+    period_end    TEXT    NOT NULL,
+    facts_json    TEXT    NOT NULL,              -- reports.build()
+    message       TEXT,
+    created_at    TEXT    NOT NULL,
+    read_at       TEXT
+);
+
 -- Asking for advisor access - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS advisor_requests (
     user_id       INTEGER PRIMARY KEY,

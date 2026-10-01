@@ -353,6 +353,13 @@ AI for the advisor to edit.
 **What:** a clean monthly or quarterly summary an advisor sends each client
 (growth, goal progress, what's next), in the app and as a PDF; email once
 the email side allows it.
+- [x] **Built** - `reports.py` + `views/reports.py`: a "Progress report"
+      panel on the client's Advisor notes page (last month, last quarter or
+      since the last report; a live preview; an optional message); Send saves
+      it with the figures as they were, and emails the client that it's
+      waiting - no figures in the email. The client reads reports on Advisor
+      notes (new ones marked), with a PDF. Values come only from close to the
+      period's edges; otherwise the report says it doesn't know.
 
 ### G9. Book overview for advisors - M
 **What:** all clients in one view, sorted by who needs attention (off track,

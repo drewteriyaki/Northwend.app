@@ -1379,6 +1379,9 @@ _view("clients")
 _view("meeting")
 
 
+_view("reports")
+
+
 _view("admin")
 
 
@@ -1975,7 +1978,9 @@ if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor no
     elif PAGE == "Advisor notes":
         if ON_CLIENT:
             _render_meeting_prep(None, None, None, None)
+            _render_report_advisor(None)
         if IS_MANAGED_CLIENT:
+            _render_reports_client()
             _render_proposals_client(None, None)
         _render_notes()
     else:
@@ -2167,7 +2172,9 @@ if PAGE == "Advisor notes":
         _render_meeting_prep(portfolio_value,
                              allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"],
                              contexts, cash_by_account)
+        _render_report_advisor(portfolio_value)   # figures are masked on screen, not stored
     if IS_MANAGED_CLIENT:
+        _render_reports_client()
         _render_proposals_client(
             allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"],
             None if _hidden() else portfolio_value)

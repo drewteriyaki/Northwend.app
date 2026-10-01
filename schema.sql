@@ -404,6 +404,21 @@ CREATE TABLE IF NOT EXISTS proposals (
     responded_at  TEXT
 );
 
+-- Progress reports an advisor sends a client (reports.py): the figures as
+-- they were when sent, and the advisor's message.
+CREATE TABLE IF NOT EXISTS progress_reports (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    advisor_id    INTEGER NOT NULL,
+    client_id     INTEGER NOT NULL,
+    period_label  TEXT    NOT NULL,              -- e.g. "Q3 2026"
+    period_start  TEXT    NOT NULL,              -- YYYY-MM-DD
+    period_end    TEXT    NOT NULL,
+    facts_json    TEXT    NOT NULL,              -- reports.build()
+    message       TEXT,
+    created_at    TEXT    NOT NULL,
+    read_at       TEXT
+);
+
 -- Asking for advisor access (auth.request_advisor): the firm and CRD or
 -- licence number the admin checks before making the account an advisor
 -- (manage_users.py make-advisor / decline-advisor). One row per account.

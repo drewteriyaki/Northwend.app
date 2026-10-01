@@ -1387,6 +1387,61 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class ProgressReportTests(TempDBMixin, unittest.TestCase):
+    """Client progress reports (reports.py)."""
+
+    def test_periods(self):
+        import reports
+        today = date(2026, 10, 1)
+        self.assertEqual(reports.period_bounds("Last month", today),
+                         (date(2026, 9, 1), date(2026, 9, 30), "September 2026"))
+        self.assertEqual(reports.period_bounds("Last quarter", today),
+                         (date(2026, 7, 1), date(2026, 9, 30), "Q3 2026"))
+        self.assertEqual(reports.period_bounds("Last quarter", date(2026, 2, 10))[2], "Q4 2025")
+        start, end, _ = reports.period_bounds("Since the last report", today, "2026-08-31")
+        self.assertEqual((start, end), (date(2026, 9, 1), today))
+
+    def test_build_save_read_and_pdf(self):
+        import reports
+        conn = portfolio.connect(self.db)
+        auth.set_advisor(conn, "testuser", True)
+        cid = auth.create_client(conn, self.user_id, "pat_client")
+        conn.execute("INSERT INTO value_log (logged_at, portfolio_value, user_id) VALUES "
+                     "('2026-06-30T12:00:00Z', 40000, ?)", (cid,))
+        conn.commit()
+        plans.add_contribution(conn, cid, "2026-08-15", 1500)
+        plans.add_contribution(conn, cid, "2026-10-02", 999)     # after the period
+        plans.save_plan(conn, cid, {"goal_type": "Retirement", "target_amount": 100000,
+                                    "target_date": "2040-01-01", "monthly_contribution": 500},
+                        self.user_id)
+        advising.add_note(conn, cid, self.user_id, "Next step", "Open an IRA", "2026-09-01")
+        advising.add_note(conn, cid, self.user_id, "Next step", "Private thing", "2026-09-01",
+                          private=True)
+        facts = reports.build(conn, cid, date(2026, 7, 1), date(2026, 10, 1),
+                              value_now=44000.0, today=date(2026, 10, 1))
+        self.assertEqual((facts["value_start"], facts["value_end"], facts["money_in"]),
+                         (40000, 44000.0, 1500.0))
+        self.assertEqual(facts["growth"], 2500.0)
+        self.assertEqual(facts["goal"]["status"], "on_track")
+        self.assertEqual(facts["next_steps"], ["Open an IRA"])      # shared steps only
+        old = reports.build(conn, cid, date(2026, 1, 1), date(2026, 3, 31), value_now=44000.0,
+                            today=date(2026, 10, 1))   # no values logged near that period
+        self.assertEqual((old["value_start"], old["value_end"], old["growth"]), (None, None, None))
+        lines = reports.summary_lines(facts, lambda v: f"${v:,.0f}")
+        self.assertIn("from $40,000 to $44,000", lines[0])
+        self.assertIn("$1,500 added by you and $2,500 growth", lines[1])
+        rid = reports.save(conn, self.user_id, cid, label="Q3 2026", start=date(2026, 7, 1),
+                           end=date(2026, 9, 30), facts=facts, message="Nice quarter.")
+        rep = reports.for_client(conn, cid)[0]
+        self.assertEqual((rep["id"], rep["read_at"], rep["facts"]["money_in"]), (rid, None, 1500.0))
+        self.assertEqual(reports.last_end(conn, cid), "2026-09-30")
+        reports.mark_read(conn, cid, rid)
+        self.assertIsNotNone(reports.for_client(conn, cid)[0]["read_at"])
+        self.assertTrue(reports.render_pdf(rep, client_name="pat", advisor_name="sam")
+                        .startswith(b"%PDF"))
+        conn.close()
+
+
 class MeetingPrepTests(TempDBMixin, unittest.TestCase):
     """Meeting prep (meeting.py): what changed since the last review."""
 
