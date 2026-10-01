@@ -12,7 +12,7 @@ def _after_import():
     on the next run instead of waiting for the scheduled jobs."""
     st.session_state.pop("auto_backfilled", None)
     st.session_state["dialog_open"] = False  # saved: the dialog is closing
-    for k in ("last_open_snapshot", "value_logged"):  # the portfolio changed: compare afresh
+    for k in ("last_open_snapshot", "value_logged", "export_zip"):  # it changed: start afresh
         st.session_state.pop(k, None)
 
 

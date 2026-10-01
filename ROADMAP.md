@@ -488,6 +488,14 @@ started, the Plan and Ask Northwend - always optional.
       each with Open; Got it hides it until Monday (any device). Always on the
       Clients page. Email could follow once there's an email service and domain.
 
+- [x] **D1. Export everything** - Your data (sidebar) > Prepare my data,
+      then Download: a ZIP of CSVs with the account's own data (holdings and
+      their history, plan, answers, settings, watchlist, AI use counts) and,
+      for a client, what their advisor shared. Never passwords, sign-in or
+      email-link tokens, private advisor notes or anyone else's data
+      (`export.py`; a test makes every new account table choose: exported
+      or left out on purpose). In the disclosures and on the About page.
+
 ## Later
 
 - [ ] **Real transactions** - import Schwab's Transactions export for actual

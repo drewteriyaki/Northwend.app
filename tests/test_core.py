@@ -15,6 +15,7 @@ import sys
 import tempfile
 import types
 import unittest
+import zipfile
 import unittest.mock
 from datetime import date, datetime, timedelta, timezone
 
@@ -3580,6 +3581,56 @@ class WorkflowFileTests(unittest.TestCase):
                     key = m.group(3)
                     self.assertNotIn(key, seen[-1][1], f"{name}:{n} repeats '{key}'")
                     seen[-1][1].add(key)
+
+
+class ExportTests(TempDBMixin, unittest.TestCase):
+    """D1: Export everything - the account's own data, never secrets or
+    anyone else's."""
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def _files(self, user_id):
+        import export
+        with zipfile.ZipFile(io.BytesIO(export.export_zip(self.conn, user_id))) as z:
+            return {n: z.read(n).decode("utf-8") for n in z.namelist()}
+
+    def test_own_data_without_secrets_or_private_notes(self):
+        import advising
+        advisor = auth.create_user(self.conn, "adv", "x" * 12)
+        auth.set_advisor(self.conn, "adv", True)
+        auth.link_client(self.conn, advisor, self.user_id)
+        advising.add_note(self.conn, self.user_id, advisor, "Note", "shared note", "2026-09-01")
+        advising.add_note(self.conn, self.user_id, advisor, "Note", "secret note", "2026-09-01",
+                          private=True)
+        self.conn.execute("INSERT INTO watchlist (user_id, ticker) VALUES (?, 'VTI')",
+                          (self.user_id,))
+        self.conn.execute("INSERT INTO watchlist (user_id, ticker) VALUES (?, 'ZZZZ')", (advisor,))
+        self.conn.commit()
+        files = self._files(self.user_id)
+        self.assertIn("README.txt", files)
+        self.assertIn("testuser", files["account.csv"])
+        csvs = "".join(v for n, v in files.items() if n.endswith(".csv"))
+        secret = self.conn.execute("SELECT password_hash, password_salt FROM users WHERE id = ?",
+                                   (self.user_id,)).fetchone()
+        for text in ("password", "salt", secret[0], secret[1], "secret note", "ZZZZ"):
+            self.assertNotIn(text, csvs)
+        self.assertIn("shared note", files["from_your_advisor_notes.csv"])
+        self.assertIn("VTI", files["watchlist.csv"])
+
+    def test_every_account_table_is_exported_or_left_out_on_purpose(self):
+        import admin
+        import export
+        exported = {t for _, t, _, _ in export.OWN}
+        # sign-in records and links: secrets, never exported; an advisor's
+        # links with clients are about the client too
+        left_out = {"login_sessions", "email_tokens", "invites", "advisor_clients"}
+        self.assertEqual(set(admin.ACCOUNT_TABLES) - exported - left_out, set())
 
 
 class HostingTests(unittest.TestCase):

@@ -1038,6 +1038,18 @@ def _cancel_invite():
     st.session_state["client_msg"] = ("success", "Setup link cancelled - it no longer works.")
 
 
+def _prepare_export():
+    """Profile > Your data: the account's own data as a ZIP (export.py), kept
+    in this session for the download button - built only when asked."""
+    import export
+    c = connect(DB)
+    try:
+        data = export.export_zip(c, st.session_state["user_id"])  # own account only
+    finally:
+        c.close()
+    st.session_state["export_zip"] = (export.file_name(), data)
+
+
 def _delete_my_holdings():
     if not st.session_state.get("confirm_delete_holdings"):
         return
@@ -1193,14 +1205,27 @@ with st.sidebar:
                           help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
             st.text_input("New password again", type="password", key="pw_again")
             st.form_submit_button("Change password", on_click=_change_password, width="stretch")
-    if CAN_MANAGE and USER_ID == LOGIN_ID:
+    if USER_ID == LOGIN_ID:
         with st.expander("Your data"):
-            st.caption("Delete everything you've imported or entered: holdings, cash, "
-                       "activity and value history. Your goals, settings and login stay.")
-            st.checkbox("Yes, delete all my holdings", key="confirm_delete_holdings")
-            st.button("Delete all my holdings", key="delete_holdings", width="stretch",
-                      disabled=not st.session_state.get("confirm_delete_holdings"),
-                      on_click=_delete_my_holdings)
+            st.caption("Download a copy of everything Northwend holds for your account, as "
+                       "spreadsheet (CSV) files in one ZIP.")
+            _export = st.session_state.get("export_zip")
+            if _export:
+                st.download_button("Download my data", _export[1], file_name=_export[0],
+                                   mime="application/zip", key="export_download",
+                                   type="primary", width="stretch", on_click="ignore",
+                                   icon=":material/download:")
+            else:
+                st.button("Prepare my data", key="export_prepare", width="stretch",
+                          on_click=_prepare_export, icon=":material/folder_zip:")
+            if CAN_MANAGE:
+                st.divider()
+                st.caption("Delete everything you've imported or entered: holdings, cash, "
+                           "activity and value history. Your goals, settings and login stay.")
+                st.checkbox("Yes, delete all my holdings", key="confirm_delete_holdings")
+                st.button("Delete all my holdings", key="delete_holdings", width="stretch",
+                          disabled=not st.session_state.get("confirm_delete_holdings"),
+                          on_click=_delete_my_holdings)
     st.button("Log out", on_click=_logout, width="stretch")
     # sidebar handle, click-away to close, pull to refresh (see the file)
     with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:

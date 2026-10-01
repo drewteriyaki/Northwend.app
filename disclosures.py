@@ -134,6 +134,10 @@ to them (not ones you mark private); you can see everything in their account.
   under **Your data** (holdings, cash, activity and value history; your goals,
   profile answers, notes and settings stay). If an advisor manages your account,
   ask them. To have your whole account deleted, contact **{_CONTACT}**.
+- **Taking a copy:** **Your data** also downloads everything held for your
+  account as spreadsheet (CSV) files - holdings, history, plan, answers,
+  settings and what your advisor shared with you. Passwords and sign-in
+  records aren't included.
 """),
     ("Security", """
 - **Passwords** are stored only as a salted, one-way hash, never as text. After
