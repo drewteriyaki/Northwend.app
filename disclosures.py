@@ -26,6 +26,9 @@ Each statement about data here must stay true to the code:
   self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI). Advisor
   sign-ups store firm + licence (advisor_requests) and email them to the
   support address (mailer.advisor_request) for the admin to check.
+- Admin portal (admin.py, views/admin.py): logins only - username, email,
+  role, created, last sign-in (users.last_login_at), locks; no holdings,
+  plans or profile answers.
 - Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
@@ -111,7 +114,10 @@ to them (not ones you mark private); you can see everything in their account.
   username or password, and never connects to your brokerage. It only reads
   what you choose to paste, upload, type in or photograph.
 - **Who can see it:** you, and - if your account is managed by an advisor -
-  that advisor. It isn't sold, rented or shared for advertising.
+  that advisor. To look after accounts, the person who runs Northwend can see
+  login details (your email or username, your role, when the account was made
+  and last signed in) - not your holdings, plan or answers. It isn't sold,
+  rented or shared for advertising.
 - **How long it's kept:** until you delete it. The database provider keeps a
   short rolling backup (currently about 6 hours) so data can be recovered after
   an outage; deleted data is gone from it after that.

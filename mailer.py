@@ -85,6 +85,17 @@ def confirm_email(to: str, link: str, days: int) -> bool:
                 _html(lines, ("Confirm my email", link)))
 
 
+def account_created(to: str, link: str, days: int) -> bool:
+    """An account the admin made for someone: a link to choose their password."""
+    lines = ["A Northwend account has been set up for you. Choose your password to sign "
+             "in - only you will know it.",
+             f"The link works once, for {days} days.",
+             "Not expecting this? You can ignore this email."]
+    text = f"{lines[0]}\n\nChoose your password: {link}\n\n{lines[1]}\n\n{lines[2]}\n"
+    return send(to, "Your Northwend account", text,
+                _html(lines, ("Choose my password", link)))
+
+
 def advisor_request(email: str, firm: str, licence: str) -> bool:
     """Tell the admin (the support address) that an account asked for advisor
     access, with what to check."""

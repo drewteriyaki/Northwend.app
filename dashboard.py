@@ -43,6 +43,7 @@ import pgcompat
 import plans
 import prefs
 import route
+from admin import is_admin as _is_admin
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
 from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
@@ -788,6 +789,8 @@ try:
         st.session_state["login_notice"] = "Your password was changed. Sign in again."
         st.rerun()
     IS_ADVISOR = auth.is_advisor(_conn, LOGIN_ID)
+    # the Admin portal (admin.py; granted only from the command line)
+    IS_ADMIN = _is_admin(_conn, LOGIN_ID)
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
     # an investor account that asked for advisor access (shown in the sidebar)
     ADVISOR_REQUEST = None if IS_ADVISOR else auth.advisor_request(_conn, LOGIN_ID)
@@ -850,6 +853,8 @@ else:
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
              *(["Get started"] if HAS_HOLDINGS else []), "About"]
+if IS_ADMIN:
+    PAGES.append("Admin")
 
 
 def _slug(page):
@@ -1018,8 +1023,9 @@ def _open_holdings_dialog(kind):
 
 with st.sidebar:
     st.markdown(f"### {APP_ICON} {APP_NAME}")
-    if IS_ADVISOR:
-        st.html("<span class='pt-chip pt-role'>Advisor</span>")
+    if IS_ADVISOR or IS_ADMIN:
+        st.html(" ".join(f"<span class='pt-chip pt-role'>{r}</span>"
+                         for r, on in (("Advisor", IS_ADVISOR), ("Admin", IS_ADMIN)) if on))
     else:
         st.caption(TAGLINE)
     for _p in PAGES:
@@ -1315,6 +1321,9 @@ def _rules_for(account_id, conn=None):
 
 
 _view("clients")
+
+
+_view("admin")
 
 
 _view("profile")
@@ -1913,6 +1922,11 @@ if PAGE == "Clients":
     # about the advisor's clients, not the viewed account's data
     _page_header(_label(PAGE), data=False)
     _render_clients()
+    st.stop()
+if PAGE == "Admin":
+    # about accounts and logins, not the viewed account's data
+    _page_header("Admin", data=False)
+    _render_admin()
     st.stop()
 if PAGE == "About":
     _page_header("About and disclosures", data=False)

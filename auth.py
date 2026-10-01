@@ -153,6 +153,7 @@ def attempt_login(conn, username: str, password: str, *, now: datetime | None = 
     user_id = verify_login(conn, username, password) if username and password else None
     if user_id is not None:
         conn.execute("DELETE FROM login_failures WHERE username_key = ?", (key,))
+        conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (stamp, user_id))
         conn.commit()
         return {"user_id": user_id, "locked_minutes": 0, "attempts_left": MAX_FAILED_LOGINS}
 
@@ -217,6 +218,9 @@ def session_user(conn, token: str | None, *, now: datetime | None = None) -> tup
     row = conn.execute(
         "SELECT u.id, u.username FROM login_sessions s JOIN users u ON u.id = s.user_id "
         "WHERE s.token_hash = ? AND s.expires_at > ?", (_token_hash(token), _utc(now))).fetchone()
+    if row:  # a stay-signed-in return counts as signing in (the admin portal shows it)
+        conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (_utc(now), row["id"]))
+        conn.commit()
     return (row["id"], row["username"]) if row else None
 
 
@@ -432,11 +436,13 @@ def _email_limit(conn, purpose: str, email: str, ip: str | None, now: datetime) 
     return reason
 
 
-def _create_email_token(conn, user_id: int, purpose: str, email: str, now: datetime) -> str:
+def _create_email_token(conn, user_id: int, purpose: str, email: str, now: datetime,
+                        life: timedelta | None = None) -> str:
     """A one-time link token; replaces this account's earlier one for the same
     purpose. Only its hash is stored."""
     token = secrets.token_urlsafe(32)
-    life = timedelta(days=CONFIRM_DAYS) if purpose == "confirm" else timedelta(minutes=RESET_MINUTES)
+    life = life or (timedelta(days=CONFIRM_DAYS) if purpose == "confirm"
+                    else timedelta(minutes=RESET_MINUTES))
     conn.execute("DELETE FROM email_tokens WHERE (user_id = ? AND purpose = ?) OR expires_at <= ?",
                  (user_id, purpose, _utc(now)))
     conn.execute("INSERT INTO email_tokens (token_hash, user_id, purpose, email, created_at, "
@@ -518,6 +524,23 @@ def request_password_reset(conn, email: str, *, ip: str | None = None,
         return {"ok": True, "error": None, "to": None, "token": None}
     return {"ok": True, "error": None, "to": email,
             "token": _create_email_token(conn, row["id"], "reset", email, now)}
+
+
+SETUP_DAYS = 7   # how long the "choose your password" link for an admin-made account works
+
+
+def setup_link(conn, user_id: int, *, now: datetime | None = None) -> dict:
+    """A "choose your password" link for an account the admin made with an
+    email address (admin.create_account) - a reset link that lasts
+    SETUP_DAYS. Returns {"ok", "error", "to", "token"}; the caller emails it."""
+    now = now or datetime.now(timezone.utc)
+    email = email_status(conn, user_id)["email"]
+    if not email:
+        return {"ok": False, "error": "This account has no email address.", "to": None,
+                "token": None}
+    return {"ok": True, "error": None, "to": email,
+            "token": _create_email_token(conn, user_id, "reset", email, now,
+                                         life=timedelta(days=SETUP_DAYS))}
 
 
 def reset_info(conn, token: str | None, *, now: datetime | None = None) -> dict | None:

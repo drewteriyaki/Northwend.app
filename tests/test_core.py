@@ -1305,6 +1305,88 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         self.assertIn("tomorrow", self._sign_up(email="taken@example.com")["error"])
 
 
+class AdminTests(TempDBMixin, unittest.TestCase):
+    """The admin portal's data side (admin.py)."""
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def test_admin_only_from_the_command_line(self):
+        import admin
+        self.assertFalse(admin.is_admin(self.conn, self.user_id))
+        with contextlib.redirect_stdout(io.StringIO()):
+            manage_users.main(["--db", self.db, "make-admin", "testuser"])
+        self.assertTrue(admin.is_admin(self.conn, self.user_id))
+        self.assertEqual(admin.list_accounts(self.conn)[0]["role"], "admin")
+
+    def test_every_table_with_account_data_is_cleared_on_delete(self):
+        import admin
+        covered = {t: set(c) for t, c in admin.ACCOUNT_TABLES.items()}
+        for t, cols in admin.ACCOUNT_REFERENCES.items():
+            covered.setdefault(t, set()).update(cols)
+        for (table,) in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'"):
+            cols = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+            account_cols = cols & {"user_id", "advisor_id", "client_id", "created_by", "set_by"}
+            if table != "users" and account_cols:
+                self.assertEqual(account_cols - covered.get(table, set()), set(),
+                                 f"{table} isn't cleared by admin.delete_account")
+
+    def test_create_list_and_delete(self):
+        import admin
+        import sample_data
+        auth.set_advisor(self.conn, "testuser", True)
+        made = admin.create_account(self.conn, " New.Person@Example.com ")
+        self.assertEqual((made["username"], made["email"], made["temp_password"]),
+                         ("new.person@example.com", "new.person@example.com", None))
+        named = admin.create_account(self.conn, "jo_client")
+        self.assertTrue(named["temp_password"])
+        self.assertEqual(auth.verify_login(self.conn, "jo_client", named["temp_password"]),
+                         named["user_id"])
+        self.assertIn("already", admin.create_account(self.conn, "new.person@EXAMPLE.com")["error"])
+        self.assertIn("username", admin.create_account(self.conn, "bad name; drop")["error"])
+        auth.link_client(self.conn, self.user_id, named["user_id"])
+        rows = {a["username"]: a for a in admin.list_accounts(self.conn)}
+        self.assertEqual(rows["jo_client"]["role"], "client")
+        self.assertEqual(rows["jo_client"]["advisor"], "testuser")
+        self.assertEqual(rows["testuser"]["clients"], 1)
+        self.assertIs(rows["new.person@example.com"]["confirmed"], False)
+        # a setup link lets them choose a password, and lasts a week
+        link = auth.setup_link(self.conn, made["user_id"])
+        self.assertEqual(link["to"], "new.person@example.com")
+        later = datetime.now(timezone.utc) + timedelta(days=auth.SETUP_DAYS - 1)
+        self.assertTrue(auth.reset_password(self.conn, link["token"], "chosen-pass1", now=later)["ok"])
+        self.assertFalse(auth.setup_link(self.conn, named["user_id"])["ok"])  # no email
+
+        # deleting the advisor clears its data and leaves its client unmanaged
+        sample_data.load(self.conn, self.user_id)
+        self.assertGreater(self.conn.execute("SELECT COUNT(*) AS n FROM positions WHERE "
+                                             "user_id = ?", (self.user_id,)).fetchone()["n"], 0)
+        other_admin = auth.create_user(self.conn, "boss", "bosspass1")
+        admin.set_admin(self.conn, "boss", True)
+        self.assertFalse(admin.delete_account(self.conn, other_admin, by=self.user_id)["ok"])
+        self.assertFalse(admin.delete_account(self.conn, self.user_id, by=self.user_id)["ok"])
+        gone = admin.delete_account(self.conn, self.user_id, by=other_admin)
+        self.assertEqual((gone["ok"], gone["orphaned_clients"]), (True, 1))
+        for table, cols in admin.ACCOUNT_TABLES.items():
+            for col in cols:
+                n = self.conn.execute(f"SELECT COUNT(*) AS n FROM {table} WHERE {col} = ?",
+                                      (self.user_id,)).fetchone()["n"]
+                self.assertEqual(n, 0, f"{table}.{col}")
+        self.assertIsNone(auth.get_username(self.conn, self.user_id))
+        self.assertEqual(auth.get_username(self.conn, named["user_id"]), "jo_client")
+
+    def test_last_sign_in_is_recorded(self):
+        import admin
+        self.assertIsNone(admin.list_accounts(self.conn)[0]["last_login_at"])
+        auth.attempt_login(self.conn, "testuser", "testpass")
+        self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
+
+
 class RouteTests(unittest.TestCase):
     """The investor home's next step (route.py): one step, in priority order."""
 

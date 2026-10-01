@@ -187,7 +187,9 @@ def _ensure_schema(conn) -> None:
                                    ("ai_unlimited", "INTEGER"),  # ai_usage.py
                                    # self-serve sign-up (auth.sign_up)
                                    ("email", "TEXT"), ("email_verified_at", "TEXT"),
-                                   ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT")]),
+                                   ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT"),
+                                   # the admin portal (admin.py)
+                                   ("is_admin", "INTEGER"), ("last_login_at", "TEXT")]),
                         ("advisor_clients", [("client_can_import", "INTEGER")]),
                         # what a fund holds, from Yahoo (asset_classes.py)
                         ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),

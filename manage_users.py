@@ -118,13 +118,13 @@ def cmd_bulk_create(args) -> int:
 
 def cmd_list(args) -> int:
     conn = connect(args.db)
-    rows = conn.execute("SELECT id, username, created_at, is_advisor, ai_unlimited FROM users "
-                        "ORDER BY id").fetchall()
+    rows = conn.execute("SELECT id, username, created_at, is_advisor, is_admin, ai_unlimited "
+                        "FROM users ORDER BY id").fetchall()
     if not rows:
         print("No users yet - use `create` to add one.")
         return 0
     for r in rows:
-        role = "advisor" if r["is_advisor"] else ""
+        role = "admin" if r["is_admin"] else "advisor" if r["is_advisor"] else ""
         ai = "  (no AI limits)" if r["ai_unlimited"] else ""
         print(f"  {r['id']:>3}  {r['username']:<20} {role:<8} created {r['created_at']}{ai}")
     return 0
@@ -136,6 +136,18 @@ def cmd_set_advisor(args, flag: bool) -> int:
         print(f"No such user: '{args.username}'.")
         return 1
     print(f"'{args.username}' is {'now' if flag else 'no longer'} an advisor.")
+    return 0
+
+
+def cmd_set_admin(args, flag: bool) -> int:
+    """Admin rights (the in-app Admin portal) - granted only here, never in the app."""
+    import admin
+    conn = connect(args.db)
+    if not admin.set_admin(conn, args.username, flag):
+        print(f"No such user: '{args.username}'.")
+        return 1
+    print(f"'{args.username}' is now an admin: the Admin page appears on their next page load."
+          if flag else f"'{args.username}' is no longer an admin.")
     return 0
 
 
@@ -273,6 +285,9 @@ def main(argv=None) -> int:
                             ("decline-advisor", "turn down an account's advisor request")):
         sub.add_parser(name, help=help_text).add_argument("username")
     sub.add_parser("advisor-requests", help="accounts waiting for advisor access")
+    for name, help_text in (("make-admin", "give an account the in-app Admin portal"),
+                            ("remove-admin", "take the Admin portal away from an account")):
+        sub.add_parser(name, help=help_text).add_argument("username")
     for name, help_text in (("link", "make <client> a client of <advisor>"),
                             ("unlink", "remove <client> from <advisor>'s clients")):
         p = sub.add_parser(name, help=help_text)
@@ -297,6 +312,8 @@ def main(argv=None) -> int:
         return cmd_set_advisor(args, args.cmd == "make-advisor")
     if args.cmd == "advisor-requests":
         return cmd_advisor_requests(args)
+    if args.cmd in ("make-admin", "remove-admin"):
+        return cmd_set_admin(args, args.cmd == "make-admin")
     if args.cmd == "decline-advisor":
         return cmd_decline_advisor(args)
     if args.cmd == "link":

@@ -269,6 +269,22 @@ Mostly re-arranging Plan, Get started and Dashboard pieces that exist.
       days), the next waypoint, then reached / on track. Clients aren't asked
       to do their advisor's part.
 
+### A1. Admin portal - M
+**Why:** looking after accounts shouldn't need the command line or code
+changes. **What:** an Admin page for admin accounts only (made only from the
+command line: `manage_users.py make-admin <login>`): advisor requests with
+Approve / Decline; every account's login details (role, email confirmed,
+advisor or clients, created, last sign-in, locked); per account: password
+reset email or a temporary password, unlock, make/remove advisor, AI limits,
+link to an advisor, delete with all its data; add an account (an email gets
+a 7-day "choose your password" link); this month's AI use; and a switch to
+show your own account as the investor or the advisor app. Logins only - no
+holdings or plans (the disclosures say so).
+- [x] **Built** - `admin.py` (data side; a test checks delete covers every
+      table with account data), `views/admin.py`, `users.is_admin` and
+      `last_login_at`. **Needs you:** `make-admin` on your own account (live
+      and staging), then use the Admin page instead of `manage_users.py`.
+
 ### G3. "Find your direction" for beginners - M/L
 **What:** the front door for someone with nothing invested yet: a short,
 friendly questionnaire (goal, timeline, comfort with ups and downs, emergency
