@@ -1168,6 +1168,48 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
             auth.create_client(self.conn, self.user_id, "testuser")   # taken
 
 
+class AiUsageTests(TempDBMixin, unittest.TestCase):
+    """Monthly AI allowances (ai_usage.py)."""
+
+    def test_counts_per_month_and_feature_until_the_limit(self):
+        import ai_usage
+        conn = portfolio.connect(self.db)
+        sep = datetime(2026, 9, 30, 23, tzinfo=timezone.utc)
+        limit = ai_usage.LIMITS["screenshot"]
+        for _ in range(limit - 1):
+            ai_usage.record(conn, self.user_id, "screenshot", now=sep)
+        st_ = ai_usage.status(conn, self.user_id, "screenshot", now=sep)
+        self.assertEqual((st_["used"], st_["left"], st_["ok"]), (limit - 1, 1, True))
+        self.assertEqual(ai_usage.left_text(st_, "screenshot"),
+                         f"1 of {limit} screenshot reads left this month")
+        ai_usage.record(conn, self.user_id, "screenshot", now=sep)
+        st_ = ai_usage.status(conn, self.user_id, "screenshot", now=sep)
+        self.assertFalse(st_["ok"])
+        self.assertIn("start again on October 1", ai_usage.used_up_text(st_, "screenshot"))
+        self.assertTrue(ai_usage.status(conn, self.user_id, "chat", now=sep)["ok"])  # own count
+        octo = datetime(2026, 10, 1, 0, 1, tzinfo=timezone.utc)
+        self.assertEqual(ai_usage.status(conn, self.user_id, "screenshot", now=octo)["used"], 0)
+        self.assertEqual(ai_usage.resets_on(datetime(2026, 12, 5)), date(2027, 1, 1))
+        conn.close()
+
+    def test_advisors_get_more_and_unlimited_accounts_have_no_limit(self):
+        import ai_usage
+        conn = portfolio.connect(self.db)
+        base = ai_usage.LIMITS["chat"]
+        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"), base)
+        auth.set_advisor(conn, "testuser", True)
+        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"),
+                         base * ai_usage.ADVISOR_SCALE)
+        manage_users.main(["--db", self.db, "ai-unlimited", "testuser"])
+        st_ = ai_usage.status(conn, self.user_id, "chat")
+        self.assertEqual((st_["limit"], st_["left"], st_["ok"]), (None, None, True))
+        self.assertEqual(ai_usage.left_text(st_, "chat"), "")
+        manage_users.main(["--db", self.db, "ai-limited", "testuser"])
+        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"),
+                         base * ai_usage.ADVISOR_SCALE)
+        conn.close()
+
+
 class BulkCreateTests(TempDBMixin, unittest.TestCase):
     def test_parse_user_list_skips_blanks_and_comments(self):
         text = "alice,pw1\n\n# a comment\nbob\n  carol , pw3  \n"

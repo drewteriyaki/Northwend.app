@@ -183,7 +183,8 @@ def _ensure_schema(conn) -> None:
                         ("account_totals", USER_ID_COL),
                         ("transactions", USER_ID_COL),
                         ("value_log", USER_ID_COL),
-                        ("users", [("is_advisor", "INTEGER")]),
+                        ("users", [("is_advisor", "INTEGER"),
+                                   ("ai_unlimited", "INTEGER")]),  # ai_usage.py
                         ("advisor_clients", [("client_can_import", "INTEGER")]),
                         # what a fund holds, from Yahoo (asset_classes.py)
                         ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),

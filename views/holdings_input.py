@@ -161,11 +161,19 @@ def _render_screenshot_reader():
                              key="me_shots_ok")
         if msg:
             getattr(st, msg[0])(msg[1])
-        if st.button("Read screenshots", key="me_shots_btn", disabled=not (shots and agreed)):
+        quota = _ai_status("screenshot")  # this month's allowance (ai_usage.py)
+        if not quota["ok"]:
+            st.info(ai_usage.used_up_text(quota, "screenshot") + " You can still paste or "
+                    "type your holdings.")
+        elif quota["limit"]:
+            st.caption(ai_usage.left_text(quota, "screenshot").capitalize() + ".")
+        if st.button("Read screenshots", key="me_shots_btn",
+                     disabled=not (shots and agreed and quota["ok"])):
             images, errors = screenshot_read.check_images([(f.name, f.getvalue()) for f in shots])
             if errors:
                 st.error("  \n".join(errors))
                 return
+            _ai_record("screenshot")
             with st.spinner("Reading your screenshots..."):
                 found = screenshot_read.read(images, key)
             del images, shots  # nothing of the images is kept past this point
@@ -420,10 +428,17 @@ def _import_csv_file(src_path, source_name):
     ai_key = f"csv_ai_{sig[:12]}"
     if ss.get(ai_key):
         mapping = {**mapping, **ss[ai_key]}
-    if not csv_import.usable(mapping) and _anthropic_key() and ai_key not in ss:
+    quota = (_ai_status("csv") if not csv_import.usable(mapping) and _anthropic_key()
+             and ai_key not in ss else None)  # this month's allowance (ai_usage.py)
+    if quota and not quota["ok"]:
+        st.caption(ai_usage.used_up_text(quota, "csv") + " Choose the columns below.")
+    elif quota:
         if st.button(":material/auto_awesome: Let AI guess the columns", key=f"{ai_key}_btn",
                      help="Sends only the column names and what kind of thing each cell is "
-                          "(text, number, money) - never your holdings or amounts."):
+                          "(text, number, money) - never your holdings or amounts."
+                          + (f" {ai_usage.left_text(quota, 'csv').capitalize()}."
+                             if quota["limit"] else "")):
+            _ai_record("csv")
             with st.spinner("Working out the columns..."):
                 ss[ai_key] = csv_import.ai_mapping(
                     header, csv_import.sample_shapes(rows, header_i), _anthropic_key()) or {}

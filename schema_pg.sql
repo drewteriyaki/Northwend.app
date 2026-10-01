@@ -251,6 +251,16 @@ CREATE TABLE IF NOT EXISTS invites (
     expires_at  TEXT    NOT NULL
 );
 
+-- How many AI requests each account made per month, per feature (ai_usage.py
+-- enforces the monthly allowances). Counts only - never what was asked.
+CREATE TABLE IF NOT EXISTS ai_usage (
+    user_id  INTEGER NOT NULL,
+    month    TEXT    NOT NULL,                       -- 'YYYY-MM' (UTC)
+    kind     TEXT    NOT NULL,                       -- chat / screenshot / csv / plan
+    used     INTEGER NOT NULL,
+    PRIMARY KEY (user_id, month, kind)
+);
+
 -- Every decimal column in this file is DOUBLE PRECISION: Postgres REAL is
 -- 4-byte and loses cents on large amounts. portfolio._widen_real_columns()
 -- converts any REAL column an older database still has.

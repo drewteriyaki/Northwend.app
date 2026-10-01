@@ -61,7 +61,8 @@ def _render_assistant(contexts, cash_by_account):
                 prompt = text
 
     n_sent = sum(1 for m in display if m["role"] == "user")
-    at_limit = n_sent >= CHAT_MESSAGE_LIMIT
+    quota = _ai_status("chat")  # this month's allowance (ai_usage.py)
+    at_limit = n_sent >= CHAT_MESSAGE_LIMIT or not quota["ok"]
     # Inside a container the input sits inline under the chat instead of pinned to
     # the bottom of the screen. Pinned, Streamlit also keeps the page stuck to the
     # bottom, and on phones scrolling up (which resizes the browser's address bar)
@@ -75,6 +76,9 @@ def _render_assistant(contexts, cash_by_account):
     if prompt and not at_limit:
         import anthropic
 
+        _ai_record("chat")
+        if quota["left"] is not None:
+            quota["left"] -= 1
         display.append({"role": "user", "text": prompt})
         history.append({"role": "user", "content": prompt})
         with chat_box, st.chat_message("user"):
@@ -120,7 +124,9 @@ def _render_assistant(contexts, cash_by_account):
             st.session_state["profile_toast"] = True
             st.rerun()
 
-    if at_limit:
+    if not quota["ok"]:
+        st.info(ai_usage.used_up_text(quota, "chat"))
+    elif at_limit:
         st.info(f"This conversation hit the {CHAT_MESSAGE_LIMIT}-message limit. Start a new one "
                 "to keep going.")
     if display:
@@ -129,4 +135,5 @@ def _render_assistant(contexts, cash_by_account):
             st.session_state["chat_api"] = []
         st.button("New conversation", on_click=_new_conversation)
     st.caption(f"Your holdings are shared with {GUIDE} as percentages only - no dollar "
-               "amounts, share counts, or account names.")
+               "amounts, share counts, or account names."
+               + (f" {ai_usage.left_text(quota, 'chat')}." if quota["ok"] and quota["limit"] else ""))

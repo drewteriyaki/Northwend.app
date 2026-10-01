@@ -20,6 +20,7 @@ _OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
 
 import accounts
 import advising
+import ai_usage
 import alerts
 import asset_classes
 import auth
@@ -853,7 +854,26 @@ def _anthropic_key() -> str | None:
             or "").strip() or None
 
 
-CHAT_MESSAGE_LIMIT = 40  # per session - a simple guard on API spend
+def _ai_status(kind):
+    """This month's AI allowance for `kind` (ai_usage.py) of whoever is signed
+    in - an advisor in a client's account uses their own."""
+    c = connect(DB)
+    try:
+        return ai_usage.status(c, LOGIN_ID, kind)
+    finally:
+        c.close()
+
+
+def _ai_record(kind):
+    """Count one AI request against the signed-in account, just before sending it."""
+    c = connect(DB)
+    try:
+        ai_usage.record(c, LOGIN_ID, kind)
+    finally:
+        c.close()
+
+
+CHAT_MESSAGE_LIMIT = 40  # per conversation - keeps each one a sensible length
 QUICK_STARTS = {
     "Help me get started": "I'm new to investing. Help me figure out how to get started.",
     "Review my portfolio": "Review my current portfolio against my goals and suggest improvements.",

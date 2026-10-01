@@ -285,6 +285,16 @@ CREATE TABLE IF NOT EXISTS invites (
     expires_at  TEXT    NOT NULL
 );
 
+-- How many AI requests each account made per month, per feature (ai_usage.py
+-- enforces the monthly allowances). Counts only - never what was asked.
+CREATE TABLE IF NOT EXISTS ai_usage (
+    user_id  INTEGER NOT NULL,
+    month    TEXT    NOT NULL,                       -- 'YYYY-MM' (UTC)
+    kind     TEXT    NOT NULL,                       -- chat / screenshot / csv / plan
+    used     INTEGER NOT NULL,
+    PRIMARY KEY (user_id, month, kind)
+);
+
 -- Per-account dashboard settings (chosen columns, alert limits, hide
 -- amounts, ...) as one JSON object. Was a .dashboard_prefs.<id>.json file,
 -- which a hosted app loses on every restart.

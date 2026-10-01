@@ -142,6 +142,9 @@ agreeing to the terms and disclosures; limits on AI use per account so costs
 stay predictable (a free tier).
 **Done when:** a stranger can create an account from the website, confirm
 their email, reset a forgotten password, and use the app within its limits.
+- [x] **AI limits** - monthly allowances per account (Ask Sage 100 messages,
+      screenshots 10, CSV help 20, plans 5; advisors 5x), shown as "X of Y left
+      this month"; `manage_users.py ai-unlimited` for your own account. (ai_usage.py)
 
 ### L6. Launch - S - needs you
 **What:** the item-5 disclosures review done (and any Terms of Use / Privacy

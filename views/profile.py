@@ -115,21 +115,27 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
             finally:
                 conn.close()
             steps = None
-            with st.spinner("Writing suggested next steps..."):
-                try:
-                    steps = client_plan.next_steps(
-                        anthropic.Anthropic(api_key=api_key), profile,
-                        advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
-                        client_plan.chat_transcript(display), memory)
-                except anthropic.AuthenticationError:
-                    st.warning("The ANTHROPIC_API_KEY was rejected - the plan was made "
-                               "without suggested next steps.")
-                except anthropic.RateLimitError:
-                    st.warning(f"{GUIDE} is busy right now - the plan was made "
-                               "without suggested next steps.")
-                except (anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
-                    st.warning(f"Couldn't reach {GUIDE} ({exc}) - the plan was made "
-                               "without suggested next steps.")
+            quota = _ai_status("plan")  # this month's allowance (ai_usage.py)
+            if not quota["ok"]:
+                st.info(ai_usage.used_up_text(quota, "plan") + " This plan was made without "
+                        "suggested next steps.")
+            else:
+                _ai_record("plan")
+                with st.spinner("Writing suggested next steps..."):
+                    try:
+                        steps = client_plan.next_steps(
+                            anthropic.Anthropic(api_key=api_key), profile,
+                            advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
+                            client_plan.chat_transcript(display), memory)
+                    except anthropic.AuthenticationError:
+                        st.warning("The ANTHROPIC_API_KEY was rejected - the plan was made "
+                                   "without suggested next steps.")
+                    except anthropic.RateLimitError:
+                        st.warning(f"{GUIDE} is busy right now - the plan was made "
+                                   "without suggested next steps.")
+                    except (anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
+                        st.warning(f"Couldn't reach {GUIDE} ({exc}) - the plan was made "
+                                   "without suggested next steps.")
             today = datetime.now().date()
             st.session_state["plan_pdf"] = {
                 "data": client_plan.render_pdf(

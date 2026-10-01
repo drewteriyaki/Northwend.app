@@ -118,13 +118,15 @@ def cmd_bulk_create(args) -> int:
 
 def cmd_list(args) -> int:
     conn = connect(args.db)
-    rows = conn.execute("SELECT id, username, created_at, is_advisor FROM users ORDER BY id").fetchall()
+    rows = conn.execute("SELECT id, username, created_at, is_advisor, ai_unlimited FROM users "
+                        "ORDER BY id").fetchall()
     if not rows:
         print("No users yet - use `create` to add one.")
         return 0
     for r in rows:
         role = "advisor" if r["is_advisor"] else ""
-        print(f"  {r['id']:>3}  {r['username']:<20} {role:<8} created {r['created_at']}")
+        ai = "  (no AI limits)" if r["ai_unlimited"] else ""
+        print(f"  {r['id']:>3}  {r['username']:<20} {role:<8} created {r['created_at']}{ai}")
     return 0
 
 
@@ -177,6 +179,37 @@ def cmd_unlock(args) -> int:
     return 0
 
 
+def cmd_set_ai_unlimited(args, flag: bool) -> int:
+    import ai_usage
+    conn = connect(args.db)
+    uid = auth.get_user_id(conn, args.username)
+    if uid is None:
+        print(f"No such user: '{args.username}'.")
+        return 1
+    ai_usage.set_unlimited(conn, uid, flag)
+    print(f"'{args.username}' {'now has no' if flag else 'has the normal'} monthly AI limits.")
+    return 0
+
+
+def cmd_ai_usage(args) -> int:
+    """This month's AI use per account, against each allowance."""
+    import ai_usage
+    conn = connect(args.db)
+    month = ai_usage.month_of()
+    rows = conn.execute("SELECT u.id, u.username, a.kind, a.used FROM ai_usage a "
+                        "JOIN users u ON u.id = a.user_id WHERE a.month = ? "
+                        "ORDER BY u.username, a.kind", (month,)).fetchall()
+    if not rows:
+        print(f"No AI use yet in {month}.")
+        return 0
+    print(f"AI use in {month}:")
+    for r in rows:
+        limit = ai_usage.limit_for(conn, r["id"], r["kind"])
+        print(f"  {r['username']:<20} {r['kind']:<11} {r['used']:>4} of "
+              f"{'unlimited' if limit is None else limit}")
+    return 0
+
+
 def cmd_clients(args) -> int:
     conn = connect(args.db)
     a = auth.get_user_id(conn, args.advisor)
@@ -218,6 +251,10 @@ def main(argv=None) -> int:
     sub.add_parser("clients", help="list an advisor's clients").add_argument("advisor")
     sub.add_parser("unlock", help="clear a login lock after too many wrong passwords"
                    ).add_argument("username")
+    for name, help_text in (("ai-unlimited", "lift the monthly AI limits for an account"),
+                            ("ai-limited", "give an account the normal monthly AI limits")):
+        sub.add_parser(name, help=help_text).add_argument("username")
+    sub.add_parser("ai-usage", help="this month's AI use per account")
 
     args = ap.parse_args(argv)
     if args.cmd == "create":
@@ -236,6 +273,10 @@ def main(argv=None) -> int:
         return cmd_clients(args)
     if args.cmd == "unlock":
         return cmd_unlock(args)
+    if args.cmd in ("ai-unlimited", "ai-limited"):
+        return cmd_set_ai_unlimited(args, args.cmd == "ai-unlimited")
+    if args.cmd == "ai-usage":
+        return cmd_ai_usage(args)
     return cmd_list(args)
 
 
