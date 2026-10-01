@@ -282,7 +282,14 @@ started afterwards shows the same steps as cards you can reopen.
       full page, with "Go through the first steps again". Learn more links
       to Investor.gov and the CFPB on three screens.
 
-### S2. A calm Home - M
+### S1b. Get started, one waypoint at a time - S
+- [x] **Built** - your direction in one line (the full card in a window); a
+      route strip of the seven waypoints (✓ when reached) to jump between;
+      one waypoint card at a time with previous / next; marking one done
+      moves on; Learn the basics as six topic cards that open in a window.
+
+### S2. A calm Home - M - tried and undone (Oct 1): the full Home stays;
+a light cleanup instead, when we know what bothers you.
 The value and today's move, your route's next step, and a few tiles -
 Performance, Your mix, Holdings, Alerts - each opening its detail in a
 window. The accounts comparison and column settings only in the full view.

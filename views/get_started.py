@@ -63,7 +63,8 @@ def _mark_done(step, done=True):
     (steps.add if done else steps.discard)(step)
     p["get_started_done"] = sorted(steps)
     _write_prefs(p)
-
+    if done:
+        st.session_state["gs_advance"] = step   # move on to the next waypoint
 
 def _done_button(step, done):
     if done:
@@ -143,45 +144,72 @@ def _step_goal(plan, value):
         st.button("Set a goal", key="gs_set_goal", type="primary", on_click=_go, args=("Plan",))
 
 
-def _step_basics(monthly, years, done):
+def _basics_topics(monthly, years):
+    """The basics, one topic each: (key, icon, title, one line, the full text)."""
     yrs = max(1, int(round(years)))
     put_in = monthly * 12 * yrs
     grown = learn.grow_monthly(monthly, yrs, 6)
     later = learn.grow_monthly(monthly, yrs - 10, 6) if yrs > 10 else None
     fee = learn.fee_cost(monthly, yrs, 6, 0.05, 1.0)
-    m, fmt = _usd0(monthly), lambda v: _usd0(v).replace("$", r"\$")
-    st.markdown(
-        "**Stocks, bonds and funds.** A stock is a small piece of one company. A bond is a loan "
-        "to a government or company that pays you interest. A fund holds many stocks or bonds at "
-        "once; an **ETF** is a fund you buy and sell like a stock, and an **index fund** simply "
-        "holds a whole market (like every US company) instead of trying to pick winners.")
-    st.markdown(
-        "**Why spread it out.** Any one company can stumble or fail. A total-market fund holds "
-        "thousands of companies, so no single one can sink you - that's diversification, and "
-        "index funds give it to you in one purchase.")
-    st.markdown(
-        f"**Time does the heavy lifting.** Putting in {fmt(monthly)} a month for {yrs} years is "
-        f"{fmt(put_in)} of your own money. At 6% a year it could grow to about **{fmt(grown)}**."
-        + (f" Starting 10 years later, the same {fmt(monthly)} a month gets to about "
-           f"{fmt(later)} - most of the growth comes from the early years." if later else ""))
-    st.markdown(
-        f"**Fees add up.** Funds charge a yearly fee called the expense ratio. On {fmt(monthly)} "
-        f"a month for {yrs} years, a fund charging 1% instead of 0.05% would leave you about "
-        f"**{fmt(fee)} less**. Broad index funds are usually among the cheapest.")
-    st.markdown(
-        "**Ups and downs are normal.** The US stock market fell about a third in a month in "
-        "early 2020 and by more than half in 2007-09, then recovered over the following years. "
-        "Staying invested through drops has historically mattered more than timing them. Money "
-        "you'll need in the next few years usually belongs in savings instead.")
-    st.markdown(
-        "**Account types.** A regular brokerage account has no limits but you pay tax on gains "
-        "and dividends. A **Roth IRA** is for retirement: you put in money you've already paid "
-        "tax on, and it can grow and come out tax-free later. A **401(k)** through work often "
-        "comes with an employer match. IRAs and 401(k)s have yearly limits - check IRS.gov for "
-        "this year's.")
-    st.caption(f"Examples use {m} a month and {yrs} years from your plan or profile, and 6% a "
-               "year - an illustration, not a prediction.")
-    _coach_button("basics")
+    fmt = lambda v: _usd0(v).replace("$", r"\$")  # noqa: E731
+    return [
+        ("funds", ":material/category:", "Stocks, bonds and funds", "What you can actually buy",
+         "A stock is a small piece of one company. A bond is a loan to a government or company "
+         "that pays you interest. A fund holds many stocks or bonds at once; an **ETF** is a "
+         "fund you buy and sell like a stock, and an **index fund** simply holds a whole market "
+         "(like every US company) instead of trying to pick winners."),
+        ("spread", ":material/scatter_plot:", "Why spread it out", "One stumble can't sink you",
+         "Any one company can stumble or fail. A total-market fund holds thousands of "
+         "companies, so no single one can sink you - that's diversification, and index funds "
+         "give it to you in one purchase."),
+        ("time", ":material/hourglass_bottom:", "Time does the heavy lifting",
+         "Why starting early matters",
+         f"Putting in {fmt(monthly)} a month for {yrs} years is {fmt(put_in)} of your own "
+         f"money. At 6% a year it could grow to about **{fmt(grown)}**."
+         + (f" Starting 10 years later, the same {fmt(monthly)} a month gets to about "
+            f"{fmt(later)} - most of the growth comes from the early years." if later else "")
+         + "\n\n*An illustration at 6% a year, not a prediction.*"),
+        ("fees", ":material/percent:", "Fees add up", "Small percentages, big dollars",
+         f"Funds charge a yearly fee called the expense ratio. On {fmt(monthly)} a month for "
+         f"{yrs} years, a fund charging 1% instead of 0.05% would leave you about "
+         f"**{fmt(fee)} less**. Broad index funds are usually among the cheapest."),
+        ("ups", ":material/show_chart:", "Ups and downs are normal", "What drops look like",
+         "The US stock market fell about a third in a month in early 2020 and by more than "
+         "half in 2007-09, then recovered over the following years. Staying invested through "
+         "drops has historically mattered more than timing them. Money you'll need in the next "
+         "few years usually belongs in savings instead."),
+        ("accounts", ":material/account_balance:", "Account types",
+         "Brokerage, Roth IRA, 401(k)",
+         "A regular brokerage account has no limits but you pay tax on gains and dividends. A "
+         "**Roth IRA** is for retirement: you put in money you've already paid tax on, and it "
+         "can grow and come out tax-free later. A **401(k)** through work often comes with an "
+         "employer match. IRAs and 401(k)s have yearly limits - check IRS.gov for this year's."),
+    ]
+
+
+@st.dialog("The basics", width="medium")
+def _basics_window(key, monthly, years):
+    for k, icon, title, _line, body in _basics_topics(monthly, years):
+        if k == key:
+            st.markdown(f"### {icon} {title}")
+            st.markdown(body)
+    # (in a window: switch pages with a full rerun, which also closes it)
+    if st.button(f":material/forum: Ask {GUIDE} about this", key="basics_ask", type="tertiary"):
+        _ask_coach("basics")
+        st.rerun()
+
+
+def _step_basics(monthly, years, done):
+    st.caption("Six short ideas worth knowing before you invest. Open any of them.")
+    topics = _basics_topics(monthly, years)
+    cols = st.columns(3)
+    for n, (k, icon, title, line, _body) in enumerate(topics):
+        with cols[n % 3].container(border=True, key=f"pt_tile_basics_{k}"):
+            st.markdown(f"{icon} **{title}**")
+            st.caption(line)
+            if st.button("Read", key=f"basics_{k}", type="tertiary",
+                         icon=":material/open_in_new:"):
+                _basics_window(k, monthly, years)
     _done_button("basics", done)
 
 
@@ -409,6 +437,26 @@ def _render_direction(kind, mix):
                   type="tertiary", on_click=_ask_type, args=(kind["name"],))
 
 
+def _gs_go(key):
+    st.session_state["gs_at"] = key
+
+
+def _gs_pick():
+    if st.session_state.get("gs_pick"):
+        st.session_state["gs_at"] = st.session_state["gs_pick"]
+
+
+@st.dialog("Your direction", width="large")
+def _direction_window(kind_key):
+    state = _route_state(st.session_state.get("gs_has_holdings", False))
+    mix = learn.starter_mix(state["profile"], state["horizon"])
+    kind = learn.investor_type(state["profile"], mix, state["items"])
+    if kind:
+        _render_direction(kind, mix)
+    if st.session_state.get("page") == "AI Assistant":   # its Ask button: go there
+        st.rerun()
+
+
 def _render_get_started(has_holdings, value):
     import advisor
 
@@ -416,6 +464,7 @@ def _render_get_started(has_holdings, value):
         render_first_steps(has_holdings)
         return
 
+    st.session_state["gs_has_holdings"] = has_holdings
     state = _route_state(has_holdings)
     profile, missing, items, plan = (state["profile"], state["missing"], state["items"],
                                      state["plan"])
@@ -425,36 +474,65 @@ def _render_get_started(has_holdings, value):
     years = horizon or float(profile.get("time_horizon_years") or 20)
     n_done = sum(done.values())
     kind = learn.investor_type(profile, mix, items)
-    if missing:
-        st.markdown(f"**Find your direction.** Answer a few quick questions below - about two "
-                    f"minutes, every answer a tap - and {APP_NAME} shows what kind of investor "
-                    "you are and an example mix that fits.")
-    elif kind:
-        _render_direction(kind, mix)
-    st.caption("Your route, one waypoint at a time - built from your answers. It explains how "
-               f"investing works and shows examples; it doesn't tell you what to buy, and {APP_NAME} "
-               "doesn't sell investments. Stuck? "
-               f"Each waypoint has an **Ask {GUIDE}** button.")
-    st.progress(n_done / len(GET_STARTED_STEPS),
-                text=f"{n_done} of {len(GET_STARTED_STEPS)} waypoints reached")
-    current = next((k for k, _ in GET_STARTED_STEPS if not done[k]), None)
-    for i, (key, title) in enumerate(GET_STARTED_STEPS, start=1):
-        icon = ":green[:material/check_circle:]" if done[key] else ":material/radio_button_unchecked:"
-        with st.expander(f"{icon} Waypoint {i}: {title}", expanded=(key == current)):
-            if key == "profile":
-                _step_profile(advisor, profile, missing)
-            elif key == "ready":
-                _step_ready(items)
-            elif key == "goal":
-                _step_goal(plan, value)
-            elif key == "basics":
-                _step_basics(monthly or 200.0, years, done["basics"])
-            elif key == "mix":
-                _step_mix(mix, profile, plan, done["mix"])
-            elif key == "practice":
-                _step_practice(mix, plan, profile, done["practice"])
-            else:
-                _step_account(monthly, has_holdings)
+    keys = [k for k, _ in GET_STARTED_STEPS]
+    titles = dict(GET_STARTED_STEPS)
+
+    # which waypoint is open: the first not reached, unless they picked one;
+    # marking one done (_mark_done) moves on to the next not reached
+    after = st.session_state.pop("gs_advance", None)
+    if after in keys:
+        later = keys[keys.index(after) + 1:] + keys[:keys.index(after)]
+        st.session_state["gs_at"] = next((k for k in later if not done[k]), after)
+    first_open = next((k for k in keys if not done[k]), keys[-1])
+    at = st.session_state.get("gs_at")
+    if at not in keys:
+        at = first_open
+    i = keys.index(at)
+
+    # ---- your direction, in one line (the whole card in a window) --------- #
+    if kind and not missing:
+        with st.container(border=True, horizontal=True, vertical_alignment="center"):
+            st.html(f"<span class='pt-route-label'>Your direction</span><br>"
+                    f"<b>{html.escape(kind['name'])}</b> - {html.escape(kind['line'])}",
+                    width="stretch")
+            if st.button("See your mix", key="gs_direction", type="tertiary",
+                         icon=":material/open_in_new:"):
+                _direction_window(kind["key"])
+
+    # ---- the route: every waypoint, tap one to open it ------------------- #
+    st.caption(f"Your route - {n_done} of {len(keys)} waypoints reached. It explains and "
+               f"shows examples; it never tells you what to buy.")
+    st.session_state["gs_pick"] = at   # always the open one
+    st.pills("Waypoints", keys, key="gs_pick", label_visibility="collapsed",
+             on_change=_gs_pick,
+             format_func=lambda k: ("✓ " if done[k] else f"{keys.index(k) + 1}. ") + titles[k])
+
+    # ---- the open waypoint ------------------------------------------------ #
+    with st.container(border=True, key=f"pt_slide_gs_{at}"):
+        st.caption(f"Waypoint {i + 1} of {len(keys)}" + (" · reached" if done[at] else ""))
+        st.markdown(f"### {titles[at]}")
+        if at == "profile":
+            _step_profile(advisor, profile, missing)
+        elif at == "ready":
+            _step_ready(items)
+        elif at == "goal":
+            _step_goal(plan, value)
+        elif at == "basics":
+            _step_basics(monthly or 200.0, years, done["basics"])
+        elif at == "mix":
+            _step_mix(mix, profile, plan, done["mix"])
+        elif at == "practice":
+            _step_practice(mix, plan, profile, done["practice"])
+        else:
+            _step_account(monthly, has_holdings)
+    with st.container(horizontal=True):
+        if i:
+            st.button(":material/arrow_back: " + titles[keys[i - 1]], key="gs_prev",
+                      on_click=_gs_go, args=(keys[i - 1],))
+        st.space("stretch")
+        if i < len(keys) - 1:
+            st.button(titles[keys[i + 1]] + " :material/arrow_forward:", key="gs_next",
+                      on_click=_gs_go, args=(keys[i + 1],))
     if not IS_ADVISOR and USER_ID == LOGIN_ID:
         st.button(":material/replay: Go through the first steps again", key="fs_restart",
                   type="tertiary", on_click=_fs_restart)
