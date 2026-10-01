@@ -1387,6 +1387,65 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class MeetingPrepTests(TempDBMixin, unittest.TestCase):
+    """Meeting prep (meeting.py): what changed since the last review."""
+
+    def test_changes_since_the_last_review_and_safe_ai_facts(self):
+        import meeting
+        import sample_data
+        conn = portfolio.connect(self.db)
+        auth.set_advisor(conn, "testuser", True)
+        cid = auth.create_client(conn, self.user_id, "pat_client")
+        today = date(2026, 10, 1)
+        first = meeting.prep(conn, cid, today=today, value=None, latest_snapshot=None,
+                             actual_pct={}, targets={}, drift_threshold=5)
+        self.assertIsNone(first["last_review"])
+        self.assertIn("first review", meeting.facts_for_ai(first))
+
+        sample_data.load(conn, cid, today=date(2026, 6, 1))
+        old_snap = conn.execute("SELECT MAX(snapshot_date) AS d FROM snapshots WHERE "
+                                "user_id = ?", (cid,)).fetchone()["d"]
+        conn.execute("INSERT INTO value_log (logged_at, snapshot_date, portfolio_value, user_id) "
+                     "VALUES (?, ?, ?, ?)", ("2026-06-02T10:00:00Z", old_snap, 40000.0, cid))
+        advising.add_note(conn, cid, self.user_id, "Review", "Met to talk goals", "2026-06-03")
+        advising.add_note(conn, cid, self.user_id, "Next step", "Open a Roth IRA $5,000",
+                          "2026-06-03", private=True)
+        # a later snapshot with one holding sold out and one added
+        rows = [dict(r) for r in conn.execute("SELECT * FROM positions WHERE user_id = ? AND "
+                                              "snapshot_date = ?", (cid, old_snap))]
+        new_snap = "2026-09-30"
+        conn.execute("INSERT INTO snapshots (snapshot_date, source_file, user_id) VALUES (?, ?, ?)",
+                     (new_snap, "test", cid))
+        for r in rows[1:]:
+            conn.execute("INSERT INTO positions (snapshot_date, account, symbol, quantity, "
+                         "cost_basis, market_value, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                         (new_snap, r["account"], r["symbol"], r["quantity"], r["cost_basis"],
+                          r["market_value"], cid))
+        conn.execute("INSERT INTO positions (snapshot_date, account, symbol, quantity, cost_basis, "
+                     "market_value, user_id) VALUES (?, 'Brokerage', 'NEWX', 1, 10, 10, ?)",
+                     (new_snap, cid))
+        conn.commit()
+        p = meeting.prep(conn, cid, today=today, value=44000.0, latest_snapshot=new_snap,
+                         actual_pct={"Stocks": 85.0, "Bonds": 15.0},
+                         targets={"Stocks": 70.0, "Bonds": 30.0}, drift_threshold=5)
+        self.assertEqual(p["days_since"], (today - date(2026, 6, 3)).days)
+        self.assertAlmostEqual(p["value_change_pct"], 10.0)
+        self.assertEqual(p["trades"]["closed"], [f"{rows[0]['symbol']} ({rows[0]['account']})"])
+        self.assertEqual(p["trades"]["new"], ["NEWX (Brokerage)"])
+        self.assertEqual([d[0] for d in p["drift"]], ["Stocks", "Bonds"])
+        self.assertEqual(len(p["next_steps"]), 1)
+        facts = meeting.facts_for_ai(p)
+        self.assertNotIn("$", facts)                       # no dollar amounts
+        self.assertNotIn("Roth", facts)                    # no note text
+        self.assertNotIn("Met to talk", facts)
+        self.assertIn("+10.0%", facts)
+        fake = _FakeCreateClient("- Celebrate the 10% rise\n- Ask about the new holding")
+        self.assertEqual(meeting.talking_points(fake, {}, "summary", facts),
+                         ["Celebrate the 10% rise", "Ask about the new holding"])
+        self.assertIn("Since the last review", fake.kwargs["messages"][0]["content"])
+        conn.close()
+
+
 class ClientOnboardingTests(TempDBMixin, unittest.TestCase):
     """Client onboarding by link (ROADMAP G6): an advisor adds a client by
     email, emails the setup link, the client sets a password."""

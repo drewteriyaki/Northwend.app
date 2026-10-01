@@ -1376,6 +1376,9 @@ def _rules_for(account_id, conn=None):
 _view("clients")
 
 
+_view("meeting")
+
+
 _view("admin")
 
 
@@ -1970,6 +1973,8 @@ if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor no
     elif PAGE == "Get started":
         _render_get_started(False, None)
     elif PAGE == "Advisor notes":
+        if ON_CLIENT:
+            _render_meeting_prep(None, None, None, None)
         if IS_MANAGED_CLIENT:
             _render_proposals_client(None, None)
         _render_notes()
@@ -2158,6 +2163,10 @@ if PAGE == "Get started":
     _render_get_started(True, portfolio_value)
 
 if PAGE == "Advisor notes":
+    if ON_CLIENT:
+        _render_meeting_prep(portfolio_value,
+                             allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"],
+                             contexts, cash_by_account)
     if IS_MANAGED_CLIENT:
         _render_proposals_client(
             allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"],

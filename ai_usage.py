@@ -2,7 +2,8 @@
 predictable however many people use the app.
 
 Each AI feature has its own allowance per calendar month (UTC): Ask Northwend
-messages, screenshot reads, CSV column help and plan write-ups. Whoever
+messages, screenshot reads, CSV column help, plan write-ups and meeting-prep
+talking points (meeting.py). Whoever
 clicks is the one counted - an advisor working in a client's account uses
 the advisor's allowance. Advisors get ADVISOR_SCALE times the amounts; an
 account an admin marks unlimited (manage_users.py ai-unlimited) has none.
@@ -16,13 +17,14 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 # per account per month
-LIMITS = {"chat": 100, "screenshot": 10, "csv": 20, "plan": 5}
+LIMITS = {"chat": 100, "screenshot": 10, "csv": 20, "plan": 5, "prep": 20}
 ADVISOR_SCALE = 5
 # self-serve accounts use the AI only once their email is confirmed
 CONFIRM_FOR_AI = True
 # how each allowance is named to people: (one, many)
 NOUNS = {"chat": ("message", "messages"), "screenshot": ("screenshot read", "screenshot reads"),
-         "csv": ("CSV read", "CSV reads"), "plan": ("plan write-up", "plan write-ups")}
+         "csv": ("CSV read", "CSV reads"), "plan": ("plan write-up", "plan write-ups"),
+         "prep": ("set of talking points", "sets of talking points")}
 
 
 def month_of(now: datetime | None = None) -> str:

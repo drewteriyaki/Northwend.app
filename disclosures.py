@@ -26,6 +26,8 @@ Each statement about data here must stay true to the code:
   self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI). Advisor
   sign-ups store firm + licence (advisor_requests) and email them to the
   support address (mailer.advisor_request) for the admin to check.
+- Meeting prep talking points (meeting.facts_for_ai / talking_points): profile,
+  advisor.portfolio_summary, and percentage facts - no dollars, no note text.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
   role, created, last sign-in (users.last_login_at), locks; no holdings,
   plans or profile answers.
@@ -168,6 +170,12 @@ an AI model from Anthropic. When you use them, the app sends:
   beta and P/E** - never dollar amounts, share counts, account names or numbers,
 - what you type in the chat, and short notes the guide saved from earlier
   conversations.
+
+If you have an advisor, they can ask the AI to draft **talking points** before
+a meeting. That sends the same profile answers and holdings summary, plus facts
+in percentages - how your portfolio and goal have moved since the last review,
+which holdings were added or reduced, and how far the mix is from its target -
+never dollar amounts or your advisor's notes.
 
 If you choose to **read holdings from screenshots**, the images you upload are sent
 to the AI so it can read them - that's the only time an image leaves the app, and

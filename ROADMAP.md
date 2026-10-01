@@ -341,6 +341,13 @@ setup link, so the advisor has a ready profile before the first meeting.
 **What:** one click before a review: what changed since the last one, goal
 progress, drift from target, open notes, and talking points drafted by the
 AI for the advisor to edit.
+- [x] **Built** - a "Meeting prep" panel at the top of a client's Advisor
+      notes page (advisor only, `meeting.py`): last review and days since,
+      value change since then, holdings added / reduced / sold out (from the
+      snapshots either side), goal status, drift, open next steps, proposals
+      waiting or accepted. "Draft with Northwend" writes talking points from
+      percentages and facts only (its own AI allowance, "prep": 20 a month,
+      advisors 100); edit and "Save as a private note". Disclosures updated.
 
 ### G8. Client progress reports - M
 **What:** a clean monthly or quarterly summary an advisor sends each client
