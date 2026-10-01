@@ -9,6 +9,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - `ROADMAP.md` is the plan. Work items in order (or the one named), tick them
   `[x]` with a short note in the same commit.
 - **Always ask "Commit and push?" before committing or pushing.** Every push is approved.
+- **Staging first.** Commit on the `staging` branch and push it; the staging app
+  (its own Streamlit Cloud app and Neon database, banner "Staging copy") and the
+  GitHub Tests check update. When the change looks right there and Tests is
+  green, ask "Release to main?" and then `git push origin staging:main` (a
+  fast-forward). `main` is protected: it takes only commits whose Tests check
+  passed, no force pushes. Before starting work: `git checkout staging && git pull`.
 - Explain the plan before refactoring CSV import (`csv_import.py`) or price fetching
   (`live_prices.py`, `update_prices.py`, `sync_history.py`).
 - Never touch the real `portfolio.db` or `.env`. Use scratch copies (see Testing).

@@ -56,6 +56,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Defaults to ./portfolio.db; set PORTFOLIO_DB to point at another file (handy for
 # trying the importer against a throwaway copy).
 DB = os.environ.get("PORTFOLIO_DB") or os.path.join(HERE, "portfolio.db")
+# The staging app (its own Streamlit Cloud app on the `staging` branch, with
+# its own database) sets NORTHWEND_ENV = "staging" in its Secrets: every page
+# then says so, so it is never mistaken for the live app.
+STAGING = (os.environ.get("NORTHWEND_ENV") or "").strip().lower() == "staging"
 
 
 def _view(name):
@@ -111,7 +115,8 @@ def _dialog_closed():
 # up / down text colors with AA contrast on each theme (as --pt-up / --pt-down)
 SIGN_COLORS = {"light": ("#15803d", "#b91c1c"), "dark": ("#4ade80", "#f87171")}
 
-st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide",
+st.set_page_config(page_title=APP_NAME + (" (staging)" if STAGING else ""),
+                   page_icon=APP_ICON, layout="wide",
                    initial_sidebar_state="auto")
 
 # App-wide styles: hide Streamlit's own running/deploy widgets, tighten the
@@ -125,9 +130,13 @@ st.html("""<style>
    is the brand blue for bars and marks; line a hairline; line-strong the edge
    of a control (3:1); sunken the track behind a bar. */
 :root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; --pt-compass: #2a78d6;
-  --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; }
+  --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; --pt-dawn-soft: #fbebc9; }
 :root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24;
-  --pt-compass: #3987e5; --pt-line: #2a3847; --pt-line-strong: #62748a; --pt-sunken: #1c2a38; }
+  --pt-compass: #3987e5; --pt-line: #2a3847; --pt-line-strong: #62748a; --pt-sunken: #1c2a38;
+  --pt-dawn-soft: #3a2f17; }
+/* the staging app's banner (STAGING): text in the theme's own color */
+.pt-staging { background: var(--pt-dawn-soft); border: 1px solid var(--pt-warn); border-radius: .5rem;
+  padding: .5rem .9rem; font-size: .9rem; font-weight: 600; }
 /* Newsreader is for page and section titles only; card headings (h4 and
    smaller) stay in the text face, Figtree */
 h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important; }
@@ -240,6 +249,9 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   margin-left: -1px; background: currentColor; }
 </style>""")
 
+if STAGING:
+    st.html("<div class='pt-staging' role='note'>Staging copy, for trying changes before "
+            "they go live. Use test data only: this is not the real Northwend.</div>")
 
 SESSION_COOKIE = "pt_session"
 

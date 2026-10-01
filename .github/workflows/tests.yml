@@ -20,7 +20,6 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip  # reuse installed packages between runs
-          cache: pip
       - run: pip install -r requirements.txt
       - name: Run tests
         run: python -m unittest discover -s tests

@@ -3049,6 +3049,31 @@ class FetchFundSplitTests(unittest.TestCase):
         self.assertEqual((out["quote_type"], calls), ("", []))   # asked - don't keep asking
 
 
+class WorkflowFileTests(unittest.TestCase):
+    """GitHub rejects a workflow with a repeated key and runs nothing - the
+    tests silently stopped running once that way (a doubled `cache: pip`)."""
+
+    def test_no_repeated_keys_in_workflows(self):
+        folder = os.path.join(REPO, ".github", "workflows")
+        for name in os.listdir(folder):
+            if not name.endswith((".yml", ".yaml")):
+                continue
+            seen = [(-1, set())]   # (indent, keys) of each open mapping
+            with open(os.path.join(folder, name), encoding="utf-8") as fh:
+                for n, line in enumerate(fh, 1):
+                    m = re.match(r"^( *)(- )?([A-Za-z0-9_-]+):(\s|$)", line)
+                    if not m or line.lstrip().startswith("#"):
+                        continue
+                    indent = len(m.group(1)) + (2 if m.group(2) else 0)
+                    while seen[-1][0] > indent:
+                        seen.pop()
+                    if seen[-1][0] < indent or m.group(2):
+                        seen.append((indent, set()))
+                    key = m.group(3)
+                    self.assertNotIn(key, seen[-1][1], f"{name}:{n} repeats '{key}'")
+                    seen[-1][1].add(key)
+
+
 class WebsiteTests(unittest.TestCase):
     """The Northwend website (website/): public/ is what Cloudflare Pages serves."""
 

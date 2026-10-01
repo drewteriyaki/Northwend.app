@@ -168,6 +168,12 @@ the deploy, not before it.
 - CLAUDE.md's working rules updated for the new flow (staging first).
 **Done when:** a change can be seen on staging before it reaches anyone, and
 `main` can't take a push whose tests fail.
+- [x] **Code side** - the Tests workflow fixed (a doubled `cache: pip` had
+      stopped every run since `19a25b6`; a test now catches repeated keys);
+      `NORTHWEND_ENV = "staging"` shows a "Staging copy" banner and tab title;
+      the `staging` branch; CLAUDE.md's staging-first rule.
+- [ ] **Needs you:** the staging Streamlit app and Neon database, and the
+      ruleset on `main` (steps given in the session).
 
 ### L4. Move the app to its own domain - M
 **Why:** Streamlit Community Cloud only serves `….streamlit.app` addresses.
