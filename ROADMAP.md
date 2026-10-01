@@ -153,8 +153,21 @@ L1 domain.
       security headers. `python website/build.py` writes `website/public/`
       (committed; a test checks it is current). Create account opens the app's
       `?signup=1`, Log in the app.
-- [ ] **Needs you:** Cloudflare Pages project on this repo (no build command,
-      output `website/public`), then the custom domain northwend.app.
+- [x] **Live at https://northwend.app** - Cloudflare Pages on this repo (no
+      build command, output `website/public`), redeploys on every push to main.
+
+### L3b. Staging and branch protection - M
+**Why:** every push to `main` goes straight to real users; tests run beside
+the deploy, not before it.
+**What:**
+- A `staging` branch with its own Streamlit Cloud app and its own database
+  (a Neon branch), plus a Cloudflare Pages preview for the website - try
+  changes there, then merge to `main`.
+- Branch protection on `main` on GitHub: changes arrive by pull request and
+  merge only when the tests pass.
+- CLAUDE.md's working rules updated for the new flow (staging first).
+**Done when:** a change can be seen on staging before it reaches anyone, and
+`main` can't take a push whose tests fail.
 
 ### L4. Move the app to its own domain - M
 **Why:** Streamlit Community Cloud only serves `….streamlit.app` addresses.
