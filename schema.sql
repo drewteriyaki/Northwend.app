@@ -366,6 +366,15 @@ CREATE TABLE IF NOT EXISTS login_failures (
     locked_until  TEXT
 );
 
+-- Sign-up tries, for the limits on new accounts (auth.sign_up). Keyed by a
+-- SHA-256 of the internet address ('' if unknown) - never the address or the
+-- email - and kept for a day.
+CREATE TABLE IF NOT EXISTS signups (
+    address_key  TEXT    NOT NULL,
+    created_at   TEXT    NOT NULL,               -- 'YYYY-MM-DD HH:MM:SS' UTC
+    ok           INTEGER NOT NULL                -- 1 = an account was made
+);
+
 -- Column layouts of brokerage CSVs seen before (csv_import.py): a fingerprint
 -- of the column NAMES -> which column holds which field. No holdings or
 -- personal data - so the next file with the same columns needs no questions.

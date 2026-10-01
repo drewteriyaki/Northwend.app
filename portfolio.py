@@ -184,7 +184,10 @@ def _ensure_schema(conn) -> None:
                         ("transactions", USER_ID_COL),
                         ("value_log", USER_ID_COL),
                         ("users", [("is_advisor", "INTEGER"),
-                                   ("ai_unlimited", "INTEGER")]),  # ai_usage.py
+                                   ("ai_unlimited", "INTEGER"),  # ai_usage.py
+                                   # self-serve sign-up (auth.sign_up)
+                                   ("email", "TEXT"), ("email_verified_at", "TEXT"),
+                                   ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT")]),
                         ("advisor_clients", [("client_can_import", "INTEGER")]),
                         # what a fund holds, from Yahoo (asset_classes.py)
                         ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),
@@ -207,6 +210,9 @@ def _ensure_schema(conn) -> None:
     # the column. The two dropped ones duplicated their table's primary key.
     for name, table, cols in USER_INDEXES:
         conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({cols})")
+    # one account per email (NULL for accounts made by an admin or advisor)
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_signups_time ON signups (created_at)")
     for name in ("idx_daily_bars_ticker", "idx_intraday_bars_lookup"):
         conn.execute(f"DROP INDEX IF EXISTS {name}")
     # saved targets from before Stocks / Bonds / Cash / Other; a no-op once done

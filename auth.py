@@ -1,7 +1,9 @@
-"""Individual login accounts. Created by an admin (manage_users.py) or by an
-advisor for a client (create_client) - there is no self-service signup.
-A client chooses their own password from a one-time setup link the advisor
-sends (create_invite / accept_invite), so no password is ever shared.
+"""Individual login accounts. Created by an admin (manage_users.py), by an
+advisor for a client (create_client), or by people themselves with their
+email address (sign_up - the email is the login; confirming it waits for an
+email service). A client chooses their own password from a one-time setup
+link the advisor sends (create_invite / accept_invite), so no password is
+ever shared.
 
 Passwords are never stored in plain text: pbkdf2_hmac('sha256', ...) with a
 per-user random salt, both stored as hex in the `users` table. No external
@@ -48,10 +50,14 @@ def verify_login(conn: sqlite3.Connection, username: str, password: str) -> int 
     """The user's id on a correct username/password, else None. Never
     reveals whether the username or the password was wrong (avoids
     username enumeration) - both a missing user and a wrong password just
-    return None."""
+    return None. A self-serve account's email works in any letter case."""
     row = conn.execute(
         "SELECT id, password_hash, password_salt FROM users WHERE username = ?",
         (username,)).fetchone()
+    if row is None and "@" in (username or ""):
+        row = conn.execute(
+            "SELECT id, password_hash, password_salt FROM users WHERE email = ?",
+            (normalize_email(username),)).fetchone()
     if row is None:
         return None
     salt = bytes.fromhex(row["password_salt"])
@@ -285,6 +291,96 @@ def accept_invite(conn, token: str, password: str, *, now: datetime | None = Non
     conn.execute("DELETE FROM invites WHERE user_id = ?", (info["user_id"],))
     set_password(conn, info["username"], password)  # commits both
     return {"ok": True, "error": None, "user_id": info["user_id"], "username": info["username"]}
+
+
+# --------------------------------------------------------------------------- #
+# self-serve sign-up
+# --------------------------------------------------------------------------- #
+# Bot protection without an outside service: a hidden field people never see
+# (filled in = a bot), a form sent faster than a person could, and limits on
+# how many accounts one internet address - and the whole app - can make.
+SIGNUP_MIN_SECONDS = 3            # a form sent sooner than this is asked again
+SIGNUPS_PER_ADDRESS_PER_DAY = 3   # accounts made from one internet address
+SIGNUP_TRIES_PER_ADDRESS_PER_HOUR = 10  # any sign-up tries from one address
+SIGNUPS_PER_HOUR = 20             # accounts made app-wide, in case addresses are hidden
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$")
+
+
+def normalize_email(email: str | None) -> str:
+    return (email or "").strip().lower()
+
+
+def valid_email(email: str) -> bool:
+    return len(email or "") <= 254 and bool(_EMAIL_RE.match(email or ""))
+
+
+def _address_key(ip: str | None) -> str:
+    """The rate limit's key for an internet address: hashed, so the address
+    itself isn't stored, and '' when it isn't known (only the app-wide
+    limit applies then)."""
+    return hashlib.sha256(ip.encode("utf-8")).hexdigest() if ip else ""
+
+
+def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
+            terms_version: str, ip: str | None = None, seconds_open: float = 0,
+            honeypot: str = "", now: datetime | None = None) -> dict:
+    """Create an account from the sign-up form: the email (lower-cased) is
+    both the login and the address, not yet confirmed. `agreed` / `adult` are
+    the form's two checkboxes; `terms_version` is the disclosures version
+    agreed to (stored with the time). `seconds_open` is how long the form was
+    on screen and `honeypot` the hidden field. Returns {"ok", "error",
+    "user_id", "username"}."""
+    def fail(msg):
+        return {"ok": False, "error": msg, "user_id": None, "username": None}
+
+    now = now or datetime.now(timezone.utc)
+    stamp, key = _utc(now), _address_key(ip)
+    email = normalize_email(email)
+    conn.execute("DELETE FROM signups WHERE created_at < ?", (_utc(now - timedelta(days=1)),))
+    conn.commit()
+    if honeypot:  # only a bot fills in a field nobody can see; say nothing useful
+        _note_signup(conn, key, stamp, ok=False)
+        return fail("Something went wrong. Please try again in a little while.")
+    if not valid_email(email):
+        return fail("Enter your email address, like name@example.com.")
+    if len(password or "") < MIN_PASSWORD_LENGTH:
+        return fail(f"Use a password of at least {MIN_PASSWORD_LENGTH} characters.")
+    if not adult:
+        return fail("Accounts are for people 18 and over - tick the box to confirm.")
+    if not agreed:
+        return fail("Tick the box to agree to the About and disclosures.")
+
+    hour_ago, day_ago = _utc(now - timedelta(hours=1)), _utc(now - timedelta(days=1))
+    if key:
+        tries = conn.execute("SELECT COUNT(*) AS n FROM signups WHERE address_key = ? "
+                             "AND created_at >= ?", (key, hour_ago)).fetchone()["n"]
+        made = conn.execute("SELECT COUNT(*) AS n FROM signups WHERE address_key = ? "
+                            "AND ok = 1 AND created_at >= ?", (key, day_ago)).fetchone()["n"]
+        if tries >= SIGNUP_TRIES_PER_ADDRESS_PER_HOUR or made >= SIGNUPS_PER_ADDRESS_PER_DAY:
+            return fail("Too many new accounts from here for now. Please try again tomorrow.")
+    recent = conn.execute("SELECT COUNT(*) AS n FROM signups WHERE ok = 1 AND created_at >= ?",
+                          (hour_ago,)).fetchone()["n"]
+    if recent >= SIGNUPS_PER_HOUR:
+        return fail("Lots of people are signing up right now. Please try again in an hour.")
+    if seconds_open < SIGNUP_MIN_SECONDS:
+        return fail("That was quick! Check your details and press Create account again.")
+
+    taken = conn.execute("SELECT 1 FROM users WHERE lower(username) = ? OR email = ?",
+                         (email, email)).fetchone()
+    if taken:  # counted, so the form can't be used to check many emails quickly
+        _note_signup(conn, key, stamp, ok=False)
+        return fail("There's already an account with this email. Sign in instead.")
+    user_id = create_user(conn, email, password)
+    conn.execute("UPDATE users SET email = ?, terms_version = ?, terms_accepted_at = ? "
+                 "WHERE id = ?", (email, terms_version, stamp, user_id))
+    _note_signup(conn, key, stamp, ok=True)
+    return {"ok": True, "error": None, "user_id": user_id, "username": email}
+
+
+def _note_signup(conn, key: str, stamp: str, *, ok: bool) -> None:
+    conn.execute("INSERT INTO signups (address_key, created_at, ok) VALUES (?, ?, ?)",
+                 (key, stamp, 1 if ok else 0))
+    conn.commit()
 
 
 def get_user_id(conn: sqlite3.Connection, username: str) -> int | None:

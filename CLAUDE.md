@@ -44,7 +44,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`,
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
   snapshot differences), `plans.py`, `overview.py` (advisor clients).
-- People: `auth.py` (logins, sessions, client setup links), `manage_users.py`
+- People: `auth.py` (logins, sessions, client setup links, self-serve sign-up), `manage_users.py`
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status` and counts with `_ai_record`), `advising.py`,
   `advisor.py` (Sage, Claude API with prompt caching), `prefs.py`, `accounts.py`.

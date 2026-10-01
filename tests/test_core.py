@@ -1210,6 +1210,101 @@ class AiUsageTests(TempDBMixin, unittest.TestCase):
         conn.close()
 
 
+class SignUpTests(TempDBMixin, unittest.TestCase):
+    """Self-serve sign-up with an email (auth.sign_up)."""
+
+    NOW = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def _sign_up(self, email="New.Person@Example.com", password="goodpass1", **kw):
+        args = dict(agreed=True, adult=True, terms_version="October 1, 2026",
+                    ip="203.0.113.7", seconds_open=10, now=self.NOW)
+        args.update(kw)
+        return auth.sign_up(self.conn, email, password, **args)
+
+    def test_new_account_signs_in_by_email_and_gets_normal_ai_limits(self):
+        import ai_usage
+        result = self._sign_up()
+        self.assertTrue(result["ok"], result["error"])
+        self.assertEqual(result["username"], "new.person@example.com")
+        row = self.conn.execute("SELECT email, email_verified_at, terms_version, "
+                                "terms_accepted_at, is_advisor FROM users WHERE id = ?",
+                                (result["user_id"],)).fetchone()
+        self.assertEqual(row["email"], "new.person@example.com")
+        self.assertIsNone(row["email_verified_at"])        # no email service yet
+        self.assertEqual(row["terms_version"], "October 1, 2026")
+        self.assertEqual(row["terms_accepted_at"], "2026-10-01 12:00:00")
+        self.assertFalse(row["is_advisor"])
+        for typed in ("new.person@example.com", "NEW.Person@example.COM"):
+            self.assertEqual(auth.verify_login(self.conn, typed, "goodpass1"), result["user_id"])
+        self.assertIsNone(auth.verify_login(self.conn, "new.person@example.com", "wrong"))
+        for kind, base in ai_usage.LIMITS.items():
+            self.assertEqual(ai_usage.limit_for(self.conn, result["user_id"], kind), base)
+        # only a hash of the address is kept
+        keys = [r["address_key"] for r in self.conn.execute("SELECT address_key FROM signups")]
+        self.assertTrue(keys and all("203.0.113.7" not in k for k in keys))
+
+    def test_form_checks(self):
+        cases = [(dict(email="not an email"), "email address"),
+                 (dict(password="short"), "at least"),
+                 (dict(adult=False), "18 and over"),
+                 (dict(agreed=False), "agree")]
+        for kw, msg in cases:
+            result = self._sign_up(**kw)
+            self.assertFalse(result["ok"])
+            self.assertIn(msg, result["error"])
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"], 1)
+
+    def test_taken_email_in_any_case_is_refused(self):
+        self.assertTrue(self._sign_up()["ok"])
+        again = self._sign_up(email="new.person@EXAMPLE.com", ip="198.51.100.1")
+        self.assertFalse(again["ok"])
+        self.assertIn("already an account", again["error"])
+        auth.create_user(self.conn, "Admin.Made@example.com", "whatever1")  # by an admin
+        self.assertFalse(self._sign_up(email="admin.made@example.com", ip="198.51.100.2")["ok"])
+
+    def test_bot_checks(self):
+        trap = self._sign_up(honeypot="http://spam.example")
+        self.assertFalse(trap["ok"])
+        self.assertNotIn("field", trap["error"].lower())   # says nothing about why
+        fast = self._sign_up(seconds_open=1)
+        self.assertFalse(fast["ok"])
+        self.assertIn("quick", fast["error"])
+        self.assertTrue(self._sign_up(seconds_open=4)["ok"])  # the person tries again
+
+    def test_limits_per_address_and_app_wide(self):
+        for i in range(auth.SIGNUPS_PER_ADDRESS_PER_DAY):
+            self.assertTrue(self._sign_up(email=f"p{i}@example.com")["ok"])
+        blocked = self._sign_up(email="one.more@example.com")
+        self.assertFalse(blocked["ok"])
+        self.assertIn("tomorrow", blocked["error"])
+        tomorrow = self.NOW + timedelta(days=1, minutes=1)
+        self.assertTrue(self._sign_up(email="one.more@example.com", now=tomorrow)["ok"])
+        # app-wide: many addresses within one hour
+        later = self.NOW + timedelta(days=3)
+        for i in range(auth.SIGNUPS_PER_HOUR):
+            self.assertTrue(self._sign_up(email=f"w{i}@example.com", ip=f"10.0.{i}.1",
+                                          now=later)["ok"])
+        busy = self._sign_up(email="late@example.com", ip="10.9.9.9", now=later)
+        self.assertIn("try again in an hour", busy["error"])
+        # an unknown address only meets the app-wide limit
+        self.assertTrue(self._sign_up(email="anon@example.com", ip=None,
+                                      now=later + timedelta(hours=2))["ok"])
+
+    def test_checking_many_emails_from_one_address_is_slowed(self):
+        self.assertTrue(self._sign_up(email="taken@example.com")["ok"])
+        for _ in range(auth.SIGNUP_TRIES_PER_ADDRESS_PER_HOUR - 1):
+            self.assertIn("already", self._sign_up(email="taken@example.com")["error"])
+        self.assertIn("tomorrow", self._sign_up(email="taken@example.com")["error"])
+
+
 class BulkCreateTests(TempDBMixin, unittest.TestCase):
     def test_parse_user_list_skips_blanks_and_comments(self):
         text = "alice,pw1\n\n# a comment\nbob\n  carol , pw3  \n"

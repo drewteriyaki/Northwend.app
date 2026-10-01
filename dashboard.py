@@ -6,6 +6,7 @@ Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 import html
 import json
 import os
+import time
 from datetime import date, datetime, timedelta, timezone
 
 import altair as alt
@@ -139,6 +140,8 @@ st.html("""<style>
    hidden on wider ones where the sidebar is the menu. --pt-bg is the page's
    own background, kept in step with light/dark by ui_enhancements.js. */
 .st-key-pt_tabbar { display: none !important; }
+/* the sign-up form's hidden field (_signup): people never see it, bots fill it in */
+.st-key-signup_website { display: none !important; }
 @media (max-width: 640px) {
   .st-key-pt_tabbar {
     display: flex !important; position: fixed; left: 0; right: 0; bottom: 0; z-index: 999990;
@@ -311,9 +314,92 @@ def _invite_setup(token: str) -> bool:
     st.rerun()
 
 
+def _show_signup(flag):
+    """Switch the sign-in screen between Log in and Create account."""
+    st.session_state["show_signup"] = flag
+    st.session_state.pop("signup_opened", None)
+    if not flag and "signup" in st.query_params:
+        del st.query_params["signup"]
+
+
+def _signup() -> bool:
+    """The Create account page (auth.sign_up): an email, a password, and
+    agreeing to the disclosures. A new account is signed in straight away and
+    starts on Get started. Linkable as ?signup=1. False until it's made."""
+    # when the form first appeared - one sent sooner than a person could is asked again
+    st.session_state.setdefault("signup_opened", time.time())
+    _, mid, _ = st.columns([1, 1.4, 1])
+    with mid:
+        st.title(f"{APP_ICON} {APP_NAME}")
+        st.subheader("Create your account", anchor=False)
+        st.caption(f"Free while {APP_NAME} is in beta. Your email is just your login: it's never "
+                   "shown to anyone or sent to the AI, and you never connect a brokerage. You can "
+                   "start with an example portfolio or percentages instead of real numbers.")
+        with st.form("signup_form", border=True):
+            email = st.text_input("Email", key="signup_email", autocomplete="email",
+                                  placeholder="name@example.com")
+            pw = st.text_input("Choose a password", type="password", key="signup_pw",
+                               autocomplete="new-password",
+                               help=f"At least {auth.MIN_PASSWORD_LENGTH} characters, and one "
+                                    "you don't use anywhere else.")
+            again = st.text_input("Type it again", type="password", key="signup_pw_again",
+                                  autocomplete="new-password")
+            st.text_input("Website", key="signup_website")  # hidden (see the CSS); bots fill it
+            adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="signup_adult")
+            agreed = st.checkbox("I've read and agree to the About and disclosures",
+                                 key="signup_agree",
+                                 help="What the app is, what's stored and what's sent to the "
+                                      "AI - open it below.")
+            remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
+                                   value=True, key="signup_remember",
+                                   help="Leave this off on a shared or public computer.")
+            submitted = st.form_submit_button("Create account", type="primary", width="stretch")
+        st.caption("There's no password reset by email yet, so keep your password somewhere "
+                   "safe.")
+        with st.container(horizontal=True):
+            st.button("Hide about and disclosures" if st.session_state.get("show_about")
+                      else "About and disclosures", key="signup_about", type="tertiary",
+                      on_click=_toggle_about)
+            st.button("Already have an account? Sign in", key="signup_to_login",
+                      type="tertiary", on_click=_show_signup, args=(False,))
+    if st.session_state.get("show_about"):
+        with mid.container(border=True):
+            _render_disclosures()
+    if not submitted:
+        return False
+    if pw != again:
+        mid.error("The two passwords don't match.")
+        return False
+    conn = connect(DB)
+    try:
+        result = auth.sign_up(conn, email, pw, agreed=agreed, adult=adult,
+                              terms_version=disclosures.LAST_UPDATED,
+                              ip=st.context.ip_address,
+                              seconds_open=time.time() - st.session_state["signup_opened"],
+                              honeypot=st.session_state.get("signup_website") or "")
+        if result["ok"]:
+            # they just agreed to this version, so no "worth a quick read" banner
+            prefs.save(conn, result["user_id"], {"disclosures_seen": disclosures.LAST_UPDATED})
+            session = auth.create_session(conn, result["user_id"]) if remember else None
+    finally:
+        conn.close()
+    if not result["ok"]:
+        mid.error(result["error"])
+        return False
+    st.session_state.clear()  # whoever was signed in on this browser before
+    st.session_state["user_id"] = result["user_id"]
+    st.session_state["username"] = result["username"]
+    st.session_state["session_token"] = session
+    st.session_state["import_flash"] = f"Your account is ready. Welcome to {APP_NAME}!"
+    if "signup" in st.query_params:
+        del st.query_params["signup"]
+    st.rerun()
+
+
 def _login() -> bool:
-    """Per-account login - every account is admin-provisioned (see
-    manage_users.py); there is no signup anywhere in this app. Sets
+    """Per-account login. Accounts are made by an admin (manage_users.py),
+    an advisor for a client, or by people themselves on the Create account
+    page (_signup). Sets
     st.session_state["user_id"]/["username"] on success. Generic error
     message on any failure (unknown username OR wrong password) so the
     login screen never reveals which username exists.
@@ -340,6 +426,8 @@ def _login() -> bool:
         st.session_state["signed_out"] = True  # a dead cookie: remove it below
     if st.session_state.get("signed_out") and cookie:
         st.html(_cookie_script(None), unsafe_allow_javascript=True)
+    if st.session_state.get("show_signup", "signup" in st.query_params):
+        return _signup()
 
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
@@ -349,12 +437,15 @@ def _login() -> bool:
         if _notice:
             st.info(_notice)
         with st.form("login_form", border=True):
-            user = st.text_input("Username", key="login_user")
-            pw = st.text_input("Password", type="password", key="login_pw")
+            user = st.text_input("Email or username", key="login_user", autocomplete="username")
+            pw = st.text_input("Password", type="password", key="login_pw",
+                               autocomplete="current-password")
             remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
                                    value=True, key="login_remember",
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Log in", type="primary", width="stretch")
+        st.button("New here? Create an account", key="login_to_signup", width="stretch",
+                  on_click=_show_signup, args=(True,))
         st.caption(disclosures.SUMMARY)
         st.button("Hide about and disclosures" if st.session_state.get("show_about")
                   else "About and disclosures", key="login_about", type="tertiary",
@@ -364,7 +455,7 @@ def _login() -> bool:
             _render_disclosures(summary=False)  # the summary is just above
     if submitted:
         if not user or not pw:
-            mid.error("Enter your username and password.")
+            mid.error("Enter your email or username, and your password.")
             return False
         conn = connect(DB)
         try:
@@ -372,13 +463,15 @@ def _login() -> bool:
             result = auth.attempt_login(conn, user, pw)
             user_id = result["user_id"]
             token = auth.create_session(conn, user_id) if user_id is not None and remember else None
+            # as stored, not as typed (an email works in any letter case)
+            username = auth.get_username(conn, user_id) if user_id is not None else None
         finally:
             conn.close()
         if user_id is not None:
             st.session_state.pop("signed_out", None)
             st.session_state.pop("login_notice", None)
             st.session_state["user_id"] = user_id
-            st.session_state["username"] = user
+            st.session_state["username"] = username
             st.session_state["session_token"] = token
             st.rerun()
         if result["locked_minutes"]:
@@ -386,11 +479,11 @@ def _login() -> bool:
             mid.error(f"Too many attempts. Try again in {m} minute{'s' if m != 1 else ''}, "
                       "or ask whoever manages your account to reset your password.")
         elif result["attempts_left"] <= 2:
-            mid.error(f"Invalid username or password. {result['attempts_left']} more "
+            mid.error(f"Wrong email, username or password. {result['attempts_left']} more "
                       f"attempt{'s' if result['attempts_left'] != 1 else ''} before a "
                       f"{auth.LOCKOUT_MINUTES}-minute lock.")
         else:
-            mid.error("Invalid username or password.")
+            mid.error("Wrong email, username or password.")
     return False
 
 

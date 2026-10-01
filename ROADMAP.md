@@ -145,6 +145,13 @@ their email, reset a forgotten password, and use the app within its limits.
 - [x] **AI limits** - monthly allowances per account (Ask Sage 100 messages,
       screenshots 10, CSV help 20, plans 5; advisors 5x), shown as "X of Y left
       this month"; `manage_users.py ai-unlimited` for your own account. (ai_usage.py)
+- [x] **Sign-up (no email sent yet)** - "Create an account" on the sign-in screen
+      (also `?signup=1`): email as the login, 18+ and agreeing to the disclosures
+      (version stored), bot checks (hidden field, too-fast form, 3 accounts per
+      address a day, 20 app-wide an hour); normal AI limits. Sign in with email or
+      username. (auth.sign_up, dashboard `_signup`)
+- [ ] **Email confirmation and "forgot password"** - once an email service (and
+      the L1 domain) is picked: fill `users.email_verified_at`, reset links.
 
 ### L6. Launch - S - needs you
 **What:** the item-5 disclosures review done (and any Terms of Use / Privacy

@@ -18,6 +18,9 @@ Each statement about data here must stay true to the code:
 - Passwords: PBKDF2 with a per-user salt; stay-signed-in cookies hold a random
   token whose hash is stored; 5 wrong passwords lock a username for 15
   minutes (auth.py).
+- Sign-up: the email is the login, not shown to others or sent anywhere
+  (auth.sign_up); bot checks keep only a SHA-256 of the internet address for
+  a day (signups table); the version agreed to is stored (users.terms_version).
 - Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
@@ -31,7 +34,7 @@ Change this text when any of those change.
 Plain text, no "$" (Streamlit would read a pair of them as math).
 """
 
-LAST_UPDATED = "September 30, 2026"
+LAST_UPDATED = "October 1, 2026"
 MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
@@ -85,7 +88,9 @@ to them (not ones you mark private); you can see everything in their account.
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
   cost, value and account names), your plan and goals, your investing-profile
-  answers, notes, and settings.
+  answers, notes, and settings. If you created your account yourself, also
+  your email address - it's only your login, never shown to anyone else or sent
+  to the AI - and which version of this page you agreed to.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
   cut to its last 3 digits before it's saved. Pasted text is read by the app
@@ -110,6 +115,9 @@ to them (not ones you mark private); you can see everything in their account.
     ("Security", """
 - **Passwords** are stored only as a salted, one-way hash, never as text. After
   5 wrong passwords a username is locked for 15 minutes.
+- **New accounts:** to stop automated sign-ups, only a few accounts can be
+  made from one internet address each day. For that, a scrambled copy of the
+  address (not the address itself) is kept for one day.
 - **"Stay signed in"** keeps a random token in a cookie on your device; only a
   scrambled copy of it is stored. Changing your password or logging out ends it,
   and a password change signs out your other devices too.
