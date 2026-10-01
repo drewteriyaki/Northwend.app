@@ -183,6 +183,13 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
    static/topo-light.svg and topo-dark.svg, one step above the page colour */
 [data-testid="stMain"] { background-repeat: no-repeat;
   background-position: right -220px top -40px; background-size: 1400px auto; }
+/* movement (ROADMAP T2; ui_enhancements.js adds the classes): a new page fades
+   in (opacity only - a transform would unpin the phone tab bar for a moment),
+   and the trail draws itself forward when a waypoint is reached */
+.pt-page-enter { animation: pt-page-in .35s ease-out; }
+@keyframes pt-page-in { from { opacity: 0; } to { opacity: 1; } }
+.pt-trail-advance { animation: pt-trail-draw .9s ease-out; }
+@keyframes pt-trail-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 /* the trail is two images, one per theme; show the one that matches */
 :root[data-pt-theme="dark"] .pt-on-light, :root:not([data-pt-theme="dark"]) .pt-on-dark {
   display: none; }

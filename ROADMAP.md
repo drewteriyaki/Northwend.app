@@ -354,6 +354,12 @@ follow (as L2 did).
 Pages and windows that ease in instead of appearing all at once; the
 route's progress drawing itself forward when a waypoint is reached; small,
 quick, and off when the device asks for less motion.
+- [x] **Built** - ui_enhancements.js watches the address's ?page= and
+      replays a short fade-in on the page (opacity only: a transform would
+      unpin the phone tab bar), and replays a left-to-right draw of the
+      trail when its picture changes on the same page (a waypoint reached).
+      Windows already ease in (Streamlit's own). Both stop when the device
+      asks for less motion.
 
 ### T3. Milestones and gear - M
 The route as regions with a milestone at the end of each ("First camp: a

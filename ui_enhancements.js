@@ -256,6 +256,39 @@
     }
   }, { passive: true });
 
+  // ---- movement between pages (ROADMAP T2) -------------------------------
+  // A new page (the address's ?page= changes) fades in, and the route's
+  // trail draws itself forward when its picture changes (a waypoint
+  // reached). dashboard.py's styles do the moving (pt-page-enter,
+  // pt-trail-advance); a device that asks for less motion gets none.
+  const replay = (el, cls) => {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;  // restart the animation
+    el.classList.add(cls);
+  };
+  const pageOf = () => new URLSearchParams(location.search).get("page") || "";
+  let lastPage = pageOf();
+  setInterval(() => {
+    const p = pageOf();
+    if (p !== lastPage) {
+      lastPage = p;
+      replay(q('[data-testid="stMainBlockContainer"]'), "pt-page-enter");
+    }
+  }, 120);
+  // (each rerun builds the trail's images afresh, so remember the picture by
+  // page and theme, not by element; a new element with the same picture
+  // stays still)
+  const trailSrc = new Map();
+  setInterval(() => {
+    for (const img of document.querySelectorAll("img.pt-trail")) {
+      const key = pageOf() + "|" + img.className.replace(" pt-trail-advance", "");
+      const was = trailSrc.get(key);
+      if (was !== undefined && was !== img.src) replay(img, "pt-trail-advance");
+      trailSrc.set(key, img.src);
+    }
+  }, 300);
+
   // ---- theme switch -----------------------------------------------------
   const isDark = () => {
     const rgb = getComputedStyle(q(".stApp") || document.body).backgroundColor.match(/\d+/g);
