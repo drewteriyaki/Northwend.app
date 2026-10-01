@@ -1094,6 +1094,31 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
         auth.set_advisor(self.conn, "testuser", False)
         self.assertFalse(auth.can_view(self.conn, self.user_id, client))
 
+    def test_weekly_summary_groups_reviews_and_other_reasons(self):
+        row = lambda uid, review, days, reasons: {"user_id": uid, "name": f"c{uid}", "review": review,
+                                                   "review_days": days, "reasons": reasons}
+        every = advising.REVIEW_EVERY_DAYS
+        s = advising.weekly_summary([
+            row(1, "due", every + 40, ["Review due"]),
+            row(2, "never", None, ["No review yet", "No goal"]),
+            row(3, "due", every + 5, ["Review due", "2 alerts"]),
+            row(4, "ok", every - 3, []),                       # due in 4 days
+            row(5, "ok", every - advising.SOON_DAYS - 1, []),  # not soon yet
+            row(6, "ok", 10, ["Drift 12 pts"]),
+        ])
+        self.assertEqual([r["user_id"] for r in s["due"]], [2, 1, 3])   # never, then most overdue
+        self.assertEqual([(r["user_id"], r["in_days"]) for r in s["soon"]], [(4, 4)])
+        self.assertEqual([(r["user_id"], r["other"]) for r in s["attention"]],
+                         [(2, ["No goal"]), (3, ["2 alerts"]), (6, ["Drift 12 pts"])])
+        self.assertTrue(s["any"])
+        self.assertFalse(advising.weekly_summary([row(7, "ok", 5, [])])["any"])
+
+    def test_week_of_runs_monday_to_sunday(self):
+        self.assertEqual(advising.week_of(date(2026, 9, 28)), "2026-W40")   # Monday
+        self.assertEqual(advising.week_of(date(2026, 10, 4)), "2026-W40")   # Sunday
+        self.assertEqual(advising.week_of(date(2026, 10, 5)), "2026-W41")
+        self.assertEqual(advising.week_of(date(2027, 1, 1)), "2026-W53")    # ISO year
+
     def test_setup_link_lets_the_client_choose_a_password_once(self):
         cid = auth.create_client(self.conn, self.user_id, "jsmith")
         now = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)

@@ -787,15 +787,25 @@ if dict(st.query_params) != _want_qp:
     st.query_params.from_dict(_want_qp)
 
 
-def _disclosures_seen():
-    """Remember (per login) that this version of the disclosures was seen."""
+def _save_login_pref(key, value):
+    """Save one setting of the signed-in login (not the client being viewed),
+    keeping the page's cached copy in step - a later settings save writes
+    that copy back whole, and would otherwise undo this."""
     c = connect(DB)
     try:
         p = prefs.load(c, LOGIN_ID)
-        p["disclosures_seen"] = disclosures.LAST_UPDATED
+        p[key] = value
         prefs.save(c, LOGIN_ID, p)
     finally:
         c.close()
+    cached = st.session_state.get("_prefs")
+    if cached and cached[0] == LOGIN_ID:
+        cached[1][key] = value
+
+
+def _disclosures_seen():
+    """Remember (per login) that this version of the disclosures was seen."""
+    _save_login_pref("disclosures_seen", disclosures.LAST_UPDATED)
     st.session_state["disclosures_seen"] = disclosures.LAST_UPDATED
 
 
@@ -1085,42 +1095,53 @@ def _set_can_import(client_id):
         c.close()
 
 
-def _render_clients():
+def _client_rows(today):
+    """One row per client of this advisor: their summary, goal, review and
+    why they need a look - the Clients page and the weekly summary."""
     import overview
 
+    conn = connect(DB)
+    try:
+        # only the tickers these clients hold
+        _ids = [cid for cid, _ in CLIENTS]
+        quotes = overview.latest_quotes(conn, [r["symbol"] for r in conn.execute(
+            f"SELECT DISTINCT symbol FROM positions WHERE user_id IN "
+            f"({', '.join('?' for _ in _ids)})", tuple(_ids))])
+        rows = []
+        for cid, name in CLIENTS:
+            summ = overview.account_summary(conn, cid, quotes, _rules_for(cid, conn))
+            plan = plans.get_plan(conn, cid)
+            goal = (plans.progress(plan, summ["portfolio_value"] or 0.0, today=today)
+                    if plans.has_goal(plan) else None)
+            drift = (advising.max_drift(summ["alloc_pct"], (plan or {}).get("target_alloc"))
+                     if summ["has_data"] else None)
+            review, days = advising.review_status(advising.last_review(conn, cid), today)
+            steps = advising.open_next_steps(advising.list_notes(conn, cid, include_private=True))
+            rows.append({**summ, "name": name, "plan": plan, "goal": goal, "drift": drift,
+                         "can_import": advising.client_can_import(conn, cid),
+                         "review": review, "review_days": days, "n_steps": len(steps),
+                         "reasons": advising.attention(
+                             has_data=summ["has_data"],
+                             goal_status=goal["status"] if goal else None, review=review,
+                             n_alerts=summ["n_alerts"], drift=drift,
+                             profile_done=summ["profile_answered"] >= summ["profile_total"])})
+    finally:
+        conn.close()
+    # who needs a look first, then the biggest accounts
+    rows.sort(key=lambda r: (-len(r["reasons"]), -(r["portfolio_value"] or 0.0)))
+    return rows
+
+
+def _render_clients():
     today = datetime.now().date()
     if not CLIENTS:
         st.info("No clients yet - add one with **Add client** in the sidebar.")
     else:
-        conn = connect(DB)
-        try:
-            # only the tickers these clients hold
-            _ids = [cid for cid, _ in CLIENTS]
-            quotes = overview.latest_quotes(conn, [r["symbol"] for r in conn.execute(
-                f"SELECT DISTINCT symbol FROM positions WHERE user_id IN "
-                f"({', '.join('?' for _ in _ids)})", tuple(_ids))])
-            rows = []
-            for cid, name in CLIENTS:
-                summ = overview.account_summary(conn, cid, quotes, _rules_for(cid, conn))
-                plan = plans.get_plan(conn, cid)
-                goal = (plans.progress(plan, summ["portfolio_value"] or 0.0, today=today)
-                        if plans.has_goal(plan) else None)
-                drift = (advising.max_drift(summ["alloc_pct"], (plan or {}).get("target_alloc"))
-                         if summ["has_data"] else None)
-                review, days = advising.review_status(advising.last_review(conn, cid), today)
-                steps = advising.open_next_steps(advising.list_notes(conn, cid, include_private=True))
-                rows.append({**summ, "name": name, "plan": plan, "goal": goal, "drift": drift,
-                             "can_import": advising.client_can_import(conn, cid),
-                             "review": review, "review_days": days, "n_steps": len(steps),
-                             "reasons": advising.attention(
-                                 has_data=summ["has_data"],
-                                 goal_status=goal["status"] if goal else None, review=review,
-                                 n_alerts=summ["n_alerts"], drift=drift,
-                                 profile_done=summ["profile_answered"] >= summ["profile_total"])})
-        finally:
-            conn.close()
-        # who needs a look first, then the biggest accounts
-        rows.sort(key=lambda r: (-len(r["reasons"]), -(r["portfolio_value"] or 0.0)))
+        rows = _client_rows(today)
+        _week_seen()  # the Clients page shows this week's summary itself
+        _summary = advising.weekly_summary(rows)
+        with st.expander(":material/event_upcoming: This week", expanded=_summary["any"]):
+            _render_week_summary(_summary, where="clients")
 
         st.html("<div class='pt-stats'>"
                 f"<div class='pt-stat'><div class='pt-stat-label'>Clients</div>"
@@ -1176,6 +1197,86 @@ def _render_clients():
     _render_models()
     st.divider()
     _render_advisor_settings()
+
+
+WEEK_LIST_MAX = 5  # clients listed per group in the weekly summary; the rest are counted
+
+
+def _week_seen():
+    """This week's summary was seen (per advisor login, on any device)."""
+    week = advising.week_of(datetime.now().date())
+    if st.session_state.get("week_seen") == week:
+        return
+    _save_login_pref("week_seen", week)
+    st.session_state["week_seen"] = week
+
+
+def _open_from_summary(client_id):
+    _week_seen()
+    _open_client(client_id)
+
+
+def _render_week_summary(summary, *, where):
+    """Reviews due, coming due, and other clients needing a look, each with
+    an Open button."""
+    if not summary["any"]:
+        st.markdown(":material/check_circle: Nothing due this week - every review is up "
+                    "to date and no client needs a look.")
+        return
+    groups = (
+        ("due", "Reviews due",
+         lambda r: "never reviewed" if r["review"] == "never"
+         else f"last review {r['review_days']} days ago"),
+        ("soon", f"Coming due in the next {advising.SOON_DAYS} days",
+         lambda r: f"due in {r['in_days']} day{'s' if r['in_days'] != 1 else ''}"),
+        ("attention", "Also needs a look", lambda r: ", ".join(r["other"])),
+    )
+    for group, title, why in groups:
+        items = summary[group]
+        if not items:
+            continue
+        st.markdown(f"**{title}** · {len(items)}")
+        for r in items[:WEEK_LIST_MAX]:
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown(f"{r['name'].replace('_', chr(92) + '_')} - {why(r)}",
+                            width="stretch")
+                st.button("Open", key=f"wk_{where}_{group}_{r['user_id']}", type="tertiary",
+                          on_click=_open_from_summary, args=(r["user_id"],),
+                          help=f"Open {r['name']}'s dashboard")
+        if len(items) > WEEK_LIST_MAX:
+            st.caption(f"and {len(items) - WEEK_LIST_MAX} more on the Clients page.")
+
+
+# Advisors: once a week (from Monday), the first visit opens with this week's
+# reviews and who needs a look; "Got it" hides it until next week. Nothing is
+# shown in a week with nothing to say. The Clients page always has it.
+if IS_ADVISOR and CLIENTS and PAGE != "Clients":
+    _week = advising.week_of(datetime.now().date())
+    if "week_seen" not in st.session_state:
+        _wc = connect(DB)
+        try:
+            st.session_state["week_seen"] = prefs.load(_wc, LOGIN_ID).get("week_seen")
+        finally:
+            _wc.close()
+    if st.session_state["week_seen"] != _week:
+        # worked out once per session, not on every rerun (live prices rerun the page)
+        if st.session_state.get("week_summary", (None,))[0] != _week:
+            st.session_state["week_summary"] = (
+                _week, advising.weekly_summary(_client_rows(datetime.now().date())))
+        _summary = st.session_state["week_summary"][1]
+        if _summary["any"]:
+            with st.container(border=True, key="week_notice"):
+                st.markdown(f":material/event_upcoming: **This week** - "
+                            f"{len(_summary['due'])} review{'s' if len(_summary['due']) != 1 else ''}"
+                            f" due, {len(_summary['soon'])} coming up, "
+                            f"{len(_summary['attention'])} other client"
+                            f"{'s' if len(_summary['attention']) != 1 else ''} to look at.")
+                _render_week_summary(_summary, where="notice")
+                with st.container(horizontal=True):
+                    st.button("Open clients", key="week_clients", type="primary",
+                              on_click=lambda: (_week_seen(), _go("Clients")))
+                    st.button("Got it", key="week_ok", type="tertiary", on_click=_week_seen,
+                              help="Hide this until next week")
 
 
 # The investing-profile form: every answer is a tap, not typing. Keys match

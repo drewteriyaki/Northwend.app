@@ -178,8 +178,11 @@ website's Create account button to everyone.
       sharing a password. (M) - Client login > Create setup link; the client
       picks their own password and is signed in. Works once, 7 days, only a hash
       stored; a new link replaces the old, and it can be cancelled.
-- [ ] **Review reminders** - a weekly summary for advisors of clients due a
-      review or needing attention. (M)
+- [x] **Review reminders** - a weekly summary for advisors of clients due a
+      review or needing attention. (M) - in the app: the first visit each week
+      opens with reviews due, coming due in 14 days and who else needs a look,
+      each with Open; Got it hides it until Monday (any device). Always on the
+      Clients page. Email could follow once there's an email service and domain.
 
 ## Later
 

@@ -102,6 +102,35 @@ def review_status(last: str | None, today: date) -> tuple[str, int | None]:
     return ("due" if days > REVIEW_EVERY_DAYS else "ok"), days
 
 
+# ---- the weekly summary ------------------------------------------------------ #
+SOON_DAYS = 14   # "coming due": a review falls due within this many days
+_REVIEW_REASONS = ("Review due", "No review yet")
+
+
+def week_of(today: date) -> str:
+    """'2026-W40' - the summary is shown once per week (Monday to Sunday)."""
+    iso = today.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+def weekly_summary(rows: list[dict]) -> dict:
+    """An advisor's week, from the Clients page rows ({"user_id", "name",
+    "review", "review_days", "reasons"}): reviews due now (never reviewed
+    first, then the most overdue), reviews falling due within SOON_DAYS
+    (soonest first, with "in_days"), and clients needing a look for other
+    reasons ("other": those reasons). "any" is False when there's nothing to say."""
+    due = sorted((r for r in rows if r["review"] in ("never", "due")),
+                 key=lambda r: (r["review"] != "never", -(r["review_days"] or 0)))
+    soon = sorted(({**r, "in_days": REVIEW_EVERY_DAYS + 1 - r["review_days"]} for r in rows
+                   if r["review"] == "ok" and r["review_days"] is not None
+                   and r["review_days"] > REVIEW_EVERY_DAYS - SOON_DAYS),
+                  key=lambda r: r["in_days"])
+    attention = [{**r, "other": other} for r in rows
+                 if (other := [x for x in r["reasons"] if x not in _REVIEW_REASONS])]
+    return {"due": due, "soon": soon, "attention": attention,
+            "any": bool(due or soon or attention)}
+
+
 # ---- model portfolios ------------------------------------------------------- #
 def _clean_mix(mix: dict) -> dict:
     return {k: float(v) for k, v in (mix or {}).items() if v and float(v) > 0}
