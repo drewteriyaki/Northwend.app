@@ -45,7 +45,7 @@ def _render_assistant(contexts, cash_by_account):
     with chat_box:
         if not display:
             with st.chat_message("assistant", avatar=SAGE_AVATAR):
-                st.markdown(f"Hi, I'm **{GUIDE}**, your guide in {APP_NAME}. Ask me anything "
+                st.markdown(f"Hi, I'm **{GUIDE}**, your guide. Ask me anything "
                             "about investing or your portfolio - what a fund is, whether your mix "
                             "fits your goal, what to look at next. I'll explain in plain "
                             "language, and I won't tell you what to buy.")
