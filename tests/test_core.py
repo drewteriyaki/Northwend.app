@@ -3663,6 +3663,42 @@ class TxnImportTests(TempDBMixin, unittest.TestCase):
         self.assertEqual([(t["account"], t["trade_date"]) for t in kept],
                          [(acct, "2026-10-05"), ("Roth ...111", "2026-09-20")])
 
+    def test_realized_gains_by_average_cost(self):
+        import txn_import
+
+        def row(i, d, kind, q=None, amount=None, sym="VTI", acct="A"):
+            return {"id": i, "account": acct, "trade_date": d, "action": kind, "symbol": sym,
+                    "quantity": q, "price": None, "amount": amount, "fees": None}
+        rows = [
+            row(1, "2026-01-05", "BUY", 10, -1000.0),
+            row(2, "2026-02-05", "BUY", 10, -1400.0),          # average cost now 120
+            row(3, "2026-03-05", "SELL", 5, 700.0),            # 700 - 5 x 120 = 100
+            row(4, "2026-04-05", "SELL", 20, 3000.0),          # more than held: unknown
+            row(5, "2026-05-05", "BUY", 2, -200.0),            # fresh start after selling out
+            row(6, "2026-05-05", "SELL", 2, 260.0),            # same day: the buy goes first
+            row(7, "2026-06-01", "SELL", 1, 50.0, sym="OLD"),  # held before the history
+            row(8, "2026-06-02", "TRANSFER", 3, None, sym="XFR"),
+            row(9, "2026-06-03", "SELL", 3, 90.0, sym="XFR"),  # transferred in: unknown cost
+        ]
+        gains = txn_import.replay_gains(rows, {("A", "OLD"): 4.0})
+        self.assertEqual(gains, {3: 100.0, 4: None, 6: 60.0, 7: None, 9: None})
+
+    def test_saving_works_out_gains_and_income_received(self):
+        import income
+        import txn_import
+        found = self._parse("fidelity_activity.csv")
+        txn_import.save(self.conn, self.user_id, found["rows"], "upload: f.csv")
+        # the AAPL sale has no buy in this history: its gain is unknown
+        g = self.conn.execute("SELECT realized_gain FROM transactions WHERE action = 'SELL' "
+                              "AND user_id = ?", (self.user_id,)).fetchone()[0]
+        self.assertIsNone(g)
+        got = income.received(self.conn, self.user_id, date(2026, 10, 1))
+        self.assertEqual(got["dividends"], 3.12)
+        self.assertEqual(got["months"][-2]["month"], "2026-09")
+        self.assertEqual(got["months"][-2]["by_symbol"], {"SPAXX": 3.12})
+        self.assertEqual(got["since"], "2026-09-18")
+        self.assertIsNone(income.received(self.conn, self.user_id + 99, date(2026, 10, 1)))
+
     def test_two_equal_buys_on_a_day_stay_two(self):
         import txn_import
         row = {"account": "A", "trade_date": "2026-09-01", "action": "BUY", "symbol": "VTI",

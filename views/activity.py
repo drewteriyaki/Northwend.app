@@ -132,7 +132,9 @@ if PAGE == "Activity":
                     if hide_amounts else None),
             )
             st.caption(("**From your brokerage:** rows from an activity export you imported, as "
-                        "your brokerage recorded them. " if _has_imported else "")
+                        "your brokerage recorded them; a sale's Realized G/L uses the average "
+                        "cost of the buys in that history, and is blank when the history doesn't "
+                        "reach back to when the shares were bought. " if _has_imported else "")
                        + "**Worked out** rows come from the change in shares between two "
                        "updates of your holdings - prices and amounts are estimates, and "
                        "Realized G/L uses the average-cost method. Import your brokerage's "

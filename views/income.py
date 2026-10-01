@@ -3,7 +3,8 @@
 # (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# The Income page: dividends, the next 12 months by month, and yields.
+# The Income page: dividends received (from an imported activity export),
+# the next 12 months by month, and yields.
 # ruff: noqa: F821
 
 def _render_income_by_month(income_rows):
@@ -43,26 +44,56 @@ def _render_income_by_month(income_rows):
     mc1.metric("Estimated income, next 12 months", fmt_money(plan["total"]))
     mc2.metric("Biggest month", label(peak["month"]), fmt_money(peak["total"]),
                delta_color="off", delta_arrow="off")
-    chart_df = pd.DataFrame([{"Month": label(r["month"]), "order": i,
-                              "Income": 0.0 if _hidden() else r["total"],
-                              "Paid by": ", ".join(s for s, v in sorted(
-                                  r["by_symbol"].items(), key=lambda kv: -kv[1]) if v)}
-                             for i, r in enumerate(months)])
-    color = (SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0]
-    bars = alt.Chart(chart_df).mark_bar(color=color, cornerRadiusTopLeft=3,
-                                        cornerRadiusTopRight=3).encode(
-        x=alt.X("Month:N", sort=alt.SortField("order"), title=None,
-                axis=alt.Axis(labelAngle=0, labelExpr="slice(datum.label, 0, 3)")),
-        y=alt.Y("Income:Q", title=None, axis=alt.Axis(format="$,.0f", labels=not _hidden())),
-        tooltip=[alt.Tooltip("Month:N"), alt.Tooltip("Income:Q", format="$,.2f"),
-                 alt.Tooltip("Paid by:N")])
-    st.altair_chart(bars, width="stretch")
+    st.altair_chart(_income_bars(months, label), width="stretch")
     notes = ["By ex-dividend month - the money usually arrives a few weeks later. Each holding "
              "repeats its last year of payments at today's share count; dividends can change."]
     if plan["spread"]:
         notes.append("No payment dates yet for " + ", ".join(plan["spread"])
                      + " - its yearly estimate is spread evenly across the months.")
     st.caption(" ".join(notes))
+    st.divider()
+
+
+def _income_bars(months, label):
+    """Monthly bars: [{"month", "total", "by_symbol"}]."""
+    chart_df = pd.DataFrame([{"Month": label(r["month"]), "order": i,
+                              "Income": 0.0 if _hidden() else r["total"],
+                              "Paid by": ", ".join(s for s, v in sorted(
+                                  r["by_symbol"].items(), key=lambda kv: -kv[1]) if v)}
+                             for i, r in enumerate(months)])
+    color = (SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0]
+    return alt.Chart(chart_df).mark_bar(color=color, cornerRadiusTopLeft=3,
+                                        cornerRadiusTopRight=3).encode(
+        x=alt.X("Month:N", sort=alt.SortField("order"), title=None,
+                axis=alt.Axis(labelAngle=0, labelExpr="slice(datum.label, 0, 3)")),
+        y=alt.Y("Income:Q", title=None, axis=alt.Axis(format="$,.0f", labels=not _hidden())),
+        tooltip=[alt.Tooltip("Month:N"), alt.Tooltip("Income:Q", format="$,.2f"),
+                 alt.Tooltip("Paid by:N")])
+
+
+def _render_income_received():
+    """What was actually paid in the last 12 months, from an imported activity
+    export (income.received). Nothing when none was imported."""
+    import income
+    c = connect(DB)
+    try:
+        got = income.received(c, USER_ID, datetime.now().date())
+    finally:
+        c.close()
+    if got is None:
+        return
+    label = lambda m: datetime.strptime(m + "-01", "%Y-%m-%d").strftime("%b %Y")  # noqa: E731
+    st.subheader("Received, last 12 months", anchor=False)
+    rc1, rc2, rc3 = st.columns(3)
+    rc1.metric("Dividends received", fmt_money(got["dividends"]))
+    rc2.metric("Interest received", fmt_money(got["interest"]))
+    rc3.metric("Total", fmt_money(got["total"]))
+    if got["total"]:
+        st.altair_chart(_income_bars(got["months"], label), width="stretch")
+    st.caption("From your brokerage's activity history that you imported - what was actually "
+               "paid, including dividends that were reinvested."
+               + (f" It starts on {_fmt_date(got['since'])}, so earlier months show nothing."
+                  if got["since"] else ""))
     st.divider()
 
 
@@ -82,6 +113,7 @@ if PAGE == "Income":
             "reinvest": {1: "Yes", 0: "No"}.get(p.get("reinvest")), "account": p["account"],
         })
 
+    _render_income_received()
     _render_income_by_month(_income_rows)
 
     if not _income_rows:

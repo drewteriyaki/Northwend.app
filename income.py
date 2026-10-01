@@ -89,3 +89,47 @@ def schedule(holdings, paid: dict, synced: set, today: date) -> dict:
             for m in months]
     return {"months": rows, "total": round(sum(r["total"] for r in rows), 2),
             "spread": sorted(spread), "none": sorted(none)}
+
+
+def past_months(today: date, n: int = 12) -> list[str]:
+    """'YYYY-MM' for the n months ending with this one, oldest first."""
+    y, m = today.year, today.month
+    out = []
+    for _ in range(n):
+        out.append(f"{y:04d}-{m:02d}")
+        m -= 1
+        if m < 1:
+            y, m = y - 1, 12
+    return out[::-1]
+
+
+def received(conn, user_id: int, today: date) -> dict | None:
+    """Dividends and interest actually paid in the last 12 months, from an
+    imported activity export (txn_import.py) - None when none was imported.
+    {"months": [{"month", "total", "by_symbol"}], "dividends", "interest",
+    "total", "since": the first imported date, if inside the 12 months}."""
+    first = conn.execute("SELECT MIN(trade_date) AS d FROM transactions WHERE user_id = ? AND "
+                         "origin = 'imported'", (user_id,)).fetchone()["d"]
+    if not first:
+        return None
+    months = past_months(today)
+    by_month = {m: {} for m in months}
+    divs = interest = 0.0
+    for r in conn.execute(
+            "SELECT trade_date, action, symbol, amount FROM transactions WHERE user_id = ? AND "
+            "origin = 'imported' AND action IN ('DIV', 'INTEREST') AND amount > 0 AND "
+            "trade_date >= ?", (user_id, months[0] + "-01")):
+        m = r["trade_date"][:7]
+        if m not in by_month:
+            continue
+        key = r["symbol"] or ("Interest" if r["action"] == "INTEREST" else "Other")
+        by_month[m][key] = by_month[m].get(key, 0.0) + r["amount"]
+        if r["action"] == "DIV":
+            divs += r["amount"]
+        else:
+            interest += r["amount"]
+    rows = [{"month": m, "by_symbol": by_month[m], "total": round(sum(by_month[m].values()), 2)}
+            for m in months]
+    return {"months": rows, "dividends": round(divs, 2), "interest": round(interest, 2),
+            "total": round(divs + interest, 2),
+            "since": first if first > months[0] + "-01" else None}

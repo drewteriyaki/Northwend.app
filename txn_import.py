@@ -1,5 +1,5 @@
 """Activity (transaction history) exports from any brokerage - ROADMAP "Real
-transactions", phase 1. Pure logic, no Streamlit.
+transactions", phases 1-2. Pure logic, no Streamlit.
 
 A Positions export says what you hold today; an activity export says what
 happened: buys, sells, dividends, deposits. csv_import.find_header() spots
@@ -17,7 +17,11 @@ it away. This reader:
    second, overlapping export adds only what's new. For each account, the
    imported history replaces rows the app worked out from holdings updates
    up to its last date (and later updates don't add worked-out rows inside
-   it - see covered() / drop_covered()).
+   it - see covered() / drop_covered());
+5. works out each imported sale's realized gain by average cost, replaying
+   the history in date order (replay_gains) - unknown where the history
+   doesn't reach back to when the shares were bought. income.received()
+   reads the dividends and interest paid.
 
 Account numbers are cut to their last 3 digits; long digit runs in
 descriptions (bank account numbers on transfers) are masked; the file
@@ -368,8 +372,102 @@ def save(conn, user_id: int, rows: list[dict], source: str) -> dict:
                 (r["account"], r["trade_date"], r["action"], r["symbol"],
                  r["description"] or r["raw_action"], r["quantity"], r["price"], r["amount"],
                  r["fees"], source, user_id, ORIGIN, k))
+    refresh_gains(conn, user_id)
     return {"added": len(new), "duplicates": len(rows) - len(new), "replaced": replaced}
 
 
 def today_iso() -> str:
     return date.today().isoformat()
+
+
+# ---- realized gains (phase 2) ------------------------------------------------ #
+# within a day: shares arrive (splits, transfers, buys) before they're sold
+_DAY_ORDER = {"SPLIT": 0, "TRANSFER": 1, "BUY": 2, "REINVEST": 2, "SELL": 3}
+QTY_EPS = 1e-6
+
+
+def replay_gains(rows: list[dict], held_before: dict | None = None) -> dict:
+    """{row id: realized gain or None} for every SELL in `rows` (imported
+    rows of one person, any order), by average cost, replayed in date order
+    per account and symbol.
+
+    A sale's gain is None (unknown) when its cost isn't fully known: shares
+    held before the history starts (`held_before`: {(account, symbol):
+    shares}), shares transferred in, a buy or split without the figures, or a
+    sale of more shares than the history shows bought."""
+    state = {}
+    for (acct, sym), q in (held_before or {}).items():
+        if q and q > QTY_EPS:
+            state[(acct, sym)] = {"shares": q, "cost": 0.0, "known": False}
+    out = {}
+    for r in sorted(rows, key=lambda r: (r["trade_date"] or "", _DAY_ORDER.get(r["action"], 4),
+                                         r.get("id") or 0)):
+        kind, sym, q = r["action"], r.get("symbol"), r.get("quantity") or 0.0
+        if not sym or kind not in _DAY_ORDER:
+            continue
+        s = state.setdefault((r["account"], sym), {"shares": 0.0, "cost": 0.0, "known": True})
+        amount, price = r.get("amount"), r.get("price")
+        if kind in ("BUY", "REINVEST"):
+            cash = abs(amount) if amount is not None else (q * price if q and price else None)
+            if not q:
+                continue
+            if cash is None:
+                s["known"] = False
+            s["shares"] += q
+            s["cost"] += cash or 0.0
+        elif kind in ("SPLIT", "TRANSFER"):
+            if kind == "SPLIT" and not q:
+                s["known"] = False       # a split without the new shares: can't follow it
+            elif q:
+                s["shares"] += q
+                if kind == "TRANSFER":
+                    s["known"] = False   # shares moved in: their cost isn't in this file
+        else:  # SELL
+            proceeds = amount if amount is not None else (
+                q * price - (r.get("fees") or 0.0) if q and price else None)
+            enough = s["shares"] >= q - QTY_EPS
+            if q and enough and s["known"] and proceeds is not None and s["shares"] > QTY_EPS:
+                basis = s["cost"] * q / s["shares"]
+                out[r["id"]] = round(proceeds - basis, 2)
+            else:
+                out[r["id"]] = None
+            if q and s["shares"] > q + QTY_EPS:
+                s["cost"] -= s["cost"] * q / s["shares"]
+                s["shares"] -= q
+            else:   # sold out: whatever comes next starts fresh
+                s.update(shares=0.0, cost=0.0, known=True)
+    return out
+
+
+def held_before(conn, user_id: int, rows: list[dict]) -> dict:
+    """{(account, symbol): shares} from each account's last holdings update
+    before its imported history starts - shares whose cost the history can't
+    know."""
+    first = {}
+    for r in rows:
+        first[r["account"]] = min(first.get(r["account"], r["trade_date"]), r["trade_date"])
+    out = {}
+    for acct, d in first.items():
+        snap = conn.execute("SELECT MAX(snapshot_date) AS d FROM positions WHERE user_id = ? "
+                            "AND account = ? AND snapshot_date < ?",
+                            (user_id, acct, d)).fetchone()["d"]
+        if snap:
+            for p in conn.execute("SELECT symbol, quantity FROM positions WHERE user_id = ? "
+                                  "AND account = ? AND snapshot_date = ?", (user_id, acct, snap)):
+                out[(acct, p["symbol"])] = (out.get((acct, p["symbol"]), 0.0)
+                                            + (p["quantity"] or 0.0))
+    return out
+
+
+def refresh_gains(conn, user_id: int) -> int:
+    """Work out every imported sale's realized gain again (after an import).
+    Returns how many sales have a known gain."""
+    rows = [dict(r) for r in conn.execute(
+        "SELECT id, account, trade_date, action, symbol, quantity, price, amount, fees "
+        "FROM transactions WHERE user_id = ? AND origin = ?", (user_id, ORIGIN))]
+    gains = replay_gains(rows, held_before(conn, user_id, rows))
+    with conn:
+        for rid, g in gains.items():
+            conn.execute("UPDATE transactions SET realized_gain = ? WHERE id = ? AND user_id = ?",
+                         (g, rid, user_id))
+    return sum(g is not None for g in gains.values())

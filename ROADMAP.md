@@ -536,7 +536,12 @@ started, the Plan and Ask Northwend - always optional.
         date are replaced, and later holdings updates don't add any inside
         it. Activity: a Show filter and a From column. Made-up example files
         for Schwab, Fidelity, Vanguard and Robinhood layouts in tests.
-  - [ ] **Phase 2** - realized gains (average cost, replayed in date order;
-        unknown where history starts mid-way) and dividends received on Income.
+  - [x] **Phase 2 - gains and income received** - each imported sale's
+        realized gain by average cost, replayed in date order per account and
+        symbol (same day: buys before sells); unknown (blank) when shares
+        were held before the history starts, transferred in, or more were
+        sold than it shows bought. Worked out again after every import.
+        Income: "Received, last 12 months" - dividends and interest actually
+        paid, by month, from the imported history (`income.received`).
   - [ ] **Phase 3** - deposits and withdrawals as money added (plans, reports).
 - [ ] **Packaging** - `pyproject.toml` and console entry points. (S)
