@@ -222,10 +222,76 @@ their email, reset a forgotten password, and use the app within its limits.
 - [ ] **Needs you:** sign up on the live app with your own email to check the
       real email arrives (and a reset).
 
+### R1. Error alerts - S
+**Why:** errors only reach the server log today, so a broken page or a
+failed price job is found by a user first.
+**What:** an email to the admin (support@) when the live app hits an
+unexpected error (friendly_errors.py: what failed and where - never the
+person's data) and when a scheduled job fails; at most one email per kind
+of error per hour, and a list on the Admin page's System panel.
+
+### R2. Two-step sign-in for advisors - M
+**Why:** an advisor's login opens every client's portfolio; one stolen
+password exposes the whole book.
+**What:** an authenticator-app code (TOTP) after the password - required
+for advisors and admins, optional for everyone on the Account page; a few
+one-time backup codes; "remember this device for 30 days" on the
+stay-signed-in cookie; the admin can reset it for someone locked out.
+
 ### L6. Launch - S - needs you
 **What:** the item-5 disclosures review done (and any Terms of Use / Privacy
 Policy the reviewer asks for), a last pass on the live site, then open the
-website's Create account button to everyone.
+website's Create account button to everyone. **R1 and R2 first.**
+
+---
+
+## Calm by default - simpler for new investors - in this order
+
+**Why:** pages show everything at once - Home has the value, stats, goal,
+alerts, a performance chart, allocation, an accounts table and a holdings
+table; Get started is seven open-ended steps on one page. A newcomer doesn't
+know where to look first.
+
+**Principles for every page:**
+- **One thing at a time.** Each page leads with a short summary - a few
+  numbers and one next step. Detail opens in a window (a dialog) when
+  it's asked for; a full page of everything only where it's really needed
+  (a holdings table, the advisor's client list).
+- **Plain first, detail on request.** Investors get the simple view; a
+  "Show everything" switch (Account page) brings back the full pages for
+  people who want them. Advisors keep the full view.
+- **Learn more from trusted sources** - links to public education sites
+  (Investor.gov from the SEC, FINRA, the CFPB) next to the idea they
+  explain, never copied text.
+
+### S1. First steps as a slideshow - M
+A new account goes through a short guided flow, one screen at a time, with
+Back / Next and progress dots: welcome (what Northwend is, privacy) -> a
+few tap questions -> your goal -> your investor type and example mix ->
+bring your holdings or try the example. Skippable, resumable, and Get
+started afterwards shows the same steps as cards you can reopen.
+
+### S2. A calm Home - M
+The value and today's move, your route's next step, and a few tiles -
+Performance, Your mix, Holdings, Alerts - each opening its detail in a
+window. The accounts comparison and column settings only in the full view.
+
+### S3. A calm Plan page - M
+The goal and how it's going first; Contributions, Money in vs growth,
+Target mix and "What if" as tiles that open in a window.
+
+### S4. A shorter menu for investors - S
+Home, Plan, Ask Northwend, Learn (Get started) and More (Watchlist,
+Activity, Income, Account, About) - the rest is one tap away, not gone.
+
+### S5. Learn more links - S
+A small "Learn more" next to the ideas the app explains (index funds,
+diversification, expense ratios, account types, risk) to the matching page
+on Investor.gov, FINRA or the CFPB.
+
+### S6. The other pages - M
+The same pass over Income, Activity, Watchlist and Ask Northwend: a summary
+first, detail in a window.
 
 ---
 
@@ -403,6 +469,16 @@ nothing to sell them - the guide-not-salesperson story.
       commissions or trading fees; no one pays to be mentioned). A new "How
       Northwend is paid" section in the disclosures (in the app and on the
       About page). One line each on Create account and Get started.
+
+### G10. Fee check - M
+**Why:** fund costs are easy to miss and add up over decades; few free
+tools show them in dollars.
+**What:** each fund's expense ratio (from the fund details the nightly sync
+already reads) as a yearly cost in dollars at today's value, the
+portfolio's total, and what that adds up to over 10 and 30 years. Beside it,
+what a typical low-cost fund of the same kind charges - as education, never
+"switch to X". Funds without a known expense ratio say so. One window from
+Home (after S2) and a step in Learn.
 
 ---
 
