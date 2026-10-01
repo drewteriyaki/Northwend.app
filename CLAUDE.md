@@ -38,7 +38,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`,
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
   snapshot differences), `plans.py`, `overview.py` (advisor clients).
-- People: `auth.py`, `manage_users.py` (admin-only account creation), `advising.py`,
+- People: `auth.py` (logins, sessions, client setup links), `manage_users.py`
+  (admin account creation), `advising.py`,
   `advisor.py` (Sage, Claude API with prompt caching), `prefs.py`, `accounts.py`.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
@@ -58,6 +59,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Never write tag-like text (`<html>`, `<div>`) in comments inside the app's
   `<style>` block or `ui_enhancements.js`: Streamlit drops the whole block
   (a test checks). Colors go through the `--pt-up` / `--pt-down` / `--pt-warn` variables.
+- `dashboard.py` runs top to bottom: a function used while the page is being
+  drawn (sign-in, the sidebar) must be defined above that point. Button
+  callbacks run later, so they can sit anywhere.
 - Edit files with the Edit tool. Python patch scripts inside Bash heredocs have
   turned `\n` in strings into real newlines before.
 - Commit messages: `git commit -F -` with a heredoc (PowerShell breaks on quotes).

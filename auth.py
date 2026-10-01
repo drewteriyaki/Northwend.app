@@ -1,6 +1,7 @@
-"""Individual login accounts. Admin-provisioned only (see manage_users.py) -
-there is no self-service signup anywhere in this app; the web dashboard
-only ever calls verify_login().
+"""Individual login accounts. Created by an admin (manage_users.py) or by an
+advisor for a client (create_client) - there is no self-service signup.
+A client chooses their own password from a one-time setup link the advisor
+sends (create_invite / accept_invite), so no password is ever shared.
 
 Passwords are never stored in plain text: pbkdf2_hmac('sha256', ...) with a
 per-user random salt, both stored as hex in the `users` table. No external
@@ -218,6 +219,72 @@ def end_session(conn, token: str | None) -> None:
     if token:
         conn.execute("DELETE FROM login_sessions WHERE token_hash = ?", (_token_hash(token),))
         conn.commit()
+
+
+INVITE_DAYS = 7  # how long a setup link works, if it isn't used first
+
+
+def create_invite(conn, advisor_id: int, client_id: int, *,
+                  now: datetime | None = None) -> str:
+    """A one-time setup link token for one of `advisor_id`'s clients: the
+    client opens it and chooses their own password (accept_invite), so the
+    advisor never sets or shares one. A new link replaces any earlier one
+    for that client. Only the token's hash is stored. Raises ValueError if
+    `client_id` isn't this advisor's client."""
+    if advisor_id == client_id or not can_view(conn, advisor_id, client_id):
+        raise ValueError("you can only invite your own clients")
+    now = now or datetime.now(timezone.utc)
+    token = secrets.token_urlsafe(32)
+    conn.execute("DELETE FROM invites WHERE user_id = ? OR expires_at <= ?",
+                 (client_id, _utc(now)))
+    conn.execute("INSERT INTO invites (token_hash, user_id, created_by, created_at, expires_at) "
+                 "VALUES (?, ?, ?, ?, ?)",
+                 (_token_hash(token), client_id, advisor_id, _utc(now),
+                  _utc(now + timedelta(days=INVITE_DAYS))))
+    conn.commit()
+    return token
+
+
+def invite_info(conn, token: str | None, *, now: datetime | None = None) -> dict | None:
+    """{"user_id", "username", "expires_at"} for a live setup link, else None
+    (unknown, expired or already used alike)."""
+    if not token:
+        return None
+    now = now or datetime.now(timezone.utc)
+    row = conn.execute(
+        "SELECT i.user_id, u.username, i.expires_at FROM invites i JOIN users u ON u.id = i.user_id "
+        "WHERE i.token_hash = ? AND i.expires_at > ?", (_token_hash(token), _utc(now))).fetchone()
+    return dict(row) if row else None
+
+
+def pending_invite(conn, client_id: int, *, now: datetime | None = None) -> str | None:
+    """When the client's unused setup link expires ('YYYY-MM-DD HH:MM:SS'
+    UTC), or None if there isn't one."""
+    now = now or datetime.now(timezone.utc)
+    row = conn.execute("SELECT expires_at FROM invites WHERE user_id = ? AND expires_at > ?",
+                       (client_id, _utc(now))).fetchone()
+    return row["expires_at"] if row else None
+
+
+def cancel_invite(conn, client_id: int) -> None:
+    conn.execute("DELETE FROM invites WHERE user_id = ?", (client_id,))
+    conn.commit()
+
+
+def accept_invite(conn, token: str, password: str, *, now: datetime | None = None) -> dict:
+    """The client sets their password from a setup link. The link is used up
+    (it can't set the password again), and any other sign-ins of that account
+    end. Returns {"ok", "error", "user_id", "username"}."""
+    info = invite_info(conn, token, now=now)
+    if info is None:
+        return {"ok": False, "error": "This setup link has expired or was already used. "
+                "Ask your advisor for a new one.", "user_id": None, "username": None}
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return {"ok": False, "error": f"Use a password of at least {MIN_PASSWORD_LENGTH} "
+                "characters.", "user_id": None, "username": None}
+    conn.execute("DELETE FROM invites WHERE user_id = ?", (info["user_id"],))
+    set_password(conn, info["username"], password)  # commits both
+    return {"ok": True, "error": None, "user_id": info["user_id"], "username": info["username"]}
 
 
 def get_user_id(conn: sqlite3.Connection, username: str) -> int | None:

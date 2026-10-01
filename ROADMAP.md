@@ -174,8 +174,10 @@ website's Create account button to everyone.
       darkened; bars hidden from screen readers where the legend says the same,
       described where it doesn't; arrows and icon-only buttons named; less motion
       when the device asks for it.
-- [ ] **Advisor invites** - a one-time setup link for a new client instead of
-      sharing a password. (M)
+- [x] **Advisor invites** - a one-time setup link for a new client instead of
+      sharing a password. (M) - Client login > Create setup link; the client
+      picks their own password and is signed in. Works once, 7 days, only a hash
+      stored; a new link replaces the old, and it can be cancelled.
 - [ ] **Review reminders** - a weekly summary for advisors of clients due a
       review or needing attention. (M)
 

@@ -1094,6 +1094,45 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
         auth.set_advisor(self.conn, "testuser", False)
         self.assertFalse(auth.can_view(self.conn, self.user_id, client))
 
+    def test_setup_link_lets_the_client_choose_a_password_once(self):
+        cid = auth.create_client(self.conn, self.user_id, "jsmith")
+        now = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
+        token = auth.create_invite(self.conn, self.user_id, cid, now=now)
+        stored = self.conn.execute("SELECT token_hash FROM invites").fetchone()["token_hash"]
+        self.assertNotEqual(stored, token)                          # only the hash is kept
+        self.assertEqual(auth.invite_info(self.conn, token, now=now)["username"], "jsmith")
+        self.assertEqual(auth.pending_invite(self.conn, cid, now=now), "2026-10-07 12:00:00")
+
+        short = auth.accept_invite(self.conn, token, "short", now=now)
+        self.assertFalse(short["ok"])                               # still usable after this
+        ok = auth.accept_invite(self.conn, token, "clientpass1", now=now)
+        self.assertEqual((ok["ok"], ok["user_id"]), (True, cid))
+        self.assertEqual(auth.verify_login(self.conn, "jsmith", "clientpass1"), cid)
+        again = auth.accept_invite(self.conn, token, "takeover99", now=now)
+        self.assertFalse(again["ok"])                               # used up
+        self.assertIsNone(auth.verify_login(self.conn, "jsmith", "takeover99"))
+        self.assertIsNone(auth.pending_invite(self.conn, cid, now=now))
+
+    def test_setup_links_expire_are_replaced_and_only_for_own_clients(self):
+        cid = auth.create_client(self.conn, self.user_id, "jsmith")
+        now = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
+        first = auth.create_invite(self.conn, self.user_id, cid, now=now)
+        second = auth.create_invite(self.conn, self.user_id, cid, now=now)
+        self.assertIsNone(auth.invite_info(self.conn, first, now=now))   # replaced
+        later = now + timedelta(days=auth.INVITE_DAYS, seconds=1)
+        self.assertIsNone(auth.invite_info(self.conn, second, now=later))  # expired
+        self.assertFalse(auth.accept_invite(self.conn, second, "clientpass1", now=later)["ok"])
+        auth.cancel_invite(self.conn, cid)
+        self.assertIsNone(auth.invite_info(self.conn, second, now=now))   # cancelled
+        self.assertIsNone(auth.invite_info(self.conn, "made-up", now=now))
+
+        other_adv = auth.create_user(self.conn, "adv2", "pw")
+        auth.set_advisor(self.conn, "adv2", True)
+        with self.assertRaises(ValueError):
+            auth.create_invite(self.conn, other_adv, cid)           # not their client
+        with self.assertRaises(ValueError):
+            auth.create_invite(self.conn, self.user_id, self.user_id)   # not a client
+
     def test_only_advisors_create_clients_and_names_are_validated(self):
         plain = auth.create_user(self.conn, "plain", "pw")
         with self.assertRaises(ValueError):

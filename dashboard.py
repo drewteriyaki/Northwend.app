@@ -244,6 +244,63 @@ def _toggle_about():
     st.session_state["show_about"] = not st.session_state.get("show_about")
 
 
+def _invite_setup(token: str) -> bool:
+    """The page a client's setup link opens: choose a password for the
+    account their advisor made, then they're signed in. False until then."""
+    conn = connect(DB)
+    try:
+        info = auth.invite_info(conn, token)
+    finally:
+        conn.close()
+    _, mid, _ = st.columns([1, 1.4, 1])
+    with mid:
+        st.title(f"{APP_ICON} {APP_NAME}")
+        if info is None:
+            st.error("This setup link has expired or was already used. Ask your advisor "
+                     "for a new one.")
+            if st.button("Go to sign in", type="primary"):
+                del st.query_params["invite"]
+                st.rerun()
+            return False
+        st.subheader("Set up your login", anchor=False)
+        st.caption(f"Your advisor set up a {APP_NAME} account for you. Choose a password "
+                   "only you know - your advisor never sees it.")
+        with st.form("invite_form", border=True):
+            st.text_input("Username", value=info["username"], disabled=True,
+                          help="You'll sign in with this.")
+            pw = st.text_input("Choose a password", type="password", key="invite_pw",
+                               help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
+            again = st.text_input("Type it again", type="password", key="invite_pw_again")
+            remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
+                                   value=True, key="invite_remember",
+                                   help="Leave this off on a shared or public computer.")
+            submitted = st.form_submit_button("Create my login", type="primary",
+                                              width="stretch")
+        st.caption(disclosures.SUMMARY)
+    if not submitted:
+        return False
+    if pw != again:
+        mid.error("The two passwords don't match.")
+        return False
+    conn = connect(DB)
+    try:
+        result = auth.accept_invite(conn, token, pw)
+        session = (auth.create_session(conn, result["user_id"])
+                   if result["ok"] and remember else None)
+    finally:
+        conn.close()
+    if not result["ok"]:
+        mid.error(result["error"])
+        return False
+    st.session_state.clear()  # whoever was signed in on this browser before
+    st.session_state["user_id"] = result["user_id"]
+    st.session_state["username"] = result["username"]
+    st.session_state["session_token"] = session
+    st.session_state["import_flash"] = "Your login is ready. Welcome!"
+    del st.query_params["invite"]
+    st.rerun()
+
+
 def _login() -> bool:
     """Per-account login - every account is admin-provisioned (see
     manage_users.py); there is no signup anywhere in this app. Sets
@@ -254,6 +311,9 @@ def _login() -> bool:
     A new browser session (a reload, a phone reopening the tab) first tries
     the stay-signed-in cookie; the token is checked against the database
     every time, so logging out or changing the password ends it."""
+    invite = st.query_params.get("invite")
+    if invite:  # a client's setup link (auth.create_invite)
+        return _invite_setup(str(invite))
     if st.session_state.get("user_id"):
         return True
     cookie = _session_cookie()
@@ -497,6 +557,46 @@ def _set_client_password():
     st.session_state["client_msg"] = ("success", "Login password set - the client can log in now.")
 
 
+def _create_invite():
+    """A one-time setup link for the client being viewed. Only its hash is
+    stored, so the link itself is shown once, here, for the advisor to send."""
+    viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
+    c = connect(DB)
+    try:
+        token = auth.create_invite(c, viewer, target)
+    except ValueError:
+        st.session_state["client_msg"] = ("error", "You can only invite your own clients.")
+        return
+    finally:
+        c.close()
+    st.session_state[f"invite_link_{target}"] = f"{_app_address()}?invite={token}"
+
+
+def _app_address() -> str:
+    """This app's web address without its ?query, for links to send people."""
+    base = (st.context.url or "").split("?")[0].split("#")[0]
+    if base:
+        return base
+    host = st.context.headers.get("host") or ""   # e.g. behind a proxy, or older Streamlit
+    if not host:
+        return ""
+    local = host.startswith(("localhost", "127.0.0.1"))
+    proto = st.context.headers.get("x-forwarded-proto") or ("http" if local else "https")
+    return f"{proto}://{host}/"
+
+
+def _cancel_invite():
+    viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
+    c = connect(DB)
+    try:
+        if viewer != target and auth.can_view(c, viewer, target):
+            auth.cancel_invite(c, target)
+    finally:
+        c.close()
+    st.session_state.pop(f"invite_link_{target}", None)
+    st.session_state["client_msg"] = ("success", "Setup link cancelled - it no longer works.")
+
+
 def _delete_my_holdings():
     if not st.session_state.get("confirm_delete_holdings"):
         return
@@ -562,13 +662,37 @@ with st.sidebar:
         with st.expander("Add client"):
             st.text_input("Username", key="new_client_name")
             st.text_input("Login password (optional)", type="password", key="new_client_pw",
-                          help="Leave blank for a client you manage without them logging in. "
-                               "You can give them a login later.")
+                          help="Best left blank: then send them a setup link (Client login) "
+                               "so they choose their own. Or leave them without a login.")
             st.button("Add client", on_click=_add_client, width="stretch")
         if USER_ID != LOGIN_ID:
-            with st.expander("Client login"):
-                st.caption(f"Set a password so **{ACTIVE_NAME}** can log in and see their own "
-                           "portfolio.")
+            _link = st.session_state.get(f"invite_link_{USER_ID}")
+            with st.expander("Client login", expanded=bool(_link)):
+                _c = connect(DB)
+                try:
+                    _pending = auth.pending_invite(_c, USER_ID)
+                finally:
+                    _c.close()
+                if _pending:  # (_fmt_date is defined further down)
+                    _d = datetime.strptime(_pending[:10], "%Y-%m-%d")
+                    _until = f"{_d:%b} {_d.day}"
+                st.caption(f"Send **{ACTIVE_NAME}** a setup link to choose their own password "
+                           "and see their portfolio - you never need to know it.")
+                if _link and _pending:
+                    st.code(_link, language=None, wrap_lines=True)
+                    st.caption(f"Copy it and send it privately - it works once, until "
+                               f"{_until}. Anyone with the link can set "
+                               "the password, so don't post it anywhere public.")
+                elif _pending:
+                    st.caption(f"A setup link is waiting to be used, until "
+                               f"{_until}. A new link replaces it.")
+                st.button("Create a new setup link" if _pending else "Create setup link",
+                          key="invite_create", on_click=_create_invite, width="stretch",
+                          type="primary")
+                if _pending:
+                    st.button("Cancel the link", key="invite_cancel", on_click=_cancel_invite,
+                              width="stretch", type="tertiary")
+                st.markdown("**Or set a password yourself**")
                 st.text_input("New password", type="password", key="client_login_pw")
                 st.button("Set login password", on_click=_set_client_password,
                           width="stretch")

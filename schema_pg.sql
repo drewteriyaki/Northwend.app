@@ -240,6 +240,17 @@ CREATE TABLE IF NOT EXISTS login_sessions (
     expires_at  TEXT    NOT NULL
 );
 
+-- One-time setup links an advisor sends a client (auth.create_invite): the
+-- client opens it and chooses their own password, so none is ever shared.
+-- Only the token's hash is kept; a link works once, until expires_at.
+CREATE TABLE IF NOT EXISTS invites (
+    token_hash  TEXT    PRIMARY KEY,
+    user_id     INTEGER NOT NULL,                    -- the client account it sets up
+    created_by  INTEGER NOT NULL,                    -- the advisor
+    created_at  TEXT    NOT NULL,                    -- 'YYYY-MM-DD HH:MM:SS' UTC
+    expires_at  TEXT    NOT NULL
+);
+
 -- Every decimal column in this file is DOUBLE PRECISION: Postgres REAL is
 -- 4-byte and loses cents on large amounts. portfolio._widen_real_columns()
 -- converts any REAL column an older database still has.
