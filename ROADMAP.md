@@ -218,6 +218,82 @@ website's Create account button to everyone.
 
 ---
 
+## Direction - a guide, not a brokerage - in this order
+
+The app opens on what you own (value, gains, charts), which is what a
+brokerage shows. A guide opens on where you're going and what to do next.
+Two experiences in one app: **Investor** (new investors, and clients of an
+advisor) and **Advisor**, each with its own home, navigation and tools.
+
+**Guardrail for every item:** Northwend is education, not advice. For
+investors, direction comes as investor types, example mixes and explanations
+("people like you often..."), never "buy fund X". Advisors make
+recommendations to their own clients - the app is their tool. Raise this in
+the item-5 disclosures review before G3 and G4 go live.
+
+### G1. Two experiences: Investor and Advisor - M
+**What:** sign-up asks "I'm investing for myself" or "I'm a financial
+advisor". Investors (and clients) get the investor app: route home, Plan,
+Ask Northwend, holdings. An advisor sign-up *requests* advisor access (firm
+and CRD/licence number); you approve it (`manage_users.py`) after checking,
+and until then they use the investor app. Advisors get the advisor app: book
+overview home, Clients, proposals, reports. Same codebase; navigation and
+home chosen by the account's role. Clients keep seeing their advisor's notes.
+One colour scheme for both (one brand; colour alone is a weak signal): the
+role shows as an "Advisor" chip under the name in the sidebar, the advisor
+home is titled "Your clients", and an advisor inside a client's account
+always sees a bar "Viewing <client>'s account · Back to your clients". In-app
+admin tools, if ever added, get their own labelled Admin area for your
+account only.
+**Done when:** each kind of account lands in its own experience, and nobody
+can make themselves an advisor.
+
+### G2. "Your route" home for investors - M
+**What:** the investor home opens on the goal and the next step ("74% of the
+way to your house deposit · next waypoint: choose a monthly amount"), the
+waypoint route and one nudge; the portfolio value and charts move below.
+Mostly re-arranging Plan, Get started and Dashboard pieces that exist.
+
+### G3. "Find your direction" for beginners - M/L
+**What:** the front door for someone with nothing invested yet: a short,
+friendly questionnaire (goal, timeline, comfort with ups and downs, emergency
+fund, debt) ending in an investor type (e.g. Steady builder, Long-horizon
+grower) with a plain explanation, an example mix for that type and the kinds
+of funds that usually fill it; then into Get started. Builds on the profile
+questions and model portfolios already in the app.
+
+### G4. Advisor proposals - L
+**What:** an advisor builds a recommended mix for a client and shows today
+vs proposed side by side (risk, diversification, costs, projected range);
+shared to the client in the app and as a PDF; the client sees it under
+their advisor's notes. The core of "helping clients grow".
+
+### G5. "What if" playground - M
+**What:** sliders for monthly amount, years and mix showing a range of
+outcomes ("adding 50 a month more gets you there 2 years sooner"), for
+investors on their own goal and for advisors in meetings.
+
+### G6. Client onboarding by link - M
+**What:** the client answers the goals and risk questionnaire from their
+setup link, so the advisor has a ready profile before the first meeting.
+
+### G7. Meeting prep - M
+**What:** one click before a review: what changed since the last one, goal
+progress, drift from target, open notes, and talking points drafted by the
+AI for the advisor to edit.
+
+### G8. Client progress reports - M
+**What:** a clean monthly or quarterly summary an advisor sends each client
+(growth, goal progress, what's next), in the app and as a PDF; email once
+the email side allows it.
+
+### G9. Book overview for advisors - M
+**What:** all clients in one view, sorted by who needs attention (off track,
+drifted, review due, inactive) - the advisor home in G1, grown from the
+weekly review summary.
+
+---
+
 ## Polish - smaller items, any order
 
 - [x] **Phone navigation** - a bottom tab bar on narrow screens (Home, Plan,
