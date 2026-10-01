@@ -320,6 +320,12 @@ their advisor's notes. The core of "helping clients grow".
 **What:** sliders for monthly amount, years and mix showing a range of
 outcomes ("adding 50 a month more gets you there 2 years sooner"), for
 investors on their own goal and for advisors in meetings.
+- [x] **Built** - a "What if...?" panel on the Plan page: monthly amount,
+      years, stocks share and a one-off amount; the projected value and
+      range, the difference from the current plan, when the goal would be
+      reached and how much sooner or later, on the plan's projection chart.
+      Nothing is saved unless "Use $X a month in my plan" is pressed (owners
+      only). Assumptions shared with proposals (`plans.mix_return`).
 
 ### G6. Client onboarding by link - M
 **What:** the client answers the goals and risk questionnaire from their

@@ -345,6 +345,88 @@ def _render_target_mix(alloc_rows):
                         st.rerun()
 
 
+def _wi_use_monthly(amount):
+    save_plan_fields({"monthly_contribution": float(amount)})
+    st.session_state["wi_msg"] = f"Your plan now adds {fmt_money0(amount)} a month."
+
+
+def _months_text(n):
+    y, m = divmod(abs(n), 12)
+    return " ".join(([f"{y} year{'s' if y != 1 else ''}"] if y else [])
+                    + ([f"{m} month{'s' if m != 1 else ''}"] if m else [])) or "no time"
+
+
+def _render_what_if(plan, value, alloc_rows, today):
+    """The "what if" playground (ROADMAP G5): change the monthly amount, the
+    years and the mix and see the range move. Saves nothing unless asked."""
+    has_goal = plans.has_goal(plan)
+    present = float(value or 0.0)
+    target = float(plan["target_amount"]) if has_goal else None
+    base_monthly = float((plan or {}).get("monthly_contribution") or 0.0)
+    base_months = (max(12, plans.months_until(plan["target_date"], today)) if has_goal else 120)
+    actual = {r["label"]: r["pct"] or 0.0 for r in (alloc_rows or [])}
+    base_stocks = float(round(actual.get("Stocks") or load_alloc_targets().get("Stocks") or 60))
+    st.session_state.setdefault("wi_monthly", float(base_monthly or 200))
+    st.session_state.setdefault("wi_years", max(1, min(40, round(base_months / 12))))
+    st.session_state.setdefault("wi_stocks", int(5 * round(base_stocks / 5)))
+    st.session_state.setdefault("wi_extra", 0.0)
+
+    with st.expander(":material/tune: What if...?", expanded=False):
+        st.caption("Try different amounts, years and mixes to see how the range moves. "
+                   "Nothing is saved unless you choose to.")
+        c1, c2 = st.columns(2)
+        c1.slider("Each month ($)", 0.0, float(max(2000.0, 3 * base_monthly)), step=25.0,
+                  key="wi_monthly", format="$%d")
+        c2.slider("Years", 1, 40, key="wi_years")
+        c3, c4 = st.columns(2)
+        c3.slider("In stocks (%) - the rest in bonds", 0, 100, step=5, key="wi_stocks")
+        c4.number_input("Add a one-off amount now ($)", min_value=0.0, step=500.0,
+                        key="wi_extra", format="%.0f")
+        monthly, months = st.session_state["wi_monthly"], 12 * st.session_state["wi_years"]
+        stocks, start = st.session_state["wi_stocks"], present + st.session_state["wi_extra"]
+        ret, base_ret = plans.mix_return(stocks), plans.mix_return(base_stocks)
+        lo, mid, hi = (plans.future_value(start, monthly, r, months)
+                       for r in (ret - plans.SPREAD_PCT, ret, ret + plans.SPREAD_PCT))
+        base_then = plans.future_value(present, base_monthly, base_ret, months)
+        when = _fmt_month(plans.add_months(today, months).isoformat())
+        lines = [f"About **{fmt_money0(mid)}** by {when} "
+                 f"({fmt_money0(lo)} to {fmt_money0(hi)}), assuming {ret:.1f}% a year.",
+                 ("That's **" + fmt_money0(abs(mid - base_then)) + (" more" if mid >= base_then
+                  else " less") + "** than your current plan would have by then.")
+                 if abs(mid - base_then) >= 1 else "The same as your current plan."]
+        if target:
+            reach = plans.months_to_reach(start, monthly, ret, target)
+            base_reach = plans.months_to_reach(present, base_monthly, base_ret, target)
+            if reach is None:
+                lines.append(f"At this pace {fmt_money0(target)} isn't reached within 50 years.")
+            else:
+                lines.append(f"You'd reach your goal of {fmt_money0(target)} around "
+                             f"**{_fmt_month(plans.add_months(today, reach).isoformat())}**"
+                             + ("" if base_reach is None or base_reach == reach else
+                                f" - {_months_text(base_reach - reach)} "
+                                + ("sooner" if reach < base_reach else "later")
+                                + " than with your current plan") + ".")
+        _md("  \n".join(lines))
+        df = pd.DataFrame(plans.projection_series(start, monthly, months, today=today,
+                                                  return_pct=ret))
+        df["date"] = pd.to_datetime(df["date"])
+        palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+        st.altair_chart(charts.projection(df, target=target, color=palette[0], mask=_hidden(),
+                                          tooltip=[alt.Tooltip("date:T", title="Date",
+                                                               format="%b %Y")]),
+                        width="stretch")
+        st.caption(f"Assumes about {plans.STOCK_RETURN_PCT:g}% a year for stocks and "
+                   f"{plans.BOND_RETURN_PCT:g}% for bonds, a range of ±{plans.SPREAD_PCT:g}%, "
+                   "no fees, taxes or inflation. Real returns go up and down - this "
+                   "illustrates, it doesn't predict.")
+        msg = st.session_state.pop("wi_msg", None)
+        if msg:
+            st.success(msg)
+        if CAN_MANAGE and has_goal and abs(monthly - base_monthly) >= 1:
+            st.button(f"Use {fmt_money0(monthly)} a month in my plan", key="wi_use",
+                      on_click=_wi_use_monthly, args=(monthly,))
+
+
 def _render_plan(value, growth, alloc_rows):
     """The Plan page. `value` / `growth` / `alloc_rows` are None for an
     account with no holdings yet - the goal and contributions still work."""
@@ -357,6 +439,8 @@ def _render_plan(value, growth, alloc_rows):
         _render_plan_form(plan, today)
     else:
         _render_plan_status(plan, value, today)
+    if not (CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan))):
+        _render_what_if(plan, value, alloc_rows, today)
     st.divider()
     _render_contributions(plan, today)
     if value is not None:

@@ -153,6 +153,32 @@ def required_monthly(present: float, target: float, annual_pct: float, months: i
     return gap / months if r == 0 else gap * r / (g - 1)
 
 
+def months_to_reach(present: float, monthly: float, annual_pct: float, target: float, *,
+                    cap: int = 600) -> int | None:
+    """Whole months until `present` plus `monthly` reaches `target` at
+    `annual_pct`; 0 if already there, None if not within `cap` months."""
+    if present >= target:
+        return 0
+    r = _monthly_rate(annual_pct)
+    value = present
+    for n in range(1, cap + 1):
+        value = value * (1 + r) + monthly
+        if value >= target:
+            return n
+    return None
+
+
+# The "what if" playground's return for a mix (ROADMAP G5): the same rounded
+# long-run assumptions as advisor proposals (proposals.ASSUMED_RETURN).
+STOCK_RETURN_PCT, BOND_RETURN_PCT = 7.0, 4.0
+
+
+def mix_return(stocks_pct: float) -> float:
+    """Assumed yearly return for a mix of `stocks_pct` stocks, the rest bonds."""
+    s = max(0.0, min(100.0, stocks_pct)) / 100
+    return STOCK_RETURN_PCT * s + BOND_RETURN_PCT * (1 - s)
+
+
 def add_months(d: date, months: int) -> date:
     y, m = divmod(d.month - 1 + months, 12)
     year, month = d.year + y, m + 1

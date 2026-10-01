@@ -128,11 +128,11 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
     return alt.layer(*layers).properties(height=height)
 
 
-def projection(df: pd.DataFrame, *, target: float, color: str, mask: bool = False,
+def projection(df: pd.DataFrame, *, target: float | None, color: str, mask: bool = False,
                tooltip=None, height: int = 300) -> alt.LayerChart:
     """Goal projection: the low-high range as a band, the assumed return as a
-    line, and the goal as a dashed rule. `df` has date / low / mid / high.
-    Same hover as line(): a rule and dot at the nearest month, with
+    line, and the goal (if any) as a dashed rule. `df` has date / low / mid /
+    high. Same hover as line(): a rule and dot at the nearest month, with
     `tooltip` on a wide invisible hit target."""
     grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
     x = alt.X("date:T", title=None, axis=alt.Axis(**grid))
@@ -142,9 +142,10 @@ def projection(df: pd.DataFrame, *, target: float, color: str, mask: bool = Fals
         base.mark_area(opacity=0.18, color=color).encode(
             x=x, y=alt.Y("low:Q", title=None, axis=y_axis), y2="high:Q"),
         base.mark_line(strokeWidth=2, color=color).encode(x=x, y="mid:Q"),
-        alt.Chart(pd.DataFrame({"target": [target]})).mark_rule(
-            strokeDash=[6, 4], strokeWidth=1.5, color="#8a8a86").encode(y="target:Q"),
     ]
+    if target is not None:
+        layers.append(alt.Chart(pd.DataFrame({"target": [target]})).mark_rule(
+            strokeDash=[6, 4], strokeWidth=1.5, color="#8a8a86").encode(y="target:Q"))
     nearest = alt.selection_point(nearest=True, on="pointerover", fields=["date"],
                                   empty=False, clear="pointerout")
     layers.append(base.mark_rule(color="#94a3b8", strokeWidth=1).encode(

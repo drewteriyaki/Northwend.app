@@ -1387,6 +1387,26 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class WhatIfTests(unittest.TestCase):
+    """The what-if playground's arithmetic (plans.months_to_reach, mix_return)."""
+
+    def test_months_to_reach(self):
+        self.assertEqual(plans.months_to_reach(1000, 0, 6, 500), 0)
+        self.assertEqual(plans.months_to_reach(0, 100, 0, 1200), 12)
+        n = plans.months_to_reach(10000, 500, 6, 50000)
+        self.assertGreater(plans.future_value(10000, 500, 6, n), 50000)
+        self.assertLess(plans.future_value(10000, 500, 6, n - 1), 50000)
+        self.assertLess(plans.months_to_reach(10000, 550, 6, 50000), n)   # more a month: sooner
+        self.assertIsNone(plans.months_to_reach(0, 1, 0, 10 ** 9))
+
+    def test_mix_return_matches_the_proposals_assumptions(self):
+        import proposals
+        self.assertEqual(plans.mix_return(100), proposals.ASSUMED_RETURN["Stocks"])
+        self.assertEqual(plans.mix_return(0), proposals.ASSUMED_RETURN["Bonds"])
+        self.assertAlmostEqual(plans.mix_return(60), 5.8)
+        self.assertEqual(plans.mix_return(150), plans.mix_return(100))
+
+
 class ProposalTests(TempDBMixin, unittest.TestCase):
     """Advisor proposals (proposals.py)."""
 
