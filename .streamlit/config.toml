@@ -10,11 +10,60 @@ toolbarMode = "viewer"
 # the disclosures page says the app doesn't track people.
 gatherUsageStats = false
 
+[server]
+# Serves ./static at app/static/ - the two typefaces below, so no font is
+# fetched from Google (nothing about visitors leaves for a font).
+enableStaticServing = true
+
+# The Northwend design system: Figtree for everything people read, Newsreader for page and section titles,
+# 8px corners. Colors per theme below; dashboard.py's styles carry the same
+# palette as --pt-* variables for the app's own pieces.
+[theme]
+font = "Figtree, sans-serif"
+headingFont = "Newsreader, serif"
+# h1 = the page title (display, 44px), h2-h3 = section titles (28px), h4 =
+# card headings, which dashboard.py's styles set back in Figtree
+headingFontSizes = ["2.75rem", "1.75rem", "1.75rem", "1.125rem"]
+headingFontWeights = [500, 500, 500, 600]
+baseRadius = "0.5rem"
+buttonRadius = "0.5rem"
+showWidgetBorder = true
+
+[[theme.fontFaces]]
+family = "Figtree"
+url = "app/static/Figtree-Variable-latin.woff2"
+weight = "400 700"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Newsreader"
+url = "app/static/Newsreader-Variable-latin.woff2"
+weight = "400 700"
+style = "normal"
+
 # A light and a dark theme, so the app can switch between them (the
-# sidebar's Theme control). Blue accent in both, so the app's own color
-# never reads as a loss (red) or gain (green).
+# sidebar's Theme control). The primary color is the design system's
+# "action" blue - deep enough that a primary button's white label passes
+# AA - so the app's own color never reads as a loss (red) or gain (green).
 [theme.light]
-primaryColor = "#2a78d6"
+primaryColor = "#1d5fae"
+backgroundColor = "#f5f7f9"
+secondaryBackgroundColor = "#e8eef4"
+textColor = "#132a3e"
+linkColor = "#1d5fae"
+borderColor = "#d5dde5"
+blueBackgroundColor = "#e3eefb"
+blueTextColor = "#1d5fae"
+chartCategoricalColors = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
 
 [theme.dark]
-primaryColor = "#3987e5"
+# Streamlit always labels a primary button in white: 4.7:1 on this blue
+primaryColor = "#2f74c8"
+backgroundColor = "#0d1620"
+secondaryBackgroundColor = "#1c2a38"
+textColor = "#e6edf3"
+linkColor = "#7cb3f2"
+borderColor = "#2a3847"
+blueBackgroundColor = "#16304d"
+blueTextColor = "#7cb3f2"
+chartCategoricalColors = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]

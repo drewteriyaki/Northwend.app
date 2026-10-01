@@ -119,10 +119,30 @@ st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide",
 # allocation bars below. Text inherits the theme's colors; only marks and
 # gain/loss figures carry their own.
 st.html("""<style>
-/* up / down / warning colors that pass WCAG AA contrast (4.5:1) on each
-   theme's background; ui_enhancements.js marks the theme on the page root */
-:root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; }
-:root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24; }
+/* The Northwend design system's colors for the app's own pieces, per theme
+   (the rest is in .streamlit/config.toml); ui_enhancements.js marks the theme
+   on the page root. up / down / warning pass WCAG AA (4.5:1) as text; compass
+   is the brand blue for bars and marks; line a hairline; line-strong the edge
+   of a control (3:1); sunken the track behind a bar. */
+:root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; --pt-compass: #2a78d6;
+  --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; }
+:root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24;
+  --pt-compass: #3987e5; --pt-line: #2a3847; --pt-line-strong: #62748a; --pt-sunken: #1c2a38; }
+/* Newsreader is for page and section titles only; card headings (h4 and
+   smaller) stay in the text face, Figtree */
+h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important; }
+/* Controls people must find get the stronger edge (3:1); the theme's
+   borderColor stays the hairline for cards and expanders. Focused fields and
+   selected pills keep Streamlit's own primary-colored edge. */
+[data-testid="stTextInputRootElement"]:not(:focus-within),
+[data-testid="stTextAreaRootElement"]:not(:focus-within),
+[data-testid="stNumberInputContainer"]:not(:focus-within),
+[data-testid="stDateInputField"]:not(:focus-within),
+[data-testid="stSelectbox"] [data-baseweb="select"] > div:not(:focus-within),
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div:not(:focus-within),
+[data-testid^="stBaseButton-secondary"]:not(:hover):not(:focus-visible),
+[data-testid="stButtonGroup"] button[aria-checked="false"]:not(:hover):not(:focus-visible) {
+  border-color: var(--pt-line-strong) !important; }
 /* read by screen readers, not shown */
 .pt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
@@ -149,7 +169,7 @@ st.html("""<style>
     display: flex !important; position: fixed; left: 0; right: 0; bottom: 0; z-index: 999990;
     justify-content: space-around; gap: 0 !important;
     padding: .3rem .25rem calc(.3rem + env(safe-area-inset-bottom));
-    background: var(--pt-bg, #0e1117); border-top: 1px solid rgba(128,128,128,.25);
+    background: var(--pt-bg, #0d1620); border-top: 1px solid var(--pt-line);
   }
   .st-key-pt_tabbar > div { flex: 1 1 0; min-width: 0; }
   .st-key-pt_tabbar button {
@@ -173,7 +193,7 @@ st.html("""<style>
 .pt-live { color: var(--pt-up); }
 .pt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .6rem; margin-top: 1rem; }
-.pt-stat { border: 1px solid rgba(128,128,128,.25); border-radius: .5rem;
+.pt-stat { border: 1px solid var(--pt-line); border-radius: .5rem;
   padding: .55rem .7rem; min-width: 0; }
 .pt-stat-label { font-size: .75rem; opacity: .7; white-space: nowrap; }
 .pt-stat-value { font-size: 1.1rem; font-weight: 600; white-space: nowrap;
@@ -209,13 +229,13 @@ st.html("""<style>
   font-weight: 600; border: 1px solid currentColor; }
 .pt-goal-top { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .pt-goal-pct { font-weight: 600; }
-.pt-goal-track { height: 10px; border-radius: 5px; background: rgba(128,128,128,.2);
+.pt-goal-track { height: 10px; border-radius: 5px; background: var(--pt-sunken);
   overflow: hidden; margin: .5rem 0 .4rem; }
-.pt-goal-fill { height: 100%; border-radius: 5px; background: #2a78d6; }
+.pt-goal-fill { height: 100%; border-radius: 5px; background: var(--pt-compass); }
 .pt-goal-sub { font-size: .8rem; opacity: .7; }
 .pt-mix-track { position: relative; height: 8px; border-radius: 4px;
-  background: rgba(128,128,128,.2); margin: 0 0 .6rem; }
-.pt-mix-fill { height: 100%; border-radius: 4px; background: #2a78d6; }
+  background: var(--pt-sunken); margin: 0 0 .6rem; }
+.pt-mix-fill { height: 100%; border-radius: 4px; background: var(--pt-compass); }
 .pt-mix-target { position: absolute; top: -3px; width: 3px; height: 14px; border-radius: 1px;
   margin-left: -1px; background: currentColor; }
 </style>""")

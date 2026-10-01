@@ -130,6 +130,16 @@ app's key screens (Dashboard, Plan, Ask Northwend, the phone tab bar).
 custom layout - design the website freely, and give the app the same brand
 rather than an identical layout.
 **Done when:** the designs are ready to hand back here.
+- [x] **Design system** "Northwend" (a Claude Design System artifact): compass
+      blue, navy ink, dawn for goals reached, gain/loss/warning and chart colors
+      from the app, light and dark; Newsreader titles, Figtree text; voice, icon
+      and waypoint-motif rules; six components. No logo yet.
+- [x] **Website mockups** (a Claude Design canvas): Home and Create account,
+      fluid, light and dark.
+- [x] **App restyled to match** - `.streamlit/config.toml` theme (colors per
+      theme, fonts served from `static/`, 8px corners, chart palette), the app's
+      own pieces on `--pt-*` design-system colors, stronger edges on inputs.
+- [ ] **Needs you:** review the system and mockups; a logo, if wanted.
 
 ### L3. The website - M
 **What:** build the home page, "what we do" / how it works, disclosures and

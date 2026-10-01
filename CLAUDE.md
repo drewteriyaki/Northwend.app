@@ -50,6 +50,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status` and counts with `_ai_record`), `advising.py`,
   `advisor.py` (the AI guide, Claude API with prompt caching), `prefs.py`, `accounts.py`.
+- Look: `.streamlit/config.toml` (the Northwend theme: colors per light/dark,
+  Figtree text and Newsreader titles from `static/`, served at `app/static/`),
+  and the `--pt-*` colors at the top of dashboard.py's styles. Keep both in
+  step with the Northwend design system.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py`.
