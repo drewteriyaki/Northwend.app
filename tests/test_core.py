@@ -3049,6 +3049,67 @@ class FetchFundSplitTests(unittest.TestCase):
         self.assertEqual((out["quote_type"], calls), ("", []))   # asked - don't keep asking
 
 
+class WebsiteTests(unittest.TestCase):
+    """The Northwend website (website/): public/ is what Cloudflare Pages serves."""
+
+    PUBLIC = os.path.join(REPO, "website", "public")
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, os.path.join(REPO, "website"))
+        import build as site_build
+        cls.site = site_build
+        cls.pages = {}
+        for n in ("index.html", "about.html", "404.html"):
+            with open(os.path.join(cls.PUBLIC, n), encoding="utf-8") as fh:
+                cls.pages[n] = fh.read()
+
+    def test_public_is_up_to_date_with_the_build(self):
+        for name, text in self.site.render().items():
+            with open(os.path.join(self.PUBLIC, name), encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), text, f"website/public/{name} is stale: "
+                                 "run python website/build.py")
+        for font in self.site.FONTS:
+            with open(os.path.join(REPO, "static", font), "rb") as a, \
+                    open(os.path.join(self.PUBLIC, "fonts", font), "rb") as b:
+                self.assertEqual(a.read(), b.read())
+
+    def test_about_page_carries_every_disclosure(self):
+        import disclosures
+        about = self.pages["about.html"]
+        for title, _ in disclosures.SECTIONS:
+            self.assertIn(f'id="{self.site.slug(title)}"', about)
+        self.assertIn(disclosures.LAST_UPDATED, about)
+        self.assertIn(disclosures.OPERATOR_NAME, about)
+        self.assertNotIn("**", about)
+
+    def test_buttons_open_the_app_and_nothing_else_loads_from_elsewhere(self):
+        app = self.site.APP_URL
+        self.assertNotIn("REPLACE", app)
+        self.assertTrue(app.startswith("https://") and app.endswith("/"))
+        for name, page in self.pages.items():
+            self.assertNotIn("{{", page)
+            self.assertNotIn("<script", page)      # no JavaScript at all
+            self.assertNotIn("style=", page)       # the CSP allows only styles.css
+            for url in re.findall(r'(?:href|src)="(https?://[^"]+)"', page):
+                self.assertTrue(url.startswith((app, self.site.SITE_URL)), f"{name}: {url}")
+        self.assertIn(f'href="{app}?signup=1"', self.pages["index.html"])
+        self.assertIn(f'href="{app}"', self.pages["index.html"])
+
+    def test_internal_links_and_anchors_resolve(self):
+        ids = {n: set(re.findall(r'id="([^"]+)"', p)) for n, p in self.pages.items()}
+        for name, page in self.pages.items():
+            for href in re.findall(r'href="(/[^"]*|#[^"]*)"', page):
+                path, _, anchor = href.partition("#")
+                target = name if not path else ("index.html" if path == "/" else path.lstrip("/") + ".html")
+                if path.endswith((".css", ".svg", ".woff2")):
+                    self.assertTrue(os.path.exists(os.path.join(self.PUBLIC, path.lstrip("/"))), href)
+                    continue
+                self.assertIn(target, self.pages, f"{name}: {href}")
+                if anchor:
+                    self.assertIn(anchor, ids[target], f"{name}: {href}")
+
+
 class DisclosureTests(unittest.TestCase):
     def test_text_is_safe_markdown_and_covers_the_basics(self):
         import disclosures

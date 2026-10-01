@@ -54,6 +54,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Figtree text and Newsreader titles from `static/`, served at `app/static/`),
   and the `--pt-*` colors at the top of dashboard.py's styles. Keep both in
   step with the Northwend design system.
+- Website (northwend.app, Cloudflare Pages): `website/` - templates and assets,
+  `build.py` writes `website/public/` (committed, served as is). Edit the
+  templates, then run `python website/build.py`; a test fails if `public/` is
+  stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py`.

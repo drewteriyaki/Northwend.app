@@ -147,6 +147,14 @@ contact from the L2 designs, with Log in and Create account buttons that go to
 the app. Host it on Vercel, Netlify or Cloudflare Pages (usually free) on the
 L1 domain.
 **Done when:** `<your domain>` is live and its buttons open the app.
+- [x] **Built** - `website/`: Home (how it works, privacy, the guide, for
+      advisors), About and disclosures made from `disclosures.py`, a 404; plain
+      HTML and CSS, no JavaScript, cookies or trackers; fonts self-hosted;
+      security headers. `python website/build.py` writes `website/public/`
+      (committed; a test checks it is current). Create account opens the app's
+      `?signup=1`, Log in the app.
+- [ ] **Needs you:** Cloudflare Pages project on this repo (no build command,
+      output `website/public`), then the custom domain northwend.app.
 
 ### L4. Move the app to its own domain - M
 **Why:** Streamlit Community Cloud only serves `….streamlit.app` addresses.
