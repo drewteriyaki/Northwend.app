@@ -960,7 +960,11 @@ def _render_clients():
     else:
         conn = connect(DB)
         try:
-            quotes = overview.latest_quotes(conn)
+            # only the tickers these clients hold
+            _ids = [cid for cid, _ in CLIENTS]
+            quotes = overview.latest_quotes(conn, [r["symbol"] for r in conn.execute(
+                f"SELECT DISTINCT symbol FROM positions WHERE user_id IN "
+                f"({', '.join('?' for _ in _ids)})", tuple(_ids))])
             rows = []
             for cid, name in CLIENTS:
                 summ = overview.account_summary(conn, cid, quotes, _rules_for(cid, conn))
@@ -2404,13 +2408,12 @@ def load():
                 "SELECT account, cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
                 (snap, USER_ID))
         }
-        quotes = {
-            r["ticker"]: dict(r)
-            for r in conn.execute(
-                "SELECT ph.* FROM price_history ph JOIN ("
-                "  SELECT ticker, MAX(fetched_at) AS m FROM price_history WHERE ok = 1 GROUP BY ticker"
-                ") latest ON ph.ticker = latest.ticker AND ph.fetched_at = latest.m WHERE ph.ok = 1")
-        }
+        # the latest quote of each ticker this account holds or watches - not
+        # every ticker in price_history, which grows every minute
+        import overview
+        mine = sorted({r["symbol"] for r in rows} | {r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM watchlist WHERE user_id = ?", (USER_ID,))})
+        quotes = overview.latest_quotes(conn, mine)
     finally:
         conn.close()
     # Nicknames replace the broker's account names from here on (display
@@ -3199,21 +3202,22 @@ if not positions:
 
 cash = sum(cash_by_account.values())
 
-# Deep Yahoo history (moving averages, volume, 52-wk, beta, P/E, sector).
-bar_stats = perf.bar_stats(DB)
-sec_info = perf.security_info(DB)
-# What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):
-# the account's own choice, else Yahoo's fund breakdown, else the broker type.
-CLASS_OVERRIDES = {s: c for s, c in (_read_prefs().get(asset_classes.OVERRIDES_PREF) or {}).items()
-                   if c in asset_classes.CLASSES}
-CLASS_SPLITS = asset_classes.splits_from(positions, sec_info, CLASS_OVERRIDES)
-
 _wl_conn = connect(DB)
 try:
     watch_tickers = watchlist.list_tickers(_wl_conn, USER_ID)
 finally:
     _wl_conn.close()
 _held_symbols = {p["symbol"] for p in positions}
+# Deep Yahoo history (moving averages, volume, 52-wk, beta, P/E, sector) - for
+# this account's holdings and watchlist only, not every ticker anyone holds.
+_my_tickers = _held_symbols | set(watch_tickers)
+bar_stats = perf.bar_stats(DB, _my_tickers)
+sec_info = perf.security_info(DB, _my_tickers)
+# What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):
+# the account's own choice, else Yahoo's fund breakdown, else the broker type.
+CLASS_OVERRIDES = {s: c for s, c in (_read_prefs().get(asset_classes.OVERRIDES_PREF) or {}).items()
+                   if c in asset_classes.CLASSES}
+CLASS_SPLITS = asset_classes.splits_from(positions, sec_info, CLASS_OVERRIDES)
 watch_only = [t for t in watch_tickers if t not in _held_symbols]
 
 # One metric context per position (same order as `positions`). Reused everywhere
@@ -3870,9 +3874,8 @@ if PAGE in ("Dashboard", "Watchlist"):
                 _interval = "sparse"
 
             if len(_rows) < 2:
-                st.info(f"Not enough history for **{_sym}** in this range yet. Tap "
-                        "sync history (:material/history:) up top for real intraday + daily bars, or keep "
-                        "tapping refresh (:material/refresh:).")
+                st.info(f"Not enough history for **{_sym}** in this range yet - it fills in by "
+                        "itself (price history loads each evening). Try a longer range.")
             else:
                 tdf = pd.DataFrame(_rows)
                 tdf["t"] = pd.to_datetime(tdf["t"], utc=True, format="mixed")

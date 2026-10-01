@@ -217,8 +217,9 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
                     rec[c] = r[c]
                 rows.append(rec)
         if reconstruct:
-            rows.extend(_reconstructed_daily_rows(conn, user_id) if days is None
-                        else _reconstruct_best(conn, user_id, days))
+            basis = _basis(conn, user_id)  # holdings and cash, read once per chart
+            rows.extend(_reconstructed_daily_rows(conn, basis) if days is None
+                        else _reconstruct_best(conn, basis, days))
         rows.sort(key=lambda x: x["t"])
         if days is None:
             return rows
@@ -250,7 +251,30 @@ def _coverage(conn, user_id: int):
     return sorted(t for t in held if t in have), sorted(t for t in held if t not in have)
 
 
-def _reconstruct_from(conn, user_id: int, sql: str, params) -> list[dict]:
+def _basis(conn, user_id: int):
+    """(snapshot, {symbol: (quantity, cost)}, cash) of the latest snapshot -
+    what the reconstructed line values, read once per chart."""
+    snap = conn.execute("SELECT MAX(snapshot_date) d FROM positions WHERE user_id = ?",
+                        (user_id,)).fetchone()["d"]
+    if not snap:
+        return None, {}, 0.0
+    holdings = {r["symbol"]: (r["quantity"] or 0.0, r["cost_basis"] or 0.0)
+                for r in conn.execute(
+                    "SELECT symbol, quantity, cost_basis FROM positions WHERE snapshot_date = ? AND user_id = ?",
+                    (snap, user_id))}
+    cash = conn.execute(
+        "SELECT COALESCE(SUM(cash_value), 0) c FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
+        (snap, user_id)).fetchone()["c"]
+    return snap, holdings, cash
+
+
+def _in(tickers) -> tuple[str, tuple]:
+    """' AND ticker IN (?, ...)' for a query, and its parameters."""
+    tickers = tuple(sorted(tickers))
+    return f" AND ticker IN ({', '.join('?' for _ in tickers)})", tickers
+
+
+def _reconstruct_from(conn, basis, sql: str, params) -> list[dict]:
     """Shared aggregation for the reconstructed line: `sql` must yield
     (t, ticker, close) rows. At every timestamp any held ticker has a bar,
     values the whole portfolio using each ticker's most recent known close as
@@ -260,23 +284,17 @@ def _reconstruct_from(conn, user_id: int, sql: str, params) -> list[dict]:
     gap, not a missing trade), so requiring an exact match would swing the
     total based on which subset of holdings happened to report that instant,
     not on what the market actually did. A newly-listed holding joins the sum
-    once its first bar arrives and never drops back out."""
-    snap = conn.execute("SELECT MAX(snapshot_date) d FROM positions WHERE user_id = ?",
-                        (user_id,)).fetchone()["d"]
-    if not snap:
-        return []
-    holdings = {r["symbol"]: (r["quantity"] or 0.0, r["cost_basis"] or 0.0)
-                for r in conn.execute(
-                    "SELECT symbol, quantity, cost_basis FROM positions WHERE snapshot_date = ? AND user_id = ?",
-                    (snap, user_id))}
+    once its first bar arrives and never drops back out.
+
+    `basis` is _basis(); the query is narrowed here to the held tickers, so
+    other accounts' tickers are never read."""
+    snap, holdings, cash = basis
     if not holdings:
         return []
-    cash = conn.execute(
-        "SELECT COALESCE(SUM(cash_value), 0) c FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
-        (snap, user_id)).fetchone()["c"]
+    where, tick_params = _in(holdings)
 
     series: dict[str, list[tuple[str, float]]] = {tk: [] for tk in holdings}
-    for t, ticker, close in conn.execute(sql, params):
+    for t, ticker, close in conn.execute(sql + where, tuple(params) + tick_params):
         if close is not None and ticker in holdings:
             series[ticker].append((t, close))
     for rows in series.values():
@@ -320,27 +338,38 @@ def _reconstruct_from(conn, user_id: int, sql: str, params) -> list[dict]:
     return out
 
 
-def _reconstructed_daily_rows(conn, user_id: int) -> list[dict]:
-    """One point per trading day, from daily_bars."""
+def _reconstructed_daily_rows(conn, basis, since: str | None = None) -> list[dict]:
+    """One point per trading day, from daily_bars (from `since`, a date, if given)."""
     return _reconstruct_from(
-        conn, user_id, "SELECT date, ticker, close FROM daily_bars WHERE close IS NOT NULL", ())
+        conn, basis, "SELECT date, ticker, close FROM daily_bars WHERE close IS NOT NULL"
+        + (" AND date >= ?" if since else ""), (since,) if since else ())
 
 
-def _reconstructed_intraday_rows(conn, user_id: int, interval: str) -> list[dict]:
-    """One point per bar at the given intraday resolution, from intraday_bars."""
+def _reconstructed_intraday_rows(conn, basis, interval: str,
+                                 since: str | None = None) -> list[dict]:
+    """One point per bar at the given intraday resolution, from intraday_bars
+    (from `since`, a timestamp, if given)."""
     return _reconstruct_from(
-        conn, user_id,
-        "SELECT ts, ticker, close FROM intraday_bars WHERE interval = ? AND close IS NOT NULL",
-        (interval,))
+        conn, basis,
+        "SELECT ts, ticker, close FROM intraday_bars WHERE interval = ? AND close IS NOT NULL"
+        + (" AND ts >= ?" if since else ""), (interval, since) if since else (interval,))
 
 
-def _reconstruct_best(conn, user_id: int, days: int) -> list[dict]:
+# Bars read before a window's start, so each holding's last price going into
+# the window carries over (forward-fill) as it would with the full history.
+LEAD_IN_DAYS = 7
+
+
+def _reconstruct_best(conn, basis, days: int) -> list[dict]:
     """Reconstructed portfolio-value rows at the finest resolution whose
     Yahoo look-back covers `days` and that actually has >=2 points within the
-    window; [] if nothing qualifies (caller falls back further)."""
+    window; [] if nothing qualifies (caller falls back further). Only the
+    window (plus a short lead-in) is read."""
     for interval in _intervals_for(days):
-        rows = (_reconstructed_daily_rows(conn, user_id) if interval == "1d"
-                else _reconstructed_intraday_rows(conn, user_id, interval))
+        rows = (_reconstructed_daily_rows(conn, basis, _cutoff_daily(days + LEAD_IN_DAYS))
+                if interval == "1d"
+                else _reconstructed_intraday_rows(conn, basis, interval,
+                                                  _cutoff_ts(days + LEAD_IN_DAYS)))
         cutoff = f"{_cutoff_daily(days)}T00:00:00Z" if interval == "1d" else _cutoff_ts(days)
         clipped = [r for r in rows if r["t"] >= cutoff]
         if len(clipped) >= 2:
@@ -473,11 +502,20 @@ def ticker_has_bars(db_path: str, ticker: str) -> bool:
 
 
 def bar_stats(db_path: str, tickers=None) -> dict:
-    """{ticker: {last_close, volume, ma_20, ma_50, ma_200}} from daily_bars."""
+    """{ticker: {last_close, volume, ma_20, ma_50, ma_200}} from daily_bars -
+    only `tickers` (all of them if None), and only as far back as the longest
+    moving average needs."""
+    since = (datetime.now(timezone.utc) - timedelta(days=int(max(MA_WINDOWS) * 1.5) + 30)
+             ).strftime("%Y-%m-%d")
     conn = connect(db_path)
     try:
-        rows = conn.execute(
-            "SELECT ticker, date, close, volume FROM daily_bars ORDER BY ticker, date").fetchall()
+        sql, params = "SELECT ticker, date, close, volume FROM daily_bars WHERE date >= ?", (since,)
+        if tickers is not None:
+            if not tickers:
+                return {}
+            where, tick_params = _in(tickers)
+            sql, params = sql + where, params + tick_params
+        rows = conn.execute(sql + " ORDER BY ticker, date", params).fetchall()
     finally:
         conn.close()
     want = set(tickers) if tickers else None
@@ -498,10 +536,16 @@ def bar_stats(db_path: str, tickers=None) -> dict:
     return stats
 
 
-def security_info(db_path: str) -> dict:
-    """{ticker: row dict} from security_info."""
+def security_info(db_path: str, tickers=None) -> dict:
+    """{ticker: row dict} from security_info - only `tickers` if given."""
     conn = connect(db_path)
     try:
-        return {r["ticker"]: dict(r) for r in conn.execute("SELECT * FROM security_info")}
+        if tickers is None:
+            return {r["ticker"]: dict(r) for r in conn.execute("SELECT * FROM security_info")}
+        if not tickers:
+            return {}
+        where, params = _in(tickers)
+        return {r["ticker"]: dict(r) for r in conn.execute(
+            "SELECT * FROM security_info WHERE 1 = 1" + where, params)}
     finally:
         conn.close()

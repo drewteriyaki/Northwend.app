@@ -15,8 +15,21 @@ from allocation import allocate
 from update_prices import latest_snapshot
 
 
-def latest_quotes(conn) -> dict:
-    """{ticker: latest successful price_history row} - shared market data."""
+def latest_quotes(conn, tickers=None) -> dict:
+    """{ticker: latest successful price_history row} - shared market data.
+    Pass `tickers` to read only those (price_history grows every minute, so
+    reading every ticker's latest row gets slower over time)."""
+    if tickers is not None:
+        tickers = sorted(set(tickers))
+        if not tickers:
+            return {}
+        ph = ", ".join("?" for _ in tickers)
+        return {r["ticker"]: dict(r) for r in conn.execute(
+            "SELECT ph.* FROM price_history ph JOIN ("
+            f"  SELECT ticker, MAX(fetched_at) AS m FROM price_history WHERE ok = 1 AND ticker IN ({ph})"
+            "  GROUP BY ticker"
+            ") latest ON ph.ticker = latest.ticker AND ph.fetched_at = latest.m WHERE ph.ok = 1",
+            tuple(tickers))}
     return {r["ticker"]: dict(r) for r in conn.execute(
         "SELECT ph.* FROM price_history ph JOIN ("
         "  SELECT ticker, MAX(fetched_at) AS m FROM price_history WHERE ok = 1 GROUP BY ticker"
