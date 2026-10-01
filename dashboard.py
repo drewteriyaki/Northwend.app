@@ -1337,6 +1337,9 @@ _view("profile")
 _view("plan")
 
 
+_view("proposals")
+
+
 _view("get_started")
 
 
@@ -1919,6 +1922,8 @@ if not positions and PAGE in ("AI Assistant", "Plan", "Get started", "Advisor no
     elif PAGE == "Get started":
         _render_get_started(False, None)
     elif PAGE == "Advisor notes":
+        if IS_MANAGED_CLIENT:
+            _render_proposals_client(None, None)
         _render_notes()
     else:
         _render_assistant([], {})
@@ -2105,6 +2110,10 @@ if PAGE == "Get started":
     _render_get_started(True, portfolio_value)
 
 if PAGE == "Advisor notes":
+    if IS_MANAGED_CLIENT:
+        _render_proposals_client(
+            allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"],
+            None if _hidden() else portfolio_value)
     _render_notes()
 
 if PAGE == "AI Assistant":

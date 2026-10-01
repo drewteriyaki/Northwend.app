@@ -388,6 +388,22 @@ CREATE TABLE IF NOT EXISTS email_tokens (
     expires_at  TEXT    NOT NULL
 );
 
+-- An advisor's proposed mix for a client (proposals.py): a draft only the
+-- advisor sees, then shared, then the client's answer.
+CREATE TABLE IF NOT EXISTS proposals (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    advisor_id    INTEGER NOT NULL,
+    client_id     INTEGER NOT NULL,
+    title         TEXT    NOT NULL,
+    mix_json      TEXT    NOT NULL,              -- JSON {asset class: %} (asset_classes.py)
+    note          TEXT,                          -- the advisor's reasoning, for the client
+    status        TEXT    NOT NULL,              -- draft / shared / accepted / declined
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL,
+    shared_at     TEXT,
+    responded_at  TEXT
+);
+
 -- Asking for advisor access (auth.request_advisor): the firm and CRD or
 -- licence number the admin checks before making the account an advisor
 -- (manage_users.py make-advisor / decline-advisor). One row per account.

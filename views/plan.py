@@ -365,3 +365,6 @@ def _render_plan(value, growth, alloc_rows):
     if alloc_rows:
         st.divider()
         _render_target_mix(alloc_rows)
+    if ON_CLIENT:   # the client's advisor: proposals (views/proposals.py)
+        st.divider()
+        _render_proposals_advisor(alloc_rows, value)

@@ -306,6 +306,15 @@ questions and model portfolios already in the app.
 vs proposed side by side (risk, diversification, costs, projected range);
 shared to the client in the app and as a PDF; the client sees it under
 their advisor's notes. The core of "helping clients grow".
+- [x] **Built** - `proposals.py` + `views/proposals.py`: on a client's Plan
+      page the advisor drafts a mix (start from today's, the current target or
+      a model portfolio), with a note in plain words; save as draft or share.
+      Each proposal compares today vs proposed: by asset class, assumed
+      long-run return, how each would have done in 2008 and 2022 (rounded
+      index figures), and the value at the goal date - with the assumptions
+      stated. The client answers on Advisor notes ("Let's go ahead" / "Not
+      right now" / Ask Northwend to explain); an accepted one can become the
+      target mix in one click; a one-page PDF either side. Nothing is traded.
 
 ### G5. "What if" playground - M
 **What:** sliders for monthly amount, years and mix showing a range of

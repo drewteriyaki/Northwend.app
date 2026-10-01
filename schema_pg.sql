@@ -346,6 +346,21 @@ CREATE TABLE IF NOT EXISTS email_tokens (
     expires_at  TEXT    NOT NULL
 );
 
+-- An advisor's proposed mix for a client - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS proposals (
+    id            SERIAL  PRIMARY KEY,
+    advisor_id    INTEGER NOT NULL,
+    client_id     INTEGER NOT NULL,
+    title         TEXT    NOT NULL,
+    mix_json      TEXT    NOT NULL,              -- JSON {asset class: %} (asset_classes.py)
+    note          TEXT,                          -- the advisor's reasoning, for the client
+    status        TEXT    NOT NULL,              -- draft / shared / accepted / declined
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL,
+    shared_at     TEXT,
+    responded_at  TEXT
+);
+
 -- Asking for advisor access - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS advisor_requests (
     user_id       INTEGER PRIMARY KEY,

@@ -216,6 +216,7 @@ def _ensure_schema(conn) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_signups_time ON signups (created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_email_sends_email ON email_sends (email_key, sent_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_proposals_client ON proposals (client_id)")
     for name in ("idx_daily_bars_ticker", "idx_intraday_bars_lookup"):
         conn.execute(f"DROP INDEX IF EXISTS {name}")
     # saved targets from before Stocks / Bonds / Cash / Other; a no-op once done

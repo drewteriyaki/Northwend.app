@@ -1387,6 +1387,73 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class ProposalTests(TempDBMixin, unittest.TestCase):
+    """Advisor proposals (proposals.py)."""
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+        auth.set_advisor(self.conn, "testuser", True)
+        self.client = auth.create_client(self.conn, self.user_id, "pat_client")
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def test_draft_share_answer(self):
+        import proposals
+        with self.assertRaises(ValueError):
+            proposals.save(self.conn, self.user_id, self.client, title="x",
+                           mix={"Stocks": 60, "Bonds": 30})          # 90%
+        pid = proposals.save(self.conn, self.user_id, self.client, title=" Steadier ",
+                             mix={"Stocks": 60, "Bonds": 35, "Cash": 5, "Nonsense": 9},
+                             note="Closer to your date.")
+        p = proposals.for_client(self.conn, self.client, include_drafts=True)[0]
+        self.assertEqual((p["title"], p["status"], p["mix"]),
+                         ("Steadier", "draft", {"Stocks": 60.0, "Bonds": 35.0, "Cash": 5.0}))
+        self.assertEqual(proposals.for_client(self.conn, self.client, include_drafts=False), [])
+        self.assertFalse(proposals.respond(self.conn, self.client, pid, True))   # not shared yet
+        self.assertTrue(proposals.share(self.conn, self.user_id, pid))
+        self.assertFalse(proposals.share(self.conn, self.client, pid))           # not theirs
+        self.assertFalse(proposals.respond(self.conn, self.user_id, pid, True))  # not the client
+        self.assertTrue(proposals.respond(self.conn, self.client, pid, True))
+        self.assertEqual(proposals.for_client(self.conn, self.client,
+                                              include_drafts=False)[0]["status"], "accepted")
+        self.assertFalse(proposals.respond(self.conn, self.client, pid, False))  # answered
+        # editing an answered proposal sends it back to draft
+        proposals.save(self.conn, self.user_id, self.client, title="v2",
+                       mix={"Stocks": 50, "Bonds": 50}, proposal_id=pid)
+        self.assertEqual(proposals.for_client(self.conn, self.client,
+                                              include_drafts=True)[0]["status"], "draft")
+        other = auth.create_user(self.conn, "other_adv", "pass12345")
+        with self.assertRaises(ValueError):
+            proposals.save(self.conn, other, self.client, title="no",
+                           mix={"Stocks": 100}, proposal_id=pid)
+        proposals.delete(self.conn, self.user_id, pid)
+        self.assertEqual(proposals.for_client(self.conn, self.client, include_drafts=True), [])
+
+    def test_compare_and_pdf(self):
+        import proposals
+        cmp = proposals.compare({"Stocks": 90.0, "Bonds": 10.0}, {"Stocks": 60.0, "Bonds": 40.0},
+                                value=40000, monthly=300, months=36)
+        self.assertEqual(cmp["rows"][0], ("Stocks", 90.0, 60.0, -30.0))
+        self.assertAlmostEqual(cmp["assumed_return"][0], 6.7)
+        self.assertAlmostEqual(cmp["assumed_return"][1], 5.8)
+        y08 = cmp["hard_years"]["2008"]
+        self.assertAlmostEqual(y08[0], -35.5)
+        self.assertAlmostEqual(y08[1], -22.0)
+        self.assertGreater(cmp["projected"][0], cmp["projected"][1])
+        empty = proposals.compare({}, {"Stocks": 100.0})
+        self.assertEqual((empty["rows"][0][1], empty["assumed_return"][0], empty["projected"]),
+                         (None, None, None))
+        pid = proposals.save(self.conn, self.user_id, self.client, title="Steadier",
+                             mix={"Stocks": 60, "Bonds": 40}, note="Why: closer to the date.")
+        p = proposals.for_client(self.conn, self.client, include_drafts=True)[0]
+        pdf = proposals.render_pdf(p, cmp, client_name="pat_client", advisor_name="testuser")
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertTrue(pid)
+
+
 class InvestorTypeTests(unittest.TestCase):
     """Find your direction (learn.investor_type): named from the readiness
     check and the example mix, so it always agrees with them."""

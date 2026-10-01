@@ -25,6 +25,7 @@ ACCOUNT_TABLES = {
     "ai_usage": ("user_id",), "email_tokens": ("user_id",), "advisor_requests": ("user_id",),
     "invites": ("user_id", "created_by"), "advisor_clients": ("advisor_id", "client_id"),
     "advisor_notes": ("advisor_id", "client_id"), "model_portfolios": ("advisor_id",),
+    "proposals": ("advisor_id", "client_id"),
 }
 # columns that only record who last changed something - cleared, not deleted
 ACCOUNT_REFERENCES = {"plans": ("set_by",)}
