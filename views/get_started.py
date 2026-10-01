@@ -541,3 +541,4 @@ def _render_get_started(has_holdings, value):
     if not IS_ADVISOR and USER_ID == LOGIN_ID:
         st.button(":material/replay: Go through the first steps again", key="fs_restart",
                   type="tertiary", on_click=_fs_restart)
+    check_milestones(value)   # a waypoint just reached may earn gear (views/kit.py)

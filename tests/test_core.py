@@ -1733,6 +1733,46 @@ class ExpeditionTests(unittest.TestCase):
                 self.assertTrue(fh.read().startswith("<svg"))
 
 
+class GearTests(unittest.TestCase):
+    """T3: milestones and gear - earned from learning and steady habits."""
+
+    def test_earned_in_kit_order(self):
+        import gear
+        self.assertEqual(gear.earned({"goal_set": True, "profile_done": True, "storm": True}),
+                         ["map", "compass", "cloak"])
+        self.assertEqual(len(gear.KEYS), 8)
+
+    def test_first_visit_after_the_update_is_quiet(self):
+        import gear
+        self.assertEqual(gear.new_since(["map", "compass"], None), ([], ["map", "compass"]))
+        self.assertEqual(gear.new_since(["map", "compass", "tent"], ["map", "compass"]),
+                         (["tent"], ["map", "compass", "tent"]))
+
+    def test_steady_pace_is_three_months_in_a_row(self):
+        import gear
+        today = date(2026, 10, 15)
+        self.assertTrue(gear.steady_months(["2026-08-03", "2026-09-01", "2026-10-02"], today))
+        self.assertTrue(gear.steady_months(["2026-07-03", "2026-08-01", "2026-09-30"], today))
+        self.assertFalse(gear.steady_months(["2026-06-03", "2026-08-01", "2026-09-30"], today))
+        self.assertFalse(gear.steady_months(["2025-12-05", "2026-01-05", "2026-02-05"], today))
+
+    def test_storm_weathered_only_without_selling_in_the_drop(self):
+        import gear
+        values = [("2026-03-01", 100.0), ("2026-03-10", 110.0), ("2026-03-20", 97.0),
+                  ("2026-04-10", 112.0)]
+        self.assertTrue(gear.weathered_storm(values, []))
+        self.assertTrue(gear.weathered_storm(values, ["2026-05-01"]))     # sold later: fine
+        self.assertFalse(gear.weathered_storm(values, ["2026-03-15"]))    # sold in the drop
+        self.assertFalse(gear.weathered_storm([("2026-03-01", 100.0), ("2026-03-02", 95.0)], []))
+
+    def test_icons_are_images_per_theme(self):
+        import gear
+        html = gear.icon_html("cloak", False)
+        self.assertEqual(html.count("<img"), 2)
+        self.assertNotIn("<svg", html)
+        self.assertIn("Storm cloak, not earned yet", html)
+
+
 class RouteTests(unittest.TestCase):
     """The investor home's next step (route.py): one step, in priority order."""
 

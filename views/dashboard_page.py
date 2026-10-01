@@ -142,6 +142,8 @@ def _render_route():
 if PAGE == "Dashboard":
     if INVESTOR_VIEW:
         _render_route()
+        render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
+        check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #
     _day_base = portfolio_value - day_change_total

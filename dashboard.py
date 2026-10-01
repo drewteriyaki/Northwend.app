@@ -190,6 +190,16 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 @keyframes pt-page-in { from { opacity: 0; } to { opacity: 1; } }
 .pt-trail-advance { animation: pt-trail-draw .9s ease-out; }
 @keyframes pt-trail-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* milestones and gear (views/kit.py, gear.py): icon tiles, earned ones in dawn */
+.pt-gear-row { display: flex; flex-wrap: wrap; gap: 8px; margin: .55rem 0 .35rem; }
+.pt-gear-tile { width: 40px; height: 40px; border-radius: 10px; display: inline-flex;
+  align-items: center; justify-content: center; border: 1px dashed var(--pt-line-strong); }
+.pt-gear-earned { border: 0; background: var(--pt-dawn-soft); }
+.pt-milestone { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+.pt-milestone-badge { width: 76px; height: 76px; border-radius: 999px; background: var(--pt-dawn-soft);
+  display: flex; align-items: center; justify-content: center; margin-bottom: .3rem; }
+.pt-milestone-title { font-family: Newsreader, Georgia, serif; font-size: 1.6rem; line-height: 1.2;
+  font-weight: 500; }
 /* the trail is two images, one per theme; show the one that matches */
 :root[data-pt-theme="dark"] .pt-on-light, :root:not([data-pt-theme="dark"]) .pt-on-dark {
   display: none; }
@@ -1491,6 +1501,9 @@ _view("plan")
 
 _view("proposals")
 
+
+# milestones and gear: the "milestone reached" window and Your kit (gear.py)
+_view("kit")
 
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")

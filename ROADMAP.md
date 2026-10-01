@@ -368,6 +368,17 @@ held steady through a 10% drop"). Clearing one earns a piece of gear for a
 small kit shown on Home and the Account page (a compass, a map, boots, a
 lantern...) - looks only, nothing to buy. A "Your expedition" window lists
 what's cleared and what's next.
+- [x] **Built** - `gear.py`: eight pieces, each earned by learning or a
+      steady habit, worked out from what the app already knows - map
+      (profile), compass (goal), tent (the basics), rope (practice money),
+      boots (a real statement in), lantern (money added three months
+      running), storm cloak (no selling through a 10% drop), summit flag
+      (goal reached). Only what's been shown is kept (prefs gear_seen); an
+      account from before gear existed takes what it has quietly. Home:
+      Your kit (earned icons, the next one to earn, See your kit). A
+      "milestone reached" window the first time one is earned, on Home or
+      Get started (kept open through live-price redraws until Continue).
+      Icons are images per theme (st.html strips inline SVG).
 
 ### T4. Storms - S
 When the market drops sharply, the guide treats it as a storm to wait out:

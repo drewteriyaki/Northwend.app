@@ -61,6 +61,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   version, database, email and keys (set or not, never values); a new table with account data must be added to
   `admin.ACCOUNT_TABLES` - a test checks), `route.py` (the investor home's
   next step), `proposals.py` (advisor proposals, `views/proposals.py`),
+  `gear.py` + `views/kit.py` (milestones and gear: learning and habits only),
   `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client
   progress reports, `views/reports.py`), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
   sending - use it for local runs), `manage_users.py`
