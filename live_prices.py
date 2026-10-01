@@ -186,6 +186,28 @@ def freshen(conn, user_id: int, finnhub_key: str | None, *, now: datetime | None
             "as_of": as_of, "live": market_open(now) or "crypto" in kinds.values()}
 
 
+# price_history gains a row per ticker per market minute; past this many days
+# only each ticker's closing quote of the day is kept (trim_history).
+KEEP_MINUTES_DAYS = 7
+
+
+def trim_history(conn, *, keep_days: int = KEEP_MINUTES_DAYS, now: datetime | None = None) -> int:
+    """Keep every quote from the last `keep_days` days; before that, only each
+    ticker's last successful quote of each day (its close) - failed attempts and
+    the rest of the minute-by-minute rows go. Run nightly (sync_history.py).
+    Returns how many rows were deleted."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=keep_days)).strftime("%Y-%m-%d")
+    # fetched_at is ISO ("2026-09-29T15:00:00Z", or with a space): its first 10
+    # characters are the day, and it compares as text against a date
+    cur = conn.execute(
+        "DELETE FROM price_history WHERE fetched_at < ? AND (ok = 0 OR id NOT IN ("
+        "  SELECT MAX(id) FROM price_history WHERE ok = 1 AND fetched_at < ?"
+        "  GROUP BY ticker, substr(fetched_at, 1, 10)))", (cutoff, cutoff))
+    conn.commit()
+    return cur.rowcount or 0
+
+
 def quotes(conn, tickers) -> dict:
     """{ticker: {"price", "prev_close", "change", "pct_change", "fetched_at"}}
     from each ticker's newest successful quote - for the watchlist rows."""

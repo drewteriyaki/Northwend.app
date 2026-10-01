@@ -2057,6 +2057,29 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
         self.assertEqual((r2["fetched"], calls2), (0, {"finnhub": [], "yahoo": []}))
         conn.close()
 
+    def test_trim_keeps_a_week_then_one_close_per_day(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        rows = []
+        for day, hhmm, price, ok in (("2026-09-10", "14:00", 1.0, 1), ("2026-09-10", "19:59", 2.0, 1),
+                                     ("2026-09-10", "20:30", None, 0),      # a failed late try
+                                     ("2026-09-11", "15:00", 3.0, 1),
+                                     ("2026-09-28", "14:00", 4.0, 1), ("2026-09-28", "15:00", 5.0, 1)):
+            rows.append(("VTI", price, f"{day}T{hhmm}:00Z", ok))
+        rows.append(("BND", 70.0, "2026-09-10T19:00:00Z", 1))
+        conn.executemany("INSERT INTO price_history (ticker, price, fetched_at, ok) VALUES (?,?,?,?)", rows)
+        conn.commit()
+        n = lp.trim_history(conn, now=datetime(2026, 9, 30, tzinfo=timezone.utc))
+        left = [(r["ticker"], r["fetched_at"][:10], r["price"]) for r in conn.execute(
+            "SELECT ticker, fetched_at, price FROM price_history ORDER BY ticker, fetched_at")]
+        self.assertEqual(n, 2)       # VTI's 14:00 quote and the failed try on Sep 10
+        self.assertEqual(left, [("BND", "2026-09-10", 70.0),
+                                ("VTI", "2026-09-10", 2.0),        # that day's close
+                                ("VTI", "2026-09-11", 3.0),
+                                ("VTI", "2026-09-28", 4.0), ("VTI", "2026-09-28", 5.0)])  # last week: all
+        self.assertEqual(lp.trim_history(conn, now=datetime(2026, 9, 30, tzinfo=timezone.utc)), 0)
+        conn.close()
+
     def test_watchlist_tickers_get_live_quotes_too(self):
         import live_prices as lp
         conn = portfolio.connect(self.db)

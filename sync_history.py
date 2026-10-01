@@ -334,6 +334,15 @@ def main(argv=None) -> int:
           f"across {summary['ok']}/{summary['tickers']} tickers.")
     if summary["failed"]:
         print("No data at all for: " + ", ".join(summary["failed"]))
+    # nightly housekeeping: the live price table keeps minute-by-minute quotes
+    # for a week, then one closing quote per ticker per day (live_prices.py)
+    import live_prices
+    conn = connect(args.db)
+    try:
+        trimmed = live_prices.trim_history(conn)
+    finally:
+        conn.close()
+    print(f"Trimmed {trimmed:,} old minute-by-minute quote(s) from price_history.")
     print("\nSee it in the dashboard:  streamlit run dashboard.py")
     return 0 if not summary["failed"] else 1
 
