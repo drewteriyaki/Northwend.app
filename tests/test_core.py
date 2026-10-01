@@ -2000,11 +2000,20 @@ class AppFilesCompileTests(unittest.TestCase):
 
     def test_every_python_file_compiles(self):
         import py_compile
-        for name in sorted(os.listdir(REPO)):
+        views = [os.path.join("views", n) for n in os.listdir(os.path.join(REPO, "views"))]
+        for name in sorted(os.listdir(REPO)) + sorted(views):
             if name.endswith(".py"):
                 with self.subTest(name):
                     py_compile.compile(os.path.join(REPO, name), doraise=True,
                                        cfile=os.path.join(tempfile.gettempdir(), "pt_compile.pyc"))
+
+    def test_every_view_file_is_run_once_and_exists(self):
+        # dashboard.py runs each page's file with _view("name"); a renamed or
+        # forgotten file would only show on the live app
+        with open(os.path.join(REPO, "dashboard.py"), encoding="utf-8") as fh:
+            called = re.findall(r'^_view\("(\w+)"\)$', fh.read(), re.M)
+        files = sorted(n[:-3] for n in os.listdir(os.path.join(REPO, "views")) if n.endswith(".py"))
+        self.assertEqual(sorted(called), files)
 
     def test_injected_styles_and_script_have_no_tag_like_text(self):
         # Streamlit's sanitizer drops a whole <style> or <script> whose text

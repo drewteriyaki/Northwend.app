@@ -23,9 +23,15 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Python 3.13; `pandas==2.2.3` is pinned on purpose (3.0 is blocked on one machine).
 
 ## Where things live
-- `dashboard.py` (~4.3k lines) - the whole UI, one script. Find a page with
-  `grep -n '^if PAGE ==' dashboard.py`; helpers sit above it (sections marked
-  `# ---- name ----`). Internal page "AI Assistant" is shown as "Ask Sage" (`PAGE_LABELS`).
+- `dashboard.py` (~1.7k lines) - the app's one Streamlit script: styles, sign-in,
+  sidebar, settings, formatting helpers, the header, live prices, loading holdings.
+  Each page's code is in `views/` and runs inside it via `_view("name")` at the
+  point it's listed (same names, no imports needed - read the header of any view):
+  `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
+  `watchlist`, `activity`, `income`, `plan`, `get_started`, `assistant` (Ask Sage),
+  `profile`, `clients` (advisor side, weekly summary), `holdings_input` (paste,
+  by hand, screenshots, CSV, the save step). Open just the view you need.
+  Internal page "AI Assistant" is shown as "Ask Sage" (`PAGE_LABELS`).
 - Data: `portfolio.py` (connect, schema setup + column back-fill, `write_snapshot`,
   delete/sample helpers), `schema.sql` / `schema_pg.sql` (keep **both** in step),
   `pgcompat.py` (SQLite-style SQL on Postgres, pooled connections).
@@ -59,9 +65,11 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Never write tag-like text (`<html>`, `<div>`) in comments inside the app's
   `<style>` block or `ui_enhancements.js`: Streamlit drops the whole block
   (a test checks). Colors go through the `--pt-up` / `--pt-down` / `--pt-warn` variables.
-- `dashboard.py` runs top to bottom: a function used while the page is being
-  drawn (sign-in, the sidebar) must be defined above that point. Button
-  callbacks run later, so they can sit anywhere.
+- `dashboard.py` runs top to bottom, views included at their `_view(...)` line: a
+  function used while the page is being drawn (sign-in, the sidebar) must be
+  defined above that point. Button callbacks run later, so they can sit anywhere.
+  A new view file needs its `_view("name")` line (a test checks they match).
+- Never name the folder `pages/`: Streamlit turns that into its own page menu.
 - Edit files with the Edit tool. Python patch scripts inside Bash heredocs have
   turned `\n` in strings into real newlines before.
 - Commit messages: `git commit -F -` with a heredoc (PowerShell breaks on quotes).

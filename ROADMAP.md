@@ -165,9 +165,9 @@ website's Create account button to everyone.
       loaded holdings (Dashboard 39 -> 25 statements); per-account indexes; the
       15-minute job skips prices the app fetched in the last 10 minutes; a fund
       held in two accounts now counts both on the chart. `CLAUDE.md` added.
-- [ ] **Split dashboard.py** - one file per page (Income, Activity, Plan, ...) so
-      each change reads a few hundred lines, not 4,000+. Moves code only; the
-      tests and a browser pass on each page check nothing changed. (M)
+- [x] **Split dashboard.py** - one file per page in `views/` (dashboard.py 4,504 ->
+      1,657 lines). Code moved unchanged; every page drew identically before
+      and after (18 page views compared). (M)
 - [x] **Accessibility** - contrast, keyboard use and screen-reader labels on
       the custom HTML parts (hero, chips, bars). (S) - up/down/warning colors
       pass AA contrast in light and dark (switching with the theme), dim text
