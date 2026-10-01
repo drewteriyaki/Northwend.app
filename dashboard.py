@@ -200,6 +200,13 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   display: flex; align-items: center; justify-content: center; margin-bottom: .3rem; }
 .pt-milestone-title { font-family: Newsreader, Georgia, serif; font-size: 1.6rem; line-height: 1.2;
   font-weight: 500; }
+/* storms (views/kit.py render_weather): a calm note, a cool rain edge */
+.st-key-pt_storm { border-left: 3px solid var(--pt-compass) !important; }
+.pt-storm-title { font-family: Newsreader, Georgia, serif; font-size: 1.3rem; font-weight: 500;
+  margin: .1rem 0 .3rem; }
+.pt-storm-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.pt-storm-table th { text-align: left; font-weight: 600; opacity: .75; padding: .3rem .4rem; }
+.pt-storm-table td { padding: .35rem .4rem; border-top: 1px solid var(--pt-line); }
 /* the trail is two images, one per theme; show the one that matches */
 :root[data-pt-theme="dark"] .pt-on-light, :root:not([data-pt-theme="dark"]) .pt-on-dark {
   display: none; }

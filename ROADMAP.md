@@ -385,6 +385,13 @@ When the market drops sharply, the guide treats it as a storm to wait out:
 a calm note on Home with what drops have looked like before and why
 long-term investors usually hold - and a milestone for holding steady,
 never for selling or buying.
+- [x] **Built** - `storms.py`: the current holdings priced at each close
+      (perf.daily_values - money in or out never looks like the market)
+      against their 90-day high; 5% down is "rough weather", 10% "a storm".
+      A calm note on Home (nothing needs doing; the storm cloak for holding
+      steady), "What storms have looked like" (six past S&P 500 drops and
+      how long each took to pass), Ask Northwend, and "Hide for now" (back
+      if it gets worse or after a new high).
 
 ---
 

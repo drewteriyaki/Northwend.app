@@ -9,6 +9,7 @@
 # ruff: noqa: F821
 
 import gear
+import storms
 
 
 def _gear_facts(value):
@@ -120,3 +121,84 @@ def render_kit_card(value):
         if st.button("See your kit", key="kit_open", type="tertiary"):
             st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
             _kit_window(have)
+
+
+# ---- storms (ROADMAP T4, storms.py): a sharp drop as weather to wait out --- #
+
+def _weather_now():
+    """storms.weather() for the holdings, worked out once a day per statement
+    (the closes only change with the nightly sync)."""
+    today = datetime.now().date()
+    key = (USER_ID, snapshot, today.isoformat())
+    kept = st.session_state.get("weather")
+    if not kept or kept[0] != key:
+        since = (today - timedelta(days=storms.WINDOW_DAYS)).isoformat()
+        kept = (key, storms.weather(perf.daily_values(DB, PERF_BASIS, since), today))
+        st.session_state["weather"] = kept
+    return kept[1]
+
+
+def _hide_weather(w):
+    p = _read_prefs()
+    p["storm_hidden"] = {"level": w["level"], "high_date": w["high_date"]}
+    _write_prefs(p)
+
+
+@st.dialog("What storms have looked like", width="medium", on_dismiss=_dialog_closed)
+def _storms_window():
+    st.caption("The S&P 500 - the 500 largest US companies - from its high to its low, "
+               "and how long until it passed that high again. Rounded; its price "
+               "without dividends.")
+    rows = "".join(f"<tr><td>{html.escape(name)}</td><td>{fall}%</td><td>{html.escape(back)}</td></tr>"
+                   for name, fall, back in storms.PAST_STORMS)
+    st.html("<table class='pt-storm-table'><thead><tr><th>Storm</th><th>Fell</th>"
+            f"<th>Back to the old high</th></tr></thead><tbody>{rows}</tbody></table>")
+    st.markdown("Every one of these passed, though some took years - and nobody knew "
+                "at the time how long it would last. That's why people investing for "
+                "goals years away usually plan for storms instead of trying to dodge "
+                "them: selling after a fall turns a drop on paper into a real loss, and "
+                "some of the market's best days have come soon after its worst. Past "
+                "storms don't promise what the next one will do.")
+    st.link_button(storms.LEARN_MORE[0], storms.LEARN_MORE[1], icon=":material/open_in_new:",
+                   type="tertiary")
+
+
+def render_weather():
+    """A calm note on Home while the holdings are well below their recent
+    high - nothing to do, never buy or sell."""
+    if not HAS_HOLDINGS:
+        return
+    w = _weather_now()
+    own = USER_ID == LOGIN_ID
+    if not w or (own and storms.hidden(w, _read_prefs().get("storm_hidden"))):
+        return
+    storm = w["level"] == "storm"
+    title = "A storm on the trail" if storm else "Rough weather"
+    lead = (f"Your holdings are about {w['drop_pct']:.0f}% below their high on "
+            f"{_fmt_date(w['high_date'])} (as of the close on {_fmt_date(w['as_of'])}).")
+    body = ("Drops of 10% or more have come along about once every year or two on "
+            "average, and the market has climbed past every one so far - sometimes "
+            "in months, sometimes in years." if storm else
+            "Dips like this happen a few times in a typical year, and most pass "
+            "without much notice.")
+    nothing = ("Nothing needs doing today. If your goal is years away, the plan you "
+               "set still holds; if you'll need this money soon, that's worth a look "
+               "at your plan.")
+    cloak = (storm and _kit_shown()
+             and "cloak" not in (_read_prefs().get("gear_seen") or []))
+    with st.container(border=True, key="pt_storm"):
+        st.html("<div class='pt-eyebrow' style='margin:0'>Weather on the trail</div>"
+                f"<div class='pt-storm-title'>{title}</div>"
+                f"<div>{html.escape(lead)} {html.escape(body)}</div>"
+                f"<div class='pt-region' style='margin-top:.4rem'>{html.escape(nothing)}"
+                + (" Holding steady through a storm earns the <b>storm cloak</b> for "
+                   "your kit." if cloak else "") + "</div>")
+        with st.container(horizontal=True):
+            if st.button("What storms have looked like", key="storm_more", type="tertiary"):
+                st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
+                _storms_window()
+            st.button(f"Ask {GUIDE}", key="storm_ask", type="tertiary",
+                      on_click=_ask_route, args=("storm",))
+            if own:
+                st.button("Hide for now", key="storm_hide", type="tertiary",
+                          on_click=_hide_weather, args=(w,))

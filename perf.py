@@ -232,6 +232,20 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
         conn.close()
 
 
+def daily_values(db_path: str, basis, since: str) -> list[tuple[str, float]]:
+    """(date, value) of the current holdings (and cash) at each close from
+    `since` - the market's effect alone, money in or out never shows (the
+    storm check, storms.py). Only the days every covered ticker was priced,
+    so a fund whose bars start later doesn't look like a jump."""
+    conn = connect(db_path)
+    try:
+        rows = _reconstructed_daily_rows(conn, basis, since)
+    finally:
+        conn.close()
+    most = max((r["n_priced"] for r in rows), default=0)
+    return [(r["t"], r["portfolio_value"]) for r in rows if r["n_priced"] == most]
+
+
 def holdings_coverage(db_path: str, user_id: int, basis=None):
     """(covered_tickers, missing_tickers) for the latest snapshot vs daily_bars.
     `basis` (basis_of()) skips re-reading the latest holdings."""

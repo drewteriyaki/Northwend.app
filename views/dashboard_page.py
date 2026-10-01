@@ -7,6 +7,8 @@
 # ruff: noqa: F821
 
 ROUTE_ASK = {   # what "Ask Northwend" starts with, per next step
+    "storm": "The market has dropped and my portfolio is down. What have drops like this "
+             "looked like before, and how do long-term investors usually think about them?",
     "drift": "My mix has drifted from my target. What does rebalancing mean, and how do people "
              "usually decide when and how to do it?",
     "gap": "I'm behind on my goal. What are the usual ways to close a gap like mine - adding "
@@ -140,6 +142,7 @@ def _render_route():
 
 
 if PAGE == "Dashboard":
+    render_weather()                          # a storm note while well below the high (T4)
     if INVESTOR_VIEW:
         _render_route()
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
