@@ -4074,6 +4074,41 @@ if PAGE in ("Dashboard", "Watchlist"):
         st.divider()
 
 
+def _render_activity_empty():
+    """Activity with nothing in it yet: why, how it fills itself, and the next step."""
+    if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
+        st.info(":material/science: The example portfolio is a single made-up snapshot, so it "
+                "has no buys or sells. Add your own holdings and this page starts filling in.")
+    elif SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE:
+        st.info(":material/percent: A percentages-only portfolio is pretend, so there are no real "
+                "buys and sells to record. Enter share counts instead to track activity.")
+    else:
+        st.info(":material/history: No activity yet. It fills in by itself - there's nothing "
+                "to type in.")
+    st.markdown("**How it works**")
+    _md("1. Each time you update your holdings - a CSV, a paste, screenshots or by hand - "
+        f"{APP_NAME} compares them with your last update.\n"
+        "2. Shares that went up are recorded as a **buy**, shares that went down as a **sell** "
+        "(with an estimated gain or loss), and new or removed holdings likewise.\n"
+        "3. Update every so often - after you trade, or once a month - and the history builds up.")
+    st.dataframe(pd.DataFrame([
+        {"Holding": "VTI", "Last update": "10 shares", "This update": "15 shares",
+         "Recorded as": "Buy 5"},
+        {"Holding": "AAPL", "Last update": "8 shares", "This update": "5 shares",
+         "Recorded as": "Sell 3"},
+        {"Holding": "BND", "Last update": "-", "This update": "20 shares",
+         "Recorded as": "Buy 20"},
+    ]), hide_index=True, width="stretch")
+    st.caption("An example. Prices and amounts are estimated from your holdings' values, and "
+               "trades made and undone between two updates won't show.")
+    if CAN_IMPORT:
+        b1, b2, _ = st.columns([1, 1, 2])
+        b1.button(":material/content_paste: Update holdings", key="act_manual", width="stretch",
+                  on_click=_open_holdings_dialog, args=("manual",))
+        b2.button(":material/upload_file: Upload a CSV", key="act_import", width="stretch",
+                  on_click=_open_holdings_dialog, args=("import",))
+
+
 if PAGE == "Activity":
     # ---- activity: inferred transaction history --------------------------- #
 
@@ -4087,8 +4122,7 @@ if PAGE == "Activity":
         _t["account"] = accounts.display(_t["account"], ACCOUNT_LABELS)
 
     if not _all_txns:
-        st.caption("No transactions yet — they're inferred automatically the next time you import "
-                   "a CSV whose quantities differ from your last snapshot.")
+        _render_activity_empty()
     else:
         fc1, fc2, fc3 = st.columns(3)
         _f_accounts = fc1.multiselect(
