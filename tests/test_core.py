@@ -513,7 +513,9 @@ class IntradayTests(TempDBMixin, unittest.TestCase):
         conn.commit()
         conn.close()
         day = rec(1)                                                # one 1m point left -> 5m
-        self.assertEqual(len(day), 288)                             # a day of 5-minute bars
+        # a day of 5-minute bars: 288, or 287 when the clock has moved past the
+        # bar seeded exactly 24 hours back (slow runners, e.g. GitHub's)
+        self.assertIn(len(day), (287, 288))
 
     def test_same_fund_in_two_accounts_counts_both(self):
         conn = portfolio.connect(self.db)
