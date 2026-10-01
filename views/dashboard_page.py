@@ -122,16 +122,12 @@ def _render_route():
                      f"<div class='pt-goal-sub'>{fmt_money0(gp['current'])} of "
                      f"{fmt_money0(gp['target'])} by {_fmt_month(plan['target_date'])}</div>")
         n_done = sum(1 for _, _, d in waypoints if d)
-        parts, prev = [], None
-        for d in route.dots(waypoints, reached):
-            if prev is not None:   # a leg is walked when it leaves a finished waypoint
-                filled = prev == "done" and (d in ("done", "here")
-                                             or (d.startswith("goal") and n_done == len(waypoints)))
-                parts.append(f"<span class='pt-leg{' pt-leg-done' if filled else ''}'></span>")
-            parts.append(f"<span class='pt-dot pt-dot-{d}'></span>")
-            prev = d
-        head += (f"<div class='pt-route' role='img' aria-label='{n_done} of {len(waypoints)} "
-                 f"waypoints reached, then your goal'>{''.join(parts)}</div>")
+        # the route as a trail through the expedition's regions (route.py)
+        here, nxt = route.region(waypoints)
+        head += route.trail_html(route.dots(waypoints, reached),
+                                 f"{n_done} of {len(waypoints)} waypoints reached, then your goal")
+        head += (f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
+                 + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
         st.html(head)
         with st.container(horizontal=True, vertical_alignment="center"):
             # "$" escaped: a pair of them would be read as a math formula

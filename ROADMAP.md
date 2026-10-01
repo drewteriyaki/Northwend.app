@@ -338,6 +338,17 @@ palette per region, illustrated backgrounds (a soft topographic map, the
 route drawn across it), page headers that feel like map plates, icons for
 milestones and gear. You review the mockups; the app's theme and styles
 follow (as L2 did).
+- [x] **Designed and first pass in the app** (Oct 1) - mockups on the
+      "Northwend expedition look" canvas (Home on a night map, Get started
+      as a map, a milestone reached, the kit), approved; the design
+      system's brand book gained "The expedition" (map, trail, regions,
+      map plate, milestones and gear). In the app: faint contour lines
+      behind every page (static/topo-*.svg, built into the styles as
+      Streamlit serves static files as plain text); the route drawn as a
+      trail (route.trail_html: one image per theme, since st.html strips
+      inline SVG) with the region you're in on Home and Get started; the
+      map plate above those titles ("The foothills · your expedition").
+      Milestones and gear are T3.
 
 ### T2. Movement between pages - S
 Pages and windows that ease in instead of appearing all at once; the

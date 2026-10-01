@@ -499,9 +499,14 @@ def _render_get_started(has_holdings, value):
                          icon=":material/open_in_new:"):
                 _direction_window(kind["key"])
 
-    # ---- the route: every waypoint, tap one to open it ------------------- #
-    st.caption(f"Your route - {n_done} of {len(keys)} waypoints reached. It explains and "
-               f"shows examples; it never tells you what to buy.")
+    # ---- the route: drawn as a trail, then every waypoint to tap -------- #
+    waypoints = [(k, titles[k], done[k]) for k in keys]
+    here, nxt = route.region(waypoints)
+    st.html(route.trail_html(route.dots(waypoints, False),
+                             f"{n_done} of {len(keys)} waypoints reached")
+            + f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
+            + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
+    st.caption("It explains and shows examples; it never tells you what to buy.")
     st.session_state["gs_pick"] = at   # always the open one
     st.pills("Waypoints", keys, key="gs_pick", label_visibility="collapsed",
              on_change=_gs_pick,

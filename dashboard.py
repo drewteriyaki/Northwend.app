@@ -3,6 +3,7 @@
 Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 """
 
+import functools
 import html
 import json
 import os
@@ -178,6 +179,20 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 [data-testid^="stBaseButton-secondary"]:not(:hover):not(:focus-visible),
 [data-testid="stButtonGroup"] button[aria-checked="false"]:not(:hover):not(:focus-visible) {
   border-color: var(--pt-line-strong) !important; }
+/* the expedition (ROADMAP T1): faint contour lines behind every page, drawn in
+   static/topo-light.svg and topo-dark.svg, one step above the page colour */
+[data-testid="stMain"] { background-repeat: no-repeat;
+  background-position: right -220px top -40px; background-size: 1400px auto; }
+/* the trail is two images, one per theme; show the one that matches */
+:root[data-pt-theme="dark"] .pt-on-light, :root:not([data-pt-theme="dark"]) .pt-on-dark {
+  display: none; }
+/* the route as a trail (route.trail_html), and the map plate above a title */
+.pt-trail { display: block; width: 100%; max-width: 760px; height: auto; margin: .6rem 0 .1rem; }
+.pt-region { font-size: .85rem; opacity: .8; margin: 0 0 .2rem; }
+.pt-region b { font-family: Newsreader, Georgia, serif; font-style: italic; font-weight: 500;
+  font-size: 1rem; opacity: 1; }
+.pt-eyebrow { font-family: Newsreader, Georgia, serif; font-style: italic; font-size: 1rem;
+  opacity: .78; margin: 0 0 -1.1rem; }
 /* first steps (views/first_steps.py): progress dots, and each screen slides in */
 .pt-fs-dots { display: flex; gap: 6px; margin: 0 0 .25rem; }
 .pt-fs-dot { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--pt-sunken);
@@ -282,6 +297,25 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-mix-target { position: absolute; top: -3px; width: 3px; height: 14px; border-radius: 1px;
   margin-left: -1px; background: currentColor; }
 </style>""")
+
+
+@functools.lru_cache(maxsize=1)
+def _topo_css() -> str:
+    """The expedition's contour lines behind every page (ROADMAP T1), one
+    drawing per theme, built into the stylesheet: Streamlit's static files
+    are served as plain text, which browsers won't draw as a picture."""
+    from urllib.parse import quote
+    rules = []
+    for theme, sel in (("light", ':root:not([data-pt-theme="dark"])'),
+                       ("dark", ':root[data-pt-theme="dark"]')):
+        with open(os.path.join(HERE, "static", f"topo-{theme}.svg"), encoding="utf-8") as fh:
+            svg = quote(fh.read().strip(), safe=" =:/,.-#")
+        rules.append(f'{sel} [data-testid="stMain"] {{ background-image: '
+                     f'url("data:image/svg+xml,{svg}"); }}')
+    return "<style>" + "\n".join(rules) + "</style>"
+
+
+st.html(_topo_css())
 
 if STAGING:
     st.html("<div class='pt-staging' role='note'>Staging copy, for trying changes before "
@@ -1951,11 +1985,26 @@ def _live_status():
     st.html(f"<div class='pt-status'>{prices} · {_what} from {_fmt_date(snapshot)}</div>")
 
 
+def _expedition_eyebrow():
+    """The map plate above an investor's Home and Get started title: where
+    they are on the route (route.region) - "Learner's ridge · your expedition"."""
+    state = _route_state(HAS_HOLDINGS)
+    waypoints = [(k, t, state["done"][k]) for k, t in GET_STARTED_STEPS]
+    here, _next = route.region(waypoints)
+    if PAGE == "Get started":
+        n = sum(d for _, _, d in waypoints)
+        return f"{here} · {n} of {len(waypoints)} waypoints reached"
+    return f"{here} · your expedition"
+
+
 def _page_header(title, *, data=True):
     """The page's title with the hide-amounts toggle and, on `data` pages
     (this account's portfolio), a status line that keeps prices current by
     itself (_live_status) - there's no Refresh button. Adding or updating
-    holdings lives in the sidebar's Holdings section."""
+    holdings lives in the sidebar's Holdings section. An investor's Home and
+    Get started carry the map plate above the title (_expedition_eyebrow)."""
+    if INVESTOR_VIEW and not IS_ADVISOR and PAGE in ("Dashboard", "Get started"):
+        st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.title(title, anchor=False, width="stretch")
         st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",

@@ -1699,6 +1699,40 @@ class InvestorTypeTests(unittest.TestCase):
             self.assertNotIn("you should buy", text)      # education, not instructions
 
 
+class ExpeditionTests(unittest.TestCase):
+    """T1: the route's regions, the trail drawing and the contour backgrounds."""
+
+    W = [("profile", "About you", True), ("ready", "Ready?", True), ("goal", "Goal", True),
+         ("basics", "Basics", False), ("mix", "Mix", False), ("practice", "Practice", False),
+         ("account", "Account", False)]
+
+    def test_region_is_where_the_first_open_waypoint_is(self):
+        import route
+        self.assertEqual(route.region(self.W), ("Learner's ridge", "The practice range"))
+        self.assertEqual(route.region([(k, t, True) for k, t, _ in self.W]),
+                         ("The summit", None))
+        every_key = {k for _, keys in route.REGIONS for k in keys}
+        self.assertEqual(every_key, {k for k, _, _ in self.W})
+
+    def test_trail_is_two_images_with_a_safe_label(self):
+        import base64
+        import route
+        html = route.trail_html(route.dots(self.W, False), "You're 3 of 7 along")
+        self.assertEqual(html.count("<img"), 2)
+        self.assertIn("pt-on-light", html)
+        self.assertIn("pt-on-dark", html)
+        self.assertIn("You&#x27;re", html)          # the apostrophe can't end the attribute
+        self.assertNotIn("<svg", html)              # st.html strips inline SVG
+        data = html.split("base64,")[1].split("'")[0]
+        svg = base64.b64decode(data).decode("utf-8")
+        self.assertEqual(svg.count("<circle"), 8)   # 7 waypoints and the goal
+
+    def test_contour_backgrounds_are_built_into_the_styles(self):
+        for theme in ("light", "dark"):
+            with open(os.path.join(REPO, "static", f"topo-{theme}.svg"), encoding="utf-8") as fh:
+                self.assertTrue(fh.read().startswith("<svg"))
+
+
 class RouteTests(unittest.TestCase):
     """The investor home's next step (route.py): one step, in priority order."""
 
