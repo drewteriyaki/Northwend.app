@@ -76,6 +76,13 @@ and are not a registered investment adviser or broker-dealer. If an advisor gave
 you access, their advice comes from them, not from the app. Consider talking to a
 licensed professional before making investment decisions.
 """),
+    ("How Northwend is paid", """
+Northwend is free while it's in beta. It **doesn't sell investments**: it has no
+funds of its own, takes no commissions or trading fees, and no fund company or
+brokerage pays to be mentioned in examples or answers. It doesn't show ads or
+sell your data. If Northwend ever charges for anything, it will say so here
+first, and nothing is charged without your say-so.
+"""),
     ("Projections, examples and practice", """
 - **Projections are hypothetical.** Plan and goal projections assume a steady
   yearly return (6% unless it's changed), shown with a lower and a higher case

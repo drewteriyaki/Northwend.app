@@ -3570,6 +3570,12 @@ class WebsiteTests(unittest.TestCase):
             with open(os.path.join(cls.PUBLIC, n), encoding="utf-8") as fh:
                 cls.pages[n] = fh.read()
 
+    def test_says_we_dont_sell_investments(self):
+        # P1: the positioning is on the home page and the About page (from disclosures)
+        self.assertIn("We don't sell investments", self.pages["index.html"])
+        self.assertIn("How Northwend is paid", self.pages["about.html"])
+        self.assertIn("doesn't sell investments", self.pages["about.html"])
+
     def test_public_is_up_to_date_with_the_build(self):
         for name, text in self.site.render().items():
             with open(os.path.join(self.PUBLIC, name), encoding="utf-8") as fh:

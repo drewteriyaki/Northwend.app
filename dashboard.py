@@ -435,7 +435,8 @@ def _signup() -> bool:
         st.title(f"{APP_ICON} {APP_NAME}")
         st.subheader("Create your account", anchor=False)
         st.caption(f"Free while {APP_NAME} is in beta. Your email is just your login: it's never "
-                   "shown to anyone or sent to the AI, and you never connect a brokerage. You can "
+                   "shown to anyone or sent to the AI, and you never connect a brokerage. We don't sell "
+                   "investments or take commissions. You can "
                    "start with an example portfolio or percentages instead of real numbers.")
         role = st.segmented_control("How will you use Northwend?", list(SIGNUP_ROLES),
                                     format_func=SIGNUP_ROLES.get, key="signup_role",

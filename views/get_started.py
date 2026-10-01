@@ -428,7 +428,8 @@ def _render_get_started(has_holdings, value):
     elif kind:
         _render_direction(kind, mix)
     st.caption("Your route, one waypoint at a time - built from your answers. It explains how "
-               f"investing works and shows examples; it doesn't tell you what to buy. Stuck? "
+               f"investing works and shows examples; it doesn't tell you what to buy, and {APP_NAME} "
+               "doesn't sell investments. Stuck? "
                f"Each waypoint has an **Ask {GUIDE}** button.")
     st.progress(n_done / len(GET_STARTED_STEPS),
                 text=f"{n_done} of {len(GET_STARTED_STEPS)} waypoints reached")

@@ -372,6 +372,15 @@ weekly review summary.
       a search; each card also shows a proposal waiting, the last report and
       the last sign-in.
 
+### P1. Positioning: "we don't sell investments" - S
+**What:** say plainly, where people decide to trust Northwend, that it has
+nothing to sell them - the guide-not-salesperson story.
+- [x] **Built** - website home: "nothing to sell you" under the sign-up
+      button, and two checks under "A guide, not a salesperson" (no funds,
+      commissions or trading fees; no one pays to be mentioned). A new "How
+      Northwend is paid" section in the disclosures (in the app and on the
+      About page). One line each on Create account and Get started.
+
 ---
 
 ## Find an advisor - a marketplace for online advice - later
