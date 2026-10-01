@@ -379,6 +379,10 @@ the email side allows it.
       waiting - no figures in the email. The client reads reports on Advisor
       notes (new ones marked), with a PDF. Values come only from close to the
       period's edges; otherwise the report says it doesn't know.
+- [x] **To several clients at once** (Oct 1) - Your clients > Send
+      progress reports: a period, the clients (those who already have this
+      period's report start unticked), one shared message; each client gets
+      their own figures and a "report waiting" email.
 
 ### G9. Book overview for advisors - M
 **What:** all clients in one view, sorted by who needs attention (off track,

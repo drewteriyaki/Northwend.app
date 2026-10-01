@@ -305,6 +305,8 @@ def _render_clients():
                 f"<div class='pt-stat-sub'>{sum(1 for r in rows if r['review'] != 'ok')} review(s) due"
                 "</div></div></div>")
 
+        _render_reports_bulk(rows)
+
         # narrow the book down (ROADMAP G9)
         with st.container(horizontal=True, vertical_alignment="bottom"):
             show = st.segmented_control(
