@@ -423,7 +423,7 @@ def _email_limit(conn, purpose: str, email: str, ip: str | None, now: datetime) 
     reason = None
     if from_here >= EMAILS_PER_ADDRESS_PER_HOUR:
         reason = "Too many emails asked for from here. Please try again in an hour."
-    elif purpose == "confirm":
+    elif purpose in ("confirm", "change"):
         if rows and rows[0]["sent_at"] > _utc(now - timedelta(minutes=CONFIRM_GAP_MINUTES)):
             reason = ("We just sent one - check your inbox and spam folder. You can send "
                       "another in a couple of minutes.")
@@ -445,7 +445,7 @@ def _create_email_token(conn, user_id: int, purpose: str, email: str, now: datet
     """A one-time link token; replaces this account's earlier one for the same
     purpose. Only its hash is stored."""
     token = secrets.token_urlsafe(32)
-    life = life or (timedelta(days=CONFIRM_DAYS) if purpose == "confirm"
+    life = life or (timedelta(days=CONFIRM_DAYS) if purpose in ("confirm", "change")
                     else timedelta(minutes=RESET_MINUTES))
     conn.execute("DELETE FROM email_tokens WHERE (user_id = ? AND purpose = ?) OR expires_at <= ?",
                  (user_id, purpose, _utc(now)))
@@ -507,6 +507,124 @@ def confirm_email(conn, token: str, *, now: datetime | None = None) -> dict:
                  (info["user_id"],))
     conn.commit()
     return {"ok": True, "error": None, "user_id": info["user_id"], "email": info["email"]}
+
+
+# ---- the Account page: name, email, sessions -------------------------------- #
+NAME_MAX = 60
+
+
+def display_name(conn, user_id: int) -> str | None:
+    """The name this person chose to be called (Account page), or None."""
+    row = conn.execute("SELECT display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    return (row["display_name"] or None) if row else None
+
+
+def set_display_name(conn, user_id: int, name: str | None) -> None:
+    """Blank clears it. Only shown in the app (to them and their advisor)."""
+    name = " ".join((name or "").split())[:NAME_MAX] or None
+    conn.execute("UPDATE users SET display_name = ? WHERE id = ?", (name, user_id))
+    conn.commit()
+
+
+def _email_taken(conn, email: str, user_id: int) -> bool:
+    row = conn.execute("SELECT 1 FROM users WHERE id != ? AND (email = ? OR LOWER(username) = ?) "
+                       "LIMIT 1", (user_id, email, email)).fetchone()
+    return row is not None
+
+
+def start_email_change(conn, user_id: int, new_email: str, password: str, *,
+                       ip: str | None = None, now: datetime | None = None) -> dict:
+    """Change (or add) the account's email: the password is checked (wrong
+    guesses count toward the lock), then a confirm link goes to the NEW
+    address; nothing changes until it's opened. Returns {"ok", "error",
+    "to", "token"}; the caller emails the link."""
+    now = now or datetime.now(timezone.utc)
+
+    def fail(msg):
+        return {"ok": False, "error": msg, "to": None, "token": None}
+
+    username = get_username(conn, user_id)
+    if username is None:
+        return fail("Account not found.")
+    new_email = normalize_email(new_email)
+    if not valid_email(new_email):
+        return fail("Enter the new email address, like name@example.com.")
+    result = attempt_login(conn, username, password or "", now=now)
+    if result["locked_minutes"]:
+        m = result["locked_minutes"]
+        return fail(f"Too many wrong passwords. Try again in {m} minute{'s' if m != 1 else ''}.")
+    if result["user_id"] != user_id:
+        return fail("Your password is wrong.")
+    if new_email == (email_status(conn, user_id)["email"] or ""):
+        return fail("That's already your email.")
+    if _email_taken(conn, new_email, user_id):
+        # it can't be used, but don't say whose it is
+        return fail("That email can't be used for this account. Try another, or contact us.")
+    reason = _email_limit(conn, "change", new_email, ip, now)
+    if reason:
+        return fail(reason)
+    return {"ok": True, "error": None, "to": new_email,
+            "token": _create_email_token(conn, user_id, "change", new_email, now)}
+
+
+def pending_email_change(conn, user_id: int, *, now: datetime | None = None) -> str | None:
+    """A new email waiting for its confirm link, or None."""
+    now = now or datetime.now(timezone.utc)
+    row = conn.execute("SELECT email FROM email_tokens WHERE user_id = ? AND purpose = 'change' "
+                       "AND expires_at > ?", (user_id, _utc(now))).fetchone()
+    return row["email"] if row else None
+
+
+def cancel_email_change(conn, user_id: int) -> None:
+    conn.execute("DELETE FROM email_tokens WHERE user_id = ? AND purpose = 'change'", (user_id,))
+    conn.commit()
+
+
+def confirm_email_change(conn, token: str, *, now: datetime | None = None) -> dict:
+    """Open a change-email link: the new address becomes the account's
+    (confirmed), and - for an account that signs in with its email - its
+    login too. Earlier links to the old address stop working. Returns {"ok",
+    "error", "user_id", "email", "old_email", "username"}."""
+    now = now or datetime.now(timezone.utc)
+    out = {"ok": False, "error": "This link has expired or was already used.", "user_id": None,
+           "email": None, "old_email": None, "username": None}
+    if not token:
+        return out
+    row = conn.execute(
+        "SELECT t.user_id, t.email AS new_email, u.username, u.email AS old_email "
+        "FROM email_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND "
+        "t.purpose = 'change' AND t.expires_at > ?", (_token_hash(token), _utc(now))).fetchone()
+    if row is None:
+        return out
+    uid, new = row["user_id"], row["new_email"]
+    if _email_taken(conn, new, uid):
+        conn.execute("DELETE FROM email_tokens WHERE user_id = ? AND purpose = 'change'", (uid,))
+        conn.commit()
+        return {**out, "error": "That email is now used by another account, so it wasn't "
+                                "changed. Try a different one."}
+    old = row["old_email"]
+    username = row["username"]
+    login_is_email = bool(old) and username.lower() == old.lower()
+    if login_is_email:
+        username = new
+        conn.execute("DELETE FROM login_failures WHERE username_key = ?",
+                     (_login_key(row["username"]),))
+    conn.execute("UPDATE users SET email = ?, email_verified_at = ?, username = ? WHERE id = ?",
+                 (new, _utc(now), username, uid))
+    conn.execute("DELETE FROM email_tokens WHERE user_id = ?", (uid,))
+    conn.commit()
+    return {"ok": True, "error": None, "user_id": uid, "email": new, "old_email": old,
+            "username": username}
+
+
+def end_other_sessions(conn, user_id: int, keep_token: str | None) -> int:
+    """Sign out every other device; this browser's stay-signed-in session
+    (keep_token) stays. Returns how many ended."""
+    keep = _token_hash(keep_token) if keep_token else ""
+    cur = conn.execute("DELETE FROM login_sessions WHERE user_id = ? AND token_hash != ?",
+                       (user_id, keep))
+    conn.commit()
+    return cur.rowcount
 
 
 def request_password_reset(conn, email: str, *, ip: str | None = None,
@@ -678,9 +796,10 @@ def unlink_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> 
 
 
 def list_clients(conn: sqlite3.Connection, advisor_id: int) -> list[tuple[int, str]]:
-    return [(r["id"], r["username"]) for r in conn.execute(
-        "SELECT u.id, u.username FROM advisor_clients ac JOIN users u ON u.id = ac.client_id "
-        "WHERE ac.advisor_id = ? ORDER BY u.username", (advisor_id,))]
+    """(id, name) per client: the name they chose (Account page), else their login."""
+    return [(r["id"], r["display_name"] or r["username"]) for r in conn.execute(
+        "SELECT u.id, u.username, u.display_name FROM advisor_clients ac JOIN users u "
+        "ON u.id = ac.client_id WHERE ac.advisor_id = ? ORDER BY u.username", (advisor_id,))]
 
 
 def can_view(conn: sqlite3.Connection, viewer_id: int, target_id: int) -> bool:

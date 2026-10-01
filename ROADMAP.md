@@ -506,6 +506,17 @@ started, the Plan and Ask Northwend - always optional.
       (`export.py`; a test makes every new account table choose: exported
       or left out on purpose). In the disclosures and on the About page.
 
+- [x] **Account page** - one place for your own account (Account, in the
+      menu for everyone): what's on it (name, login, email and whether it's
+      confirmed, kind of account, member since, devices signed in); your
+      name (shown in place of your login, and to your advisor); change or
+      add your email (password first, then a link to the new address -
+      nothing changes until it's opened; the login follows when it was the
+      email; the old address is told); change password and sign out other
+      devices; download your data and delete your holdings (moved from the
+      sidebar); delete your account (password and DELETE; not for admins,
+      advisors with clients, or managed clients).
+
 ## Later
 
 - [ ] **Real transactions** - import Schwab's Transactions export for actual

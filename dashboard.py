@@ -671,6 +671,35 @@ def _take_confirm_link():
                                               else " Sign in to continue.")
 
 
+def _take_email_change_link():
+    """A change-your-email link (?email_change=..., the Account page): the new
+    address becomes the account's, the old one is told, and a signed-in
+    browser follows a login that was the old email."""
+    token = st.query_params.get("email_change")
+    if not token:
+        return
+    conn = connect(DB)
+    try:
+        res = auth.confirm_email_change(conn, str(token))
+    finally:
+        conn.close()
+    del st.query_params["email_change"]
+    if res["ok"]:
+        if res["old_email"]:
+            mailer.email_changed(res["old_email"], res["email"], _app_address())
+        if st.session_state.get("user_id") == res["user_id"]:
+            st.session_state["username"] = res["username"]
+        msg = f"Your email is now {res['email']}."
+        if res["username"] == res["email"]:
+            msg += " Sign in with it from now on."
+    else:
+        msg = res["error"]
+    st.session_state["email_flash"] = (res["ok"], msg)
+    st.session_state["email_state"] = None  # look it up again
+    st.session_state["login_notice"] = msg + ("" if st.session_state.get("user_id")
+                                              else " Sign in to continue.")
+
+
 def _login() -> bool:
     """Per-account login. Accounts are made by an admin (manage_users.py),
     an advisor for a client, or by people themselves on the Create account
@@ -689,6 +718,7 @@ def _login() -> bool:
     if reset:  # a reset-your-password link (auth.request_password_reset)
         return _reset_setup(str(reset))
     _take_confirm_link()
+    _take_email_change_link()
     if st.session_state.get("user_id"):
         return True
     cookie = _session_cookie()
@@ -821,6 +851,8 @@ try:
     IS_ADVISOR = auth.is_advisor(_conn, LOGIN_ID)
     # the Admin portal (admin.py; granted only from the command line)
     IS_ADMIN = _is_admin(_conn, LOGIN_ID)
+    # what they asked to be called (the Account page), else their login
+    MY_NAME = auth.display_name(_conn, LOGIN_ID) or st.session_state["username"]
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
     # an investor account that asked for advisor access (shown in the sidebar)
     ADVISOR_REQUEST = None if IS_ADVISOR else auth.advisor_request(_conn, LOGIN_ID)
@@ -860,7 +892,7 @@ INVESTOR_VIEW = not IS_ADVISOR or ON_CLIENT
 # "Dashboard"; old ?page=dashboard links still open it.)
 PAGE_LABELS["Dashboard"] = "Portfolio" if IS_ADVISOR else "Home"
 st.session_state["active_user_id"] = USER_ID
-ACTIVE_NAME = (st.session_state["username"] if USER_ID == LOGIN_ID
+ACTIVE_NAME = (MY_NAME if USER_ID == LOGIN_ID
                else dict(CLIENTS).get(USER_ID, "client"))
 # where this account's settings lived before they moved into the database;
 # read once, the first time, so they carry over (prefs.py)
@@ -877,12 +909,12 @@ if IS_ADVISOR:
     PAGES = ["Clients", *([] if HAS_HOLDINGS else _start),
              "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
-             *(_start if HAS_HOLDINGS else []), "About"]
+             *(_start if HAS_HOLDINGS else []), "Account", "About"]
 else:
     PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
-             *(["Get started"] if HAS_HOLDINGS else []), "About"]
+             *(["Get started"] if HAS_HOLDINGS else []), "Account", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
 
@@ -1194,38 +1226,7 @@ with st.sidebar:
         st.caption("Your request for advisor access wasn't approved. Questions: "
                    f"{disclosures.CONTACT}")
     _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
-    st.caption(f"Logged in as **{st.session_state['username']}**{_viewing}")
-    _pw_msg = st.session_state.pop("pw_msg", None)
-    with st.expander("Change password", expanded=bool(_pw_msg)):
-        if _pw_msg:
-            getattr(st, _pw_msg[0])(_pw_msg[1])
-        with st.form("change_pw_form", border=False):
-            st.text_input("Current password", type="password", key="pw_current")
-            st.text_input("New password", type="password", key="pw_new",
-                          help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
-            st.text_input("New password again", type="password", key="pw_again")
-            st.form_submit_button("Change password", on_click=_change_password, width="stretch")
-    if USER_ID == LOGIN_ID:
-        with st.expander("Your data"):
-            st.caption("Download a copy of everything Northwend holds for your account, as "
-                       "spreadsheet (CSV) files in one ZIP.")
-            _export = st.session_state.get("export_zip")
-            if _export:
-                st.download_button("Download my data", _export[1], file_name=_export[0],
-                                   mime="application/zip", key="export_download",
-                                   type="primary", width="stretch", on_click="ignore",
-                                   icon=":material/download:")
-            else:
-                st.button("Prepare my data", key="export_prepare", width="stretch",
-                          on_click=_prepare_export, icon=":material/folder_zip:")
-            if CAN_MANAGE:
-                st.divider()
-                st.caption("Delete everything you've imported or entered: holdings, cash, "
-                           "activity and value history. Your goals, settings and login stay.")
-                st.checkbox("Yes, delete all my holdings", key="confirm_delete_holdings")
-                st.button("Delete all my holdings", key="delete_holdings", width="stretch",
-                          disabled=not st.session_state.get("confirm_delete_holdings"),
-                          on_click=_delete_my_holdings)
+    st.caption(f"Logged in as **{MY_NAME}**{_viewing}")
     st.button("Log out", on_click=_logout, width="stretch")
     # sidebar handle, click-away to close, pull to refresh (see the file)
     with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:
@@ -1263,7 +1264,7 @@ def _render_tab_bar():
                 st.button(":material/upload_file: Upload a CSV", key="more_import",
                           on_click=_open_holdings_dialog, args=("import",), width="stretch")
             st.divider()
-            st.caption(f"Logged in as **{st.session_state['username']}**"
+            st.caption(f"Logged in as **{MY_NAME}**"
                        + (f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else "")
                        + ". The full menu is in the side panel (the arrow at the left edge).")
             st.button("Log out", key="more_logout", on_click=_logout, width="stretch")
@@ -1428,6 +1429,9 @@ _view("reports")
 
 
 _view("admin")
+
+# the signed-in person's own account (name, email, password, data)
+_view("account")
 
 
 _view("profile")
@@ -2040,6 +2044,11 @@ if PAGE == "Admin":
     # about accounts and logins, not the viewed account's data
     _page_header("Admin", data=False)
     _render_admin()
+    st.stop()
+if PAGE == "Account":
+    # the login's own account, whichever account is being viewed
+    _page_header("Account", data=False)
+    _render_account()
     st.stop()
 if PAGE == "About":
     _page_header("About and disclosures", data=False)

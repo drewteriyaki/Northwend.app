@@ -189,7 +189,9 @@ def _ensure_schema(conn) -> None:
                                    ("email", "TEXT"), ("email_verified_at", "TEXT"),
                                    ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT"),
                                    # the admin portal (admin.py)
-                                   ("is_admin", "INTEGER"), ("last_login_at", "TEXT")]),
+                                   ("is_admin", "INTEGER"), ("last_login_at", "TEXT"),
+                                   # the Account page (auth.set_display_name)
+                                   ("display_name", "TEXT")]),
                         ("advisor_clients", [("client_can_import", "INTEGER")]),
                         # what a fund holds, from Yahoo (asset_classes.py)
                         ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),

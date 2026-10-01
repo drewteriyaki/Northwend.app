@@ -28,6 +28,8 @@ def _setting(name: str) -> str:
 def client_ip(headers, fallback: str | None, header: str | None = None) -> str | None:
     """The visitor's address: from `header` (default CLIENT_IP_HEADER) when
     it's set and present, otherwise `fallback` (st.context.ip_address)."""
+    if not isinstance(fallback, str):
+        fallback = None   # (a test run has no real address)
     name = (header if header is not None else _setting("CLIENT_IP_HEADER")).lower()
     if not name:
         return fallback

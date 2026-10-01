@@ -92,6 +92,28 @@ def confirm_email(to: str, link: str, days: int) -> bool:
                 _html(lines, ("Confirm my email", link)))
 
 
+def confirm_new_email(to: str, link: str, days: int) -> bool:
+    """Changing the account's email (Account page): confirm the new one."""
+    lines = ["You asked to use this address for your Northwend account. Confirm it and it "
+             "becomes your email - and your login, if you sign in with your email.",
+             f"The link works for {days} days.",
+             "Didn't ask for this? You can ignore this email - nothing changes."]
+    text = f"{lines[0]}\n\nConfirm this email: {link}\n\n{lines[1]}\n\n{lines[2]}\n"
+    return send(to, "Confirm your new email for Northwend", text,
+                _html(lines, ("Confirm this email", link)))
+
+
+def email_changed(to: str, new_email: str, link: str) -> bool:
+    """To the OLD address once a change is confirmed - in case it wasn't them."""
+    lines = [f"The email on your Northwend account was changed to {new_email}. This address "
+             "won't get account emails any more.",
+             "Wasn't you? Reply to this email or write to support@northwend.app straight away, "
+             "and reset your password."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nNorthwend: {link}\n"
+    return send(to, "Your Northwend email was changed", text,
+                _html([html_escape(x) for x in lines], ("Open Northwend", link)))
+
+
 def report_ready(to: str, link: str, advisor_name: str, period: str) -> bool:
     """A progress report is waiting - no figures in the email itself."""
     lines = [f"{advisor_name} has shared your progress report for {period}.",

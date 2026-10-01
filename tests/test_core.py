@@ -3583,6 +3583,72 @@ class WorkflowFileTests(unittest.TestCase):
                     seen[-1][1].add(key)
 
 
+class AccountPageTests(TempDBMixin, unittest.TestCase):
+    """The Account page's data side: name, email change by link, other
+    devices, deleting your own account."""
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+        self.conn.execute("UPDATE users SET email = 'testuser', email_verified_at = 'x' "
+                          "WHERE id = ?", (self.user_id,))
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def test_name_shows_to_the_advisor(self):
+        adv = auth.create_user(self.conn, "adv", "x" * 12)
+        auth.link_client(self.conn, adv, self.user_id)
+        auth.set_display_name(self.conn, self.user_id, "  Sam   Lee ")
+        self.assertEqual(auth.display_name(self.conn, self.user_id), "Sam Lee")
+        self.assertEqual(auth.list_clients(self.conn, adv), [(self.user_id, "Sam Lee")])
+        auth.set_display_name(self.conn, self.user_id, "")
+        self.assertEqual(auth.list_clients(self.conn, adv), [(self.user_id, "testuser")])
+
+    def test_email_changes_only_through_the_link(self):
+        bad = auth.start_email_change(self.conn, self.user_id, "new@example.com", "nope")
+        self.assertFalse(bad["ok"])
+        res = auth.start_email_change(self.conn, self.user_id, "New@Example.com", "testpass")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["to"], "new@example.com")
+        self.assertEqual(auth.email_status(self.conn, self.user_id)["email"], "testuser")
+        self.assertEqual(auth.pending_email_change(self.conn, self.user_id), "new@example.com")
+        done = auth.confirm_email_change(self.conn, res["token"])
+        self.assertTrue(done["ok"])
+        # the login was the old email, so it follows
+        self.assertEqual(done["username"], "new@example.com")
+        self.assertEqual(auth.attempt_login(self.conn, "new@example.com", "testpass")["user_id"],
+                         self.user_id)
+        self.assertTrue(auth.email_status(self.conn, self.user_id)["confirmed"])
+        self.assertFalse(auth.confirm_email_change(self.conn, res["token"])["ok"])  # used up
+
+    def test_email_already_used_elsewhere_is_refused(self):
+        other = auth.create_user(self.conn, "taken@example.com", "x" * 12)
+        self.assertIsNotNone(other)
+        res = auth.start_email_change(self.conn, self.user_id, "taken@example.com", "testpass")
+        self.assertFalse(res["ok"])
+
+    def test_sign_out_other_devices_keeps_this_one(self):
+        here = auth.create_session(self.conn, self.user_id)
+        there = auth.create_session(self.conn, self.user_id)
+        self.assertEqual(auth.end_other_sessions(self.conn, self.user_id, here), 1)
+        self.assertIsNotNone(auth.session_user(self.conn, here))
+        self.assertIsNone(auth.session_user(self.conn, there))
+
+    def test_delete_own_account(self):
+        import admin
+        adv = auth.create_user(self.conn, "adv", "x" * 12)
+        auth.link_client(self.conn, adv, self.user_id)
+        self.assertFalse(admin.delete_own(self.conn, self.user_id, "testpass")["ok"])  # managed
+        self.assertFalse(admin.delete_own(self.conn, adv, "x" * 12)["ok"])           # has clients
+        auth.unlink_client(self.conn, adv, self.user_id)
+        self.assertFalse(admin.delete_own(self.conn, self.user_id, "wrong")["ok"])
+        self.assertTrue(admin.delete_own(self.conn, self.user_id, "testpass")["ok"])
+        self.assertIsNone(auth.get_username(self.conn, self.user_id))
+
+
 class ExportTests(TempDBMixin, unittest.TestCase):
     """D1: Export everything - the account's own data, never secrets or
     anyone else's."""

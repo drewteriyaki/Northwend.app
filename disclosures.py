@@ -111,7 +111,9 @@ to them (not ones you mark private); you can see everything in their account.
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
   cost, value and account names), your plan and goals, your investing-profile
-  answers, notes, and settings. If you created your account yourself, also
+  answers, notes, and settings, and the name you'd like to be called, if you
+  give one (shown in the app, and to your advisor). If you created your
+  account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
   (confirming the address, resetting your password; for advisors, an optional
   Monday summary with counts only - no client names or figures), never shown
@@ -137,11 +139,11 @@ to them (not ones you mark private); you can see everything in their account.
 - **How long it's kept:** until you delete it. The database provider keeps a
   short rolling backup (currently about 6 hours) so data can be recovered after
   an outage; deleted data is gone from it after that.
-- **Deleting:** you can delete all your holdings yourself - in the sidebar,
-  under **Your data** (holdings, cash, activity and value history; your goals,
-  profile answers, notes and settings stay). If an advisor manages your account,
-  ask them. To have your whole account deleted, contact **{_CONTACT}**.
-- **Taking a copy:** **Your data** also downloads everything held for your
+- **Deleting:** on the **Account** page you can delete all your holdings
+  (holdings, cash, activity and value history; your goals, profile answers,
+  notes and settings stay), or your whole account and everything in it. If an
+  advisor manages your account, ask them, or contact **{_CONTACT}**.
+- **Taking a copy:** the **Account** page also downloads everything held for your
   account as spreadsheet (CSV) files - holdings, history, plan, answers,
   settings and what your advisor shared with you. Passwords and sign-in
   records aren't included.

@@ -35,7 +35,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   point it's listed (same names, no imports needed - read the header of any view):
   `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
   `watchlist`, `activity`, `income`, `plan`, `get_started`, `assistant` (Ask Northwend),
-  `profile`, `clients` (advisor side, weekly summary), `holdings_input` (paste,
+  `profile`, `account` (the login's own account: name, email, password, data),
+  `clients` (advisor side, weekly summary), `holdings_input` (paste,
   by hand, screenshots, CSV, the save step). Open just the view you need.
   Internal page "AI Assistant" is shown as "Ask Northwend" (`PAGE_LABELS`, `GUIDE = APP_NAME`).
 - Data: `portfolio.py` (connect, schema setup + column back-fill, `write_snapshot`,

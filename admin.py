@@ -158,3 +158,33 @@ def delete_account(conn, user_id: int, *, by: int) -> dict:
                      (auth._login_key(row["username"]),))
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
     return {"ok": True, "error": None, "username": row["username"], "orphaned_clients": orphaned}
+
+
+def delete_own(conn, user_id: int, password: str) -> dict:
+    """The Account page's "Delete my account": the person's own password
+    first (wrong guesses count toward the lock). Not for admins, advisors
+    with clients (their clients would lose their advisor - contact us), or a
+    client whose advisor manages the account (ask the advisor). Returns
+    {"ok", "error"}."""
+    username = auth.get_username(conn, user_id)
+    if username is None:
+        return {"ok": False, "error": "Account not found."}
+    result = auth.attempt_login(conn, username, password or "")
+    if result["locked_minutes"]:
+        m = result["locked_minutes"]
+        return {"ok": False, "error": f"Too many wrong passwords. Try again in {m} minute"
+                                      f"{'s' if m != 1 else ''}."}
+    if result["user_id"] != user_id:
+        return {"ok": False, "error": "Your password is wrong."}
+    if is_admin(conn, user_id):
+        return {"ok": False, "error": "An admin account can't be deleted here."}
+    if conn.execute("SELECT 1 FROM advisor_clients WHERE advisor_id = ? LIMIT 1",
+                    (user_id,)).fetchone():
+        return {"ok": False, "error": "You still have clients. Contact us and we'll help them "
+                                      "keep their accounts first."}
+    if conn.execute("SELECT 1 FROM advisor_clients WHERE client_id = ? LIMIT 1",
+                    (user_id,)).fetchone():
+        return {"ok": False, "error": "Your advisor manages this account - ask them, or "
+                                      "contact us."}
+    res = delete_account(conn, user_id, by=-1)
+    return {"ok": res["ok"], "error": res["error"]}
