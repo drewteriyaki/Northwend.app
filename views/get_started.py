@@ -320,14 +320,13 @@ def _step_practice(mix, plan, profile, done):
 def _step_account(monthly, has_holdings):
     if not CAN_IMPORT and not has_holdings:
         st.markdown(f"Your advisor, {_advisor_display_name()}, helps you open the account and "
-                    "brings your statements in - your portfolio shows up on the Dashboard once "
-                    "they have.")
+                    "brings your statements in - your portfolio shows up on Home once they have.")
         _coach_button("account")
         return
     if has_holdings:
-        st.markdown("You've brought in your first statement - the **Dashboard** shows your real "
+        st.markdown("You've brought in your first statement - **Home** shows your real "
                     "portfolio and the **Plan** tracks it against your goal.")
-        st.button("Open Dashboard", key="gs_open_dash", on_click=_go, args=("Dashboard",))
+        st.button("Open Home", key="gs_open_dash", on_click=_go, args=("Dashboard",))
         return
     st.markdown(
         "1. **Pick a brokerage.** Large low-cost ones include Schwab, Fidelity and Vanguard. "
@@ -381,6 +380,35 @@ def _route_state(has_holdings):
             "horizon": horizon, "done": done}
 
 
+def _ask_type(name):
+    st.session_state["coach_prompt"] = (
+        f"Northwend says I'm a \"{name}\". Explain what that means for someone like me, what "
+        "the example mix is built from, and what I should understand before investing. Use "
+        "examples, not recommendations.")
+    st.session_state["page"] = "AI Assistant"
+
+
+def _render_direction(kind, mix):
+    """The "Find your direction" card (ROADMAP G3): the investor type from the
+    answers, with the example mix and the kinds of funds that usually fill it."""
+    with st.container(border=True, key="pt_direction"):
+        st.html(f"<div class='pt-route-label'>Your direction</div>"
+                f"<div class='pt-type-name'>{html.escape(kind['name'])}</div>"
+                f"<div class='pt-type-line'>{html.escape(kind['line'])}</div>")
+        st.markdown(kind["about"])
+        if kind["key"] not in ("short_term",):
+            st.markdown(f"**An example mix for this type:** {mix['stocks_pct']}% stocks, "
+                        f"{mix['weights']['bonds']}% bonds.")
+            _render_mix_bar(mix["weights"])
+        st.markdown("**Kinds of funds that usually fill it:**  \n"
+                    + "  \n".join(f"- {k}" for k in kind["kinds"]))
+        st.markdown(f":material/info: {kind['watch']}")
+        st.caption("A common rule of thumb for learning, from your answers - not a "
+                   "recommendation to buy anything. Change your answers in waypoint 1 any time.")
+        st.button(f":material/forum: Ask {GUIDE} what this means for me", key="type_ask",
+                  type="tertiary", on_click=_ask_type, args=(kind["name"],))
+
+
 def _render_get_started(has_holdings, value):
     import advisor
 
@@ -392,6 +420,13 @@ def _render_get_started(has_holdings, value):
     monthly = float((plan or {}).get("monthly_contribution") or 0.0)
     years = horizon or float(profile.get("time_horizon_years") or 20)
     n_done = sum(done.values())
+    kind = learn.investor_type(profile, mix, items)
+    if missing:
+        st.markdown(f"**Find your direction.** Answer a few quick questions below - about two "
+                    f"minutes, every answer a tap - and {APP_NAME} shows what kind of investor "
+                    "you are and an example mix that fits.")
+    elif kind:
+        _render_direction(kind, mix)
     st.caption("Your route, one waypoint at a time - built from your answers. It explains how "
                f"investing works and shows examples; it doesn't tell you what to buy. Stuck? "
                f"Each waypoint has an **Ask {GUIDE}** button.")

@@ -105,7 +105,11 @@ def _render_route():
     title, text, button, action = _route_words(step, gp, monthly, plan)
 
     with st.container(border=True, key="pt_route_reached" if reached else "pt_route"):
-        head = "<div class='pt-route-label'>Your route</div>"
+        kind = learn.investor_type(state["profile"],
+                                   learn.starter_mix(state["profile"], state["horizon"]),
+                                   state["items"])
+        head = ("<div class='pt-route-label'>Your route"
+                + (f" · {html.escape(kind['name'])}" if kind else "") + "</div>")
         if has_goal:
             label, tone = PLAN_STATUS[gp["status"]]
             share = min(100.0, max(0.0, gp["pct_of_target"] or 0.0))

@@ -154,6 +154,11 @@ st.html("""<style>
 .pt-leg { height: 2px; flex: 1 1 0; max-width: 56px; min-width: 10px; background: var(--pt-line-strong); }
 .pt-leg-done { background: var(--pt-compass); }
 .st-key-pt_route_reached { background: var(--pt-dawn-soft); border-color: var(--pt-dawn) !important; }
+/* Find your direction (Get started): the investor type */
+.st-key-pt_direction { border-color: var(--pt-compass) !important; }
+.pt-type-name { font-family: Newsreader, Georgia, serif; font-size: 1.75rem; line-height: 1.2;
+  font-weight: 500; }
+.pt-type-line { opacity: .75; margin-top: .15rem; }
 /* the staging app's banner (STAGING): text in the theme's own color */
 .pt-staging { background: var(--pt-dawn-soft); border: 1px solid var(--pt-warn); border-radius: .5rem;
   padding: .5rem .9rem; font-size: .9rem; font-weight: 600; }

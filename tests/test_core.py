@@ -1387,6 +1387,42 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class InvestorTypeTests(unittest.TestCase):
+    """Find your direction (learn.investor_type): named from the readiness
+    check and the example mix, so it always agrees with them."""
+
+    BASE = {"time_horizon_years": 25, "risk_tolerance": "moderate",
+            "drawdown_reaction": "Hold and wait", "emergency_fund": "3-6 months",
+            "high_interest_debt": "None"}
+
+    def _type(self, horizon=None, **changes):
+        import learn
+        p = {**self.BASE, **changes}
+        mix = learn.starter_mix(p, horizon)
+        kind = learn.investor_type(p, mix, learn.readiness(p))
+        return kind and kind["key"]
+
+    def test_types_follow_the_mix(self):
+        self.assertEqual(self._type(), "grower")                         # 90% stocks
+        self.assertEqual(self._type(time_horizon_years=12), "builder")    # 75%
+        self.assertEqual(self._type(time_horizon_years=7), "builder")     # 60%
+        self.assertEqual(self._type(time_horizon_years=7, risk_tolerance="conservative"),
+                         "balanced")                                      # 45%
+        self.assertEqual(self._type(time_horizon_years=4, risk_tolerance="conservative",
+                                    drawdown_reaction="Sell everything"), "preserver")
+        self.assertEqual(self._type(time_horizon_years=2), "short_term")
+        self.assertEqual(self._type(horizon=2.5), "short_term")           # the plan's date wins
+
+    def test_foundation_first_and_nothing_without_a_horizon(self):
+        import learn
+        self.assertEqual(self._type(emergency_fund="None"), "foundation")
+        self.assertEqual(self._type(high_interest_debt="A lot"), "foundation")
+        self.assertIsNone(self._type(time_horizon_years=None))
+        for kind in learn.INVESTOR_TYPES.values():
+            text = " ".join([kind["about"], kind["watch"], *kind["kinds"]]).lower()
+            self.assertNotIn("you should buy", text)      # education, not instructions
+
+
 class RouteTests(unittest.TestCase):
     """The investor home's next step (route.py): one step, in priority order."""
 

@@ -292,6 +292,14 @@ fund, debt) ending in an investor type (e.g. Steady builder, Long-horizon
 grower) with a plain explanation, an example mix for that type and the kinds
 of funds that usually fill it; then into Get started. Builds on the profile
 questions and model portfolios already in the app.
+- [x] **Built** - `learn.investor_type()`: Foundation builder (emergency fund
+      or high-interest debt first), Short-term saver (under 3 years),
+      Careful preserver, Balanced navigator, Steady builder, Long-horizon
+      grower - from the readiness check and the example mix, so they always
+      agree. Get started opens with "Find your direction" until the questions
+      are answered, then a "Your direction" card (type, explanation, example
+      mix, kinds of funds, a note on drops, Ask Northwend); the Home route
+      card names the type. Education wording only (a test checks).
 
 ### G4. Advisor proposals - L
 **What:** an advisor builds a recommended mix for a client and shows today

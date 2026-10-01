@@ -68,8 +68,8 @@ if PAGE == "Watchlist":
         finally:
             _wl_conn.close()
         if added and added in _held_symbols:
-            st.session_state["import_flash"] = (f"You already own **{added}** - it's on your "
-                                                "Dashboard with its chart and stats.")
+            st.session_state["import_flash"] = (f"You already own **{added}** - it's on "
+                                                f"{_label('Dashboard')} with its chart and stats.")
             st.rerun()
         if added:
             st.session_state["import_flash"] = f"Added **{added}** to your watchlist."

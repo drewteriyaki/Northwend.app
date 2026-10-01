@@ -138,7 +138,8 @@ def starter_mix(profile: dict, horizon_years: float | None = None) -> dict:
         return None
     years = float(years)
     base = _base_stock_pct(years)
-    reasons = [f"{years:g}-year horizon: about {base}% in stocks is a common starting point - "
+    reasons = [f"{round(years, 1):g}-year horizon: about {base}% in stocks is a common starting "
+               "point - "
                + ("the longer the money can stay invested, the more time there is to recover "
                   "from drops." if years >= 5 else
                   "money needed soon has less time to recover from a drop.")]
@@ -158,6 +159,84 @@ def starter_mix(profile: dict, horizon_years: float | None = None) -> dict:
     us = round(stocks * US_SHARE_OF_STOCKS)
     return {"stocks_pct": stocks, "weights": {"us": us, "intl": stocks - us, "bonds": 100 - stocks},
             "horizon_years": years, "short_horizon": years < 3, "reasons": reasons}
+
+
+# ---- investor type ("Find your direction", ROADMAP G3) ----------------------- #
+# Named from the readiness check and the example mix above, so the type always
+# agrees with them. Education: "people in your spot often...", never "buy".
+INVESTOR_TYPES = {
+    "foundation": {
+        "name": "Foundation builder", "line": "Build your base first - investing comes right after.",
+        "about": "People in your spot usually start by putting a little aside for emergencies and "
+                 "paying down high-interest debt. It's often the strongest first move: it protects "
+                 "you from surprises, and credit-card interest costs more than investing tends to "
+                 "earn.",
+        "watch": "Once the base is in place, the example mix below shows what investing could "
+                 "look like for you.",
+        "kinds": ("A high-yield savings account for the emergency fund",
+                  "Then a simple mix of broad index funds")},
+    "short_term": {
+        "name": "Short-term saver", "line": "Keep it safe and easy to reach.",
+        "about": "Money you'll need within about 3 years usually stays out of the stock market, "
+                 "because prices can fall a lot in a short time and might not recover before you "
+                 "need it.",
+        "watch": "Steadier places earn less, but the money is there when you need it.",
+        "kinds": ("High-yield savings accounts", "Certificates of deposit (CDs)",
+                  "Treasury bills", "Short-term bond funds")},
+    "preserver": {
+        "name": "Careful preserver", "line": "Steadiness first.",
+        "about": "People who prefer a calmer ride often keep more in bonds than stocks. The "
+                 "portfolio moves less day to day, and grows more slowly over time.",
+        "watch": "Even a careful mix can fall in a bad year, just usually by less.",
+        "kinds": ("A broad bond index fund for most of it",
+                  "A total US stock market fund", "An international stock fund")},
+    "balanced": {
+        "name": "Balanced navigator", "line": "Growth and steadiness in equal measure.",
+        "about": "A middle path: enough in stocks to grow, enough in bonds to soften the drops. "
+                 "It's a common choice for goals several years away.",
+        "watch": "In big market drops, a mix like this has historically fallen noticeably less "
+                 "than stocks alone - and recovered more slowly in the strongest years.",
+        "kinds": ("A total US stock market fund", "An international stock fund",
+                  "A broad bond index fund", "Or one balanced or target-date fund")},
+    "builder": {
+        "name": "Steady builder", "line": "Growth with a cushion.",
+        "about": "Mostly stocks for growth, with a slice of bonds to steady things. People with "
+                 "goals around ten years away often start somewhere like this.",
+        "watch": "Expect some years to be down 20% or more along the way - holding on through "
+                 "them has historically mattered more than timing them.",
+        "kinds": ("A total US stock market fund", "An international stock fund",
+                  "A broad bond index fund", "Or one target-date fund")},
+    "grower": {
+        "name": "Long-horizon grower", "line": "Time is on your side.",
+        "about": "With many years ahead, people in your spot often hold mostly stocks: there's "
+                 "time to ride out the drops, and growth does the heavy lifting.",
+        "watch": "Drops of 30% or more happen on a long journey. What tends to matter most is "
+                 "staying invested and keeping up the monthly amount.",
+        "kinds": ("A total US stock market fund", "An international stock fund",
+                  "A small slice of a bond fund", "Or one target-date fund")},
+}
+
+
+def investor_type(profile: dict, mix: dict | None, items: list[dict]) -> dict | None:
+    """{"key", "name", "line", "about", "watch", "kinds"} for the profile, or
+    None until there's a time horizon to go on. Foundation (an emergency fund
+    or high-interest debt comes first) and short-term money take precedence
+    over the mix's stock share."""
+    if mix is None:
+        return None
+    if any(i["state"] == STOP for i in items):
+        key = "foundation"
+    elif mix["short_horizon"]:
+        key = "short_term"
+    elif mix["stocks_pct"] >= 80:
+        key = "grower"
+    elif mix["stocks_pct"] >= 60:
+        key = "builder"
+    elif mix["stocks_pct"] >= 40:
+        key = "balanced"
+    else:
+        key = "preserver"
+    return {"key": key, **INVESTOR_TYPES[key]}
 
 
 def target_date_year(plan: dict | None, age_range: str | None, today: date) -> int | None:
