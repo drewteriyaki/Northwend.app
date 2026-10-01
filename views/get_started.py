@@ -349,7 +349,11 @@ def _step_account(monthly, has_holdings):
         _coach_button("account")
 
 
-def _render_get_started(has_holdings, value):
+def _route_state(has_holdings):
+    """Where this account is on Get started's route - shared with the Home
+    page's "Your route" card (route.py). Returns a dict: profile, missing
+    (unanswered profile questions), items (readiness), plan, horizon (years
+    to the goal date, or None), done ({waypoint key: bool})."""
     import advisor
 
     today = datetime.now().date()
@@ -364,10 +368,6 @@ def _render_get_started(has_holdings, value):
     manual = _done_steps()
     horizon = (plans.months_until(plan["target_date"], today) / 12
                if plans.has_goal(plan) and plans.months_until(plan["target_date"], today) > 0 else None)
-    mix = learn.starter_mix(profile, horizon)
-    monthly = float((plan or {}).get("monthly_contribution") or 0.0)
-    years = horizon or float(profile.get("time_horizon_years") or 20)
-
     done = {
         "profile": not missing,
         "ready": all(i["state"] != learn.UNKNOWN for i in items),
@@ -377,6 +377,20 @@ def _render_get_started(has_holdings, value):
         "practice": "practice" in manual,
         "account": has_holdings,
     }
+    return {"profile": profile, "missing": missing, "items": items, "plan": plan,
+            "horizon": horizon, "done": done}
+
+
+def _render_get_started(has_holdings, value):
+    import advisor
+
+    state = _route_state(has_holdings)
+    profile, missing, items, plan = (state["profile"], state["missing"], state["items"],
+                                     state["plan"])
+    horizon, done = state["horizon"], state["done"]
+    mix = learn.starter_mix(profile, horizon)
+    monthly = float((plan or {}).get("monthly_contribution") or 0.0)
+    years = horizon or float(profile.get("time_horizon_years") or 20)
     n_done = sum(done.values())
     st.caption("Your route, one waypoint at a time - built from your answers. It explains how "
                f"investing works and shows examples; it doesn't tell you what to buy. Stuck? "

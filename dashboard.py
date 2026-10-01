@@ -42,6 +42,7 @@ import perf
 import pgcompat
 import plans
 import prefs
+import route
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
 from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
@@ -131,14 +132,27 @@ st.html("""<style>
    of a control (3:1); sunken the track behind a bar. */
 :root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; --pt-compass: #2a78d6;
   --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; --pt-dawn-soft: #fbebc9;
-  --pt-link: #1d5fae; --pt-compass-soft: #e3eefb; }
+  --pt-link: #1d5fae; --pt-compass-soft: #e3eefb; --pt-dawn: #f0b23c; }
 :root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24;
   --pt-compass: #3987e5; --pt-line: #2a3847; --pt-line-strong: #62748a; --pt-sunken: #1c2a38;
-  --pt-dawn-soft: #3a2f17; --pt-link: #7cb3f2; --pt-compass-soft: #16304d; }
+  --pt-dawn-soft: #3a2f17; --pt-link: #7cb3f2; --pt-compass-soft: #16304d; --pt-dawn: #f2bd57; }
 /* the advisor app's role chip, and the bar shown while inside a client's account */
 .pt-role { color: var(--pt-link); background: var(--pt-compass-soft); border-color: transparent;
   margin: -.4rem 0 .4rem; }
 .st-key-pt_viewing { background: var(--pt-compass-soft); border-color: var(--pt-compass) !important; }
+/* Your route (the investor home, route.py): waypoint dots heading to the goal */
+.pt-route-label { font-size: .75rem; font-weight: 600; letter-spacing: .02em; opacity: .75;
+  margin-bottom: .35rem; }
+.pt-route { display: flex; align-items: center; margin: .9rem 0 .2rem; }
+.pt-dot { width: 12px; height: 12px; border-radius: 999px; border: 2px solid var(--pt-line-strong);
+  flex: none; box-sizing: border-box; }
+.pt-dot-done { background: var(--pt-compass); border-color: var(--pt-compass); }
+.pt-dot-here { width: 20px; height: 20px; background: var(--pt-compass-soft); border: 4px solid var(--pt-compass); }
+.pt-dot-goal, .pt-dot-goal_reached { width: 20px; height: 20px; border: 2px solid currentColor; }
+.pt-dot-goal_reached { background: var(--pt-dawn); }
+.pt-leg { height: 2px; flex: 1 1 0; max-width: 56px; min-width: 10px; background: var(--pt-line-strong); }
+.pt-leg-done { background: var(--pt-compass); }
+.st-key-pt_route_reached { background: var(--pt-dawn-soft); border-color: var(--pt-dawn) !important; }
 /* the staging app's banner (STAGING): text in the theme's own color */
 .pt-staging { background: var(--pt-dawn-soft); border: 1px solid var(--pt-warn); border-radius: .5rem;
   padding: .5rem .9rem; font-size: .9rem; font-weight: 600; }
@@ -804,6 +818,14 @@ IS_MANAGED_CLIENT = MY_ADVISOR is not None
 CAN_MANAGE = not IS_MANAGED_CLIENT         # may edit this account's plan, limits, imports
 CAN_IMPORT = CAN_MANAGE or CLIENT_CAN_IMPORT  # may import statements into this account
 ON_CLIENT = IS_ADVISOR and USER_ID != LOGIN_ID   # an advisor working on a client's account
+# The investor experience: investors, clients, and an advisor looking at a
+# client's account (they see what the client sees). An advisor's own
+# portfolio is the advisor experience.
+INVESTOR_VIEW = not IS_ADVISOR or ON_CLIENT
+# The portfolio page is "Home" in the investor app and "Portfolio" in the
+# advisor app, whose home is Your clients. (Its internal name stays
+# "Dashboard"; old ?page=dashboard links still open it.)
+PAGE_LABELS["Dashboard"] = "Portfolio" if IS_ADVISOR else "Home"
 st.session_state["active_user_id"] = USER_ID
 ACTIVE_NAME = (st.session_state["username"] if USER_ID == LOGIN_ID
                else dict(CLIENTS).get(USER_ID, "client"))
@@ -836,7 +858,7 @@ def _slug(page):
 
 
 # addresses saved before a page was renamed still open it
-OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients"}
+OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients", "dashboard": "Dashboard"}
 
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
@@ -1108,7 +1130,9 @@ with st.sidebar:
 # Phones: the main pages as a tab bar along the bottom, plus More for the rest
 # (CSS above shows it only on narrow screens; the sidebar stays the menu on
 # wider ones). Four tabs: the pages people open most, for this kind of account.
-TAB_ICONS = {"Get started": (":material/route:", "Start"), "Dashboard": (":material/home:", "Home"),
+TAB_ICONS = {"Get started": (":material/route:", "Start"),
+             "Dashboard": ((":material/pie_chart:", "Portfolio") if IS_ADVISOR
+                           else (":material/home:", "Home")),
              "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", GUIDE),
              "Watchlist": (":material/visibility:", "Watch"),
              "Clients": (":material/groups:", "Clients")}

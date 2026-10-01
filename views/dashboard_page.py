@@ -6,7 +6,143 @@
 # The Dashboard page: value, goal, alerts, performance chart, allocation, holdings.
 # ruff: noqa: F821
 
+ROUTE_ASK = {   # what "Ask Northwend" starts with, per next step
+    "drift": "My mix has drifted from my target. What does rebalancing mean, and how do people "
+             "usually decide when and how to do it?",
+    "gap": "I'm behind on my goal. What are the usual ways to close a gap like mine - adding "
+           "more, waiting longer, or changing the target?",
+    "monthly": "How do people decide how much to invest each month toward a goal like mine?",
+    "steady": "I'm on track for my goal. What should I keep an eye on from here?",
+    "reached": "I've reached my goal. What do people usually think about when they hit a goal "
+               "and set the next one?",
+}
+
+
+def _ask_route(key):
+    st.session_state["coach_prompt"] = ROUTE_ASK.get(
+        key, "Looking at my plan and portfolio, what's a sensible next step for me to learn about?")
+    st.session_state["page"] = "AI Assistant"
+
+
+def _route_words(step, gp, monthly, plan):
+    """(title, explanation, button label, what the button does) for route.next_step()."""
+    k = step["key"]
+    when = _fmt_month(plan["target_date"]) if plans.has_goal(plan) else ""
+    if k == "goal":
+        return ("Set your goal", "Pick what you're investing for and roughly when. Everything "
+                "else on your route follows from it.", "Set a goal", ("page", "Plan"))
+    if k == "goal_wait":
+        return ("Your advisor sets your goal with you", "It shows up here once they have. Their "
+                "notes to you are under Advisor notes.", "Advisor notes", ("page", "Advisor notes"))
+    if k == "profile":
+        return ("Tell us a little about you", "A few quick questions - your timeline and how you "
+                "feel about ups and downs - so your route fits you.", "Answer the questions",
+                ("page", "Get started"))
+    if k == "holdings":
+        return ("Bring in your holdings", "Paste them from any brokerage, type them in, or use "
+                "percentages only.", "Add holdings", ("dialog", "manual"))
+    if k == "monthly":
+        need = step.get("needed")
+        return ("Choose how much to add each month", "Regular amounts do most of the work on the "
+                "way to a goal." + (f" About {fmt_money0(need)} a month would reach yours by "
+                                    f"{when} at the plan's assumed return." if need else ""),
+                "Open your plan", ("page", "Plan"))
+    if k == "gap":
+        return ("Close the gap to your goal",
+                f"You're adding {fmt_money0(monthly)} a month. About {fmt_money0(step['needed'])} "
+                f"({fmt_money0(step['extra'])} more) would get you there by {when} at the plan's "
+                "assumed return - or you could move the date or the target.",
+                "Open your plan", ("page", "Plan"))
+    if k == "drift":
+        actual = mask_or(f"{step['actual']:.0f}%")
+        return ("Your mix has drifted from its target",
+                f"{step['label']} is {actual} of your portfolio against a target of "
+                f"{step['target']:.0f}%. Bringing it back is called rebalancing.",
+                "See your target mix", ("page", "Plan"))
+    if k == "update":
+        return ("Update your holdings", f"You last brought them in {step['days']} days ago - "
+                "an update keeps your route and plan accurate.", "Update holdings",
+                ("dialog", "manual"))
+    if k == "learn":
+        return (f"Waypoint {step['number']}: {step['title']}", "Next on your Get started route.",
+                "Continue", ("page", "Get started"))
+    if k == "reached":
+        return ("You've reached your goal", "Well done. Set your next goal whenever you're "
+                "ready.", "Set the next goal", ("page", "Plan"))
+    return ("You're on track", f"Keep adding {fmt_money0(monthly)} a month and your plan gets "
+            f"you there by {when}.", "Open your plan", ("page", "Plan"))
+
+
+def _route_go(action):
+    kind, target = action
+    if kind == "dialog":
+        _open_holdings_dialog(target)
+    else:
+        _go(target)
+
+
+def _render_route():
+    """The investor home's first card (ROADMAP G2): the goal, the waypoints,
+    and the one next step (route.py decides which)."""
+    state = _route_state(True)
+    plan = state["plan"]
+    has_goal = plans.has_goal(plan)
+    gp = _goal_progress(plan, portfolio_value) if has_goal else None
+    monthly = float((plan or {}).get("monthly_contribution") or 0.0)
+    pct = {r["label"]: r["pct"] for r in
+           allocate(positions, cash_by_account, CLASS_SPLITS)["by_asset_class"]}
+    try:
+        days = (datetime.now().date() - date.fromisoformat(str(snapshot)[:10])).days
+    except ValueError:
+        days = None
+    waypoints = [(k, t, state["done"][k]) for k, t in GET_STARTED_STEPS]
+    step = route.next_step(
+        has_goal=has_goal, can_manage=CAN_MANAGE, profile_missing=bool(state["missing"]),
+        has_holdings=bool(positions), monthly=monthly, goal=gp,
+        drift=route.drifted(pct, load_alloc_targets(), load_drift_threshold()),
+        days_since_holdings=days, waypoints=waypoints)
+    reached = bool(gp and gp["status"] == "reached")
+    title, text, button, action = _route_words(step, gp, monthly, plan)
+
+    with st.container(border=True, key="pt_route_reached" if reached else "pt_route"):
+        head = "<div class='pt-route-label'>Your route</div>"
+        if has_goal:
+            label, tone = PLAN_STATUS[gp["status"]]
+            share = min(100.0, max(0.0, gp["pct_of_target"] or 0.0))
+            head += (f"<div class='pt-goal-top'><b>{html.escape(plan.get('goal_name') or plan['goal_type'] or 'Goal')}</b>"
+                     f"<span class='pt-goal-pct'>{mask_or(f'{share:.0f}%')}</span>"
+                     f"<span class='pt-chip {tone}'>{label}</span></div>"
+                     f"<div class='pt-goal-track' role='progressbar' aria-label='Progress to your goal' "
+                     f"aria-valuenow='{share:.0f}' aria-valuemin='0' aria-valuemax='100'>"
+                     f"<div class='pt-goal-fill' style='width:{share:.1f}%'></div></div>"
+                     f"<div class='pt-goal-sub'>{fmt_money0(gp['current'])} of "
+                     f"{fmt_money0(gp['target'])} by {_fmt_month(plan['target_date'])}</div>")
+        n_done = sum(1 for _, _, d in waypoints if d)
+        parts, prev = [], None
+        for d in route.dots(waypoints, reached):
+            if prev is not None:   # a leg is walked when it leaves a finished waypoint
+                filled = prev == "done" and (d in ("done", "here")
+                                             or (d.startswith("goal") and n_done == len(waypoints)))
+                parts.append(f"<span class='pt-leg{' pt-leg-done' if filled else ''}'></span>")
+            parts.append(f"<span class='pt-dot pt-dot-{d}'></span>")
+            prev = d
+        head += (f"<div class='pt-route' role='img' aria-label='{n_done} of {len(waypoints)} "
+                 f"waypoints reached, then your goal'>{''.join(parts)}</div>")
+        st.html(head)
+        with st.container(horizontal=True, vertical_alignment="center"):
+            # "$" escaped: a pair of them would be read as a math formula
+            st.markdown((f":material/flag: **Next: {title}**" + (f"  \n{text}" if text else ""))
+                        .replace("$", r"\$"), width="stretch")
+            st.button(button, key="route_go", type="primary", on_click=_route_go,
+                      args=(action,))
+            st.button(f"Ask {GUIDE}", key="route_ask", type="tertiary", on_click=_ask_route,
+                      args=(step["key"],))
+
+
 if PAGE == "Dashboard":
+    if INVESTOR_VIEW:
+        _render_route()
+
     # ---- hero: value, today's move, since last visit, headline stats ----- #
     _day_base = portfolio_value - day_change_total
     _day_pct = (day_change_total / _day_base * 100) if _day_base else None
@@ -62,21 +198,24 @@ if PAGE == "Dashboard":
     )
 
     # ---- goal: one line from the plan, or a nudge to set one ----------- #
+    # (the advisor's own portfolio; the investor home has it in Your route)
     _plan = load_plan()
-    with st.container(border=True, horizontal=True, vertical_alignment="center"):
-        if plans.has_goal(_plan):
-            _gp = _goal_progress(_plan, portfolio_value)
-            _glabel, _gtone = PLAN_STATUS[_gp["status"]]
-            _gpct = mask_or(f"{_gp['pct_of_target'] or 0:.0f}%")
-            st.html(f"<span class='pt-chip {_gtone}'>{_glabel}</span>&nbsp; "
-                    f"<b>{html.escape(_plan.get('goal_name') or _plan['goal_type'] or 'Goal')}</b>"
-                    f" · {_gpct} of "
-                    f"{fmt_money0(_gp['target'])} by {_fmt_month(_plan['target_date'])}",
-                    width="stretch")
-            st.button("Open plan", key="dash_open_plan", type="tertiary", on_click=_go,
-                      args=("Plan",))
-        else:
-            if CAN_MANAGE:
+    _goal_box = (st.container(border=True, horizontal=True, vertical_alignment="center")
+                 if not INVESTOR_VIEW else None)
+    if _goal_box is not None:
+        with _goal_box:
+            if plans.has_goal(_plan):
+                _gp = _goal_progress(_plan, portfolio_value)
+                _glabel, _gtone = PLAN_STATUS[_gp["status"]]
+                _gpct = mask_or(f"{_gp['pct_of_target'] or 0:.0f}%")
+                st.html(f"<span class='pt-chip {_gtone}'>{_glabel}</span>&nbsp; "
+                        f"<b>{html.escape(_plan.get('goal_name') or _plan['goal_type'] or 'Goal')}</b>"
+                        f" · {_gpct} of "
+                        f"{fmt_money0(_gp['target'])} by {_fmt_month(_plan['target_date'])}",
+                        width="stretch")
+                st.button("Open plan", key="dash_open_plan", type="tertiary", on_click=_go,
+                          args=("Plan",))
+            elif CAN_MANAGE:
                 st.markdown("Set a goal to see whether you're on track.", width="stretch")
                 st.button("Set a goal", key="dash_set_goal", type="tertiary", on_click=_go,
                           args=("Plan",))

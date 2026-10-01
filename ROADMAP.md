@@ -261,6 +261,13 @@ can make themselves an advisor.
 way to your house deposit · next waypoint: choose a monthly amount"), the
 waypoint route and one nudge; the portfolio value and charts move below.
 Mostly re-arranging Plan, Get started and Dashboard pieces that exist.
+- [x] **Built** - the page is "Home" for investors ("Portfolio" for an
+      advisor's own); a "Your route" card first: goal, progress and status,
+      the Get started waypoints as dots to the goal, and one next step with a
+      button and Ask Northwend. `route.py` picks the step: goal, profile,
+      holdings, monthly amount, closing a gap, drift, stale holdings (45
+      days), the next waypoint, then reached / on track. Clients aren't asked
+      to do their advisor's part.
 
 ### G3. "Find your direction" for beginners - M/L
 **What:** the front door for someone with nothing invested yet: a short,

@@ -1305,6 +1305,54 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         self.assertIn("tomorrow", self._sign_up(email="taken@example.com")["error"])
 
 
+class RouteTests(unittest.TestCase):
+    """The investor home's next step (route.py): one step, in priority order."""
+
+    WAYS = [("profile", "About you", True), ("ready", "Ready?", True), ("goal", "Goal", True),
+            ("basics", "Basics", False), ("mix", "Mix", False)]
+
+    def _next(self, **kw):
+        import route
+        args = dict(has_goal=True, can_manage=True, profile_missing=False, has_holdings=True,
+                    monthly=300.0, goal={"status": "on_track", "needed_monthly": 250.0},
+                    drift=[], days_since_holdings=5,
+                    waypoints=[(k, t, True) for k, t, _ in self.WAYS])
+        args.update(kw)
+        return route.next_step(**args)
+
+    def test_priority_order(self):
+        self.assertEqual(self._next(has_goal=False)["key"], "goal")
+        self.assertEqual(self._next(has_goal=False, can_manage=False)["key"], "goal_wait")
+        self.assertEqual(self._next(profile_missing=True)["key"], "profile")
+        self.assertEqual(self._next(has_holdings=False)["key"], "holdings")
+        self.assertEqual(self._next(goal={"status": "reached"}, monthly=0)["key"], "reached")
+        self.assertEqual(self._next(monthly=0)["key"], "monthly")
+        gap = self._next(goal={"status": "behind", "needed_monthly": 1229.0})
+        self.assertEqual((gap["key"], round(gap["extra"])), ("gap", 929))
+        drift = self._next(drift=[("Stocks", 80.0, 70.0, 10.0)])
+        self.assertEqual((drift["key"], drift["label"]), ("drift", "Stocks"))
+        self.assertEqual(self._next(days_since_holdings=60)["key"], "update")
+        learn = self._next(waypoints=self.WAYS)
+        self.assertEqual((learn["key"], learn["number"], learn["title"]), ("learn", 4, "Basics"))
+        self.assertEqual(self._next()["key"], "steady")
+
+    def test_an_advisors_client_is_not_asked_to_do_the_advisors_part(self):
+        # the plan and holdings are the advisor's: no money or update steps for the client
+        self.assertEqual(self._next(can_manage=False, profile_missing=True, monthly=0,
+                                    days_since_holdings=90)["key"], "steady")
+
+    def test_dots_and_drift(self):
+        import route
+        self.assertEqual(route.dots(self.WAYS, False),
+                         ["done", "done", "done", "here", "todo", "goal"])
+        self.assertEqual(route.dots([(k, t, True) for k, t, _ in self.WAYS], True)[-1],
+                         "goal_reached")
+        rows = route.drifted({"Stocks": 82.0, "Bonds": 18.0}, {"Stocks": 70, "Bonds": 25,
+                                                               "Cash": 5}, 5.0)
+        self.assertEqual([r[0] for r in rows], ["Stocks", "Bonds"])   # biggest first; Cash 5 pts
+        self.assertEqual(route.drifted({"Stocks": 72.0}, {"Stocks": 70}, 5.0), [])
+
+
 class AdvisorRequestTests(TempDBMixin, unittest.TestCase):
     """Asking for advisor access (auth.request_advisor): nobody makes themselves
     an advisor; the admin approves or declines (manage_users.py)."""
