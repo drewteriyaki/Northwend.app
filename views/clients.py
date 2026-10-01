@@ -254,14 +254,28 @@ def _client_rows(today):
                      if summ["has_data"] else None)
             review, days = advising.review_status(advising.last_review(conn, cid), today)
             steps = advising.open_next_steps(advising.list_notes(conn, cid, include_private=True))
+            login = conn.execute("SELECT last_login_at FROM users WHERE id = ?",
+                                 (cid,)).fetchone()["last_login_at"]
+            login_days = ((today - date.fromisoformat(login[:10])).days if login else None)
+            props = conn.execute("SELECT status, COUNT(*) AS n FROM proposals WHERE "
+                                 "client_id = ? AND status IN ('shared', 'accepted') "
+                                 "GROUP BY status", (cid,)).fetchall()
+            props = {r["status"]: r["n"] for r in props}
+            last_report = conn.execute("SELECT period_label FROM progress_reports WHERE "
+                                       "client_id = ? ORDER BY id DESC LIMIT 1",
+                                       (cid,)).fetchone()
             rows.append({**summ, "name": name, "plan": plan, "goal": goal, "drift": drift,
                          "can_import": advising.client_can_import(conn, cid),
                          "review": review, "review_days": days, "n_steps": len(steps),
+                         "login_days": login_days, "proposals": props,
+                         "last_report": last_report["period_label"] if last_report else None,
                          "reasons": advising.attention(
                              has_data=summ["has_data"],
                              goal_status=goal["status"] if goal else None, review=review,
                              n_alerts=summ["n_alerts"], drift=drift,
-                             profile_done=summ["profile_answered"] >= summ["profile_total"])})
+                             profile_done=summ["profile_answered"] >= summ["profile_total"],
+                             proposal_accepted=bool(props.get("accepted")),
+                             days_since_login=login_days)})
     finally:
         conn.close()
     # who needs a look first, then the biggest accounts
@@ -291,6 +305,25 @@ def _render_clients():
                 f"<div class='pt-stat-sub'>{sum(1 for r in rows if r['review'] != 'ok')} review(s) due"
                 "</div></div></div>")
 
+        # narrow the book down (ROADMAP G9)
+        with st.container(horizontal=True, vertical_alignment="bottom"):
+            show = st.segmented_control(
+                "Show", ["Everyone", "Needs a look", "Review due", "Waiting on you"],
+                default="Everyone", key="book_show",
+                help="Waiting on you: an accepted proposal to act on, or open next steps."
+            ) or "Everyone"
+            find = st.text_input("Find a client", key="book_find", placeholder="Find a client",
+                                 label_visibility="collapsed")
+        wanted = {
+            "Everyone": lambda r: True,
+            "Needs a look": lambda r: bool(r["reasons"]),
+            "Review due": lambda r: r["review"] != "ok",
+            "Waiting on you": lambda r: bool(r["proposals"].get("accepted") or r["n_steps"]),
+        }[show]
+        rows = [r for r in rows if wanted(r) and find.strip().lower() in r["name"].lower()]
+        if not rows:
+            st.caption("No clients match.")
+
         cols = st.columns(2)
         for i, r in enumerate(rows):
             with cols[i % 2], st.container(border=True):
@@ -308,8 +341,15 @@ def _render_clients():
                             else f"reviewed {r['review_days']}d ago")
                 if r["n_steps"]:
                     bits.append(f"{r['n_steps']} open next step{'s' if r['n_steps'] != 1 else ''}")
+                if r["proposals"].get("shared"):
+                    bits.append("proposal waiting for their answer")
                 if r["snapshot_date"]:
                     bits.append(f"statement {_fmt_date(r['snapshot_date'])}")
+                if r["last_report"]:
+                    bits.append(f"last report {r['last_report']}")
+                if r["login_days"] is not None:
+                    bits.append("signed in today" if r["login_days"] == 0
+                                else f"signed in {r['login_days']}d ago")
                 st.html(
                     "<div class='pt-goal-top'>"
                     f"<b>{html.escape(r['name'])}</b>"
@@ -329,7 +369,9 @@ def _render_clients():
                                    "goal, target mix and alert limits stay yours to set.")
         st.caption(f"Sorted by what needs a look. Reviews are due {advising.REVIEW_EVERY_DAYS} days "
                    f"after the last one; drift is flagged past {advising.DRIFT_ATTENTION_PTS:g} "
-                   "points from the plan's target mix; alerts use each client's own limits.")
+                   "points from the plan's target mix; alerts use each client's own limits; a "
+                   f"client who used to sign in is flagged after {advising.INACTIVE_DAYS} days "
+                   "away.")
     st.divider()
     _render_models()
     st.divider()

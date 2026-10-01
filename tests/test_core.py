@@ -1387,6 +1387,21 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertIsNotNone(admin.list_accounts(self.conn)[0]["last_login_at"])
 
 
+class BookOverviewTests(unittest.TestCase):
+    """The book overview's new attention signals (advising.attention)."""
+
+    def test_accepted_proposals_and_inactivity(self):
+        base = dict(has_data=True, goal_status="on_track", review="ok", n_alerts=0, drift=None,
+                    profile_done=True)
+        self.assertEqual(advising.attention(**base), [])
+        self.assertEqual(advising.attention(**base, proposal_accepted=True),
+                         ["Proposal accepted"])                      # first: it's on the advisor
+        self.assertEqual(advising.attention(**base, days_since_login=None), [])  # never signs in
+        self.assertEqual(advising.attention(**base, days_since_login=advising.INACTIVE_DAYS), [])
+        self.assertEqual(advising.attention(**base, days_since_login=75),
+                         ["Not signed in for 75 days"])
+
+
 class ProgressReportTests(TempDBMixin, unittest.TestCase):
     """Client progress reports (reports.py)."""
 

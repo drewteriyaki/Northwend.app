@@ -55,7 +55,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Admin portal: logins only, never holdings; admins made only by
   `manage_users.py make-admin`; a new table with account data must be added to
   `admin.ACCOUNT_TABLES` - a test checks), `route.py` (the investor home's
-  next step), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
+  next step), `proposals.py` (advisor proposals, `views/proposals.py`),
+  `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client
+  progress reports, `views/reports.py`), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
   sending - use it for local runs), `manage_users.py`
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status` and counts with `_ai_record`), `advising.py`,

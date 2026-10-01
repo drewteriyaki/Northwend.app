@@ -365,6 +365,12 @@ the email side allows it.
 **What:** all clients in one view, sorted by who needs attention (off track,
 drifted, review due, inactive) - the advisor home in G1, grown from the
 weekly review summary.
+- [x] **Built** - Your clients (already sorted by what needs a look) gains
+      "Proposal accepted" (first - it's on the advisor) and "Not signed in
+      for N days" (60+, only for clients who used to sign in) as reasons; a
+      Show filter (Everyone / Needs a look / Review due / Waiting on you) and
+      a search; each card also shows a proposal waiting, the last report and
+      the last sign-in.
 
 ---
 

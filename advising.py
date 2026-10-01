@@ -181,10 +181,19 @@ def max_drift(actual_pct: dict, targets: dict) -> float | None:
     return max(abs((actual_pct.get(k) or 0.0) - t) for k, t in targets.items())
 
 
+INACTIVE_DAYS = 60   # a client who signs in has been away this long: worth a check-in
+
+
 def attention(*, has_data: bool, goal_status: str | None, review: str, n_alerts: int,
-              drift: float | None, profile_done: bool) -> list[str]:
-    """Why a client needs a look, most pressing first; empty when all good."""
+              drift: float | None, profile_done: bool, proposal_accepted: bool = False,
+              days_since_login: int | None = None) -> list[str]:
+    """Why a client needs a look, most pressing first; empty when all good.
+    `days_since_login` is None for a client who has never signed in (many
+    are managed by the advisor alone) - only someone who used to sign in and
+    stopped counts as inactive."""
     reasons = []
+    if proposal_accepted:
+        reasons.append("Proposal accepted")
     if not has_data:
         reasons.append("No statement yet")
     if goal_status in ("behind", "past_date"):
@@ -201,4 +210,6 @@ def attention(*, has_data: bool, goal_status: str | None, review: str, n_alerts:
         reasons.append(f"Drift {drift:.0f} pts")
     if not profile_done:
         reasons.append("Profile incomplete")
+    if days_since_login is not None and days_since_login > INACTIVE_DAYS:
+        reasons.append(f"Not signed in for {days_since_login} days")
     return reasons
