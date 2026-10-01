@@ -25,6 +25,12 @@ def _acct_save_name():
     _acct_msg("success", "Saved your name.")
 
 
+def _acct_show_all():
+    p = _read_prefs()
+    p["show_everything"] = bool(st.session_state.get("acct_show_all"))
+    _write_prefs(p)
+
+
 def _acct_change_email():
     c = connect(DB)
     try:
@@ -138,6 +144,14 @@ def _render_account():
         st.button("Save name", key="acct_name_save", on_click=_acct_save_name)
     st.caption("Shown in the app in place of your login" + (", and to your advisor"
                if advisor else "") + ". Never sent to the AI.")
+
+    # ---- how the app looks (investors; advisors always see everything) ---- #
+    if not IS_ADVISOR:
+        st.subheader("How Home looks", anchor=False)
+        st.session_state["acct_show_all"] = bool(_read_prefs().get("show_everything"))
+        st.toggle("Show everything on one page", key="acct_show_all", on_change=_acct_show_all,
+                  help="Off: Home shows a summary and your next step, with tiles that open "
+                       "the details in a window. On: every section is on the page at once.")
 
     # ---- email ----------------------------------------------------------------- #
     st.subheader("Email", anchor=False)
