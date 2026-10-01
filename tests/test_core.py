@@ -3057,11 +3057,12 @@ class DisclosureTests(unittest.TestCase):
         for must in ("not financial advice", "Anthropic", "percentages", "column names",
                      "ticker", "any brokerage", "hypothetical", "18 and over", "as-is",
                      "For advisors", "Cookies", "How long it's kept", "Neon", "GitHub",
-                     "Resend", "support@northwend.app"):
+                     "Resend", "support@northwend.app", "Andrew Zhang"):
             self.assertIn(must.lower(), text.lower())
-        # until it's filled in, the page shows the placeholder plainly
-        self.assertEqual(disclosures.placeholders(), ["OPERATOR_NAME"])
-        self.assertIn("[operator name]", text)
+        # everything is filled in: no placeholders left on the page
+        self.assertEqual(disclosures.placeholders(), [])
+        self.assertNotIn("[operator name]", text)
+        self.assertNotIn("[contact email]", text)
 
     def test_the_no_tracking_promise_matches_the_config(self):
         with open(os.path.join(REPO, ".streamlit", "config.toml"), encoding="utf-8") as fh:

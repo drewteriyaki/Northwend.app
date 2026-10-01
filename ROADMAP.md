@@ -86,8 +86,8 @@ changes are announced - a one-time notice after sign-in when it changes. The
 wording lives in `disclosures.py`, with notes on which code each statement
 depends on.
 **Needs you:**
-- Fill in `OPERATOR_NAME` and `CONTACT` in `disclosures.py` (a dedicated
-  address like support@ is best) - the page shows placeholders until then.
+- [x] `OPERATOR_NAME` (Andrew Zhang) and `CONTACT` (support@northwend.app)
+  filled in - no placeholders left.
 - Have the final wording reviewed by someone qualified before launch; they
   may want separate Terms of Use and a Privacy Policy.
 - Delete the Neon backup branch from the precision change once you're
@@ -114,9 +114,13 @@ check the social and app-store handles.
       Northwend: no app or company found using it; northwend.app, northwend.io,
       getnorthwend.com and northwendapp.com unregistered on Oct 1, 2026. The AI
       guide carries the same name ("Ask Northwend", was Sage).
-- [ ] **Needs you:** search "Northwend" on USPTO trademark search (ideally an
-      attorney's clearance), buy northwend.app (plus getnorthwend.com, and .io
-      if wanted), check the social handles.
+- [x] **northwend.app bought** (Cloudflare, auto-renew); USPTO wordmark search
+      for "Northwend": no results, live or dead (Oct 1, 2026). Resend and
+      support@ email routing set up on it.
+- [ ] **Needs you:** search look-alikes on USPTO (Northwind, North Wend, North
+      End in classes 9, 36 and 42; an attorney's clearance is better still);
+      getnorthwend.com if wanted; the social handles. Note northwend.com is an
+      unrelated supplements business.
 
 ### L2. Brand and design in Claude Design - M - needs you
 **What:** a design system (logo - the flag and compass are a start - colors,
@@ -168,7 +172,7 @@ their email, reset a forgotten password, and use the app within its limits.
       send limits by hashed email and address. `MAIL_DRY_RUN=1` logs instead of
       sending. Contact in the disclosures is support@northwend.app.
 - [ ] **Needs you:** sign up on the live app with your own email to check the
-      real email arrives (and a reset); fill in `OPERATOR_NAME`.
+      real email arrives (and a reset).
 
 ### L6. Launch - S - needs you
 **What:** the item-5 disclosures review done (and any Terms of Use / Privacy

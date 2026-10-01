@@ -41,7 +41,7 @@ LAST_UPDATED = "October 1, 2026"
 MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
-OPERATOR_NAME = ""          # e.g. your name, or a company name once you have one
+OPERATOR_NAME = "Andrew Zhang"
 CONTACT = "support@northwend.app"
 
 _OPERATOR = OPERATOR_NAME or "[operator name]"
