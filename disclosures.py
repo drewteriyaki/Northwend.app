@@ -28,6 +28,12 @@ Each statement about data here must stay true to the code:
   support address (mailer.advisor_request) for the admin to check.
 - Meeting prep talking points (meeting.facts_for_ai / talking_points): profile,
   advisor.portfolio_summary, and percentage facts - no dollars, no note text.
+- Advisors' Monday email (weekly_email.py, GitHub Actions): counts only (reviews
+  due / coming due, accepted proposals, open next steps), no client names or
+  figures; confirmed or admin-made emails only; off switch in prefs
+  (weekly_email_off); once a week (weekly_email_week).
+- Export everything (export.py): the account's own rows as CSV; never password
+  hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
   role, created, last sign-in (users.last_login_at), locks; no holdings,
   plans or profile answers.
@@ -107,9 +113,10 @@ to them (not ones you mark private); you can see everything in their account.
   cost, value and account names), your plan and goals, your investing-profile
   answers, notes, and settings. If you created your account yourself, also
   your email address - used only to sign in and to send you account emails
-  (confirming the address, resetting your password), never shown to anyone else
-  or sent to the AI - and which version of this page you agreed to. Northwend
-  sends no newsletters or marketing email. If you ask for advisor access, also
+  (confirming the address, resetting your password; for advisors, an optional
+  Monday summary with counts only - no client names or figures), never shown
+  to anyone else or sent to the AI - and which version of this page you agreed
+  to. Northwend sends no newsletters or marketing email. If you ask for advisor access, also
   your firm's name and your CRD or licence number, so it can be checked.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
@@ -167,7 +174,8 @@ to run the site.
   ticker symbols are sent to them.
 - **GitHub** runs the scheduled price updates.
 - **Resend** delivers the account emails (confirming your address, resetting
-  your password); it receives only your email address and that message.
+  your password, an advisor's Monday summary); it receives only your email
+  address and that message.
 
 Each has its own privacy policy.
 """),

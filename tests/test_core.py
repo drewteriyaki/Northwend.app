@@ -3633,6 +3633,54 @@ class ExportTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(set(admin.ACCOUNT_TABLES) - exported - left_out, set())
 
 
+class WeeklyEmailTests(TempDBMixin, unittest.TestCase):
+    """The advisors' Monday email (weekly_email.py): counts only, once a week,
+    only to a confirmed email, never when turned off."""
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+        auth.set_advisor(self.conn, "testuser", True)
+        self.conn.execute("UPDATE users SET email = 'adv@example.com' WHERE id = ?",
+                          (self.user_id,))
+        self.client = auth.create_user(self.conn, "client one", "x" * 12)
+        auth.link_client(self.conn, self.user_id, self.client)
+        self.conn.commit()
+        self.sent = []
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def _send(self, to, link, lines):
+        self.sent.append((to, link, lines))
+        return True
+
+    def test_counts_only_and_once_a_week(self):
+        import weekly_email
+        today = date(2026, 10, 5)
+        done = weekly_email.run(self.conn, "https://app.example/", today, send=self._send)
+        self.assertEqual(done["sent"], 1)
+        to, link, lines = self.sent[0]
+        self.assertEqual(to, "adv@example.com")
+        self.assertEqual(link, "https://app.example/?page=your-clients")
+        self.assertEqual(lines, ["1 client is due a review"])
+        self.assertNotIn("client one", " ".join(lines))
+        again = weekly_email.run(self.conn, "https://app.example/", today, send=self._send)
+        self.assertEqual((again["sent"], again["already"]), (0, 1))
+
+    def test_not_when_off_or_unconfirmed(self):
+        import weekly_email
+        prefs.save(self.conn, self.user_id, {weekly_email.PREF_OFF: True})
+        self.assertEqual(weekly_email.run(self.conn, "https://a/", date(2026, 10, 5),
+                                          send=self._send)["off"], 1)
+        prefs.save(self.conn, self.user_id, {})
+        self.conn.execute("UPDATE users SET terms_version = 'v1' WHERE id = ?", (self.user_id,))
+        self.conn.commit()
+        weekly_email.run(self.conn, "https://a/", date(2026, 10, 5), send=self._send)
+        self.assertEqual(self.sent, [])
+
+
 class HostingTests(unittest.TestCase):
     """L4: the visitor's address behind a proxy, the old address's moved page,
     and the Render blueprint."""

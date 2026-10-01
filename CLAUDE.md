@@ -80,7 +80,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `hosting.py` (`CLIENT_IP_HEADER` for the visitor's address behind a proxy;
   `MOVED_TO` turns an old copy into a "has moved" page).
 - Jobs: `.github/workflows/scheduled-sync.yml` (prices every 15 min in market
-  hours, history nightly), `tests.yml`.
+  hours, history nightly, advisors' Monday email via `weekly_email.py`), `tests.yml`.
 
 ## Gotchas
 - New columns on old tables: add them to the back-fill list in

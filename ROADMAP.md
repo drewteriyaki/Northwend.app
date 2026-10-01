@@ -491,6 +491,12 @@ started, the Plan and Ask Northwend - always optional.
       opens with reviews due, coming due in 14 days and who else needs a look,
       each with Open; Got it hides it until Monday (any device). Always on the
       Clients page. Email could follow once there's an email service and domain.
+      **Email (Oct 1):** a Monday email to each advisor - counts only
+      (reviews due and coming due, accepted proposals, open next steps), no
+      client names or figures; once a week, only when there's something to
+      say, confirmed emails only, off switch under How clients see you.
+      `weekly_email.py`, a Monday job in scheduled-sync.yml. **Needs you:**
+      GitHub secrets `RESEND_API_KEY` and `APP_URL` (skipped until set).
 
 - [x] **D1. Export everything** - Your data (sidebar) > Prepare my data,
       then Download: a ZIP of CSVs with the account's own data (holdings and

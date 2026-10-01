@@ -172,6 +172,24 @@ def _render_advisor_settings():
                 st.toast("Saved - your clients see this on their Advisor notes page.")
         st.caption("Shown to clients whose accounts you manage, on their Advisor notes page and "
                    "in the sidebar.")
+        st.session_state["weekly_email_on"] = not p.get("weekly_email_off")  # what's saved
+        st.toggle("Monday email", key="weekly_email_on", on_change=_set_weekly_email,
+                  help="A short email on Monday mornings when reviews are due or a client "
+                       "accepted a proposal - counts only, no client names or figures. Sent to "
+                       "your login email once it's confirmed.")
+
+
+def _set_weekly_email():
+    c = connect(DB)
+    try:
+        p = prefs.load(c, LOGIN_ID)
+        if st.session_state.get("weekly_email_on"):
+            p.pop("weekly_email_off", None)
+        else:
+            p["weekly_email_off"] = True
+        prefs.save(c, LOGIN_ID, p)
+    finally:
+        c.close()
 
 
 def _render_models():

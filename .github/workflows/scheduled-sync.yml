@@ -11,6 +11,9 @@ name: Scheduled sync (hosted Postgres)
 # Requires two repo secrets (Settings -> Secrets and variables -> Actions):
 #   DATABASE_URL      the Neon connection string
 #   FINNHUB_API_KEY   for the price refresh job
+# and, for the advisors' Monday email (weekly_email.py; skipped until set):
+#   RESEND_API_KEY    the same key the app sends email with
+#   APP_URL           the app's address, for the link in the email
 # The refresh job covers every account (--all-users, each ticker fetched
 # once); sync_history.py is account-agnostic too, since market data is
 # shared across accounts.
@@ -23,6 +26,8 @@ on:
     # Daily history sync (Yahoo daily/intraday bars + fundamentals) -
     # once after market close, 21:30 UTC.
     - cron: "30 21 * * 1-5"
+    # Advisors' Monday email - 12:30 UTC, early morning in the US.
+    - cron: "30 12 * * 1"
   workflow_dispatch: {}  # allow manual triggering from the Actions tab
 
 jobs:
@@ -56,3 +61,20 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python sync_history.py --db "$DATABASE_URL"
+
+  weekly-email:
+    if: github.event.schedule == '30 12 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip  # reuse installed packages between runs
+      - run: pip install -r requirements.txt
+      - name: Send advisors their Monday email
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: python weekly_email.py --db "$DATABASE_URL"

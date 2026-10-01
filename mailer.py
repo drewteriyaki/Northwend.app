@@ -102,6 +102,18 @@ def report_ready(to: str, link: str, advisor_name: str, period: str) -> bool:
                 _html(lines, ("Read my report", link)))
 
 
+def advisor_week(to: str, link: str, lines: list[str]) -> bool:
+    """An advisor's Monday summary (weekly_email.py): counts only - no client
+    names or figures in the email."""
+    intro = "Here's your week in Northwend:"
+    outro = ("Client names and details are in the app. To stop these emails, turn off "
+             "Monday email under Your clients > How clients see you.")
+    text = intro + "\n\n" + "\n".join(f"- {x}" for x in lines) + \
+        f"\n\nOpen your clients: {link}\n\n{outro}\n"
+    return send(to, "Your week in Northwend", text,
+                _html([intro, *lines, outro], ("Open your clients", link)))
+
+
 def client_invite(to: str, link: str, advisor_name: str, days: int) -> bool:
     """An advisor's setup link for their client (auth.create_invite)."""
     lines = [f"{advisor_name} has set up a Northwend account for you, to follow your "
