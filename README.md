@@ -1,7 +1,7 @@
-# Waypoint
+# Northwend
 
 *Your guide from first step to goal.* A portfolio tracker for any brokerage, with
-**Sage**, an AI guide that explains investing in plain language. (The code and
+**Ask Northwend**, an AI guide (named after the app) that explains investing in plain language. (The code and
 repository still use the old name, portfolio tracker.)
 
 Turn a Charles Schwab **Positions** export into a local SQLite database, then

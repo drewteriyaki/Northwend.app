@@ -3,7 +3,7 @@
 # (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# Ask Sage: the AI guide's chat page.
+# Ask Northwend: the AI guide's chat page.
 # ruff: noqa: F821
 
 def _render_assistant(contexts, cash_by_account):

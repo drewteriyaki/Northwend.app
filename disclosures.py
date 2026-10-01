@@ -4,10 +4,10 @@ reviewed by someone qualified before launch (ROADMAP.md, item 5). Fill in
 OPERATOR_NAME and CONTACT first; placeholders() lists what's still missing.
 
 Each statement about data here must stay true to the code:
-- Sage / plan next steps: advisor.portfolio_summary() (tickers, names, % of
+- The AI guide (Ask Northwend) / plan next steps: advisor.portfolio_summary() (tickers, names, % of
   portfolio, asset type and class, sector, gain/loss %, dividend yield, beta,
   P/E - no dollar amounts, share counts or account names), the profile
-  answers, the chat, and Sage's saved notes (advisor.system_prompt).
+  answers, the chat, and the guide's saved notes (advisor.system_prompt).
 - CSV column guess (only when asked): column names and cell kinds only
   (csv_import.ai_mapping / sample_shapes).
 - Screenshots: opt-in, the images themselves (screenshot_read.read); only
@@ -44,20 +44,20 @@ CONTACT = ""                # e.g. support@yourdomain - a dedicated address is b
 _OPERATOR = OPERATOR_NAME or "[operator name]"
 _CONTACT = CONTACT or "[contact email]"
 
-SUMMARY = ("Waypoint is an educational tool for following your investments. "
+SUMMARY = ("Northwend is an educational tool for following your investments. "
            "It is not financial advice, and it isn't connected to any brokerage.")
 
 SECTIONS = [
-    ("Who runs Waypoint", f"""
-Waypoint is a free, early (beta) version, run by an individual developer,
+    ("Who runs Northwend", f"""
+Northwend is a free, early (beta) version, run by an individual developer,
 {_OPERATOR}. It may change, have mistakes, or be unavailable at times. Questions,
 problems or requests about your data: **{_CONTACT}**.
 
-Waypoint is for people **{MIN_AGE} and over**.
+Northwend is for people **{MIN_AGE} and over**.
 """),
     ("Educational, not advice", """
 Everything in this app - the dashboard, plans and projections, the Get started
-path, example funds, model portfolios, alerts and Sage, the AI guide - is for
+path, example funds, model portfolios, alerts and the AI guide (Ask Northwend) - is for
 education and information only. None of it is a recommendation to buy, sell or
 hold any security, and none of it is personalized investment, tax or legal advice.
 
@@ -79,9 +79,9 @@ licensed professional before making investment decisions.
 - **All investing involves risk,** including losing the money you put in.
 """),
     ("For advisors", """
-If you use Waypoint with clients, you remain responsible for your own advice,
+If you use Northwend with clients, you remain responsible for your own advice,
 licensing, record-keeping and compliance, and for having your clients' consent
-to put their holdings here. Waypoint doesn't supervise advice or check it for
+to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account.
 """),
@@ -99,7 +99,7 @@ to them (not ones you mark private); you can see everything in their account.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
-- **Brokerage logins:** Waypoint never asks for or stores your brokerage
+- **Brokerage logins:** Northwend never asks for or stores your brokerage
   username or password, and never connects to your brokerage. It only reads
   what you choose to paste, upload, type in or photograph.
 - **Who can see it:** you, and - if your account is managed by an advisor -
@@ -126,15 +126,15 @@ to them (not ones you mark private); you can see everything in their account.
   have exposed, and use a password you don't use anywhere else.
 """),
     ("Cookies and tracking", """
-Waypoint sets one cookie of its own, only if you tick **Stay signed in**: it keeps
+Northwend sets one cookie of its own, only if you tick **Stay signed in**: it keeps
 you signed in on that device. There are no advertising or tracking cookies, and
 the app doesn't send usage analytics. The hosting service may set cookies it needs
 to run the site.
 """),
-    ("Services Waypoint uses", """
+    ("Services Northwend uses", """
 - **Streamlit Community Cloud** hosts the app.
 - **Neon** runs the database, in the United States.
-- **Anthropic** (Claude) powers Sage, screenshot reading and the optional column
+- **Anthropic** (Claude) powers the AI guide, screenshot reading and the optional column
   guess - see the next section for exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
@@ -143,14 +143,14 @@ to run the site.
 Each has its own privacy policy.
 """),
     ("What's sent to the AI", """
-Sage, the app's guide (Ask Sage), and the plan's suggested next steps use Claude,
+The app's AI guide (Ask Northwend) and the plan's suggested next steps use Claude,
 an AI model from Anthropic. When you use them, the app sends:
 
 - your investing-profile answers (goals, time horizon, risk tolerance and so on),
 - your holdings as **tickers, fund names, types and sectors, each one's share of the
   portfolio, its gain or loss as a percentage, and figures like dividend yield,
   beta and P/E** - never dollar amounts, share counts, account names or numbers,
-- what you type in the chat, and short notes Sage saved from earlier
+- what you type in the chat, and short notes the guide saved from earlier
   conversations.
 
 If you choose to **read holdings from screenshots**, the images you upload are sent
@@ -173,13 +173,13 @@ the clock, mutual funds hourly), but may be delayed (often by 15 minutes) or
 occasionally wrong - check your brokerage for exact figures before trading.
 """),
     ("No guarantees", """
-Waypoint is provided as-is, without warranties of any kind. Figures, prices,
+Northwend is provided as-is, without warranties of any kind. Figures, prices,
 classifications and AI answers may be incomplete, delayed or wrong, and you use
-them at your own risk. To the extent the law allows, the people who run Waypoint
+them at your own risk. To the extent the law allows, the people who run Northwend
 aren't liable for losses from using it or relying on it.
 """),
     ("Not affiliated", """
-Waypoint is independent. It isn't affiliated with, endorsed by or connected to any
+Northwend is independent. It isn't affiliated with, endorsed by or connected to any
 brokerage, or to Finnhub, Yahoo or Anthropic. Brokerage names are used only to
 describe which files and screens it can read.
 """),

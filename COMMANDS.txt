@@ -72,7 +72,7 @@ username for 15 minutes; this clears it now - so does changing their
 password). Use --db $env:NEON_DSN for the live site:
   python manage_users.py --db $env:NEON_DSN unlock <username>
 
-Monthly AI limits (ai_usage.py): each account gets so many Ask Sage
+Monthly AI limits (ai_usage.py): each account gets so many Ask Northwend
 messages, screenshot reads, CSV column guesses and plan write-ups a month
 (advisors 5x). Lift them for your own account, put them back, or see this
 month's use - add --db $env:NEON_DSN for the live site:
@@ -212,7 +212,7 @@ Streamlit Cloud:        app → Settings → Secrets
 GitHub Actions:         repo → Settings → Secrets and variables → Actions
 
   FINNHUB_API_KEY     — live price quotes (required for Refresh button)
-  ANTHROPIC_API_KEY   — powers Sage (the AI guide), screenshot reading,
+  ANTHROPIC_API_KEY   — powers Ask Northwend (the AI guide), screenshot reading,
                          and the optional "Let AI guess the columns"
                          button for an unfamiliar CSV. Without it,
                          the AI Assistant section just says it's off.

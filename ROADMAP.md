@@ -108,11 +108,20 @@ only its look changes.
 buy the domain (.com or .app, or a close variant like `usewaypoint.com`) and
 check the social and app-store handles.
 **Done when:** you own the domain and the name is clear to use.
+- [x] **Name checked, renamed to Northwend** - "Waypoint" was crowded (a WAYPOINT
+      class-36 filing by Waypoint Federal Credit Union, Waypoint Investors, a
+      Waypoint budgeting app, many Waypoint advisors; the domains taken).
+      Northwend: no app or company found using it; northwend.app, northwend.io,
+      getnorthwend.com and northwendapp.com unregistered on Oct 1, 2026. The AI
+      guide carries the same name ("Ask Northwend", was Sage).
+- [ ] **Needs you:** search "Northwend" on USPTO trademark search (ideally an
+      attorney's clearance), buy northwend.app (plus getnorthwend.com, and .io
+      if wanted), check the social handles.
 
 ### L2. Brand and design in Claude Design - M - needs you
 **What:** a design system (logo - the flag and compass are a start - colors,
 type, voice), the website's home and sign-up pages, and a restyle of the
-app's key screens (Dashboard, Plan, Ask Sage, the phone tab bar).
+app's key screens (Dashboard, Plan, Ask Northwend, the phone tab bar).
 **Note:** Streamlit can take the colors, fonts, logo and spacing, not a fully
 custom layout - design the website freely, and give the app the same brand
 rather than an identical layout.
@@ -142,7 +151,7 @@ agreeing to the terms and disclosures; limits on AI use per account so costs
 stay predictable (a free tier).
 **Done when:** a stranger can create an account from the website, confirm
 their email, reset a forgotten password, and use the app within its limits.
-- [x] **AI limits** - monthly allowances per account (Ask Sage 100 messages,
+- [x] **AI limits** - monthly allowances per account (Ask Northwend 100 messages,
       screenshots 10, CSV help 20, plans 5; advisors 5x), shown as "X of Y left
       this month"; `manage_users.py ai-unlimited` for your own account. (ai_usage.py)
 - [x] **Sign-up (no email sent yet)** - "Create an account" on the sign-in screen

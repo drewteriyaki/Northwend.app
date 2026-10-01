@@ -1,7 +1,7 @@
 """Monthly AI allowances per account, so the cost of the AI features stays
 predictable however many people use the app.
 
-Each AI feature has its own allowance per calendar month (UTC): Ask Sage
+Each AI feature has its own allowance per calendar month (UTC): Ask Northwend
 messages, screenshot reads, CSV column help and plan write-ups. Whoever
 clicks is the one counted - an advisor working in a client's account uses
 the advisor's allowance. Advisors get ADVISOR_SCALE times the amounts; an

@@ -1,4 +1,4 @@
-"""Waypoint (formerly Portfolio Tracker) - single-page Streamlit dashboard.
+"""Northwend (formerly Waypoint, and Portfolio Tracker before that) - single-page Streamlit dashboard.
 
 Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 """
@@ -76,12 +76,13 @@ TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts
 NOT_KEPT = ("Not kept: the file, image or pasted text itself, balances and gains, and account "
             "numbers beyond their last 3 digits.")
 
-# The brand: Waypoint, with Sage as the guide (the AI Assistant). Pages keep
+# The brand: Northwend, and the AI guide (the AI Assistant) carries the same
+# name - "Ask Northwend". Was Waypoint / Sage until October 2026. Pages keep
 # their internal names (session state, links, `if PAGE == ...`); PAGE_LABELS
 # is only what people see.
-APP_NAME = "Waypoint"
+APP_NAME = "Northwend"
 TAGLINE = "Your guide from first step to goal."
-GUIDE = "Sage"
+GUIDE = APP_NAME  # the AI guide shares the app's name: "Ask Northwend"
 APP_ICON = ":material/flag:"
 PAGE_LABELS = {"AI Assistant": f"Ask {GUIDE}"}
 
@@ -90,7 +91,7 @@ def _label(page):
     return PAGE_LABELS.get(page, page)
 
 
-SAGE_AVATAR = ":material/explore:"   # a compass, for Sage's chat messages
+SAGE_AVATAR = ":material/explore:"   # a compass, for the guide's chat messages
 
 
 def _avatar(role):
@@ -580,15 +581,19 @@ PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
 
 
 def _slug(page):
-    """A page's name in the address: 'Ask Sage' -> 'ask-sage'."""
+    """A page's name in the address: 'Ask Northwend' -> 'ask-northwend'."""
     return _label(page).lower().replace(" ", "-")
 
+
+# addresses saved before a page was renamed still open it
+OLD_SLUGS = {"ask-sage": "AI Assistant"}
 
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
     # one this account can open
+    _wanted = str(st.query_params.get("page", "")).lower()
     st.session_state["page"] = {_slug(p): p for p in PAGES}.get(
-        str(st.query_params.get("page", "")).lower(), PAGES[0])
+        _wanted, OLD_SLUGS.get(_wanted) if OLD_SLUGS.get(_wanted) in PAGES else PAGES[0])
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 

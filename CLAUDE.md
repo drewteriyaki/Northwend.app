@@ -1,8 +1,8 @@
-# Waypoint (portfolio-tracker)
+# Northwend (portfolio-tracker)
 
 A Streamlit portfolio app: people bring holdings from any brokerage (CSV, paste,
 screenshots, by hand, or percentages only) and get live values, charts, a plan,
-income and an AI guide called **Sage** ("Ask Sage"). Advisors can manage clients.
+income and an AI guide with the app's name ("Ask Northwend"; was Waypoint / Sage). Advisors can manage clients.
 Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 
 ## Working rules
@@ -28,10 +28,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Each page's code is in `views/` and runs inside it via `_view("name")` at the
   point it's listed (same names, no imports needed - read the header of any view):
   `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
-  `watchlist`, `activity`, `income`, `plan`, `get_started`, `assistant` (Ask Sage),
+  `watchlist`, `activity`, `income`, `plan`, `get_started`, `assistant` (Ask Northwend),
   `profile`, `clients` (advisor side, weekly summary), `holdings_input` (paste,
   by hand, screenshots, CSV, the save step). Open just the view you need.
-  Internal page "AI Assistant" is shown as "Ask Sage" (`PAGE_LABELS`).
+  Internal page "AI Assistant" is shown as "Ask Northwend" (`PAGE_LABELS`, `GUIDE = APP_NAME`).
 - Data: `portfolio.py` (connect, schema setup + column back-fill, `write_snapshot`,
   delete/sample helpers), `schema.sql` / `schema_pg.sql` (keep **both** in step),
   `pgcompat.py` (SQLite-style SQL on Postgres, pooled connections).
@@ -47,7 +47,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - People: `auth.py` (logins, sessions, client setup links, self-serve sign-up), `manage_users.py`
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status` and counts with `_ai_record`), `advising.py`,
-  `advisor.py` (Sage, Claude API with prompt caching), `prefs.py`, `accounts.py`.
+  `advisor.py` (the AI guide, Claude API with prompt caching), `prefs.py`, `accounts.py`.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py`.
