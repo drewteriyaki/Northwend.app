@@ -129,6 +129,8 @@ PRICE_HISTORY_EXTRA_COLS = [
 
 TRANSACTIONS_EXTRA_COLS = [
     ("realized_gain", "REAL"),
+    # imported activity exports (txn_import.py)
+    ("origin", "TEXT"), ("row_key", "TEXT"),
 ]
 
 # Multi-user data isolation, added after the app already had real data in

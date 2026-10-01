@@ -3,8 +3,11 @@
 # (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# The Activity page: buys and sells inferred from holdings updates.
+# The Activity page: buys and sells inferred from holdings updates, and the
+# real history from an imported activity export (txn_import.py).
 # ruff: noqa: F821
+
+import txn_import
 
 def _render_activity_empty():
     """Activity with nothing in it yet: why, how it fills itself, and the next step."""
@@ -22,7 +25,10 @@ def _render_activity_empty():
         f"{APP_NAME} compares them with your last update.\n"
         "2. Shares that went up are recorded as a **buy**, shares that went down as a **sell** "
         "(with an estimated gain or loss), and new or removed holdings likewise.\n"
-        "3. Update every so often - after you trade, or once a month - and the history builds up.")
+        "3. Update every so often - after you trade, or once a month - and the history builds up.\n"
+        "\n**Want the real history?** Download your brokerage's **activity** (or transaction "
+        "history) export and upload it with **Upload a CSV** - your actual buys, sells, "
+        "dividends and deposits, any brokerage.")
     st.dataframe(pd.DataFrame([
         {"Holding": "VTI", "Last update": "10 shares", "This update": "15 shares",
          "Recorded as": "Buy 5"},
@@ -56,14 +62,22 @@ if PAGE == "Activity":
     if not _all_txns:
         _render_activity_empty()
     else:
+        _has_imported = any(t.get("origin") for t in _all_txns)
         fc1, fc2, fc3 = st.columns(3)
         _f_accounts = fc1.multiselect(
             "Account", sorted({t["account"] for t in _all_txns if t["account"]}), key="txn_f_account")
         _f_actions = fc2.multiselect(
-            "Action", sorted({t["action"] for t in _all_txns if t["action"]}), key="txn_f_action")
+            "Action", sorted({t["action"] for t in _all_txns if t["action"]}), key="txn_f_action",
+            format_func=lambda a: txn_import.TYPES.get(a, a))
         _f_symbol = fc3.text_input("Symbol contains", key="txn_f_symbol", placeholder="e.g. AAPL")
 
+        _f_source = (st.segmented_control(
+            "Show", ["Everything", "From your brokerage", "Worked out from updates"],
+            default="Everything", key="txn_f_source") or "Everything") if _has_imported             else "Everything"
         _filtered = _all_txns
+        if _f_source != "Everything":
+            _want = _f_source == "From your brokerage"
+            _filtered = [t for t in _filtered if bool(t.get("origin")) == _want]
         if _f_accounts:
             _filtered = [t for t in _filtered if t["account"] in _f_accounts]
         if _f_actions:
@@ -90,10 +104,13 @@ if PAGE == "Activity":
             _amount_raw = [t["amount"] for t in _filtered]
             _gain_raw = [t["realized_gain"] for t in _filtered]
             _tdf = pd.DataFrame([{
-                "Date": t["trade_date"], "Action": t["action"], "Symbol": t["symbol"],
-                "Description": t["description"], "Qty": fmt_qty(t["quantity"]),
+                "Date": t["trade_date"], "Action": txn_import.TYPES.get(t["action"], t["action"]),
+                "Symbol": t["symbol"],
+                "Description": t["description"] or "", "Qty": fmt_qty(t["quantity"]),
                 "Price": fmt_price(t["price"]), "Amount": fmt_money(t["amount"]),
                 "Realized G/L": fmt_money(t["realized_gain"]), "Account": t["account"],
+                **({"From": "Brokerage" if t.get("origin") else "Worked out"}
+                   if _has_imported else {}),
             } for t in _filtered])
             _txn_styler = (
                 _tdf.style
@@ -105,6 +122,7 @@ if PAGE == "Activity":
                 "Date": t["trade_date"], "Action": t["action"], "Symbol": t["symbol"],
                 "Description": t["description"], "Qty": t["quantity"], "Price": t["price"],
                 "Amount": t["amount"], "Realized G/L": t["realized_gain"], "Account": t["account"],
+                "From": "brokerage" if t.get("origin") else "worked out",
             } for t in _filtered])
             st.download_button(
                 "Download CSV", _tdf_raw.to_csv(index=False).encode("utf-8"),
@@ -113,6 +131,9 @@ if PAGE == "Activity":
                     "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
                     if hide_amounts else None),
             )
-            st.caption("Inferred from the quantity change between imported snapshots, not broker "
-                       "trade confirmations — Price/Amount are estimates, and Realized G/L uses the "
-                       "average-cost method (a Positions export has no per-lot detail for FIFO).")
+            st.caption(("**From your brokerage:** rows from an activity export you imported, as "
+                        "your brokerage recorded them. " if _has_imported else "")
+                       + "**Worked out** rows come from the change in shares between two "
+                       "updates of your holdings - prices and amounts are estimates, and "
+                       "Realized G/L uses the average-cost method. Import your brokerage's "
+                       "activity export (Upload a CSV) for the real history.")

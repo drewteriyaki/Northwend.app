@@ -519,6 +519,24 @@ started, the Plan and Ask Northwend - always optional.
 
 ## Later
 
-- [ ] **Real transactions** - import Schwab's Transactions export for actual
-      realized gains and dividend history, instead of inferring them. (L)
+- [ ] **Real transactions** - import a brokerage's activity export (any
+      brokerage) for the real history instead of inferring it. (L)
+      Decided (Oct 1): imported history replaces worked-out rows for the same
+      account and dates; the same Upload a CSV button tells the two kinds of
+      file apart; deposits will count as money added.
+  - [x] **Phase 1 - read, review, save** - `txn_import.py`: finds the
+        activity table, matches columns by name (best name first), a
+        remembered layout or the AI on a button (names and cell kinds only);
+        broker wording to Buy / Sell / Dividend / Reinvest / Interest /
+        Deposit / Withdrawal / Fee or tax / Transfer / Split / Other (sweeps
+        and core-account moves aren't money in). Review: which account (matched
+        by name or last 3 digits), date range, counts by kind, the rows. Saved
+        with `origin` 'imported' and a `row_key`, so a re-import adds only
+        what's new; each account's worked-out rows up to its last imported
+        date are replaced, and later holdings updates don't add any inside
+        it. Activity: a Show filter and a From column. Made-up example files
+        for Schwab, Fidelity, Vanguard and Robinhood layouts in tests.
+  - [ ] **Phase 2** - realized gains (average cost, replayed in date order;
+        unknown where history starts mid-way) and dividends received on Income.
+  - [ ] **Phase 3** - deposits and withdrawals as money added (plans, reports).
 - [ ] **Packaging** - `pyproject.toml` and console entry points. (S)

@@ -1,0 +1,6 @@
+Account Number,Trade Date,Settlement Date,Transaction Type,Transaction Description,Investment Name,Symbol,Shares,Share Price,Principal Amount,Commissions and Fees,Net Amount,Accrued Interest,Account Type,
+12345678,2026-09-15,2026-09-16,Buy,Buy,Vanguard Total Stock Mkt Idx Adm,VTSAX,1.5,180.00,-270.00,0.0,-270.00,0.0,CASH,
+12345678,2026-09-12,2026-09-12,Dividend,Dividend Received,Vanguard Total Stock Mkt Idx Adm,VTSAX,0.0,0.0,6.20,0.0,6.20,0.0,CASH,
+12345678,2026-09-12,2026-09-12,Reinvestment,Dividend Reinvestment,Vanguard Total Stock Mkt Idx Adm,VTSAX,0.034,182.35,-6.20,0.0,-6.20,0.0,CASH,
+12345678,2026-09-10,2026-09-10,Sweep in,Sweep In,Vanguard Federal Money Market Fund,VMFXX,270.0,1.0,270.00,0.0,270.00,0.0,CASH,
+12345678,2026-09-09,2026-09-09,Funds Received,Funds Received via Electronic Bank Transfer,Vanguard Federal Money Market Fund,VMFXX,0.0,1.0,270.00,0.0,270.00,0.0,CASH,

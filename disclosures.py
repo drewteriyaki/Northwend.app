@@ -110,7 +110,10 @@ to them (not ones you mark private); you can see everything in their account.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
-  cost, value and account names), your plan and goals, your investing-profile
+  cost, value and account names), any activity history you import (each
+  row's date, kind, symbol, shares, price, amount, fees and description, with
+  account and bank numbers cut to their last 3 digits), your plan and goals,
+  your investing-profile
   answers, notes, and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also

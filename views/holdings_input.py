@@ -7,6 +7,9 @@
 # review-and-save step, and the example portfolio.
 # ruff: noqa: F821
 
+import txn_import
+
+
 def _after_import():
     """A new statement can bring new tickers: fetch their prices and history
     on the next run instead of waiting for the scheduled jobs."""
@@ -200,8 +203,10 @@ def _manual_save(meta, rows, totals, txns, source):
     conn = connect(DB)
     try:
         write_snapshot(conn, USER_ID, meta, rows, totals, source)
-        conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ?",
-                     (meta["snapshot_date"], USER_ID))
+        # the day's worked-out rows are redone; imported history stays
+        conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ? AND "
+                     "origin IS NULL", (meta["snapshot_date"], USER_ID))
+        txns = txn_import.drop_covered(txns, txn_import.covered(conn, USER_ID))
         for tx in txns:
             tx["user_id"] = USER_ID
         if txns:
@@ -405,11 +410,9 @@ def _import_csv_file(src_path, source_name):
     with open(src_path, "rb") as fh:
         rows = csv_import.read_rows(fh.read())
     header_i, problem = csv_import.find_header(rows)
-    if problem == "transactions":
-        st.warning("This looks like **transaction history** (buys and sells), not your current "
-                   "holdings. Export your **Positions** or **Holdings** instead - or copy the "
-                   "positions table from your brokerage's website and use **Paste or type "
-                   "holdings**.")
+    if problem == "transactions" or (txn_import.find_header(rows) is not None
+                                     and header_i is None):
+        _import_txn_file(rows, source_name)
         return
     if header_i is None:
         header_i = csv_import.guess_header(rows)
@@ -511,14 +514,145 @@ def _import_csv_file(src_path, source_name):
     _review_and_save(meta, prow, totals, source_name, key="csv_save", after=_remember_layout)
 
 
-@st.dialog("Import a positions CSV", width="large", on_dismiss=_dialog_closed)
+def _save_txns(found_rows, source_name, header, chosen):
+    c = connect(DB)
+    try:
+        res = txn_import.save(c, USER_ID, found_rows, source_name)
+        csv_import.remember(c, header, chosen)  # column names only
+    except DBError as exc:
+        st.session_state["import_flash"] = f"Saving failed, nothing was changed: {exc}"
+        return
+    finally:
+        c.close()
+    st.session_state["import_flash"] = (
+        f"Added {res['added']} activity row(s) from your brokerage's history"
+        + (f"; {res['duplicates']} were already here" if res["duplicates"] else "")
+        + (f"; it replaces {res['replaced']} worked out from your updates"
+           if res["replaced"] else "") + ". See them on Activity.")
+    _after_import()
+
+
+def _import_txn_file(rows, source_name):
+    """An activity (transaction history) export from any brokerage
+    (txn_import.py): check the columns, say which account it is, review, save."""
+    ss = st.session_state
+    header_i = txn_import.find_header(rows)
+    if header_i is None:
+        st.error("Couldn't find the activity table in this file (a date column and an "
+                 "action or amount column).")
+        return
+    header = rows[header_i]
+    sig = csv_import.signature(header)
+    conn = connect(DB)
+    try:
+        known = txn_import.remembered(conn, header)
+        existing = [r["account"] for r in conn.execute(
+            "SELECT DISTINCT account FROM positions WHERE user_id = ? ORDER BY account",
+            (USER_ID,))]
+    finally:
+        conn.close()
+    st.markdown(":material/receipt_long: This is your **activity history** - buys, sells, "
+                "dividends and deposits. It fills in your Activity page with what really "
+                "happened.")
+    mapping = known or txn_import.auto_mapping(header)
+    ai_key = f"txn_ai_{sig[:12]}"
+    if ss.get(ai_key):
+        mapping = {**mapping, **ss[ai_key]}
+    quota = (_ai_status("csv") if not txn_import.usable(mapping) and _anthropic_key()
+             and ai_key not in ss else None)
+    if quota and not quota["ok"]:
+        st.caption(ai_usage.used_up_text(quota, "csv") + " Choose the columns below.")
+    elif quota and st.button(":material/auto_awesome: Let AI guess the columns",
+                             key=f"{ai_key}_btn",
+                             help="Sends only the column names and what kind of thing each "
+                                  "cell is (date, text, money) - never your activity."):
+        _ai_record("csv")
+        with st.spinner("Working out the columns..."):
+            ss[ai_key] = txn_import.ai_mapping(
+                header, csv_import.sample_shapes(rows, header_i), _anthropic_key()) or {}
+        mapping = {**mapping, **ss[ai_key]}
+
+    names = [f"{c or '(blank)'}  ·  column {i + 1}" for i, c in enumerate(header)]
+    ver = "ai" if ss.get(ai_key) else "auto"
+    with st.expander("Check the columns", expanded=not (known and txn_import.usable(mapping))):
+        st.caption("Which column holds what. Only these are read." +
+                   (" This layout was remembered from an earlier file." if known else ""))
+        cols = st.columns(3)
+        chosen = {}
+        for n, field in enumerate(txn_import.FIELDS):
+            pick = cols[n % 3].selectbox(
+                txn_import.LABELS[field], [None, *range(len(header))],
+                index=(mapping[field] + 1) if field in mapping else 0,
+                format_func=lambda i: "—" if i is None else names[i],
+                key=f"txnmap_{sig[:10]}_{ver}_{field}")
+            if pick is not None:
+                chosen[field] = pick
+    if not txn_import.usable(chosen):
+        st.info("Choose at least the **Date** column and **Action** (or **Amount**).")
+        return
+
+    # which of your accounts this is: the file's own names, matched to your holdings'
+    default = existing[0] if len(existing) == 1 else manual_entry.DEFAULT_ACCOUNT
+    found = txn_import.parse(rows, chosen, account_default=default, header_i=header_i)
+    if not found["rows"]:
+        st.warning("No activity rows were found with these columns - check the choices above.")
+        return
+    file_accounts = found["accounts"]
+    options = existing + [a for a in file_accounts if a not in existing]
+    if "account" in chosen or "account_number" in chosen or not existing or len(existing) > 1:
+        st.markdown("**Which account is this?**")
+        renames = {}
+        for a in file_accounts:
+            guess = txn_import.match_account(a, existing) or a
+            renames[a] = st.selectbox(
+                f"In the file: {a}" if len(file_accounts) > 1 or "account" in chosen
+                or "account_number" in chosen else "Account",
+                options, index=options.index(guess), key=f"txnacct_{sig[:10]}_{a}",
+                format_func=lambda x: accounts.display(x, ACCOUNT_LABELS),
+                help="Match it to the account in your holdings, so this history replaces "
+                     "what was worked out from your updates for that account.")
+        for r in found["rows"]:
+            r["account"] = renames.get(r["account"], r["account"])
+
+    s = txn_import.summary(found["rows"])
+    conn = connect(DB)
+    try:
+        have = txn_import.existing_keys(conn, USER_ID)
+    finally:
+        conn.close()
+    already = sum(k in have for k in txn_import.row_keys(found["rows"]))
+    kinds = " · ".join(f"{n} {txn_import.TYPES[k].lower()}" for k, n in s["by_type"].most_common())
+    _md(f"Found **{len(found['rows'])} row(s)** from {_fmt_date(s['first'])} to "
+        f"{_fmt_date(s['last'])}: {kinds}."
+        + (f" **{already}** are already here and will be skipped." if already else ""))
+    if s["other"]:
+        st.caption(f"{len(s['other'])} row(s) didn't match a kind we know - they're kept as "
+                   "**Other**, with the brokerage's own wording.")
+    st.dataframe(pd.DataFrame([{
+        "Date": r["trade_date"], "Kind": txn_import.TYPES[r["action"]],
+        "Brokerage says": r["raw_action"], "Symbol": r["symbol"] or "",
+        "Shares": fmt_qty(r["quantity"]) if r["quantity"] is not None else "",
+        "Amount": fmt_money(r["amount"]) if r["amount"] is not None else "",
+        "Account": accounts.display(r["account"], ACCOUNT_LABELS),
+    } for r in found["rows"][:200]]), hide_index=True, width="stretch")
+    st.caption("Saved: date, kind, symbol, shares, price, amount, fees and the description, "
+               "with account and bank numbers cut to their last 3 digits. The file isn't kept. "
+               "For each account, this replaces activity worked out from your updates up to "
+               f"{_fmt_date(s['last'])}.")
+    if st.button("Save activity", type="primary", key="txn_save"):
+        _save_txns(found["rows"], source_name, header, chosen)
+        st.rerun()
+
+
+@st.dialog("Import a CSV", width="large", on_dismiss=_dialog_closed)
 def _import_dialog():
     """Upload a positions export from any brokerage; check it; save it."""
     st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
-    st.caption("Upload your brokerage's **Positions** (or Holdings) export - any brokerage. "
-               "You'll check it before anything is saved.")
+    st.caption("Upload your brokerage's **Positions** (or Holdings) export to update what you "
+               "hold, or its **Activity** (transaction history) export for your real buys, "
+               "sells and dividends - any brokerage. You'll check it before anything is saved.")
     st.caption(":material/lock: " + TRUST_LINE)
-    up = st.file_uploader("Positions export (.csv)", type=["csv"], key="csv_upload")
+    up = st.file_uploader("Positions or activity export (.csv)", type=["csv"], key="csv_upload")
     # A path on "this machine" is only meaningful running locally - on the
     # hosted app it would be a path on the server, which users must not read.
     path_in = "" if pgcompat.is_postgres_dsn(DB) else st.text_input(

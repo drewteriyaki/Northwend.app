@@ -45,6 +45,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Getting holdings in: `csv_import.py` (the one CSV engine, any broker, layouts
   remembered; AI only on a button), `paste_parse.py`, `screenshot_read.py` (opt-in AI),
   `manual_entry.py`, `sample_data.py`. All save through dashboard `_review_and_save`.
+  Activity (transaction history) exports go to `txn_import.py` from the same
+  upload (rows with `origin` 'imported'; worked-out rows have NULL origin).
 - Prices: `live_prices.py` (in-app, every minute while open), `update_prices.py`
   (Finnhub; the 15-min job), `sync_history.py` (Yahoo daily/intraday bars, dividends,
   fundamentals; nightly job).

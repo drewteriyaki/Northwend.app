@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     fees          REAL,
     realized_gain REAL,                              -- SELL only; average-cost method, NULL for BUY
     source_file   TEXT,
+    origin        TEXT,                             -- 'imported' (txn_import.py); NULL = worked out from updates
+    row_key       TEXT,                             -- an imported row's fingerprint, so re-imports add only what's new
     imported_at   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 

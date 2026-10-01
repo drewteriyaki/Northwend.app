@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     fees          DOUBLE PRECISION,
     realized_gain DOUBLE PRECISION,
     source_file   TEXT,
+    origin        TEXT,                             -- 'imported' (txn_import.py); NULL = worked out from updates
+    row_key       TEXT,                             -- an imported row's fingerprint, so re-imports add only what's new
     imported_at   TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
 );
 

@@ -3583,6 +3583,100 @@ class WorkflowFileTests(unittest.TestCase):
                     seen[-1][1].add(key)
 
 
+class TxnImportTests(TempDBMixin, unittest.TestCase):
+    """Real transactions, phase 1 (txn_import.py): activity exports from any
+    brokerage - read, kinds, duplicates, and imported history replacing what
+    was worked out from holdings updates. The files are made up."""
+
+    DIR = os.path.join(os.path.dirname(__file__), "fixtures", "brokers")
+
+    def setUp(self):
+        super().setUp()
+        self.conn = portfolio.connect(self.db)
+
+    def tearDown(self):
+        self.conn.close()
+        super().tearDown()
+
+    def _parse(self, name, **kw):
+        import csv_import
+        import txn_import
+        with open(os.path.join(self.DIR, name), "rb") as fh:
+            rows = csv_import.read_rows(fh.read())
+        self.assertEqual(csv_import.find_header(rows)[1], "transactions")
+        hi = txn_import.find_header(rows)
+        return txn_import.parse(rows, txn_import.auto_mapping(rows[hi]), header_i=hi, **kw)
+
+    def _kinds(self, found):
+        return [(r["action"], r["symbol"], r["amount"]) for r in found["rows"]]
+
+    def test_schwab_layout(self):
+        found = self._parse("schwab_activity.csv", account_default="Individual ...678")
+        self.assertEqual(self._kinds(found), [
+            ("BUY", "VTI", -1550.0), ("DIV", "VTI", 18.4), ("DIV", "SCHD", 12.1),
+            ("REINVEST", "SCHD", -12.1), ("DEPOSIT", None, 500.0), ("SELL", "AAPL", 689.98),
+            ("INTEREST", None, 0.41), ("TRANSFER", None, -100.0)])
+        self.assertEqual(found["rows"][1]["trade_date"], "2026-09-25")   # "as of" ignored
+        self.assertEqual(found["rows"][5]["fees"], 0.02)
+        self.assertNotIn("1234567890", found["rows"][4]["description"])  # bank number masked
+        self.assertEqual(found["skipped"], 1)                             # the total line
+
+    def test_fidelity_layout(self):
+        found = self._parse("fidelity_activity.csv")
+        self.assertEqual(self._kinds(found), [
+            ("BUY", "FXAIX", -421.0), ("DIV", "SPAXX", 3.12), ("REINVEST", "SPAXX", -3.12),
+            ("SELL", "AAPL", 230.99), ("DEPOSIT", None, 250.0), ("OTHER", "SPAXX", -250.0)])
+        self.assertEqual(found["rows"][3]["quantity"], 1.0)               # sold -1 -> 1
+        self.assertEqual(found["accounts"], ["Individual ...678"])        # number cut
+
+    def test_vanguard_and_robinhood_layouts(self):
+        v = self._parse("vanguard_activity.csv")
+        self.assertEqual([k for k, _, _ in self._kinds(v)],
+                         ["BUY", "DIV", "REINVEST", "OTHER", "DEPOSIT"])   # sweep isn't money in
+        self.assertEqual(v["rows"][0]["description"], "Vanguard Total Stock Mkt Idx Adm")
+        self.assertIsNone(v["rows"][1]["quantity"])
+        r = self._parse("robinhood_activity.csv")
+        self.assertEqual(self._kinds(r), [("BUY", "SLV", -110.2), ("SELL", "USO", 144.0)])
+
+    def test_saving_twice_adds_nothing_and_replaces_worked_out_rows(self):
+        import txn_import
+        acct = "Individual ...678"
+        for d in ("2026-09-10", "2026-10-02"):   # worked out from two updates
+            self.conn.execute("INSERT INTO transactions (account, trade_date, action, symbol, "
+                              "quantity, amount, user_id) VALUES (?, ?, 'BUY', 'VTI', 1, -300, ?)",
+                              (acct, d, self.user_id))
+        self.conn.commit()
+        found = self._parse("schwab_activity.csv", account_default=acct)
+        first = txn_import.save(self.conn, self.user_id, found["rows"], "upload: a.csv")
+        self.assertEqual((first["added"], first["duplicates"], first["replaced"]), (8, 0, 1))
+        again = txn_import.save(self.conn, self.user_id, found["rows"], "upload: a.csv")
+        self.assertEqual((again["added"], again["duplicates"]), (0, 8))
+        left = self.conn.execute("SELECT trade_date FROM transactions WHERE user_id = ? AND "
+                                 "origin IS NULL", (self.user_id,)).fetchall()
+        self.assertEqual([r[0] for r in left], ["2026-10-02"])           # after the history
+        # a later update inside the covered dates doesn't add worked-out rows
+        cover = txn_import.covered(self.conn, self.user_id)
+        kept = txn_import.drop_covered([{"account": acct, "trade_date": "2026-09-20"},
+                                        {"account": acct, "trade_date": "2026-10-05"},
+                                        {"account": "Roth ...111", "trade_date": "2026-09-20"}],
+                                       cover)
+        self.assertEqual([(t["account"], t["trade_date"]) for t in kept],
+                         [(acct, "2026-10-05"), ("Roth ...111", "2026-09-20")])
+
+    def test_two_equal_buys_on_a_day_stay_two(self):
+        import txn_import
+        row = {"account": "A", "trade_date": "2026-09-01", "action": "BUY", "symbol": "VTI",
+               "quantity": 1.0, "amount": -300.0}
+        keys = txn_import.row_keys([row, dict(row)])
+        self.assertEqual(len(set(keys)), 2)
+
+    def test_match_account_by_last_digits(self):
+        import txn_import
+        mine = ["Individual ...678", "Roth IRA ...111"]
+        self.assertEqual(txn_import.match_account("X12345678", mine), "Individual ...678")
+        self.assertIsNone(txn_import.match_account("Joint", mine))
+
+
 class AccountPageTests(TempDBMixin, unittest.TestCase):
     """The Account page's data side: name, email change by link, other
     devices, deleting your own account."""
