@@ -1326,6 +1326,33 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         self.assertTrue(admin.is_admin(self.conn, self.user_id))
         self.assertEqual(admin.list_accounts(self.conn)[0]["role"], "admin")
 
+    def test_db_option_works_after_the_command_and_says_where(self):
+        import admin
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            manage_users.main(["make-admin", "testuser", "--db", self.db])
+        self.assertTrue(admin.is_admin(self.conn, self.user_id))
+        self.assertIn("changed in the local file", out.getvalue())
+        self.assertEqual(manage_users.where("postgresql://u:pw@ep-x.neon.tech/db"),
+                         "the Postgres database at ep-x.neon.tech")
+
+    def test_listed_admins_from_the_secrets(self):
+        import admin
+        with unittest.mock.patch.dict(os.environ, {"NORTHWEND_ADMINS": "someone, TestUser"}):
+            self.assertTrue(admin.is_admin(self.conn, self.user_id))
+            self.assertEqual(admin.list_accounts(self.conn)[0]["role"], "admin")
+            self.assertFalse(admin.delete_account(self.conn, self.user_id, by=-1)["ok"])
+            # a self-made account with a listed login only counts once its email is confirmed
+            self.conn.execute("UPDATE users SET terms_version = 'v1' WHERE id = ?",
+                              (self.user_id,))
+            self.conn.commit()
+            self.assertFalse(admin.is_admin(self.conn, self.user_id))
+            self.conn.execute("UPDATE users SET email_verified_at = '2026-10-01T00:00:00Z' "
+                              "WHERE id = ?", (self.user_id,))
+            self.conn.commit()
+            self.assertTrue(admin.is_admin(self.conn, self.user_id))
+        self.assertFalse(admin.is_admin(self.conn, self.user_id))
+
     def test_every_table_with_account_data_is_cleared_on_delete(self):
         import admin
         covered = {t: set(c) for t, c in admin.ACCOUNT_TABLES.items()}

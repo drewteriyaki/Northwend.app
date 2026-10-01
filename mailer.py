@@ -34,6 +34,13 @@ def dry_run() -> bool:
     return _setting("MAIL_DRY_RUN") not in ("", "0", "false")
 
 
+def status() -> str:
+    """How email is set up here, for the Admin page: "sending", "dry run" or "off"."""
+    if dry_run():
+        return "dry run"
+    return "sending" if _setting("RESEND_API_KEY") else "off"
+
+
 def send(to: str, subject: str, text: str, html: str | None = None) -> bool:
     """Send one email. True if Resend accepted it (or it was logged in dry-run
     mode); False on any failure - the reason goes to the server log, never

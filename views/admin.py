@@ -12,6 +12,7 @@
 import secrets
 
 import admin
+import hosting
 
 
 def _admin_do(fn):
@@ -145,7 +146,65 @@ def _admin_create():
     _admin_do(act)
 
 
-def _fmt_when(stamp):
+def _admin_clear_cache():
+    _admin_do(lambda c: (st.cache_data.clear(),
+                         ("success", "Cleared the cached prices, charts and news - they "
+                                     "reload on the next page."))[1])
+
+
+def _admin_test_email():
+    def act(c):
+        email = auth.email_status(c, LOGIN_ID)["email"]
+        if not email:
+            return ("error", "Your account has no email address.")
+        sent = mailer.send(email, f"{APP_NAME} test email",
+                           f"This is a test from the Admin page of {_app_address() or APP_NAME}. "
+                           "If you can read it, email sending works.")
+        return (("success", f"Sent a test email to {email}.") if sent else
+                ("error", "It couldn't be sent - check RESEND_API_KEY and the server log."))
+    _admin_do(act)
+
+
+def _render_system(c):
+    """Developer facts about this copy of the app - never a secret's value."""
+    from manage_users import where
+    sha = hosting.version(HERE)
+    last_price = c.execute("SELECT MAX(fetched_at) AS t FROM price_history").fetchone()["t"]
+    last_bar = c.execute("SELECT MAX(date) AS d FROM daily_bars").fetchone()["d"]
+    flagged = [r["username"] for r in c.execute(
+        "SELECT username FROM users WHERE is_admin = 1 ORDER BY username")]
+    listed = sorted(admin.listed_admins())
+    admins = [x for x in (", ".join(flagged) + " (make-admin)" if flagged else "",
+                          ", ".join(listed) + " (NORTHWEND_ADMINS)" if listed else "") if x]
+    mail = {"sending": "sending (Resend)", "dry run": "dry run - written to the log, not sent",
+            "off": "off - RESEND_API_KEY isn't set"}[mailer.status()]
+    rows = [
+        ("This copy", "Staging" if STAGING else "Live" if pgcompat.is_postgres_dsn(DB)
+         else "Local"),
+        ("Runs on", hosting.host_name()),
+        ("Version", f"[{sha}](https://github.com/drewteriyaki/portfolio_tracker/commit/{sha})"
+         if sha else "unknown"),
+        ("Address", _app_address() or "unknown"),
+        ("Database", where(DB)),
+        ("Email", mail),
+        ("AI (Anthropic key)", "set" if _anthropic_key() else "not set - AI features are off"),
+        ("Live prices (Finnhub key)", "set" if resolve_key(None) else "not set"),
+        ("Last price update", _admin_when(last_price)),
+        ("Newest daily price history", last_bar or "none"),
+        ("Admins", "; ".join(admins)),
+    ]
+    st.markdown("\n".join(f"- **{k}:** {v}" for k, v in rows))
+    with st.container(horizontal=True):
+        st.button("Clear cached data", key="admin_clear_cache", on_click=_admin_clear_cache,
+                  help="Prices, charts and news are kept for a few minutes to keep pages "
+                       "quick. Clear them to see fresh data straight away.")
+        st.button("Send me a test email", key="admin_test_email", on_click=_admin_test_email)
+    st.caption("Settings like keys and NORTHWEND_ADMINS live in the app's Secrets (Streamlit "
+               "Cloud: Manage app, Settings, Secrets; Render: Environment). Only whether a key "
+               "is set is shown here, never its value.")
+
+
+def _admin_when(stamp):
     if not stamp:
         return "never"
     return str(stamp)[:16].replace("T", " ")
@@ -182,6 +241,14 @@ def _render_admin():
         st.caption("Switch to check what each kind of account sees. In the advisor app you can "
                    "add test clients; switching back keeps them, just out of sight.")
 
+    # ---- this copy of the app, for the developer ------------------------- #
+    with st.expander(":material/developer_mode: System"):
+        c = connect(DB)
+        try:
+            _render_system(c)
+        finally:
+            c.close()
+
     # ---- advisor requests ------------------------------------------------- #
     st.subheader(f"Advisor requests ({len(requests)})", anchor=False)
     if not requests:
@@ -189,7 +256,7 @@ def _render_admin():
     for r in requests:
         with st.container(border=True, horizontal=True, vertical_alignment="center"):
             st.markdown(f"**{r['username']}** · {r['firm']} · CRD/licence **{r['licence']}** · "
-                        f"asked {_fmt_when(r['requested_at'])}", width="stretch")
+                        f"asked {_admin_when(r['requested_at'])}", width="stretch")
             st.link_button("Check on BrokerCheck", "https://brokercheck.finra.org/",
                            type="tertiary")
             st.button("Approve", key=f"admin_ok_{r['username']}", type="primary",
@@ -209,7 +276,7 @@ def _render_admin():
         "Login": a["username"], "Role": a["role"],
         "Email confirmed": "-" if a["confirmed"] is None else ("yes" if a["confirmed"] else "no"),
         "Advisor": a["advisor"] or "", "Clients": str(a["clients"]) if a["clients"] else "",
-        "Created": _fmt_when(a["created_at"]), "Last sign-in": _fmt_when(a["last_login_at"]),
+        "Created": _admin_when(a["created_at"]), "Last sign-in": _admin_when(a["last_login_at"]),
         "Locked": "locked" if a["locked"] else "", "AI limits": "none" if a["ai_unlimited"] else "",
     } for a in shown]), hide_index=True, width="stretch")
 
@@ -222,8 +289,8 @@ def _render_admin():
             st.markdown(f"#### {a['username']}")
             facts = [f"Role: **{a['role']}**",
                      f"made {'by themselves' if a['signed_up'] else 'by an admin or advisor'} "
-                     f"on {_fmt_when(a['created_at'])[:10]}",
-                     f"last sign-in {_fmt_when(a['last_login_at'])}"]
+                     f"on {_admin_when(a['created_at'])[:10]}",
+                     f"last sign-in {_admin_when(a['last_login_at'])}"]
             if a["email"]:
                 facts.append("email confirmed" if a["confirmed"] else "email not confirmed yet")
             if a["advisor"]:

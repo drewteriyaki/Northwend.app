@@ -52,8 +52,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   snapshot differences), `plans.py`, `overview.py` (advisor clients).
 - People: `auth.py` (logins, sessions, client setup links, self-serve sign-up,
   confirm / reset links, advisor requests), `admin.py` + `views/admin.py` (the
-  Admin portal: logins only, never holdings; admins made only by
-  `manage_users.py make-admin`; a new table with account data must be added to
+  Admin portal: logins only, never holdings; admins made only from outside the app: `manage_users.py make-admin` or the
+  `NORTHWEND_ADMINS` secret (a list of logins); its System panel shows the copy's
+  version, database, email and keys (set or not, never values); a new table with account data must be added to
   `admin.ACCOUNT_TABLES` - a test checks), `route.py` (the investor home's
   next step), `proposals.py` (advisor proposals, `views/proposals.py`),
   `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client

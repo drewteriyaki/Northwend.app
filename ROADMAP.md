@@ -295,6 +295,14 @@ holdings or plans (the disclosures say so).
       table with account data), `views/admin.py`, `users.is_admin` and
       `last_login_at`. **Needs you:** `make-admin` on your own account (live
       and staging), then use the Admin page instead of `manage_users.py`.
+- [x] **Easier to turn on, and a System panel** (Oct 1) - an admin can also
+      be named in the app's Secrets (`NORTHWEND_ADMINS = "admin1"`), no
+      command needed; `manage_users.py` takes `--db` before or after the
+      command, defaults to `PORTFOLIO_DB`, and says which database it
+      changed (a missing `--db` used to change the local file silently).
+      Admin page: a System panel (this copy, version, database host,
+      email, keys set or not, last price update, admins; Clear cached
+      data, Send me a test email). Fixed "Last sign-in" showing None.
 
 ### G3. "Find your direction" for beginners - M/L
 **What:** the front door for someone with nothing invested yet: a short,

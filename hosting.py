@@ -52,3 +52,38 @@ def moved_link(new_base: str, query: dict) -> str:
     """`new_base` with this visit's ?query carried over."""
     pairs = [(k, v) for k, v in (query or {}).items() if isinstance(v, str)]
     return new_base.rstrip("/") + "/" + (("?" + urlencode(pairs)) if pairs else "")
+
+
+def host_name() -> str:
+    """Where this copy runs, for the Admin page's System panel."""
+    if os.environ.get("RENDER"):
+        return "Render"
+    if os.environ.get("HOSTNAME", "").startswith("streamlit") or os.path.isdir("/mount/src"):
+        return "Streamlit Community Cloud"
+    return "this computer"
+
+
+def version(repo: str) -> str:
+    """The commit this copy runs (short), from Render's setting or the
+    checkout's .git folder; "" when neither says."""
+    sha = _setting("RENDER_GIT_COMMIT")
+    if not sha:
+        git = os.path.join(repo, ".git")
+        try:
+            with open(os.path.join(git, "HEAD"), encoding="utf-8") as fh:
+                head = fh.read().strip()
+            if head.startswith("ref: "):
+                ref = head[5:]
+                path = os.path.join(git, *ref.split("/"))
+                if os.path.isfile(path):
+                    with open(path, encoding="utf-8") as fh:
+                        sha = fh.read().strip()
+                else:
+                    with open(os.path.join(git, "packed-refs"), encoding="utf-8") as fh:
+                        sha = next((ln.split()[0] for ln in fh
+                                    if ln.strip().endswith(" " + ref)), "")
+            else:
+                sha = head
+        except OSError:
+            sha = ""
+    return sha[:7]

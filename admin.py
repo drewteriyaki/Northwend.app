@@ -1,7 +1,11 @@
 """The admin portal's data side (ROADMAP A1; the page is views/admin.py).
 
-Admins are made only from the command line (manage_users.py make-admin), so
-nobody can grant it from inside the app. The portal shows and changes logins
+Admins are made only from outside the app, so nobody can grant it from
+inside: the command line (manage_users.py make-admin, the users.is_admin
+flag), or the NORTHWEND_ADMINS setting (the app's Secrets / environment,
+which only the app's owner can change) - a list of logins. A listed login
+counts only if the account was made by an admin, or its email is confirmed:
+a login listed before it exists can't be claimed by signing up with it. The portal shows and changes logins
 - who has an account, its role, whether its email is confirmed, locks - not
 anyone's holdings or plans: the disclosures promise that only the person and
 their advisor see those.
@@ -9,6 +13,7 @@ their advisor see those.
 
 from __future__ import annotations
 
+import os
 import secrets
 from datetime import datetime, timezone
 
@@ -31,9 +36,24 @@ ACCOUNT_TABLES = {
 ACCOUNT_REFERENCES = {"plans": ("set_by",)}
 
 
+def listed_admins() -> set[str]:
+    """Logins named in NORTHWEND_ADMINS (commas or spaces), lower-cased."""
+    raw = (os.environ.get("NORTHWEND_ADMINS") or "").replace(",", " ")
+    return {x.strip().lower() for x in raw.split() if x.strip()}
+
+
+def _admin_row(row, listed: set[str]) -> bool:
+    if row["is_admin"]:
+        return True
+    if (row["username"] or "").lower() not in listed:
+        return False
+    return not row["terms_version"] or bool(row["email_verified_at"])
+
+
 def is_admin(conn, user_id: int) -> bool:
-    row = conn.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
-    return bool(row and row["is_admin"])
+    row = conn.execute("SELECT username, is_admin, terms_version, email_verified_at "
+                       "FROM users WHERE id = ?", (user_id,)).fetchone()
+    return bool(row and _admin_row(row, listed_admins()))
 
 
 def set_admin(conn, username: str, flag: bool) -> bool:
@@ -63,16 +83,18 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
         "SELECT username_key FROM login_failures WHERE locked_until > ?", (stamp,))}
     waiting = {r["user_id"] for r in conn.execute(
         "SELECT user_id FROM advisor_requests WHERE decision IS NULL")}
+    listed = listed_admins()
     out = []
     for r in conn.execute("SELECT id, username, email, email_verified_at, is_advisor, is_admin, "
                           "ai_unlimited, terms_version, created_at, last_login_at FROM users "
                           "ORDER BY id"):
-        role = ("admin" if r["is_admin"] else "advisor" if r["is_advisor"]
+        r_admin = _admin_row(r, listed)
+        role = ("admin" if r_admin else "advisor" if r["is_advisor"]
                 else "client" if r["id"] in advisor_of else "investor")
         out.append({
             "id": r["id"], "username": r["username"], "email": r["email"],
             "confirmed": bool(r["email_verified_at"]) if r["email"] else None,
-            "role": role, "is_advisor": bool(r["is_advisor"]), "is_admin": bool(r["is_admin"]),
+            "role": role, "is_advisor": bool(r["is_advisor"]), "is_admin": r_admin,
             "advisor": advisor_of.get(r["id"]), "clients": n_clients.get(r["id"], 0),
             "ai_unlimited": bool(r["ai_unlimited"]), "signed_up": bool(r["terms_version"]),
             "created_at": r["created_at"], "last_login_at": r["last_login_at"],
@@ -119,9 +141,9 @@ def delete_account(conn, user_id: int, *, by: int) -> dict:
     if row is None:
         return {"ok": False, "error": "No such account.", "username": None,
                 "orphaned_clients": 0}
-    if user_id == by or row["is_admin"]:
+    if user_id == by or is_admin(conn, user_id):
         return {"ok": False, "error": "Admin accounts can't be deleted here - remove admin "
-                "first, from the command line.", "username": row["username"],
+                "first (the command line, or NORTHWEND_ADMINS).", "username": row["username"],
                 "orphaned_clients": 0}
     orphaned = conn.execute("SELECT COUNT(*) AS n FROM advisor_clients WHERE advisor_id = ?",
                             (user_id,)).fetchone()["n"]

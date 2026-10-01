@@ -9,6 +9,12 @@ created (there is no signup anywhere in the web app itself).
   python manage_users.py make-advisor | remove-advisor <username>
   python manage_users.py link | unlink <advisor> <client>
   python manage_users.py clients <advisor>
+  python manage_users.py make-admin | remove-admin <username>
+
+--db can go before or after the command. Without it: the PORTFOLIO_DB
+environment variable if it's set, else ./portfolio.db. Commands that change
+an account say which database they changed - a live (Postgres) database
+needs --db or PORTFOLIO_DB, or the change lands in the local file.
 
 Password is always prompted interactively via getpass for `create`/`passwd`
 (never a CLI arg, so it never ends up in shell history or process
@@ -19,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import os
 import secrets
 import sys
 
@@ -139,15 +146,27 @@ def cmd_set_advisor(args, flag: bool) -> int:
     return 0
 
 
+def where(db: str) -> str:
+    """Which database, for messages - a Postgres host, never its password."""
+    from urllib.parse import urlparse
+    from pgcompat import is_postgres_dsn
+    if is_postgres_dsn(db):
+        host = urlparse(db).hostname if "://" in db else next(
+            (part[5:] for part in db.split() if part.startswith("host=")), None)
+        return f"the Postgres database at {host or 'an unnamed host'}"
+    return f"the local file {os.path.abspath(db)}"
+
+
 def cmd_set_admin(args, flag: bool) -> int:
     """Admin rights (the in-app Admin portal) - granted only here, never in the app."""
     import admin
     conn = connect(args.db)
     if not admin.set_admin(conn, args.username, flag):
-        print(f"No such user: '{args.username}'.")
+        print(f"No such user: '{args.username}' in {where(args.db)}.")
         return 1
     print(f"'{args.username}' is now an admin: the Admin page appears on their next page load."
           if flag else f"'{args.username}' is no longer an admin.")
+    print(f"(changed in {where(args.db)})")
     return 0
 
 
@@ -265,7 +284,10 @@ def cmd_clients(args) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Manage portfolio-tracker login accounts.")
-    ap.add_argument("--db", default=DEFAULT_DB, help=f"database (default: {DEFAULT_DB})")
+    default_db = os.environ.get("PORTFOLIO_DB") or DEFAULT_DB
+    ap.add_argument("--db", default=default_db,
+                    help="database: a file or a Postgres connection string (default: "
+                         "PORTFOLIO_DB if set, else ./portfolio.db)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_create = sub.add_parser("create", help="create a new account")
@@ -301,6 +323,9 @@ def main(argv=None) -> int:
         sub.add_parser(name, help=help_text).add_argument("username")
     sub.add_parser("ai-usage", help="this month's AI use per account")
 
+    # --db also works after the command (make-admin admin1 --db ...)
+    for p in sub.choices.values():
+        p.add_argument("--db", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     if args.cmd == "create":
         return cmd_create(args)
