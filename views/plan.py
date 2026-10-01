@@ -157,6 +157,17 @@ def _render_plan_status(plan, value, today):
         f"{when} · {_time_left(prog['months'])} · "
         f"{fmt_money0(prog['monthly'])}/month planned · {_plan_author(plan)}</div></div>")
 
+    if plan.get("notes"):
+        st.caption(f"Notes: {plan['notes']}")
+
+
+@st.fragment
+def _render_projection(plan, value, today):
+    """How it's going: where the plan leads at an assumed return (its own
+    tab; moving the slider redraws only this)."""
+    rp = _plan_return_pct()
+    prog = plans.progress(plan, value or 0.0, today=today, return_pct=rp)
+    target, when = prog["target"], _fmt_month(plan["target_date"])
     projected, needed = fmt_money0(prog["projected"]), fmt_money0(prog["needed_monthly"])
     status = prog["status"]
     if status == "reached":
@@ -197,12 +208,10 @@ def _render_plan_status(plan, value, today):
                    f"{rp - plans.SPREAD_PCT:g}-{rp + plans.SPREAD_PCT:g}%. The dashed line is the "
                    "goal. Before inflation, fees and taxes - an illustration of the plan, not a "
                    "prediction.")
-    if plan.get("notes"):
-        st.caption(f"Notes: {plan['notes']}")
 
 
+@st.fragment
 def _render_contributions(plan, today):
-    st.markdown("#### Contributions")
     conn = connect(DB)
     try:
         this_month = plans.month_total(conn, USER_ID, today.year, today.month)
@@ -232,7 +241,7 @@ def _render_contributions(plan, today):
                                                    -amount if kind == "Took out" else amount, note)
                         finally:
                             c.close()
-                        st.rerun()
+                        st.rerun(scope="fragment")
             st.caption("Importing your brokerage's **activity** history adds its deposits and "
                        "withdrawals by itself; a holdings statement doesn't."
                        + (f" Entries you log between {_fmt_date(window[0])} and "
@@ -251,7 +260,7 @@ def _render_contributions(plan, today):
                         plans.delete_contribution(c, USER_ID, drop)
                     finally:
                         c.close()
-                    st.rerun()
+                    st.rerun(scope="fragment")
     if moves:
         def _note(m):
             tag = ("from your brokerage" if m["source"] == "brokerage"
@@ -268,8 +277,8 @@ def _render_contributions(plan, today):
             + "</span></div>" for m in moves) + "</div>")
 
 
+@st.fragment
 def _render_money_in(value, growth):
-    st.markdown("#### Money in vs growth")
     money_in = value - growth
     st.html("<div class='pt-stats'>"
             f"<div class='pt-stat'><div class='pt-stat-label'>Money in</div>"
@@ -296,8 +305,8 @@ def _render_money_in(value, growth):
                  "account as cash or cost.")
 
 
+@st.fragment
 def _render_target_mix(alloc_rows):
-    st.markdown("#### Target mix")
     targets = load_alloc_targets()
     actual = {r["label"]: r["pct"] or 0.0 for r in alloc_rows}
     labels = sorted(set(actual) | set(targets), key=lambda lbl: -(actual.get(lbl) or 0.0))
@@ -340,7 +349,7 @@ def _render_target_mix(alloc_rows):
                                                       f"{advising.mix_text(by_id[i]['target_alloc'])}")
             if c2.button("Apply", disabled=pick is None, width="stretch", key="apply_model"):
                 save_alloc_targets(by_id[pick]["target_alloc"])
-                st.rerun()
+                st.rerun(scope="fragment")
     if CAN_MANAGE:
         with st.expander("Edit target mix"):
             with st.form("target_mix_form", border=False):
@@ -355,7 +364,7 @@ def _render_target_mix(alloc_rows):
                         st.error(f"The targets add up to {total:g}% - make them total 100%.")
                     else:
                         save_alloc_targets(new)
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
 
 def _wi_use_monthly(amount):
@@ -369,6 +378,7 @@ def _months_text(n):
                     + ([f"{m} month{'s' if m != 1 else ''}"] if m else [])) or "no time"
 
 
+@st.fragment
 def _render_what_if(plan, value, alloc_rows, today):
     """The "what if" playground (ROADMAP G5): change the monthly amount, the
     years and the mix and see the range move. Saves nothing unless asked."""
@@ -384,7 +394,7 @@ def _render_what_if(plan, value, alloc_rows, today):
     st.session_state.setdefault("wi_stocks", int(5 * round(base_stocks / 5)))
     st.session_state.setdefault("wi_extra", 0.0)
 
-    with st.expander(":material/tune: What if...?", expanded=False):
+    with st.container():
         st.caption("Try different amounts, years and mixes to see how the range moves. "
                    "Nothing is saved unless you choose to.")
         c1, c2 = st.columns(2)
@@ -436,8 +446,10 @@ def _render_what_if(plan, value, alloc_rows, today):
         if msg:
             st.success(msg)
         if CAN_MANAGE and has_goal and abs(monthly - base_monthly) >= 1:
-            st.button(f"Use {fmt_money0(monthly)} a month in my plan", key="wi_use",
-                      on_click=_wi_use_monthly, args=(monthly,))
+            # the goal card above changes too: redraw the whole page
+            if st.button(f"Use {fmt_money0(monthly)} a month in my plan", key="wi_use"):
+                _wi_use_monthly(monthly)
+                st.rerun()
 
 
 def _render_plan(value, growth, alloc_rows):
@@ -452,16 +464,21 @@ def _render_plan(value, growth, alloc_rows):
         _render_plan_form(plan, today)
     else:
         _render_plan_status(plan, value, today)
-    if not (CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan))):
-        _render_what_if(plan, value, alloc_rows, today)
-    st.divider()
-    _render_contributions(plan, today)
+    editing = CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan))
+    # Everything else one tab at a time (ROADMAP S3); each tab redraws on its
+    # own when something in it changes, not the whole page.
+    sections = []
+    if plans.has_goal(plan) and not editing:
+        sections.append(("How it's going", lambda: _render_projection(plan, value, today)))
+    if not editing:
+        sections.append(("What if", lambda: _render_what_if(plan, value, alloc_rows, today)))
+    sections.append(("Contributions", lambda: _render_contributions(plan, today)))
     if value is not None:
-        st.divider()
-        _render_money_in(value, growth)
+        sections.append(("Money in vs growth", lambda: _render_money_in(value, growth)))
     if alloc_rows:
-        st.divider()
-        _render_target_mix(alloc_rows)
+        sections.append(("Target mix", lambda: _render_target_mix(alloc_rows)))
     if ON_CLIENT:   # the client's advisor: proposals (views/proposals.py)
-        st.divider()
-        _render_proposals_advisor(alloc_rows, value)
+        sections.append(("Proposals", lambda: _render_proposals_advisor(alloc_rows, value)))
+    for tab, (_name, draw) in zip(st.tabs([s[0] for s in sections]), sections):
+        with tab:
+            draw()

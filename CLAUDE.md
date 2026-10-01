@@ -107,6 +107,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   turned `\n` in strings into real newlines before.
 - Commit messages: `git commit -F -` with a heredoc (PowerShell breaks on quotes).
 - `AppTest` can't drive multi-step dialogs or `data_editor`; check those in the browser.
+- Sections that change on their own (the Plan tabs) are `@st.fragment`: a click
+  redraws just that part. Use `st.rerun(scope="fragment")` inside one, and a
+  plain `st.rerun()` only when something outside it must change too.
 
 ## Testing on scratch data
 Scratch DBs and scripts live in the session scratchpad, never the repo. To count

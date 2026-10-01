@@ -175,8 +175,7 @@ def _prop_card(p, cmp, *, as_advisor):
 
 
 def _render_proposals_advisor(alloc_rows, value):
-    """On a client's Plan page, for their advisor."""
-    st.markdown("#### Proposals")
+    """On a client's Plan page, for their advisor (its own tab there)."""
     st.caption("Propose a mix for this client and compare it with today's. It stays a draft "
                "until you share it; they answer on their Advisor notes page.")
     msg = st.session_state.pop("prop_msg", None)

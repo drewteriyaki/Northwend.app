@@ -295,8 +295,13 @@ Performance, Your mix, Holdings, Alerts - each opening its detail in a
 window. The accounts comparison and column settings only in the full view.
 
 ### S3. A calm Plan page - M
-The goal and how it's going first; Contributions, Money in vs growth,
-Target mix and "What if" as tiles that open in a window.
+- [x] **Built** - the goal card stays on top (goal, on-track chip,
+      progress bar, one summary line, Edit goal); the rest is in tabs, one
+      at a time: How it's going (the projection and assumed return), What
+      if, Contributions, Money in vs growth, Target mix, and Proposals for an
+      advisor on a client's plan. Each tab is a Streamlit fragment, so
+      moving a slider or saving a contribution redraws only that tab, not
+      the whole page.
 
 ### S4. A shorter menu for investors - S
 Home, Plan, Ask Northwend, Learn (Get started) and More (Watchlist,
