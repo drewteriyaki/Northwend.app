@@ -186,10 +186,6 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 [class*="st-key-pt_slide_"] { animation: pt-slide-in .35s ease-out both; }
 @keyframes pt-slide-in { from { opacity: 0; transform: translateX(18px); }
   to { opacity: 1; transform: none; } }
-/* Home's tiles (views/dashboard_page.py, the calm view): lift a little on hover */
-[class*="st-key-pt_tile_"] { transition: border-color .2s ease, transform .2s ease; }
-[class*="st-key-pt_tile_"]:hover { border-color: var(--pt-compass) !important;
-  transform: translateY(-2px); }
 /* read by screen readers, not shown */
 .pt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
@@ -2207,12 +2203,6 @@ hide_amounts = st.session_state["hide_amounts"]
 
 def _pick_holdings():
     st.session_state["watchlist_pill"] = None
-    if st.session_state.get("holdings_in_window") and st.session_state.get("holdings_pill"):
-        # the calm Home's Holdings window: close it, and open the chart on Home
-        st.session_state["home_ticker"] = st.session_state["holdings_pill"]
-        st.session_state["holdings_window_close"] = True
-    else:
-        st.session_state.pop("home_ticker", None)
 
 
 def _pick_watchlist():

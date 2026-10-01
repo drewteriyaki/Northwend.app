@@ -286,16 +286,6 @@ started afterwards shows the same steps as cards you can reopen.
 The value and today's move, your route's next step, and a few tiles -
 Performance, Your mix, Holdings, Alerts - each opening its detail in a
 window. The accounts comparison and column settings only in the full view.
-- [x] **Built** - investors see the value and today's move, Your route's
-      next step, and tiles - Performance (total gain), Your mix (top asset
-      classes), Holdings (count, biggest), Alerts (count), and Accounts when
-      there's more than one - each opening the same section as before in a
-      window (`_home_*` in views/dashboard_page.py, unchanged inside; no
-      second heading in the window). Picking a ticker in the Holdings window
-      closes it and opens the chart on Home, with Close. The three-number
-      row is left out (the tiles carry it). Tiles lift on hover. "Show
-      everything on one page" on the Account page brings back the full Home;
-      advisors always get it.
 
 ### S3. A calm Plan page - M
 The goal and how it's going first; Contributions, Money in vs growth,

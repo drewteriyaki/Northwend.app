@@ -9,10 +9,7 @@
 if PAGE in ("Dashboard", "Watchlist"):
     # Each page only renders its own pill strip, so the open ticker comes
     # from that page's strip alone.
-    # (on the calm Home, a ticker picked in the Holdings window is kept in
-    # home_ticker - the window's own pills are gone once it closes)
-    _pill_sym = ((st.session_state.get("holdings_pill") or st.session_state.get("home_ticker"))
-                 if PAGE == "Dashboard" else st.session_state.get("watchlist_pill"))
+    _pill_sym = st.session_state.get("holdings_pill" if PAGE == "Dashboard" else "watchlist_pill")
     # ---- ticker detail: chart + everything about the position/security ----- #
     _idx = next((i for i, p in enumerate(positions) if p["symbol"] == _pill_sym), None) \
         if _pill_sym else None
@@ -31,9 +28,6 @@ if PAGE in ("Dashboard", "Watchlist"):
         _sym = _pos["symbol"]
         _has_yahoo = perf.ticker_has_bars(DB, _sym)
 
-        if PAGE == "Dashboard" and st.session_state.get("home_ticker") == _sym:
-            st.button("Close", key="close_home_ticker", type="tertiary", icon=":material/close:",
-                      on_click=lambda: st.session_state.pop("home_ticker", None))
         with st.container(border=True):
             # ---- header: symbol, description, live price, today's move ---- #
             hc1, hc2 = st.columns([0.65, 0.35])
@@ -210,6 +204,6 @@ if PAGE in ("Dashboard", "Watchlist"):
                             _sumtext = _a["summary"]
                             st.caption(_sumtext[:220] + ("…" if len(_sumtext) > 220 else ""))
         st.divider()
-    elif not (PAGE == "Dashboard" and CALM_HOME):
+    else:
         st.caption("↑ Tap a ticker above to see its chart and full details here.")
         st.divider()
