@@ -178,6 +178,14 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 [data-testid^="stBaseButton-secondary"]:not(:hover):not(:focus-visible),
 [data-testid="stButtonGroup"] button[aria-checked="false"]:not(:hover):not(:focus-visible) {
   border-color: var(--pt-line-strong) !important; }
+/* first steps (views/first_steps.py): progress dots, and each screen slides in */
+.pt-fs-dots { display: flex; gap: 6px; margin: 0 0 .25rem; }
+.pt-fs-dot { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--pt-sunken);
+  transition: background .3s ease; }
+.pt-fs-dot-on { background: var(--pt-compass); }
+[class*="st-key-pt_slide_"] { animation: pt-slide-in .35s ease-out both; }
+@keyframes pt-slide-in { from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; } }
 /* read by screen readers, not shown */
 .pt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
@@ -1443,6 +1451,8 @@ _view("plan")
 _view("proposals")
 
 
+# a new investor's first steps, one screen at a time (Get started shows it)
+_view("first_steps")
 _view("get_started")
 
 

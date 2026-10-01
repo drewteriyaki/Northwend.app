@@ -34,7 +34,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Each page's code is in `views/` and runs inside it via `_view("name")` at the
   point it's listed (same names, no imports needed - read the header of any view):
   `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
-  `watchlist`, `activity`, `income`, `plan`, `get_started`, `assistant` (Ask Northwend),
+  `watchlist`, `activity`, `income`, `plan`, `get_started` (and `first_steps`, the
+  new investor's slideshow shown in its place), `assistant` (Ask Northwend),
   `profile`, `account` (the login's own account: name, email, password, data),
   `clients` (advisor side, weekly summary), `holdings_input` (paste,
   by hand, screenshots, CSV, the save step). Open just the view you need.

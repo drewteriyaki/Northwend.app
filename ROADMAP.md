@@ -270,6 +270,17 @@ Back / Next and progress dots: welcome (what Northwend is, privacy) -> a
 few tap questions -> your goal -> your investor type and example mix ->
 bring your holdings or try the example. Skippable, resumable, and Get
 started afterwards shows the same steps as cards you can reopen.
+- [x] **Built** - `views/first_steps.py`, shown in place of Get started for
+      an investor's own account that hasn't finished or skipped it: welcome
+      -> four screens of two tap questions each (the profile's required
+      answers, saved on Next, kept on Back) -> a rough goal (skippable) ->
+      their investor type and example mix -> bring holdings in (paste, CSV,
+      or the example, which opens Home). Progress dots; each screen slides
+      in (still when the device asks for less motion). Where they are is
+      saved in their settings. No goal screen for a managed client, no
+      bring-it-in screen when they can't import. Get started then shows the
+      full page, with "Go through the first steps again". Learn more links
+      to Investor.gov and the CFPB on three screens.
 
 ### S2. A calm Home - M
 The value and today's move, your route's next step, and a few tiles -
@@ -292,6 +303,48 @@ on Investor.gov, FINRA or the CFPB.
 ### S6. The other pages - M
 The same pass over Income, Activity, Watchlist and Ask Northwend: a summary
 first, detail in a window.
+
+---
+
+## The Northwend expedition - a theme with some adventure - after S2
+
+**Why:** the app works but looks plain. Northwend already speaks of routes,
+waypoints and a guide; lean into it so the journey feels like an
+expedition you're on - regions to cross, milestones to clear, gear earned
+along the way - with richer looks and smoother movement between pages.
+
+**Guardrail:** rewards are for learning and good habits - finishing a
+lesson, setting a goal, adding money as planned, holding steady through a
+drop - **never** for trading more, taking more risk or chasing returns
+(the kind of "game" regulators warn about). No streaks that nag, no
+losing anything for missing a week, and everything stays readable and
+calm with motion turned off.
+
+### T1. The look, designed in Claude Design - M - needs you
+Take the Northwend design system further in Claude Design: an expedition
+palette per region, illustrated backgrounds (a soft topographic map, the
+route drawn across it), page headers that feel like map plates, icons for
+milestones and gear. You review the mockups; the app's theme and styles
+follow (as L2 did).
+
+### T2. Movement between pages - S
+Pages and windows that ease in instead of appearing all at once; the
+route's progress drawing itself forward when a waypoint is reached; small,
+quick, and off when the device asks for less motion.
+
+### T3. Milestones and gear - M
+The route as regions with a milestone at the end of each ("First camp: a
+goal set", "The foothills: your first statement in", "Storm weathered:
+held steady through a 10% drop"). Clearing one earns a piece of gear for a
+small kit shown on Home and the Account page (a compass, a map, boots, a
+lantern...) - looks only, nothing to buy. A "Your expedition" window lists
+what's cleared and what's next.
+
+### T4. Storms - S
+When the market drops sharply, the guide treats it as a storm to wait out:
+a calm note on Home with what drops have looked like before and why
+long-term investors usually hold - and a milestone for holding steady,
+never for selling or buying.
 
 ---
 

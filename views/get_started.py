@@ -412,6 +412,10 @@ def _render_direction(kind, mix):
 def _render_get_started(has_holdings, value):
     import advisor
 
+    if first_steps_active(has_holdings):   # a new investor: the slideshow (first_steps.py)
+        render_first_steps(has_holdings)
+        return
+
     state = _route_state(has_holdings)
     profile, missing, items, plan = (state["profile"], state["missing"], state["items"],
                                      state["plan"])
@@ -451,3 +455,6 @@ def _render_get_started(has_holdings, value):
                 _step_practice(mix, plan, profile, done["practice"])
             else:
                 _step_account(monthly, has_holdings)
+    if not IS_ADVISOR and USER_ID == LOGIN_ID:
+        st.button(":material/replay: Go through the first steps again", key="fs_restart",
+                  type="tertiary", on_click=_fs_restart)
