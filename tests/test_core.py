@@ -3555,6 +3555,38 @@ class WorkflowFileTests(unittest.TestCase):
                     seen[-1][1].add(key)
 
 
+class HostingTests(unittest.TestCase):
+    """L4: the visitor's address behind a proxy, the old address's moved page,
+    and the Render blueprint."""
+
+    def test_client_ip_uses_streamlits_address_unless_a_header_is_set(self):
+        import hosting
+        h = {"x-forwarded-for": "6.6.6.6, 1.2.3.4"}
+        self.assertEqual(hosting.client_ip(h, "10.0.0.1", header=""), "10.0.0.1")
+        # only the right-hand entry, the one the proxy added, is trusted
+        self.assertEqual(hosting.client_ip(h, "10.0.0.1", header="x-forwarded-for"), "1.2.3.4")
+        self.assertEqual(hosting.client_ip({"cf-connecting-ip": "5.5.5.5"}, "10.0.0.1",
+                                           header="CF-Connecting-IP"), "5.5.5.5")
+        self.assertEqual(hosting.client_ip({}, "10.0.0.1", header="x-forwarded-for"), "10.0.0.1")
+
+    def test_moved_link_keeps_the_query(self):
+        import hosting
+        self.assertEqual(hosting.moved_link("https://app.northwend.app/", {}),
+                         "https://app.northwend.app/")
+        self.assertEqual(hosting.moved_link("https://app.northwend.app",
+                                            {"confirm": "abc", "page": "plan"}),
+                         "https://app.northwend.app/?confirm=abc&page=plan")
+
+    def test_render_blueprint_keeps_secrets_out(self):
+        with open(os.path.join(REPO, "render.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("healthCheckPath: /_stcore/health", text)
+        self.assertIn("branch: main", text)
+        for key in ("PORTFOLIO_DB", "ANTHROPIC_API_KEY", "RESEND_API_KEY"):
+            i = text.index(f"key: {key}")
+            self.assertIn("sync: false", text[i:i + 80], key)
+
+
 class WebsiteTests(unittest.TestCase):
     """The Northwend website (website/): public/ is what Cloudflare Pages serves."""
 

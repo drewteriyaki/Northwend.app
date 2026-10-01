@@ -29,6 +29,7 @@ import charts
 import csv_import
 import disclosures
 import friendly_errors
+import hosting
 import learn
 import live_prices
 import mailer
@@ -278,6 +279,24 @@ if STAGING:
     st.html("<div class='pt-staging' role='note'>Staging copy, for trying changes before "
             "they go live. Use test data only: this is not the real Northwend.</div>")
 
+# The old address once the app has moved (hosting.MOVED_TO): only say where it is now.
+if hosting.moved_to():
+    _new = hosting.moved_link(hosting.moved_to(), st.query_params.to_dict())
+    _, _mid, _ = st.columns([1, 1.4, 1])
+    with _mid:
+        st.title(f"{APP_ICON} {APP_NAME} has moved")
+        st.markdown(f"{APP_NAME} now lives at its own address. Your account, holdings and "
+                    "plan came along - sign in there as usual.")
+        st.link_button(f"Go to {APP_NAME}", _new, type="primary", width="stretch")
+        st.caption(f"Worth updating your bookmark: {hosting.moved_to()}")
+    st.stop()
+
+
+def _visitor_ip():
+    """The visitor's address for sign-up and email limits - from the proxy's
+    header on our own host (hosting.CLIENT_IP_HEADER)."""
+    return hosting.client_ip(st.context.headers, st.context.ip_address)
+
 SESSION_COOKIE = "pt_session"
 
 
@@ -319,7 +338,7 @@ def _send_confirmation(user_id) -> tuple[bool, str]:
     mailer.py). (sent, a message to show)."""
     conn = connect(DB)
     try:
-        res = auth.start_confirmation(conn, user_id, ip=st.context.ip_address)
+        res = auth.start_confirmation(conn, user_id, ip=_visitor_ip())
     finally:
         conn.close()
     if not res["ok"]:
@@ -493,7 +512,7 @@ def _signup() -> bool:
     try:
         result = auth.sign_up(conn, email, pw, agreed=agreed, adult=adult,
                               terms_version=disclosures.LAST_UPDATED,
-                              ip=st.context.ip_address,
+                              ip=_visitor_ip(),
                               seconds_open=time.time() - st.session_state["signup_opened"],
                               honeypot=st.session_state.get("signup_website") or "")
         if result["ok"]:
@@ -562,7 +581,7 @@ def _forgot() -> bool:
         return False
     conn = connect(DB)
     try:
-        res = auth.request_password_reset(conn, email, ip=st.context.ip_address)
+        res = auth.request_password_reset(conn, email, ip=_visitor_ip())
     finally:
         conn.close()
     if not res["ok"]:

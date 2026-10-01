@@ -1,0 +1,34 @@
+# Northwend on Render (ROADMAP L4): the app at app.northwend.app.
+# Render reads this file as a Blueprint (New > Blueprint, pick this repo).
+# Secrets are marked sync: false - Render asks for each one when the
+# Blueprint is created, and they live only in Render's dashboard, never here.
+# The scheduled price and history jobs stay on GitHub Actions.
+services:
+  - type: web
+    name: northwend
+    runtime: python
+    plan: starter            # always on: no wake-up screen
+    region: ohio             # pick the one nearest the Neon database's region
+    branch: main             # main only takes commits whose tests passed
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      streamlit run dashboard.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.7"
+      # Render's proxy adds the visitor's address at the end of this header (hosting.py)
+      - key: CLIENT_IP_HEADER
+        value: x-forwarded-for
+      - key: PORTFOLIO_DB          # the live Neon connection string
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

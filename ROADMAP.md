@@ -183,6 +183,17 @@ move the secrets; Neon and the GitHub scheduled jobs stay as they are. Apply
 the L2 colors, fonts and logo (`.streamlit/config.toml` and the app's CSS).
 **Done when:** the app runs at `app.<your domain>` and the old address points
 there.
+- [x] **Code ready** - Render chosen (Starter, always on). `render.yaml`
+      (a Blueprint: build, start, health check, secrets asked for, never
+      stored), `hosting.py`: the visitor's real address behind Render's
+      proxy (`CLIENT_IP_HEADER`) for the sign-up and email limits, and a
+      "Northwend has moved" page for the old address (`MOVED_TO`, keeps the
+      ?query so old email links still work).
+- [ ] **Needs you** - create the Render Blueprint from this repo and paste
+      the secrets; check it on its `onrender.com` address; add `app` in
+      Cloudflare DNS and the custom domain in Render. Then: website
+      `APP_URL` to `https://app.northwend.app/`, and `MOVED_TO` on the old
+      Community Cloud app.
 
 ### L5. Create an account yourself - L
 **Why:** accounts are made by an admin or an advisor today.

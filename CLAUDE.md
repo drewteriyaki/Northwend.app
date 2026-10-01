@@ -73,6 +73,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py`.
+- Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
+  `hosting.py` (`CLIENT_IP_HEADER` for the visitor's address behind a proxy;
+  `MOVED_TO` turns an old copy into a "has moved" page).
 - Jobs: `.github/workflows/scheduled-sync.yml` (prices every 15 min in market
   hours, history nightly), `tests.yml`.
 
