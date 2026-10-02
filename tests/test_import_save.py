@@ -1,8 +1,9 @@
 """Saving holdings (views/holdings_input.py's review and save): what changed,
-the buys and sells worked out from it, and account numbers kept to their last
-3 digits everywhere. The save is the same three steps the view takes:
-portfolio.previous_snapshot, changes.compare, then write_snapshot and
-txn_import.save_worked_out. The last class drives the app itself (AppTest).
+the buys and sells worked out from it, account numbers kept to their last 3
+digits everywhere, and holdings from several brokerages side by side - a save
+updates only the accounts in it and keeps the others as they are. The save is
+the same two steps the view takes: portfolio.prepare_save (the review), then
+portfolio.save_prepared. The App classes drive the app itself (AppTest).
 
     python -m unittest tests.test_import_save        (from the repo root)
 """
@@ -47,7 +48,7 @@ FIDELITY_401K = (
     "$4200.00\n")
 
 
-def read_file(path, mapping=None, day=None):
+def read_file(path, mapping=None, day=None, account_default="My account"):
     """A positions file as the CSV import reads it: (meta, rows, totals, parsed)."""
     with open(path, "rb") as fh:
         rows = csv_import.read_rows(fh.read())
@@ -55,7 +56,7 @@ def read_file(path, mapping=None, day=None):
     hi = hi if hi is not None else csv_import.guess_header(rows)
     found = csv_import.parse(rows, mapping or csv_import.auto_mapping(rows[hi]),
                              today=day or date(2026, 9, 30))
-    meta, prow, totals = csv_import.to_snapshot(found, account_default="My account")
+    meta, prow, totals = csv_import.to_snapshot(found, account_default=account_default)
     return meta, prow, totals, found
 
 
@@ -65,15 +66,18 @@ def dated(meta, rows, day):
     return meta, [{**r, "snapshot_date": day.isoformat()} for r in rows]
 
 
-def save(conn, user_id, meta, rows, totals, src="upload: test.csv"):
+def save_p(conn, user_id, meta, rows, totals, src="upload: test.csv", **kw):
+    """The view's review and save: returns what the review showed
+    (portfolio.prepare_save's result)."""
+    p = portfolio.prepare_save(conn, user_id, meta, rows, totals, src, **kw)
+    portfolio.save_prepared(conn, user_id, p, src)
+    return p
+
+
+def save(conn, user_id, meta, rows, totals, src="upload: test.csv", **kw):
     """The view's review and save: returns (diff, the trades worked out)."""
-    _, base_rows, base_accounts = portfolio.previous_snapshot(conn, user_id, meta["snapshot_date"])
-    d, txns = changes.compare(base_rows, rows, meta["snapshot_date"], src,
-                              old_accounts=base_accounts, new_accounts=totals)
-    portfolio.write_snapshot(conn, user_id, meta, rows, totals, src)
-    txn_import.save_worked_out(conn, user_id, meta["snapshot_date"], txns)
-    conn.commit()
-    return d, txns
+    p = save_p(conn, user_id, meta, rows, totals, src, **kw)
+    return p["diff"], p["txns"]
 
 
 class _DB(unittest.TestCase):
@@ -249,8 +253,316 @@ class SkippedRowTests(unittest.TestCase):
                              name)
 
 
-class AppSaveTests(unittest.TestCase):
-    """The hand-entry window and Home, run with AppTest on a scratch database."""
+# What a Robinhood holdings page gives when copied: name, ticker, shares, value.
+ROBINHOOD_PASTE = """Apple
+AAPL
+12 shares
+$2,761.20
+
+NVIDIA
+NVDA
+20 shares
+$3,640.00
+
+Tesla
+TSLA
+8 shares
+$2,096.00
+
+Vanguard S&P 500 ETF
+VOO
+6.5 shares
+$3,654.95
+
+Invesco QQQ
+QQQ
+5 shares
+$2,607.00
+"""
+ROBINHOOD_PRICES = {"AAPL": 230.10, "NVDA": 182.0, "TSLA": 262.0, "VOO": 562.30, "QQQ": 521.40}
+
+
+def pasted(text, account, prices, day):
+    """A paste as the hand-entry window saves it: (meta, rows, totals)."""
+    import paste_parse
+    found = paste_parse.parse(text)
+    clean, cash, errors = manual_entry.validate(
+        [{"Account": account, "Symbol": h["Symbol"], "Shares": h["Shares"],
+          "Total cost": h["Total cost"], "Type": "Other"} for h in found["holdings"]],
+        [{"Account": account, "Cash": found["cash"]}])
+    assert not errors, errors
+    meta, rows, totals, errors = manual_entry.build(
+        clean, cash, {s: {"price": p} for s, p in prices.items()}, today=day)
+    assert not errors, errors
+    return meta, rows, totals
+
+
+def file_account(path):
+    """The account the import suggests for a file that doesn't name one."""
+    with open(path, "rb") as fh:
+        rows = csv_import.read_rows(fh.read())
+    hi, _ = csv_import.find_header(rows)
+    return accounts.guess_broker("\n".join(" ".join(r) for r in rows), header=rows[hi],
+                                 filename=os.path.basename(path))
+
+
+def worth(conn, user_id):
+    """{account: value} of the latest holdings, and their total."""
+    cur = portfolio.current_holdings(conn, user_id)
+    out = {}
+    for r in cur["rows"]:
+        out[r["account"]] = round(out.get(r["account"], 0.0) + r["market_value"], 2)
+    for a, t in cur["totals"].items():
+        out[a] = round(out.get(a, 0.0) + (t["cash_value"] or 0.0), 2)
+    return out, round(sum(out.values()), 2)
+
+
+class MergeTests(unittest.TestCase):
+    """The pure parts: carrying accounts forward, and naming an account."""
+
+    def test_carry_forward_replaces_only_the_accounts_in_the_save(self):
+        cur = [{"account": "Individual Z12345678", "symbol": "VTI", "quantity": 10.0,
+                "market_value": 3000.0, "snapshot_date": "2026-09-01"},
+               {"account": "Roth", "symbol": "SCHD", "quantity": 100.0,
+                "market_value": 2800.0, "snapshot_date": "2026-09-01"},
+               {"account": "Old cash", "symbol": "BND", "quantity": 1.0,
+                "market_value": 70.0, "snapshot_date": "2026-09-01"}]
+        cur_totals = {"Individual Z12345678": {"cash_value": 50.0},
+                      "Roth": {"cash_value": None}, "Old cash": {"cash_value": 5.0},
+                      "Savings": {"cash_value": 900.0}}           # only cash
+        new = [{"account": "Individual ...678", "symbol": "VTI", "quantity": 12.0,
+                "market_value": 3600.0, "snapshot_date": "2026-09-02"}]
+        new_totals = {"Individual ...678": {"cash_value": 10.0},
+                      "Old cash": {"cash_value": 75.0}}           # in the save with cash only
+        rows, totals, kept = changes.carry_forward(cur, cur_totals, new, new_totals,
+                                                   "2026-09-02")
+        self.assertEqual(kept, ["Roth", "Savings"])
+        self.assertEqual(sorted((r["account"], r["symbol"], r["quantity"], r["snapshot_date"])
+                                for r in rows),
+                         [("Individual ...678", "VTI", 12.0, "2026-09-02"),   # the save's
+                          ("Roth", "SCHD", 100.0, "2026-09-02")])            # carried, redated
+        self.assertEqual({a: t["cash_value"] for a, t in totals.items()},
+                         {"Individual ...678": 10.0, "Old cash": 75.0, "Roth": None,
+                          "Savings": 900.0})
+        self.assertEqual(cur[1]["snapshot_date"], "2026-09-01")   # the input isn't changed
+        self.assertEqual(changes.accounts_in(new, new_totals), {"Individual ...678", "Old cash"})
+
+    def test_the_brokerage_is_guessed_from_the_text_not_from_fund_names(self):
+        g = accounts.guess_broker
+        self.assertIsNone(g(ROBINHOOD_PASTE))               # "Vanguard S&P 500 ETF" is a fund
+        self.assertIsNone(g("CHARLES SCHWAB CORP  SCHW  10"))
+        self.assertIsNone(g("FIDELITY 500 INDEX FUND\nVANGUARD TOTAL STK MKT"))
+        self.assertEqual(g("Robinhood\nAAPL 10"), "Robinhood")
+        self.assertEqual(g("", filename="Robinhood_holdings_2026-10-01.csv"), "Robinhood")
+        self.assertEqual(file_account(os.path.join(BROKERS, "etrade_portfolio.csv")), "E*TRADE")
+        self.assertEqual(file_account(os.path.join(BROKERS, "vanguard_download.csv")), "Vanguard")
+        self.assertEqual(file_account(os.path.join(BROKERS, "fidelity_positions.csv")), "Fidelity")
+        self.assertEqual(file_account(SCHWAB), "Schwab")
+
+    def test_a_suggested_account_never_lands_in_another_brokerage(self):
+        s = accounts.suggest_account
+        self.assertEqual(s(None, []), "Brokerage account")
+        self.assertEqual(manual_entry.DEFAULT_ACCOUNT, accounts.NEW_ACCOUNT)
+        # a second unnamed paste is a new account, not the first one again
+        self.assertEqual(s(None, ["Brokerage account"]), "Brokerage account 2")
+        self.assertEqual(s(None, ["Brokerage account", "brokerage account 2"]),
+                         "Brokerage account 3")
+        # the same brokerage again updates its account (by name or nickname)
+        self.assertEqual(s("E*TRADE", ["E*TRADE", "Roth"]), "E*TRADE")
+        self.assertEqual(s("Fidelity", ["Individual ...678"], {"Individual ...678": "My Fidelity"}),
+                         "Individual ...678")
+        self.assertEqual(s("Fidelity", ["Roth"], {"Roth": "Fidelity"}), "Roth")
+        self.assertEqual(s("Fidelity", ["Fidelity 2"]), "Fidelity 2")
+        # two accounts at that brokerage: which one can't be told - a new name
+        self.assertEqual(s("Schwab", ["Schwab", "Schwab Roth"]), "Schwab 2")
+        self.assertEqual(s("Vanguard", ["Brokerage account"]), "Vanguard")
+        self.assertEqual(manual_entry.PCT_SOURCE, portfolio.PCT_SOURCE)
+
+    def test_an_account_left_as_saved_in_the_form_is_unchanged(self):
+        saved = [{"account": "Roth", "symbol": "VTI", "quantity": 10.0, "cost_basis": 2500.0,
+                  "asset_type": "ETFs & Closed End Funds"},
+                 {"account": "Taxable", "symbol": "SCHD", "quantity": 100.0, "cost_basis": None,
+                  "asset_type": "Cash and Money Market"}]
+        cash = {"Roth": 0.0, "Taxable": 200.0}
+        form, _ = manual_entry.prefill(saved, cash)
+        form_cash = [{"Account": "Taxable", "Cash": 200.0}]
+        clean, c, errors = manual_entry.validate(form, form_cash)
+        self.assertEqual(errors, [])
+        self.assertEqual(manual_entry.unchanged_accounts(clean, c, saved, cash), {"Roth", "Taxable"})
+        form[1]["Shares"] = 101
+        clean, c, _ = manual_entry.validate(form + [{"Account": "New", "Symbol": "BND",
+                                                     "Shares": 1}], form_cash)
+        self.assertEqual(manual_entry.unchanged_accounts(clean, c, saved, cash), {"Roth"})
+        clean, c, _ = manual_entry.validate(form[:1], [{"Account": "Taxable", "Cash": 250.0}])
+        self.assertEqual(manual_entry.unchanged_accounts(clean, c, saved, cash), {"Roth"})
+
+
+class MultiBrokerTests(_DB):
+    """A Fidelity file, a Robinhood paste and a Vanguard file, side by side."""
+
+    FIDELITY = os.path.join(BROKERS, "fidelity_positions.csv")    # Sep 28, two accounts
+    VANGUARD = os.path.join(BROKERS, "vanguard_download.csv")     # Sep 30
+    ETRADE = os.path.join(BROKERS, "etrade_portfolio.csv")        # Sep 28, no account column
+
+    def three(self):
+        meta, rows, totals, _ = read_file(self.FIDELITY)
+        p1 = save_p(self.conn, self.user_id, meta, rows, totals, "upload: Portfolio_Positions.csv")
+        acct = accounts.suggest_account(accounts.guess_broker(ROBINHOOD_PASTE),
+                                        changes.accounts_in(rows, totals))
+        meta, rows, totals = pasted(ROBINHOOD_PASTE, acct, ROBINHOOD_PRICES, date(2026, 9, 29))
+        p2 = save_p(self.conn, self.user_id, meta, rows, totals, manual_entry.SOURCE)
+        meta, rows, totals, _ = read_file(self.VANGUARD)
+        p3 = save_p(self.conn, self.user_id, meta, rows, totals, "upload: ofxdownload.csv")
+        return p1, p2, p3
+
+    def test_three_brokerages_end_up_side_by_side_with_no_made_up_trades(self):
+        p1, p2, p3 = self.three()
+        self.assertEqual(p2["updating"], ["Brokerage account"])
+        self.assertEqual(p2["new"], ["Brokerage account"])
+        self.assertEqual(p2["kept"], ["Individual ...678", "ROTH IRA ...321"])
+        self.assertEqual(p3["updating"], ["...678"])
+        self.assertEqual(p3["kept"], ["Brokerage account", "Individual ...678", "ROTH IRA ...321"])
+        by_account, total = worth(self.conn, self.user_id)
+        self.assertEqual(by_account, {"Individual ...678": 6097.26, "ROTH IRA ...321": 4932.15,
+                                      "Brokerage account": 14759.15, "...678": 4340.15})
+        self.assertEqual(total, 30128.71)
+        self.assertEqual(p3["total"], total)                 # the review's total: everything
+        self.assertEqual(portfolio.current_holdings(self.conn, self.user_id)["date"],
+                         "2026-09-30")
+        for p in (p1, p2, p3):                               # nothing "sold", nothing "bought"
+            self.assertEqual((p["txns"], p["diff"]["closed"]), ([], []))
+        self.assertEqual(self.trades(), [])
+
+    def test_a_month_later_only_the_real_change_is_a_trade(self):
+        self.three()
+        before = portfolio.current_holdings(self.conn, self.user_id)
+        meta, rows, totals, _ = read_file(self.VANGUARD)
+        rows = [{**r, "quantity": round(r["quantity"] + 2.781, 3),
+                 "market_value": round((r["quantity"] + 2.781) * 182.65, 2)}
+                if r["symbol"] == "VTSAX" else r for r in rows]
+        p = save_p(self.conn, self.user_id, *dated(meta, rows, date(2026, 10, 30)), totals,
+                   "upload: ofxdownload (1).csv")
+        self.assertEqual((len(p["diff"]["increased"]), len(p["diff"]["new"]),
+                          len(p["diff"]["closed"]), len(p["diff"]["unchanged"])), (1, 0, 0, 2))
+        self.assertEqual([(t["account"], t["action"], t["symbol"], t["quantity"])
+                          for t in self.trades()], [("...678", "BUY", "VTSAX", 2.781)])
+        after = portfolio.current_holdings(self.conn, self.user_id)
+        self.assertEqual(after["date"], "2026-10-30")
+
+        def held(cur, skip):
+            return sorted((r["account"], r["symbol"], r["quantity"], r["market_value"],
+                           r["cost_basis"]) for r in cur["rows"] if r["account"] != skip)
+        self.assertEqual(held(after, "...678"), held(before, "...678"))   # others as they were
+        self.assertEqual({a: t["cash_value"] for a, t in after["totals"].items()},
+                         {a: t["cash_value"] for a, t in before["totals"].items()})
+
+    def test_an_older_file_is_folded_into_the_current_holdings(self):
+        self.three()
+        acct = accounts.suggest_account(file_account(self.ETRADE), ["Individual ...678",
+                                                                    "ROTH IRA ...321",
+                                                                    "Brokerage account", "...678"])
+        self.assertEqual(acct, "E*TRADE")
+        meta, rows, totals, _ = read_file(self.ETRADE, account_default=acct)
+        self.assertEqual(meta["snapshot_date"], "2026-09-28")
+        p = save_p(self.conn, self.user_id, meta, rows, totals, "upload: PortfolioDownload.csv",
+                   today=date(2026, 10, 2))
+        self.assertEqual((p["older"], p["file_date"], p["meta"]["snapshot_date"]),
+                         ("2026-09-30", "2026-09-28", "2026-10-02"))
+        self.assertEqual((p["updating"], p["new"]), (["E*TRADE"], ["E*TRADE"]))
+        self.assertEqual(len(p["kept"]), 4)
+        self.assertEqual(p["txns"], [])
+        by_account, total = worth(self.conn, self.user_id)
+        self.assertEqual(by_account["E*TRADE"], 9088.41)
+        self.assertEqual(total, round(30128.71 + 9088.41, 2))
+        self.assertEqual(portfolio.current_holdings(self.conn, self.user_id)["date"], "2026-10-02")
+        # no past snapshot was rewritten
+        self.assertEqual(worth_on(self.conn, self.user_id, "2026-09-30"), 30128.71)
+        self.assertEqual(self.trades(), [])
+
+    def test_removing_an_account_keeps_the_others(self):
+        self.three()
+        self.assertIsNone(portfolio.remove_account(self.conn, self.user_id, "Nope"))
+        snap = portfolio.remove_account(self.conn, self.user_id, "Brokerage account",
+                                        today=date(2026, 10, 2))
+        self.assertEqual(snap, "2026-10-02")
+        by_account, total = worth(self.conn, self.user_id)
+        self.assertEqual(sorted(by_account), ["...678", "Individual ...678", "ROTH IRA ...321"])
+        self.assertEqual(total, round(30128.71 - 14759.15, 2))
+        self.assertEqual(worth_on(self.conn, self.user_id, "2026-09-30"), 30128.71)   # history
+        self.assertEqual(self.trades(), [])                  # removing isn't selling
+        # and a later import without it doesn't bring it back
+        meta, rows, totals, _ = read_file(self.VANGUARD)
+        p = save_p(self.conn, self.user_id, *dated(meta, rows, date(2026, 10, 3)), totals)
+        self.assertNotIn("Brokerage account", p["kept"])
+        self.assertNotIn("Brokerage account", worth(self.conn, self.user_id)[0])
+
+    def test_two_saves_the_same_day_keep_each_others_trades(self):
+        self.three()
+        meta, rows, totals, _ = read_file(self.FIDELITY)
+        rows = [{**r, "quantity": r["quantity"] + 1} if r["symbol"] == "VTI" else r for r in rows]
+        save(self.conn, self.user_id, *dated(meta, rows, date(2026, 10, 5)), totals)
+        meta, rows, totals, _ = read_file(self.VANGUARD)
+        rows = [{**r, "quantity": r["quantity"] - 1} if r["symbol"] == "VTIAX" else r for r in rows]
+        save(self.conn, self.user_id, *dated(meta, rows, date(2026, 10, 5)), totals)
+        self.assertEqual(sorted((t["account"], t["action"], t["symbol"]) for t in self.trades()),
+                         [("...678", "SELL", "VTIAX"), ("Individual ...678", "BUY", "VTI")])
+        # the same file again that day redoes only its own account's trades
+        save(self.conn, self.user_id, *dated(meta, rows, date(2026, 10, 5)), totals)
+        self.assertEqual(len(self.trades()), 2)
+        self.assertEqual(len(worth(self.conn, self.user_id)[0]), 4)
+
+    def test_the_example_and_percentages_portfolios_are_replaced_whole(self):
+        sample_data.load(self.conn, self.user_id, today=date(2026, 9, 27))
+        meta, rows, totals, _ = read_file(self.FIDELITY)
+        p = save_p(self.conn, self.user_id, meta, rows, totals)
+        self.assertEqual((p["replaces"], p["kept"], p["txns"]), ("example", [], []))
+        self.assertEqual(sorted(worth(self.conn, self.user_id)[0]),
+                         ["Individual ...678", "ROTH IRA ...321"])
+        # a percentages portfolio is one pretend total: it replaces everything...
+        clean, cash_pct, _ = manual_entry.validate_weights(
+            [{"Account": "Pretend", "Symbol": "VTI", "Percent": 100}], 0, 10_000)
+        meta, rows, totals, _ = manual_entry.build_weights(
+            clean, cash_pct, 10_000, {"VTI": {"price": 300.0}}, today=date(2026, 9, 29))
+        p = save_p(self.conn, self.user_id, meta, rows, totals, manual_entry.PCT_SOURCE,
+                   whole=True)
+        self.assertEqual((p["replaces"], p["kept"], p["txns"]), ("everything", [], []))
+        self.assertEqual(list(worth(self.conn, self.user_id)[0]), ["Pretend"])
+        # ...and real holdings replace it, with nothing bought or sold
+        meta, rows, totals, _ = read_file(self.VANGUARD)
+        p = save_p(self.conn, self.user_id, meta, rows, totals)
+        self.assertEqual((p["replaces"], p["kept"], p["txns"], p["base_date"]),
+                         ("percentages", [], [], None))
+        self.assertEqual(list(worth(self.conn, self.user_id)[0]), ["...678"])
+        self.assertEqual(self.trades(), [])
+
+    def test_an_advisor_importing_for_a_client_merges_only_the_clients_accounts(self):
+        client = auth.create_user(self.conn, "client1", "pw-123456789")
+        meta, rows, totals, _ = read_file(self.FIDELITY)
+        save(self.conn, self.user_id, meta, rows, totals)          # the advisor's own
+        meta, rows, totals, _ = read_file(self.VANGUARD)
+        save(self.conn, client, meta, rows, totals)
+        meta, rows, totals = pasted(ROBINHOOD_PASTE, "Robinhood", ROBINHOOD_PRICES,
+                                    date(2026, 10, 1))
+        p = save_p(self.conn, client, meta, rows, totals, manual_entry.SOURCE)
+        self.assertEqual(p["kept"], ["...678"])
+        self.assertEqual(sorted(worth(self.conn, client)[0]), ["...678", "Robinhood"])
+        self.assertEqual(sorted(worth(self.conn, self.user_id)[0]),
+                         ["Individual ...678", "ROTH IRA ...321"])
+
+
+def worth_on(conn, user_id, day):
+    """The total value saved for one snapshot date."""
+    v = conn.execute("SELECT COALESCE(SUM(market_value), 0) v FROM positions "
+                     "WHERE snapshot_date = ? AND user_id = ?", (day, user_id)).fetchone()["v"]
+    c = conn.execute("SELECT COALESCE(SUM(cash_value), 0) c FROM account_totals "
+                     "WHERE snapshot_date = ? AND user_id = ?", (day, user_id)).fetchone()["c"]
+    return round(v + c, 2)
+
+
+class _AppBase(unittest.TestCase):
+    """The app run with AppTest on a scratch database, as `USERNAME`
+    (seeded by seed())."""
+    USERNAME = "ann"
 
     @classmethod
     def setUpClass(cls):
@@ -261,15 +573,14 @@ class AppSaveTests(unittest.TestCase):
         portfolio._SCHEMA_READY.discard(os.path.abspath(cls.db))
         c = portfolio.connect(cls.db)
         try:
-            cls.uid = auth.create_user(c, "ann", "pw-123456789")
-            clean, cash, _ = manual_entry.validate(
-                [{"Symbol": "VTI", "Shares": 10, "Total cost": 2500},
-                 {"Symbol": "AAPL", "Shares": 5}], [])          # no cost for AAPL
-            meta, rows, totals, _ = manual_entry.build(
-                clean, cash, {"VTI": {"price": 300.0}, "AAPL": {"price": 230.0}})
-            portfolio.write_snapshot(c, cls.uid, meta, rows, totals, manual_entry.SOURCE)
+            cls.uid = auth.create_user(c, cls.USERNAME, "pw-123456789")
+            cls.seed(c)
         finally:
             c.close()
+
+    @classmethod
+    def seed(cls, c):
+        pass
 
     @classmethod
     def tearDownClass(cls):
@@ -283,7 +594,7 @@ class AppSaveTests(unittest.TestCase):
         def offline(*a, **k):
             raise RuntimeError("offline in tests")
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
-        for k, v in {"user_id": self.uid, "username": "ann", "page": "Dashboard",
+        for k, v in {"user_id": self.uid, "username": self.USERNAME, "page": "Dashboard",
                      "auto_backfilled": True, "income_synced": True, **state}.items():
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
@@ -296,6 +607,19 @@ class AppSaveTests(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
         return at
+
+
+class AppSaveTests(_AppBase):
+    """The hand-entry window and Home."""
+
+    @classmethod
+    def seed(cls, c):
+        clean, cash, _ = manual_entry.validate(
+            [{"Symbol": "VTI", "Shares": 10, "Total cost": 2500},
+             {"Symbol": "AAPL", "Shares": 5}], [])          # no cost for AAPL
+        meta, rows, totals, _ = manual_entry.build(
+            clean, cash, {"VTI": {"price": 300.0}, "AAPL": {"price": 230.0}})
+        portfolio.write_snapshot(c, cls.uid, meta, rows, totals, manual_entry.SOURCE)
 
     def test_screenshots_are_read_once_and_counted_once(self):
         import streamlit
@@ -343,8 +667,12 @@ class AppSaveTests(unittest.TestCase):
             self.assertEqual(ai_usage.status(c, self.uid, "screenshot")["used"], 1)
         finally:
             c.close()
-        filled = [at.session_state[f"me_sym_{i}"] for i in at.session_state["me_ids"]]
-        self.assertEqual(filled, ["SCHD"])
+        # added to the form as a new account; the saved account's rows stay
+        ids = at.session_state["me_ids"]
+        self.assertEqual(len(ids), 3)
+        self.assertEqual((at.session_state[f"me_sym_{ids[-1]}"],
+                          at.session_state[f"me_acct_{ids[-1]}"]),
+                         ("SCHD", "Brokerage account 2"))
 
     def test_a_new_hand_entry_row_is_type_other(self):
         at = self._app(open_dialog="manual")
@@ -380,6 +708,110 @@ class AppSaveTests(unittest.TestCase):
         costs = list(table["Cost Basis"])
         self.assertIn("—", costs)                     # AAPL, entered without a cost
         self.assertFalse(any(v is None or (isinstance(v, float) and math.isnan(v)) for v in costs))
+
+
+class MultiBrokerAppTests(_AppBase):
+    """Several brokerages in the app: the review before a save, an older
+    file, Remove on Home, and pasting into the hand-entry window. Each test
+    starts from a Fidelity file and a Robinhood paste."""
+    USERNAME = "bea"
+
+    def setUp(self):
+        c = portfolio.connect(self.db)
+        try:
+            portfolio.delete_holdings(c, self.uid)
+            meta, rows, totals, _ = read_file(MultiBrokerTests.FIDELITY)
+            save_p(c, self.uid, meta, rows, totals, "upload: Portfolio_Positions.csv")
+            meta, rows, totals = pasted(ROBINHOOD_PASTE, "Brokerage account", ROBINHOOD_PRICES,
+                                        date(2026, 9, 29))
+            save_p(c, self.uid, meta, rows, totals, manual_entry.SOURCE)
+        finally:
+            c.close()
+
+    def accounts_now(self):
+        c = portfolio.connect(self.db)
+        try:
+            return worth(c, self.uid)
+        finally:
+            c.close()
+
+    def text(self, at):
+        return "\n".join([m.value for m in at.markdown] + [m.value for m in at.caption]
+                         + [m.value for m in at.info])
+
+    def run_import(self, path):
+        at = self._app(open_dialog="import", csv_path=path)
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        return at
+
+    def test_the_review_says_what_is_updated_and_what_is_kept(self):
+        at = self.run_import(MultiBrokerTests.VANGUARD)
+        shown = self.text(at)
+        self.assertIn("**Updating:** ...678 (new account)", shown)
+        self.assertIn("**Kept as is:** Brokerage account ($14,759.15), Individual ...678 "
+                      "($6,097.26), ROTH IRA ...321 ($4,932.15)", shown.replace("\\$", "$"))
+        self.assertIn("Total **$30,128.71** across all your accounts", shown.replace("\\$", "$"))
+        self.assertIn("3 new, 0 changed, 0 removed", shown)
+        at.button(key="csv_save").click()
+        at.session_state["open_dialog"] = "import"
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        by_account, total = self.accounts_now()
+        self.assertEqual(sorted(by_account), ["...678", "Brokerage account", "Individual ...678",
+                                              "ROTH IRA ...321"])
+        self.assertEqual(total, 30128.71)
+
+    def test_an_older_file_without_account_names_is_asked_about_and_folded_in(self):
+        at = self.run_import(MultiBrokerTests.ETRADE)
+        picks = [s for s in at.selectbox if (s.key or "").startswith("csv_acct_")]
+        self.assertEqual([s.value for s in picks], ["E*TRADE"])
+        shown = self.text(at)
+        self.assertIn("This file is from Sep 28, 2026, older than your current holdings "
+                      "(Sep 29, 2026) - its accounts are updated, the rest kept.", shown)
+        self.assertIn("**Updating:** E*TRADE (new account)", shown)
+        at.button(key="csv_save").click()
+        at.session_state["open_dialog"] = "import"
+        at.run()
+        by_account, _ = self.accounts_now()
+        self.assertEqual(by_account["E*TRADE"], 9088.41)
+        self.assertEqual(len(by_account), 4)
+
+    def test_remove_on_home_takes_out_one_account(self):
+        at = self._app()
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertEqual(at.selectbox(key="acct_rm_pick").value, "Brokerage account")
+        self.assertTrue(at.button(key="acct_rm_btn").disabled)   # asks first
+        at.checkbox(key="acct_rm_ok_Brokerage account").check()
+        at.run()
+        at.button(key="acct_rm_btn").click()
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        by_account, total = self.accounts_now()
+        self.assertEqual(sorted(by_account), ["Individual ...678", "ROTH IRA ...321"])
+        self.assertEqual(total, round(6097.26 + 4932.15, 2))
+
+    def test_pasting_adds_an_account_to_the_form(self):
+        at = self._app(open_dialog="manual")
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        before = list(at.session_state["me_ids"])
+        self.assertEqual(at.selectbox(key="me_paste_acct").value, "Brokerage account 2")
+        for text, acct in (("VTI 10\nBND 5", "Brokerage account 2"),
+                           ("SCHD 7", "Brokerage account 3")):
+            at.session_state["me_paste"] = text
+            at.session_state["open_dialog"] = "manual"
+            at.run()
+            at.button(key="me_paste_btn").click()
+            at.session_state["open_dialog"] = "manual"
+            at.run()
+            self.assertEqual([e.message for e in at.exception], [])
+            ids = at.session_state["me_ids"]
+            self.assertEqual(ids[:len(before)], before)          # the saved rows stay
+            added = [i for i in ids if at.session_state[f"me_acct_{i}"] == acct]
+            self.assertEqual(len(added), len(text.splitlines()), acct)
+        self.assertEqual(len(at.session_state["me_ids"]), len(before) + 3)
 
 
 if __name__ == "__main__":

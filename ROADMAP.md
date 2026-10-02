@@ -792,6 +792,18 @@ phone-only beginner). What they found, fixed in this order:
       longer crashes (and counts only a read that ran); "since your last
       visit" starts again after a save; a row with no ticker is named in the
       review; "—" for a missing cost; typed rows default to "Other".
+- [x] **Several brokerages** - every import replaced all saved holdings, so
+      a Robinhood paste deleted the Fidelity 401(k). Now an import (CSV,
+      paste, screenshots, by hand) replaces only the accounts in it; every
+      other account carries forward (`changes.carry_forward`,
+      `portfolio.prepare_save` / `save_prepared`). The review says
+      "Updating" and "Kept as is"; what changed and worked-out trades cover
+      only the accounts in the file. Paste asks which account and adds to
+      the form (the broker guessed from the file's layout or name, never a
+      fund's name); a file older than the current holdings is folded in,
+      with a note and no trades; "Remove this account" on Home (no sells
+      recorded). The example and percentages portfolios are never merged.
+      Left: the command line's `portfolio.py import` still replaces its date.
 
 ## Later
 

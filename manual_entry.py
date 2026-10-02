@@ -4,7 +4,8 @@ A hand entry becomes a snapshot exactly like an import: the same row shapes
 as portfolio.parse_csv(), saved by portfolio.write_snapshot(), so the
 Dashboard, Plan, Activity, asset classes and alerts all work unchanged.
 Each save is a snapshot dated the day it's saved (replacing that day's, as a
-re-import would).
+re-import would); accounts not in it are kept as they were
+(portfolio.prepare_save).
 
 Values come from prices looked up at save time - Finnhub first (the live
 price source), then Yahoo, which also gives the name. A symbol with no price
@@ -16,7 +17,7 @@ from __future__ import annotations
 from datetime import date
 
 SOURCE = "manual entry"          # snapshots.source_file for a hand-entered snapshot
-DEFAULT_ACCOUNT = "My account"
+DEFAULT_ACCOUNT = "Brokerage account"   # a neutral name (accounts.NEW_ACCOUNT)
 
 # the choices in the form -> broker asset types (what imports store)
 TYPES = {"Stock": "Equity", "ETF": "ETFs & Closed End Funds", "Mutual fund": "Mutual Funds",
@@ -95,6 +96,28 @@ def validate(holdings: list[dict], cash: list[dict]) -> tuple[list[dict], dict, 
     if not out and not cash_by_account:
         errors.append("Add at least one holding or some cash.")
     return out, cash_by_account, errors
+
+
+def unchanged_accounts(holdings: list[dict], cash_by_account: dict, saved_rows: list[dict],
+                       saved_cash: dict) -> set:
+    """The accounts in validate()'s result that are just as saved - the same
+    symbols, shares, cost, type and cash as `saved_rows` / `saved_cash` (the
+    latest holdings, by saved account name). The form starts from every
+    account; one left as it was is kept as saved (values and all) rather
+    than priced and saved again."""
+    def held(rows, acct):
+        return {(r.get("symbol"), round(r.get("quantity") or 0.0, 6),
+                 None if r.get("cost_basis") is None else round(r["cost_basis"], 2),
+                 type_label(r.get("asset_type")))
+                for r in rows if r.get("account") == acct}
+    out = set()
+    for acct in {h["account"] for h in holdings} | set(cash_by_account):
+        if acct not in saved_cash and not any(r.get("account") == acct for r in saved_rows):
+            continue  # a new account
+        if held(holdings, acct) == held(saved_rows, acct) and \
+                round(cash_by_account.get(acct) or 0.0, 2) == round(saved_cash.get(acct) or 0.0, 2):
+            out.add(acct)
+    return out
 
 
 def lookup(symbols, *, finnhub_quote=None, yahoo_info=None, known_names=None) -> dict:

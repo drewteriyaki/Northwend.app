@@ -78,6 +78,32 @@ def masked(rows):
     return [{**r, "account": mask_number(r.get("account"))} for r in rows]
 
 
+def accounts_in(rows, totals=()) -> set:
+    """Every account a save names, as saved (masked): those with holdings and
+    those with only a cash or totals row."""
+    return {mask_number(r.get("account")) for r in rows} | {mask_number(a) for a in totals}
+
+
+def carry_forward(current_rows, current_totals, new_rows, new_totals, snapshot_date):
+    """The holdings a save makes: the accounts in it (`new_rows` /
+    `new_totals`) as given, and every other account of the current holdings
+    carried forward unchanged - its positions and cash / totals rows copied,
+    values as last saved, dated `snapshot_date`. Accounts are matched by
+    their saved (masked) name. An import replaces only the accounts it has,
+    so one brokerage's file never removes another's accounts.
+
+    Returns (rows, totals, kept): kept is the sorted names carried forward."""
+    new_rows = masked(new_rows)
+    new_totals = {mask_number(a): t for a, t in new_totals.items()}
+    here = accounts_in(new_rows, new_totals)
+    carried = [{**r, "snapshot_date": snapshot_date} for r in masked(current_rows)
+               if r["account"] not in here]
+    carried_totals = {a: dict(t) for a, t in
+                      ((mask_number(a), t) for a, t in current_totals.items()) if a not in here}
+    kept = sorted({r["account"] for r in carried} | set(carried_totals))
+    return new_rows + carried, {**new_totals, **carried_totals}, kept
+
+
 def compare(old_rows, new_rows, trade_date, source_file, *, old_accounts=(), new_accounts=()):
     """What a save changes, and the buys and sells worked out from it:
     (diff_positions() result, synthesize_transactions() rows).

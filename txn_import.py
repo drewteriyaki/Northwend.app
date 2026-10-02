@@ -343,13 +343,21 @@ def drop_covered(txns: list[dict], cover: dict[str, str]) -> list[dict]:
                                     and (t["trade_date"] or "") <= cover[t["account"]])]
 
 
-def save_worked_out(conn, user_id: int, trade_date: str, txns: list[dict]) -> int:
+def save_worked_out(conn, user_id: int, trade_date: str, txns: list[dict],
+                    accounts=None) -> int:
     """Replace the day's worked-out rows (changes.compare) with `txns`, less
-    those the imported history already covers; imported rows stay. Account
-    names are saved masked. No commit - the caller's transaction. Returns
-    how many were written."""
-    conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ? AND "
-                 "origin IS NULL", (trade_date, user_id))
+    those the imported history already covers; imported rows stay. With
+    `accounts`, only those accounts' rows that day are replaced (a save of
+    one brokerage's accounts leaves the trades worked out for the others).
+    Account names are saved masked. No commit - the caller's transaction.
+    Returns how many were written."""
+    if accounts is None:
+        conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ? AND "
+                     "origin IS NULL", (trade_date, user_id))
+    else:
+        for acct in sorted({mask_number(a) for a in accounts}):
+            conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ? AND "
+                         "origin IS NULL AND account = ?", (trade_date, user_id, acct))
     txns = [{**t, "account": mask_number(t["account"]), "user_id": user_id} for t in txns]
     txns = drop_covered(txns, covered(conn, user_id))
     if txns:

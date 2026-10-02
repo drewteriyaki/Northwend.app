@@ -8,6 +8,8 @@
 # ruff: noqa: F821
 
 import txn_import
+from portfolio import (PRETEND_SOURCES, current_holdings, prepare_save, remove_account,
+                       save_prepared)
 
 
 def _after_import():
@@ -23,13 +25,19 @@ def _after_import():
     st.session_state["value_rebase"] = True
 
 
+def _manual_saved(current_positions, current_cash):
+    """The latest holdings as saved - account names as the broker's, not
+    nicknames: (positions, {account: cash})."""
+    to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
+    base = [{**p, "account": p.get("broker_account") or p.get("account")} for p in current_positions]
+    return base, {to_broker.get(a, a): v for a, v in current_cash.items()}
+
+
 def _manual_rows_init(current_positions, current_cash, current_source=None):
     """Start the hand-entry form from the latest snapshot (once per opening)."""
     if "me_ids" in st.session_state:
         return
-    to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
-    base = [{**p, "account": p.get("broker_account") or p.get("account")} for p in current_positions]
-    cash = {to_broker.get(a, a): v for a, v in current_cash.items()}
+    base, cash = _manual_saved(current_positions, current_cash)
     holdings, cash_rows = manual_entry.prefill(base, cash)
     weights, cash_pct = manual_entry.prefill_weights(base, cash)
     pct_by = {(w["Account"], w["Symbol"]): w["Percent"] for w in weights}
@@ -114,41 +122,122 @@ def _manual_form_rows():
     return holdings, cash
 
 
-def _manual_from_paste():
-    """Replace the form's rows with what paste_parse finds in the pasted text,
-    then forget the text."""
+def _manual_accounts(saved):
+    """The accounts the form knows: those saved (`saved`) and those named in
+    its rows (a row with a symbol, or cash) - for the account choice."""
     ss = st.session_state
-    found = paste_parse.parse(ss.get("me_paste") or "")
+    v = ss.get("me_vals") or {}
+    named = [ss.get(f"me_acct_{i}") for i in ss.get("me_ids", [])
+             if (ss.get(f"me_sym_{i}") or "").strip()]
+    named += [ss.get(f"me_cacct_{i}") for i in ss.get("me_cash_ids", [])
+              if v.get(f"cash_{i}") is not None]
+    out = []
+    for a in [*saved, *named]:
+        a = (a or "").strip()
+        if a and a not in out:
+            out.append(a)
+    return out
+
+
+def _account_choice(label, key, existing, suggested, *, help=None):
+    """Which account some holdings are for: one already here, or a new one
+    (type its name). Starts on `suggested` (accounts.suggest_account) until
+    a choice is made. Returns the account's name, as it's saved."""
+    ss = st.session_state
+    if not ss.get(f"{key}_chosen") or not ss.get(key):
+        ss[key] = suggested
+    options = [*existing, *[a for a in (suggested, ss.get(key)) if a and a not in existing]]
+    options = list(dict.fromkeys(options))
+    st.selectbox(label, options, key=key, accept_new_options=True, help=help,
+                 format_func=lambda a: (accounts.display(a, ACCOUNT_LABELS) or a)
+                 + ("" if a in existing else " (new account)"),
+                 on_change=lambda: ss.__setitem__(f"{key}_chosen", True))
+    return (ss.get(key) or suggested).strip()
+
+
+def _paste_account(text, existing):
+    """The account a paste goes in, unless one was chosen: the brokerage's
+    name when the text gives it away, else a new neutral name."""
+    ss = st.session_state
+    if ss.get("me_paste_acct_chosen") and (ss.get("me_paste_acct") or "").strip():
+        return ss["me_paste_acct"].strip()
+    return accounts.suggest_account(accounts.guess_broker(text), existing, ACCOUNT_LABELS)
+
+
+def _manual_from_paste(existing):
+    """Add what paste_parse finds in the pasted text to the form, in the
+    chosen account, then forget the text."""
+    ss = st.session_state
+    text = ss.get("me_paste") or ""
+    acct = _paste_account(text, existing)
+    found = paste_parse.parse(text)
     ss["me_paste"] = ""  # the pasted text isn't kept, even in this session
     if not found["holdings"]:
         ss["me_paste_msg"] = ("warning", "Couldn't find any holdings in that text. Try copying "
                               "just the positions table, or type lines like `VTI 10`.")
         return
-    ss["me_paste_msg"] = _manual_fill(found)
+    ss["me_paste_msg"] = _manual_fill(found, acct)
+    ss.pop("me_paste_acct_chosen", None)  # the next paste is asked about afresh
 
 
-def _manual_fill(found):
-    """Replace the form's rows with `found` (paste_parse.parse() / screenshot_read
-    shape). Returns the (kind, message) to show."""
+def _manual_fill(found, acct):
+    """Add `found` (paste_parse.parse() / screenshot_read shape) to the form as
+    account `acct`'s holdings - other accounts' rows stay. The first fill of
+    an account replaces the rows it had (they're its holdings as last saved;
+    the paste is the new list); a later one adds to them (the next part of a
+    long list), a symbol already there taking the new numbers. Returns the
+    (kind, message) to show."""
     ss = st.session_state
-    acct = _manual_last_account()
-    ss["me_ids"], ss["me_cash_ids"] = [], []
+    acct = (acct or "").strip() or manual_entry.DEFAULT_ACCOUNT
+    filled = ss.setdefault("me_filled", [])
+    v = ss["me_vals"]
+    # rows with nothing in them go (the empty row a new form starts with)
+    ss["me_ids"] = [i for i in ss["me_ids"] if (ss.get(f"me_sym_{i}") or "").strip()]
+    ss["me_cash_ids"] = [i for i in ss["me_cash_ids"] if v.get(f"cash_{i}") is not None]
+    mine = [i for i in ss["me_ids"] if (ss.get(f"me_acct_{i}") or "").strip() == acct]
+    replaced = 0
+    if acct not in filled:
+        replaced = len(mine)
+        ss["me_ids"] = [i for i in ss["me_ids"] if i not in mine]
+        mine = []
+    by_sym = {(ss.get(f"me_sym_{i}") or "").strip().upper(): i for i in mine}
     for h in found["holdings"]:
-        _manual_add_row({"Account": acct, "Symbol": h["Symbol"], "Shares": h["Shares"],
-                         "Total cost": h["Total cost"], "Percent": h["Percent"],
-                         "Type": h.get("Type") or "Other"})
-    _manual_add_cash({"Account": acct, "Cash": found["cash"] if found["mode"] == "Shares" else None})
+        r = {"Account": acct, "Symbol": h["Symbol"], "Shares": h["Shares"],
+             "Total cost": h["Total cost"], "Percent": h["Percent"],
+             "Type": h.get("Type") or "Other"}
+        i = by_sym.get(h["Symbol"])
+        if i is None:
+            _manual_add_row(r)
+        else:
+            v.update({f"qty_{i}": r["Shares"], f"cost_{i}": r["Total cost"],
+                      f"pct_{i}": r["Percent"]})
+    cash = found["cash"] if found["mode"] == "Shares" else None
+    cash_ids = [i for i in ss["me_cash_ids"] if (ss.get(f"me_cacct_{i}") or "").strip() == acct]
+    if cash is not None:
+        ss["me_cash_ids"] = [i for i in ss["me_cash_ids"] if i not in cash_ids]
+        _manual_add_cash({"Account": acct, "Cash": cash})
+    elif not cash_ids:
+        _manual_add_cash({"Account": acct, "Cash": None})
+    if acct not in filled:
+        filled.append(acct)
     ss["me_mode"] = found["mode"]
+    ss.pop("me_review", None)
     n = len(found["holdings"])
+    shown = accounts.display(acct, ACCOUNT_LABELS)
     return ("success", f"Found {n} holding{'s' if n != 1 else ''}"
-                          + (f" and {fmt_money(found['cash'])} cash" if found["cash"] else "")
-                          + " - check them below, then look up prices. Type is set to Other; "
-                            "Yahoo works out what each one holds.")
+                          + (f" and {fmt_money(cash)} cash" if cash else "")
+                          + f" for **{shown}**"
+                          + (f", in place of the {replaced} it had" if replaced else "")
+                          + " - check them below, then look up prices. Your other accounts "
+                            "stay as they are. Type is set to Other; Yahoo works out what "
+                            "each one holds.")
 
 
-def _render_screenshot_reader():
+def _render_screenshot_reader(existing=()):
     """Read from screenshots: opt-in, the images go to Anthropic's AI (see
-    screenshot_read.py). They're read from memory and never kept."""
+    screenshot_read.py). They're read from memory and never kept. What's
+    read is added to the form as the account chosen here (`existing`: the
+    accounts already known)."""
     ss = st.session_state
     msg = ss.pop("me_shot_msg", None)
     with st.expander(":material/photo_camera: Read from screenshots (uses AI)",
@@ -167,6 +256,11 @@ def _render_screenshot_reader():
         shots = st.file_uploader(
             "Screenshots", type=sorted(screenshot_read.MEDIA_TYPES), accept_multiple_files=True,
             key=f"me_shots_{n}", label_visibility="collapsed")
+        shot_acct = _account_choice(
+            "Which account are they from?", "me_shot_acct", list(existing),
+            accounts.suggest_account(None, existing, ACCOUNT_LABELS),
+            help="Choose one of your accounts to update it, or type a new name to add one. "
+                 "Your other accounts stay as they are.")
         agreed = st.checkbox("Send these images to Anthropic's AI to read them",
                              key=f"me_shots_ok_{n}")
         if msg:
@@ -195,7 +289,8 @@ def _render_screenshot_reader():
                 ss["me_shot_msg"] = ("warning", "No holdings could be read from those "
                                      "screenshots. Try cropping closer to the list.")
             else:
-                ss["me_shot_msg"] = _manual_fill(found)
+                ss["me_shot_msg"] = _manual_fill(found, shot_acct)
+                ss.pop("me_shot_acct_chosen", None)  # the next read is asked about afresh
             st.rerun(scope="fragment")
 
 
@@ -204,15 +299,13 @@ def _manual_clear():
         del st.session_state[k]
 
 
-def _manual_save(meta, rows, totals, txns, source):
-    """Write a reviewed hand entry: the snapshot (portfolio.write_snapshot, the
-    same save an import uses) and the day's inferred buys and sells."""
+def _manual_save(prepared, source):
+    """Write a reviewed save (portfolio.prepare_save's result) - any way of
+    adding holdings: the snapshot, with every account not in it carried
+    forward, and the day's worked-out buys and sells for its accounts."""
     conn = connect(DB)
     try:
-        write_snapshot(conn, USER_ID, meta, rows, totals, source)
-        # the day's worked-out rows are redone (accounts masked); imported history stays
-        txn_import.save_worked_out(conn, USER_ID, meta["snapshot_date"], txns)
-        conn.commit()
+        save_prepared(conn, USER_ID, prepared, source)
     except DBError:
         conn.rollback()
         raise
@@ -220,55 +313,104 @@ def _manual_save(meta, rows, totals, txns, source):
         conn.close()
 
 
+def _acct_name(a):
+    """An account as the person knows it: its nickname, else the saved name."""
+    return accounts.display(a, ACCOUNT_LABELS) or a
+
+
 def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_holdings",
                      after=None):
     """"What we'll keep", the change summary and Save, for holdings about to be
     saved as a snapshot - hand entry, paste, screenshots and CSV files alike.
-    `after` runs once saved (e.g. clearing the form)."""
-    # account names as they're saved - the last 3 digits of any account number -
-    # so they match what's already saved and nothing keeps the full number
-    rows = changes.masked(rows)
-    totals = {accounts.mask_number(a): t for a, t in totals.items()}
+    The save updates only the accounts in it; the others are kept as they are
+    (portfolio.prepare_save says how). `after` runs once saved (e.g. clearing
+    the form)."""
+    conn = connect(DB)
+    try:
+        p = prepare_save(conn, USER_ID, meta, rows, totals, source, whole=pct_mode)
+    finally:
+        conn.close()
+    mine = set(p["updating"])
+    if p["older"]:
+        st.info(f"This file is from {_fmt_date(p['file_date'])}, older than your current "
+                f"holdings ({_fmt_date(p['older'])}) - its accounts are updated, the rest kept.")
+    if p["replaces"] == "example":
+        st.caption("These replace the example portfolio.")
+    elif p["replaces"] == "percentages":
+        st.caption("These real holdings replace your percentages-only portfolio.")
+    elif p["replaces"] == "everything":
+        st.caption("A percentages-only portfolio is one pretend total, so it replaces all the "
+                   "holdings you have now.")
+    merged = p["trade_accounts"] is not None   # into the holdings you have now
+    if merged or len(mine) > 1:
+        new = set(p["new"]) if merged else set()
+        _md("**Updating:** " + ", ".join(
+            _acct_name(a) + (" (new account)" if a in new else "") for a in p["updating"]))
+    if p["kept"]:
+        def worth(a):
+            return sum(r.get("market_value") or 0.0 for r in p["rows"] if r["account"] == a) + \
+                ((p["totals"].get(a) or {}).get("cash_value") or 0.0)
+        _md("**Kept as is:** " + ", ".join(f"{_acct_name(a)} ({fmt_money(worth(a))})"
+                                         for a in p["kept"]))
+        st.caption("Your other accounts stay just as they were - updating one never removes "
+                   f"another. To take an account out, use **Remove** under Accounts on "
+                   f"{_label('Dashboard')}.")
     st.markdown("**What we'll keep**")
     st.dataframe(pd.DataFrame([{
-        "Account": r["account"], "Symbol": r["symbol"],
+        "Account": _acct_name(r["account"]), "Symbol": r["symbol"],
         "Name": r["description"] or "",
         "Shares": round(r["quantity"], 4), "Value": fmt_money(r["market_value"]),
         **({} if pct_mode else {"Total cost": fmt_money(r["cost_basis"])
                                 if r["cost_basis"] is not None else ""})}
-        for r in rows]), hide_index=True, width="stretch")
-    total = sum(r["market_value"] for r in rows) + sum(t["cash_value"] or 0 for t in totals.values())
-    conn = connect(DB)
-    try:
-        # the last saved holdings (none if it was the example portfolio)
-        base_date, base_rows, base_accounts = previous_snapshot(conn, USER_ID,
-                                                                meta["snapshot_date"])
-    finally:
-        conn.close()
-    # buys and sells only in accounts held before and now: a new account's
-    # holdings are where it starts, not purchases
-    d, txns = changes.compare(base_rows, rows, meta["snapshot_date"], source,
-                              old_accounts=base_accounts, new_accounts=totals)
-    if pct_mode:
-        txns = []  # a pretend portfolio has no real buys and sells to record
-    _md(f"Total **{fmt_money(total)}**"
-        + (" (pretend)" if pct_mode else " today")
-        + f" · {len(d['new'])} new, {len(d['increased']) + len(d['decreased'])} changed, "
-          f"{len(d['closed'])} removed since "
-          f"{_fmt_date(base_date) if base_date else 'nothing yet'}.")
+        for r in p["rows"] if r["account"] in mine]), hide_index=True, width="stretch")
+    d = p["diff"]
+    n_changed = len(d["increased"]) + len(d["decreased"])
+    _md(f"Total **{fmt_money(p['total'])}**"
+        + (" (pretend)" if pct_mode else " across all your accounts" if p["kept"] else "")
+        + " · " + ("in the accounts updated, " if p["kept"] else "")
+        + f"{len(d['new'])} new, {n_changed} changed, {len(d['closed'])} removed since "
+        + (_fmt_date(p["base_date"]) if p["base_date"] else "nothing yet") + "."
+        + (" Not recorded as buys or sells, as the file is older than your holdings."
+           if p["older"] and (n_changed or d["closed"]) else ""))
     st.caption(NOT_KEPT)
     if st.button("Save holdings", type="primary", key=key):
         try:
-            _manual_save(meta, rows, totals, txns, source)
+            _manual_save(p, source)
         except DBError as exc:
             st.error(f"Saving failed, nothing was changed: {exc}")
         else:
-            st.session_state["import_flash"] = (f"Saved {len(rows)} holding(s) for "
-                                  f"{_fmt_date(meta['snapshot_date'])}.")
+            n, k = sum(r["account"] in mine for r in p["rows"]), len(p["kept"])
+            flash = f"Saved {n} holding{'s' if n != 1 else ''}"
+            if k:
+                flash += " in " + ", ".join(_acct_name(a) for a in p["updating"])
+            flash += f" for {_fmt_date(p['meta']['snapshot_date'])}"
+            if k:
+                flash += (f"; your {k} other account{'s are' if k != 1 else ' is'} "
+                          "kept as before")
+            st.session_state["import_flash"] = flash + "."
             if after:
                 after()
             _after_import()
             st.rerun()
+
+
+def _remove_account(account):
+    """Remove on Home's Accounts: a new snapshot without `account` (its saved
+    name); the others are kept as they are (portfolio.remove_account)."""
+    ss = st.session_state
+    conn = connect(DB)
+    try:
+        done = remove_account(conn, USER_ID, account)
+    except DBError as exc:
+        ss["import_flash"] = f"Removing it failed, nothing was changed: {exc}"
+        return
+    finally:
+        conn.close()
+    ss.pop(f"acct_rm_ok_{account}", None)
+    if done:
+        ss["import_flash"] = (f"Removed {_acct_name(account)} from your holdings. Your other "
+                              "accounts are as they were, and its past stays in your history.")
+        _after_import()
 
 
 @st.dialog("Add or update holdings", width="large", on_dismiss=_dialog_closed)
@@ -279,6 +421,9 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
     _manual_rows_init(current_positions, current_cash, current_source)
     ss = st.session_state
+    saved_rows, saved_cash = _manual_saved(current_positions, current_cash)
+    saved_accts = sorted({r["account"] for r in saved_rows} | set(saved_cash))
+    existing = _manual_accounts(saved_accts)
     st.caption(":material/lock: " + TRUST_LINE)
     _empty = not any((ss.get(f"me_sym_{i}") or "").strip() for i in ss["me_ids"])
     with st.expander(":material/content_paste: Paste from your brokerage",
@@ -289,11 +434,17 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
         st.text_area("Pasted positions", key="me_paste", height=120,
                      label_visibility="collapsed",
                      placeholder="VTI   10\nBND   25\n...or paste a whole table")
-        st.button("Fill in from pasted text", key="me_paste_btn", on_click=_manual_from_paste)
+        _account_choice("Which account are these from?", "me_paste_acct", existing,
+                        _paste_account(ss.get("me_paste") or "", existing),
+                        help="Choose one of your accounts to update it, or type a new name to "
+                             "add one - one per brokerage account. Your other accounts stay as "
+                             "they are.")
+        st.button("Fill in from pasted text", key="me_paste_btn", on_click=_manual_from_paste,
+                  args=(existing,))
         _pm = ss.pop("me_paste_msg", None)
         if _pm:
             getattr(st, _pm[0])(_pm[1])
-    _render_screenshot_reader()
+    _render_screenshot_reader(existing)
     st.segmented_control("How to enter them", ["Shares", "Percentages"], key="me_mode",
                          required=True, on_change=lambda: ss.pop("me_review", None))
     pct_mode = ss.get("me_mode") == "Percentages"
@@ -347,9 +498,20 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     else:
         clean, cash, errors = manual_entry.validate(holdings, cash_rows)
     if st.button("Look up prices and review", type="primary", key="me_review_btn"):
+        same = set()
+        if not errors and not pct_mode and current_source not in PRETEND_SOURCES:
+            # an account left just as it was saved is kept as saved, not
+            # priced and saved again (the form starts from every account)
+            same = manual_entry.unchanged_accounts(clean, cash, saved_rows, saved_cash)
+            clean = [h for h in clean if h["account"] not in same]
+            cash = {a: c for a, c in cash.items() if a not in same}
         if errors:
             ss.pop("me_review", None)
             st.error("  \n".join(errors))
+        elif same and not clean and not cash:
+            ss.pop("me_review", None)
+            st.info("Nothing has changed - your holdings are just as saved. Change a holding, "
+                    "or paste or add another account, then review again.")
         else:
             known = {p["symbol"]: p.get("description") for p in current_positions}
             with st.spinner("Looking up prices..."):
@@ -479,7 +641,26 @@ def _import_csv_file(src_path, source_name):
                 "in the sidebar and its Percentages mode instead.")
         return
 
-    meta, prow, totals = csv_import.to_snapshot(found, account_default=manual_entry.DEFAULT_ACCOUNT)
+    account_default = manual_entry.DEFAULT_ACCOUNT
+    if any(not h["Account"] for h in found["holdings"]) or None in found["cash"]:
+        # the file doesn't say which account: ask, suggesting the brokerage's
+        # name when the file gives it away - never quietly one already here
+        conn = connect(DB)
+        try:
+            cur = current_holdings(conn, USER_ID)
+        finally:
+            conn.close()
+        existing = [] if cur["source"] in PRETEND_SOURCES else sorted(
+            {r["account"] for r in cur["rows"]} | set(cur["totals"]))
+        broker = accounts.guess_broker(
+            "\n".join(" ".join(c for c in r if c) for r in rows), header=header,
+            filename=os.path.basename(source_name.replace("upload: ", "")))
+        account_default = _account_choice(
+            "Which account is this?", f"csv_acct_{sig[:10]}", existing,
+            accounts.suggest_account(broker, existing, ACCOUNT_LABELS),
+            help="The file doesn't name its account. Choose one of yours to update it, or "
+                 "type a new name to add it - your other accounts stay as they are.")
+    meta, prow, totals = csv_import.to_snapshot(found, account_default=account_default)
     # the file's own values where it has them; today's price for the rest
     unpriced = [r["symbol"] for r in prow if r["market_value"] is None]
     if unpriced:

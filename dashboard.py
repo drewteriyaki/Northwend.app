@@ -48,8 +48,8 @@ import prefs
 import route
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
-from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, previous_snapshot,
-                       snapshot_source, temp_upload, upload_label, write_snapshot)
+from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
+                       temp_upload, upload_label)
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
 import changes
 

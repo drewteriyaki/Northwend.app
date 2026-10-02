@@ -416,14 +416,14 @@ if PAGE == "Dashboard":
     st.divider()
 
     # ---- accounts: side-by-side comparison -------------------------------- #
-    ac1, ac2 = st.columns([0.75, 0.25])
+    ac1, ac2, ac3 = st.columns([0.5, 0.25, 0.25])
     ac1.subheader("Accounts")
+    # the broker's own names, recovered from the display names in use
+    _to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
+    _broker_accts = sorted({p["broker_account"] for p in positions}
+                           | {_to_broker.get(a, a) for a in cash_by_account})
     if CAN_MANAGE:
         with ac2.popover("Rename", width="stretch"):
-            # the broker's own names, recovered from the display names in use
-            _to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
-            _broker_accts = sorted({p["broker_account"] for p in positions}
-                                   | {_to_broker.get(a, a) for a in cash_by_account})
             with st.form("rename_accounts", border=False):
                 st.caption("Give an account a name you'll recognize. Leave blank to use the "
                            "broker's name.")
@@ -476,6 +476,21 @@ if PAGE == "Dashboard":
             "pct_of_portfolio": (_total / portfolio_value * 100) if portfolio_value else None,
         })
     _acct_rows.sort(key=lambda r: r["total"], reverse=True)
+
+    if CAN_IMPORT and len(_broker_accts) > 1:
+        # Updating one account never removes another (an import replaces only
+        # the accounts in it), so taking one out is done here, on purpose.
+        with ac3.popover("Remove", width="stretch"):
+            _worth = {_to_broker.get(r["account"], r["account"]): r["total"] for r in _acct_rows}
+            st.caption("Take an account out of your holdings - one you closed or moved. Your "
+                       "other accounts stay as they are, and its past stays in your history.")
+            _rm = st.selectbox("Account to remove", _broker_accts, key="acct_rm_pick",
+                               format_func=lambda a: accounts.display(a, ACCOUNT_LABELS))
+            _ok = st.checkbox(f"Yes, remove {accounts.display(_rm, ACCOUNT_LABELS)} "
+                              f"({fmt_money(_worth.get(_rm, 0.0))})".replace("$", r"\$"),
+                              key=f"acct_rm_ok_{_rm}")   # asked again for another account
+            st.button("Remove this account", key="acct_rm_btn", type="primary",
+                      disabled=not _ok, on_click=_remove_account, args=(_rm,))
 
     if len(_acct_rows) < 2:
         st.caption("Only one account in this portfolio — nothing to compare yet.")

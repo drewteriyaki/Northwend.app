@@ -31,6 +31,80 @@ def mask_number(name: str | None) -> str | None:
     return _ACCOUNT_NUMBER_RE.sub(cut, name)
 
 
+# ---- a name for holdings that come without one ------------------------------ #
+# A paste, a screenshot or an export with no account column doesn't say which
+# account it is. The brokerage's name, when the text gives it away, makes a
+# better suggestion than a made-up one. Listed alphabetically: none is treated
+# differently, and an unknown brokerage just gets the neutral suggestion.
+NEW_ACCOUNT = "Brokerage account"
+_BROKERS = (
+    ("Ally Invest", r"ally invest"), ("Betterment", r"betterment"),
+    ("E*TRADE", r"e\s?\*\s?trade|etrade"), ("Empower", r"empower"),
+    ("Fidelity", r"fidelity"), ("Firstrade", r"firstrade"),
+    ("Interactive Brokers", r"interactive brokers|ibkr"), ("J.P. Morgan", r"j\.?\s?p\.? morgan"),
+    ("Merrill", r"merrill"), ("Morgan Stanley", r"morgan stanley"), ("Public", r"public\.com"),
+    ("Robinhood", r"robinhood"), ("Schwab", r"schwab"), ("SoFi", r"sofi"),
+    ("tastytrade", r"tastytrade|tastyworks"), ("TIAA", r"tiaa"), ("Vanguard", r"vanguard"),
+    ("Wealthfront", r"wealthfront"), ("Webull", r"webull"),
+)
+_BROKER_RES = [(name, re.compile(rf"(?<![a-z])(?:{pat})(?![a-z])", re.I)) for name, pat in _BROKERS]
+# Column names only one brokerage's positions export uses (lower case).
+_LAYOUTS = (
+    ("E*TRADE", ("price paid $",)),
+    ("Fidelity", ("cost basis total", "average cost basis")),
+    ("Schwab", ("reinvest capital gains?",)),
+    ("Schwab", ("cash & cash investments",)),
+    ("Vanguard", ("investment name", "share price", "total value")),
+)
+# A fund or company's own name mentions brokerages all the time ("Vanguard
+# S&P 500 ETF", "Fidelity 500 Index Fund", "Charles Schwab Corp"): a line with
+# one of these words isn't read for the brokerage.
+_SECURITY_WORDS = re.compile(
+    r"\b(etf|etfs|fund|funds|fd|fds|index|idx|trust|admiral|adm|inv|investor|portfolio|corp|"
+    r"corporation|inc|co|ltd|plc|holdings|group|class|cl|income|bond|bd|stock|stk|mkt|market|"
+    r"money|treasury|dividend|equity|growth|value|sp|s&p|\d{3,})\b", re.I)
+
+
+def guess_broker(text: str = "", *, header=(), filename: str = "") -> str | None:
+    """The brokerage some pasted text or an export comes from, when it can be
+    told - from a line naming it (not a fund's or a company's name), the
+    file's name, or column names only one brokerage uses - else None. Only a
+    suggestion for an account's name."""
+    cells = " | ".join(str(c or "").strip().lower() for c in header)
+    for name, cols in _LAYOUTS:
+        if all(c in cells or c in (text or "").lower() for c in cols):
+            return name
+    lines = [ln.strip() for ln in (text or "").splitlines()]
+    lines = [ln for ln in lines if ln and len(ln) <= 80 and not _SECURITY_WORDS.search(ln)]
+    for line in [filename or "", *lines]:
+        for name, rx in _BROKER_RES:
+            if rx.search(line):
+                return name
+    return None
+
+
+def suggest_account(broker: str | None, existing, names: dict[str, str] | None = None) -> str:
+    """The account a paste or a file without account names should go in: the
+    one account already named after `broker` (its name or nickname - a new
+    copy of the same holdings), else a new name no account has yet - the
+    brokerage's, or "Brokerage account" - so two brokerages' holdings never
+    land in one account unasked."""
+    existing, names = [a for a in existing if a], names or {}
+    if broker:
+        rx = re.compile(rf"(?<![a-z]){re.escape(broker)}(?![a-z])", re.I)
+        same = [a for a in existing if rx.search(a) or rx.search(names.get(a) or "")]
+        if len(same) == 1:
+            return same[0]
+    base = broker or NEW_ACCOUNT
+    taken = {a.casefold() for a in existing} | {(names.get(a) or "").casefold() for a in existing}
+    if base.casefold() not in taken:
+        return base
+    n = 2
+    while f"{base} {n}".casefold() in taken:
+        n += 1
+    return f"{base} {n}"
+
+
 def labels(conn, user_id: int) -> dict[str, str]:
     """{broker account name: nickname} for one user."""
     return {r["account"]: r["nickname"] for r in conn.execute(

@@ -380,6 +380,10 @@ POSITION_COLS = [
 
 # snapshots.source_file of the example portfolio (sample_data.py)
 SAMPLE_SOURCE = "sample portfolio"
+# ...and of a percentages-only portfolio (manual_entry.PCT_SOURCE): a pretend
+# total, so neither is ever merged with real holdings, nor compared with them
+PCT_SOURCE = "percentages"
+PRETEND_SOURCES = (SAMPLE_SOURCE, PCT_SOURCE)
 
 
 def clear_sample(conn, user_id: int) -> None:
@@ -425,12 +429,12 @@ def previous_snapshot(conn, user_id: int, before: str) -> tuple[str | None, list
     """What a save dated `before` is compared with: (the latest earlier
     snapshot's date, its holdings, every account it names - cash-only ones
     too). Nothing (None, [], set()) when there is none, or when it's the
-    example portfolio, which a first real save replaces: made-up holdings
-    were never bought or sold."""
+    example portfolio or a percentages one, which a real save replaces:
+    made-up holdings were never bought or sold."""
     base_date = conn.execute(
         "SELECT MAX(snapshot_date) d FROM snapshots WHERE snapshot_date < ? AND user_id = ?",
         (before, user_id)).fetchone()["d"]   # (one with only cash counts too)
-    if not base_date or snapshot_source(conn, user_id, base_date) == SAMPLE_SOURCE:
+    if not base_date or snapshot_source(conn, user_id, base_date) in PRETEND_SOURCES:
         return None, [], set()
     rows = [dict(r) for r in conn.execute(
         "SELECT account, symbol, description, quantity, cost_basis, market_value "
@@ -441,6 +445,132 @@ def previous_snapshot(conn, user_id: int, before: str) -> tuple[str | None, list
     return base_date, rows, accounts
 
 
+# an account's cash and the brokerage's own totals (account_totals)
+TOTALS_COLS = ("cash_value", "reported_cost_basis", "reported_market_value", "reported_gain",
+               "reported_gain_pct")
+
+
+def current_holdings(conn, user_id: int) -> dict:
+    """The latest holdings - what Home shows (update_prices.latest_snapshot)
+    and what a save is merged into: {"date", "source", "as_of_text", "rows"
+    (every column of each position), "totals" ({account: cash and totals})}.
+    "date" is None when there are none."""
+    snap = conn.execute("SELECT MAX(snapshot_date) d FROM positions WHERE user_id = ?",
+                        (user_id,)).fetchone()["d"]
+    if not snap:
+        return {"date": None, "source": None, "as_of_text": None, "rows": [], "totals": {}}
+    head = conn.execute("SELECT source_file, as_of_text FROM snapshots WHERE snapshot_date = ? "
+                        "AND user_id = ? ORDER BY imported_at DESC LIMIT 1",
+                        (snap, user_id)).fetchone()
+    rows = [dict(r) for r in conn.execute(
+        "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ? ORDER BY account, symbol",
+        (snap, user_id))]
+    totals = {r["account"]: {k: r[k] for k in TOTALS_COLS} for r in conn.execute(
+        f"SELECT account, {', '.join(TOTALS_COLS)} FROM account_totals "
+        "WHERE snapshot_date = ? AND user_id = ?", (snap, user_id))}
+    return {"date": snap, "source": head["source_file"] if head else None,
+            "as_of_text": head["as_of_text"] if head else None, "rows": rows, "totals": totals}
+
+
+def prepare_save(conn, user_id: int, meta: dict, rows: list[dict], totals: dict, src: str, *,
+                 whole: bool = False, today: date | None = None) -> dict:
+    """Everything a save of new holdings (an import, a paste, screenshots, a
+    hand entry) does, worked out for the review before it - nothing is
+    written. `meta` / `rows` / `totals` are write_snapshot()'s shapes.
+
+    - The holdings saved are the accounts in `rows` / `totals` as given, and
+      every other account of the current holdings carried forward unchanged
+      (changes.carry_forward): an import replaces only its own accounts.
+    - `whole` (a percentages-only portfolio: one pretend total) replaces
+      everything instead, and so does any real save over the example or a
+      percentages portfolio - made-up accounts are never carried forward.
+    - A file dated before the current holdings is folded into them: saved as
+      of today (or the current holdings' date, if later), so no past
+      snapshot is rewritten and the new holdings are the latest. No buys or
+      sells are worked out from it - it can't say when they happened.
+    - What changed, and the buys and sells worked out from it, cover only
+      the accounts in the save (the others are unchanged by definition),
+      compared with the snapshot before the save's date.
+
+    Returns {"meta", "rows", "totals": what's saved; "updating": the save's
+    accounts; "new": those of them not in the current holdings; "kept":
+    accounts carried forward; "replaces": None, "example", "percentages" or
+    "everything"; "older": the current holdings' date when the file was
+    folded into them, else None; "file_date"; "base_date", "diff", "txns"
+    (changes.compare, for the save's accounts); "trade_accounts": whose
+    worked-out rows the save redoes (None: all); "total": the saved value}."""
+    import changes
+    from accounts import mask_number as mask
+    today = (today or date.today()).isoformat()
+    rows, totals = changes.masked(rows), {mask(a): t for a, t in totals.items()}
+    cur = current_holdings(conn, user_id)
+    file_date = meta["snapshot_date"]
+    pretend = cur["date"] is not None and cur["source"] in PRETEND_SOURCES
+    replaces = None
+    if whole and cur["date"] and cur["source"] != PCT_SOURCE:
+        replaces = "example" if cur["source"] == SAMPLE_SOURCE else "everything"
+    elif not whole and pretend:
+        replaces = "example" if cur["source"] == SAMPLE_SOURCE else "percentages"
+    carry = cur["date"] is not None and not whole and not pretend
+    older = cur["date"] if carry and file_date < cur["date"] else None
+    snap = max(today, cur["date"]) if older else file_date
+    meta = {**meta, "snapshot_date": snap}
+    rows = [{**r, "snapshot_date": snap} for r in rows]
+    updating = changes.accounts_in(rows, totals)
+    if carry:
+        all_rows, all_totals, kept = changes.carry_forward(cur["rows"], cur["totals"], rows,
+                                                           totals, snap)
+    else:
+        all_rows, all_totals, kept = rows, totals, []
+    base_date, base_rows, base_accounts = previous_snapshot(conn, user_id, snap)
+    if carry:   # only the accounts in this save are compared
+        base_rows = [r for r in base_rows if mask(r["account"]) in updating]
+        base_accounts = {a for a in base_accounts if mask(a) in updating}
+    d, txns = changes.compare(base_rows, rows, snap, src, old_accounts=base_accounts,
+                              new_accounts=totals)
+    if whole or older:
+        txns = []   # a pretend portfolio, or an older file: no real buys and sells to record
+    current = changes.accounts_in(cur["rows"], cur["totals"]) if carry else set()
+    return {"meta": meta, "rows": all_rows, "totals": all_totals,
+            "updating": sorted(updating), "new": sorted(updating - current), "kept": kept,
+            "replaces": replaces, "older": older, "file_date": file_date,
+            "base_date": base_date, "diff": d, "txns": txns,
+            "trade_accounts": sorted(updating) if carry else None,
+            "total": round(sum(r.get("market_value") or 0.0 for r in all_rows)
+                           + sum(t.get("cash_value") or 0.0 for t in all_totals.values()), 2)}
+
+
+def save_prepared(conn, user_id: int, prepared: dict, src: str) -> None:
+    """Write what prepare_save() worked out: the snapshot, then the day's
+    worked-out buys and sells for the accounts in the save (imported history
+    stays; other accounts' rows that day too)."""
+    import txn_import
+    write_snapshot(conn, user_id, prepared["meta"], prepared["rows"], prepared["totals"], src)
+    txn_import.save_worked_out(conn, user_id, prepared["meta"]["snapshot_date"],
+                               prepared["txns"], accounts=prepared["trade_accounts"])
+    conn.commit()
+
+
+def remove_account(conn, user_id: int, account: str, *, today: date | None = None) -> str | None:
+    """Take one account (its saved name) out of the holdings: a new snapshot,
+    dated today (or the current holdings' date, if later), of every other
+    account as it is. Earlier snapshots - its history - stay, and no sells
+    are recorded: closing or moving an account isn't selling. Returns the
+    date saved, or None when the current holdings have no such account."""
+    from accounts import mask_number as mask
+    cur = current_holdings(conn, user_id)
+    account = mask(account)
+    if not cur["date"] or account not in {mask(r["account"]) for r in cur["rows"]} | \
+            {mask(a) for a in cur["totals"]}:
+        return None
+    snap = max((today or date.today()).isoformat(), cur["date"])
+    rows = [{**r, "snapshot_date": snap} for r in cur["rows"] if mask(r["account"]) != account]
+    totals = {a: t for a, t in cur["totals"].items() if mask(a) != account}
+    write_snapshot(conn, user_id, {"snapshot_date": snap, "as_of_text": cur["as_of_text"]},
+                   rows, totals, cur["source"] or "")
+    return snap
+
+
 def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dict,
                    src: str) -> None:
     """Save one snapshot for `user_id`, in one transaction: replace any
@@ -448,7 +578,8 @@ def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dic
     then write its positions and account totals. `meta`, `rows` and `totals`
     are parse_csv()'s shapes; `src` names where it came from (the CSV's path,
     or manual_entry.SOURCE). Shared by import_csv() and hand entry
-    (manual_entry.py). Full account numbers in account names are cut to
+    (manual_entry.py). It saves exactly `rows`: the app's saves come through
+    prepare_save(), which adds every account not in them as it was. Full account numbers in account names are cut to
     their last 3 digits first (accounts.mask_number), whatever the source."""
     from accounts import mask_number
     rows = [{**r, "account": mask_number(r.get("account"))} for r in rows]
