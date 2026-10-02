@@ -129,7 +129,8 @@ class MenuTests(unittest.TestCase):
         at = self._run(self.bob, "bob")
         self.assertEqual(at.session_state["page"], "Get started")
         top, inside = self._menus(at)
-        self.assertEqual(top, ["nav_Get started", "nav_Dashboard", "nav_Plan", "nav_AI Assistant"])
+        # the same order as with holdings: a tab never moves under their thumb
+        self.assertEqual(top, MAIN)
         self.assertEqual(inside, MORE)
         self.assertEqual(self._more(at).proto.popover.type, "tertiary")
 

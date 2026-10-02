@@ -18,7 +18,8 @@ FIRST_STEPS = (
     ("why", "What it's for", ("goal", "time_horizon_years")),
     ("ups", "Ups and downs", ("risk_tolerance", "drawdown_reaction")),
     ("you", "A bit about you", ("experience", "age_range")),
-    ("safety", "Your safety net", ("income_stability", "emergency_fund")),
+    ("safety", "Your safety net", ("income_stability", "emergency_fund", "high_interest_debt",
+                                     "employer_match")),
     ("goal", "Your goal", ()),
     ("direction", "Your direction", ()),
     ("bring", "Bring it in", ()),
@@ -82,11 +83,20 @@ def _fs_save_answers(fields):
             c.close()
 
 
+def _fs_goal_fallback():
+    """The goal type when none is picked: the profile's goal, else Other."""
+    import advisor
+    first = (advisor.split_multi(_profile().get("goal")) or [None])[0]
+    return _GOAL_FROM_PROFILE.get(first) or "Other"
+
+
 def _fs_save_goal():
-    goal_type = st.session_state.get("fs_goal_type")
     target = st.session_state.get("fs_goal_target") or 0
-    if not goal_type or target <= 0:
+    if target <= 0:
         return  # a goal is optional here; the Plan page asks again later
+    # an amount without a type (a tap can un-pick the one picked for them) is
+    # still their goal: never dropped without a word
+    goal_type = st.session_state.get("fs_goal_type") or _fs_goal_fallback()
     years = int(st.session_state.get("fs_goal_years") or 10)
     when = plans.add_months(datetime.now().date(), 12 * years)
     save_plan_fields({"goal_type": goal_type, "target_amount": float(target),
@@ -122,6 +132,9 @@ def _fs_finish(then=None):
         st.session_state["page"] = "Dashboard"   # straight to seeing it
     elif then in ("manual", "import"):
         _open_holdings_dialog(then)
+    elif then == "account":
+        st.session_state["gs_at"] = "account"   # Learn, open at "Open an account"
+        st.session_state["page"] = "Get started"
 
 
 def _fs_dots(i, n):
@@ -130,22 +143,24 @@ def _fs_dots(i, n):
     st.html(f"<div class='pt-fs-dots' role='img' aria-label='Step {i + 1} of {n}'>{dots}</div>")
 
 
-def _fs_question(field, profile):
-    """One profile question as taps, prefilled with any saved answer."""
+def _fs_question(field, profile, on_change=None, args=None):
+    """One profile question as taps, prefilled with any saved answer
+    (`on_change`: Learn's waypoint 2 uses these too, and saves each tap)."""
     import advisor
     q, cur = PROFILE_QUESTIONS[field], profile.get(field)
     key = f"fs_{field}"
+    cb = {"on_change": on_change, "args": args}
     if field in advisor.MULTI_CHOICES:
         st.session_state.setdefault(key, advisor.split_multi(cur))
-        st.pills(q, list(advisor.MULTI_CHOICES[field]), selection_mode="multi", key=key)
+        st.pills(q, list(advisor.MULTI_CHOICES[field]), selection_mode="multi", key=key, **cb)
     elif field == "time_horizon_years":
         st.session_state.setdefault(key, int(cur) if cur else None)
-        st.pills(q, list(HORIZON_YEARS), key=key,
+        st.pills(q, list(HORIZON_YEARS), key=key, **cb,
                  format_func=lambda v: f"{v} year{'s' if v != 1 else ''}"
                  f"{'+' if v == HORIZON_YEARS[-1] else ''}")
     else:
         st.session_state.setdefault(key, cur or None)
-        st.pills(q, list(advisor.CHOICES[field]), key=key,
+        st.pills(q, list(advisor.CHOICES[field]), key=key, **cb,
                  format_func=lambda v: v[:1].upper() + v[1:])
 
 
@@ -159,7 +174,11 @@ def _fs_screen_goal(profile):
     st.session_state.setdefault("fs_goal_years", int(profile.get("time_horizon_years") or 10))
     st.session_state.setdefault("fs_goal_monthly", float(plan.get("monthly_contribution") or 0))
     st.markdown("A rough goal is plenty - you can change it any time on the Plan page.")
-    st.pills("What's the goal?", plans.GOAL_TYPES, key="fs_goal_type")
+    if not st.session_state.get("fs_goal_type"):
+        st.session_state["fs_goal_type"] = _fs_goal_fallback()
+    # required: tapping the chosen one keeps it chosen (a second tap used to
+    # un-pick it, and the goal was then quietly not saved)
+    st.pills("What's the goal?", plans.GOAL_TYPES, key="fs_goal_type", required=True)
     c1, c2 = st.columns(2)
     c1.number_input("About how much you'll need ($)", min_value=0.0, step=1000.0,
                     format="%.0f", key="fs_goal_target")
@@ -185,7 +204,24 @@ def _fs_screen_direction(profile):
                     "investor you are, with an example mix that fits.")
 
 
-def _fs_screen_bring():
+def _fs_screen_bring(profile):
+    if (profile.get("experience") or "").lower() == "new":
+        # new to investing: most people here don't have an account yet, so
+        # that's the first way on; bringing one in is still a tap away
+        st.markdown("Last step. Most people new to investing don't have an account yet - "
+                    f"{_label('Get started')} walks you through opening one, one tick at a "
+                    "time, and what a first buy looks like.")
+        st.button(":material/route: I don't have an account yet - show me how",
+                  key="fs_no_account", type="primary", on_click=_fs_finish, args=("account",))
+        st.caption("Already have one? Bring it in from **any brokerage** - or look around with "
+                   "an example portfolio first.")
+        with st.container(horizontal=True):
+            st.button(":material/content_paste: Paste or type", key="fs_manual",
+                      on_click=_fs_finish, args=("manual",))
+            st.button(":material/science: Try an example", key="fs_example", type="tertiary",
+                      on_click=_fs_finish, args=("example",))
+        st.caption(":material/lock: " + TRUST_LINE)
+        return
     st.markdown("Last step: bring in what you own - from **any brokerage**, by pasting, a CSV, "
                 "screenshots or typing it in. Or look around with an example portfolio first.")
     st.caption(":material/lock: " + TRUST_LINE)
@@ -196,8 +232,8 @@ def _fs_screen_bring():
                   on_click=_fs_finish, args=("import",))
         st.button(":material/science: Try an example", key="fs_example",
                   on_click=_fs_finish, args=("example",))
-    st.caption(f"Don't have an account yet? Finish here, and the {_label('Get started')} page "
-               "walks you through opening one.")
+    st.button(":material/route: I don't have an account yet - show me how", key="fs_no_account",
+              type="tertiary", on_click=_fs_finish, args=("account",))
 
 
 def render_first_steps(has_holdings):
@@ -205,6 +241,9 @@ def render_first_steps(has_holdings):
     i = min(int(_fs_state().get("step") or 0), len(steps) - 1)
     key, title, fields = steps[i]
     profile = _profile()   # read once per run (dashboard.py)
+    # the phone tab bar steps aside while these are open, so Back / Next
+    # (pinned to the bottom there) are never behind it; Skip for now leaves
+    st.html("<style>body .st-key-pt_tabbar { display: none !important; }</style>")
     _, mid, _ = st.columns([1, 3, 1])
     with mid:
         _fs_dots(i, len(steps))
@@ -232,10 +271,11 @@ def render_first_steps(has_holdings):
                 elif key == "direction":
                     _fs_screen_direction(profile)
                 elif key == "bring":
-                    _fs_screen_bring()
+                    _fs_screen_bring(profile)
             if key in FIRST_STEPS_LINKS:
                 learn_more(FIRST_STEPS_LINKS[key])
-        with st.container(horizontal=True, vertical_alignment="center"):
+        # pt_fs_nav: on a phone it stays in reach at the bottom of the screen
+        with st.container(horizontal=True, vertical_alignment="center", key="pt_fs_nav"):
             if i:
                 st.button(":material/arrow_back: Back", key="fs_back", on_click=_fs_move,
                           args=(i, -1))

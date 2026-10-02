@@ -15,12 +15,14 @@ STALE_DAYS = 45       # holdings older than this get "update your holdings"
 def next_step(*, has_goal: bool, can_manage: bool, profile_missing: bool,
               has_holdings: bool, monthly: float, goal: dict | None,
               drift: list[tuple[str, float, float, float]], days_since_holdings: int | None,
-              waypoints: list[tuple[str, str, bool]]) -> dict:
+              waypoints: list[tuple[str, str, bool]], starting: bool = False) -> dict:
     """The single next step, as {"key", ...details}. In order:
 
     goal       - no goal yet (or "goal_wait": an advisor-managed client)
     profile    - the few questions about you are unanswered
-    holdings   - nothing brought in yet
+    holdings   - nothing brought in yet (`starting`, someone who isn't
+                 investing yet: their next Get started waypoint instead -
+                 the last one is opening an account and bringing it in)
     monthly    - a goal but no monthly amount
     gap        - behind (or only within reach): what monthly amount closes it
     drift      - the mix is past its drift limit from the target
@@ -37,13 +39,17 @@ def next_step(*, has_goal: bool, can_manage: bool, profile_missing: bool,
     if profile_missing and can_manage:
         return {"key": "profile"}
     if not has_holdings:
+        if starting:
+            for i, (key, title, done) in enumerate(waypoints, start=1):
+                if not done:
+                    return {"key": "learn", "number": i, "step": key, "title": title}
         return {"key": "holdings"}
     status = (goal or {}).get("status")
     if status == "reached":
         return {"key": "reached"}
     if can_manage and not monthly:
         return {"key": "monthly", "needed": (goal or {}).get("needed_monthly")}
-    if status in ("behind", "within_reach") and can_manage:
+    if status in ("behind", "within_reach", "starting") and can_manage:
         needed = (goal or {}).get("needed_monthly")
         if needed and needed > monthly:
             return {"key": "gap", "needed": needed, "extra": needed - monthly}

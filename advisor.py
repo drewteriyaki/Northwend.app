@@ -71,6 +71,9 @@ MULTI_SEP = "; "
 # up advice for; notes is the user's own free text
 REQUIRED_PROFILE_FIELDS = ("goal", "time_horizon_years", "risk_tolerance", "drawdown_reaction",
                            "experience", "age_range", "income_stability", "emergency_fund")
+# ...plus the readiness check's two (learn.readiness): what the profile count
+# people see covers, so it never reads as complete while those are open
+KEY_PROFILE_FIELDS = REQUIRED_PROFILE_FIELDS + ("high_interest_debt", "employer_match")
 
 # The assistant's own notes between conversations, kept on the profile row
 # but never shown in the app.

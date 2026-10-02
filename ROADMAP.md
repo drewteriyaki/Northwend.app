@@ -804,6 +804,26 @@ phone-only beginner). What they found, fixed in this order:
       with a note and no trades; "Remove this account" on Home (no sells
       recorded). The example and percentages portfolios are never merged.
       Left: the command line's `portfolio.py import` still replaces its date.
+- [x] **The beginner path** - with no holdings, Home showed a technical
+      "upload your positions CSV" page everywhere. Now Home shows the route,
+      their direction and calm options (practice money, an example, "I
+      already invest"); Watchlist works without holdings; Income and
+      Activity say one friendly line (`views/start_home.py`). Learn's "Open
+      an account" is a checklist with "What your first buy looks like" (no
+      more Learn <-> Home loop); the example doesn't count as an opened
+      account (or a reached goal). First steps: a goal can't be lost, "no
+      account yet - show me how" for the new, Next reachable on a phone.
+      The example mix no longer overflows; Plan says "Starting out", not a
+      red "Behind", with nothing invested; readiness questions answered in
+      place (debt and employer match also on the safety-net slide); one
+      welcome line after sign-up instead of three banners. Menu order is the
+      same before and after holdings.
+- [ ] **Next, from the walkthroughs:** website hooks (a "New to investing?"
+      line, an "Already investing?" section, a phone menu; growth, fee and
+      inflation calculators; the direction quiz before sign-up); advisor
+      basics (approval email, client names, a branded invite, a client
+      mode, proposal emails, friendly AI errors); then an overlap view, a
+      retirement-income tab, total return with dividends, yield on cost.
 
 ## Later
 

@@ -252,9 +252,11 @@ def progress(plan: dict, current_value: float, *, today: date,
              return_pct: float = DEFAULT_RETURN_PCT, spread: float = SPREAD_PCT) -> dict:
     """Where the account stands against its goal.
 
-    status: 'reached' (already at or past the target), 'on_track' (the
-    assumed return gets there), 'within_reach' (only the optimistic end
-    does), 'behind', or 'past_date' (the date has passed short of it)."""
+    status: 'reached' (already at or past the target), 'starting' (nothing
+    invested yet - day one isn't "behind"; needed_monthly is what gets
+    there), 'on_track' (the assumed return gets there), 'within_reach' (only
+    the optimistic end does), 'behind', or 'past_date' (the date has passed
+    short of it)."""
     target = float(plan["target_amount"])
     monthly = float(plan.get("monthly_contribution") or 0.0)
     months = months_until(plan["target_date"], today)
@@ -264,6 +266,8 @@ def progress(plan: dict, current_value: float, *, today: date,
         status = "reached"
     elif months <= 0:
         status = "past_date"
+    elif current_value <= 0:
+        status = "starting"
     elif mid >= target:
         status = "on_track"
     elif hi >= target:

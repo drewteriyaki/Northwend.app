@@ -10,6 +10,7 @@
 # status -> (label, css tone); the label always goes with the color
 PLAN_STATUS = {
     "reached": ("Goal reached", "pt-up"),
+    "starting": ("Starting out", "pt-start"),   # nothing invested yet: neutral, never red
     "on_track": ("On track", "pt-up"),
     "within_reach": ("Within reach", "pt-warn"),
     "behind": ("Behind", "pt-down"),
@@ -147,10 +148,14 @@ def _render_plan_status(plan, value, today):
         st.session_state["plan_editing"] = True
         st.rerun()
     pct = prog["pct_of_target"] or 0.0
+    # nothing invested yet: lead with what gets there, not "0% of"
+    lead = (f"About {fmt_money0(prog['needed_monthly'])} a month gets you there"
+            if prog["status"] == "starting" and prog["needed_monthly"] else
+            f"{mask_or(f'{pct:.1f}%')} of {fmt_money0(target)}")
     st.html(
         "<div class='pt-goal'><div class='pt-goal-top'>"
         f"<span class='pt-chip {tone}'>{label}</span>"
-        f"<span class='pt-goal-pct'>{mask_or(f'{pct:.1f}%')} of {fmt_money0(target)}</span></div>"
+        f"<span class='pt-goal-pct'>{lead}</span></div>"
         f"<div class='pt-goal-track' aria-hidden='true'><div class='pt-goal-fill' style='width:{min(100.0, pct):.1f}%'>"
         "</div></div>"
         f"<div class='pt-goal-sub'>{fmt_money0(prog['current'])} now · goal {fmt_money0(target)} by "
@@ -175,6 +180,12 @@ def _render_projection(plan, value, today):
     elif status == "past_date":
         _md(f"The goal date has passed with {fmt_money0(target - prog['current'])} still to "
                     "go. Edit the goal to set a new date.")
+    elif status == "starting":
+        # day one: what it takes, not how far there is to go
+        _md(f"About **{needed}** a month gets you to {fmt_money0(target)} by {when}, at "
+            f"**{rp:g}%** a year."
+            + (f" You've planned {fmt_money0(prog['monthly'])} a month - at that pace you'd "
+               f"have about {projected}." if prog["monthly"] else ""))
     elif status == "on_track":
         _md(f"At **{rp:g}%** a year, adding {fmt_money0(prog['monthly'])} a month, you'd have "
                     f"about **{projected}** by {when}.")

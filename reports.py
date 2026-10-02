@@ -145,7 +145,8 @@ def summary_lines(facts: dict, money) -> list[str]:
         lines.append(f"Your portfolio is worth {money(ve)}.")
     g = facts.get("goal")
     if g:
-        words = {"reached": "reached", "on_track": "on track", "within_reach": "within reach",
+        words = {"reached": "reached", "starting": "just starting out", "on_track": "on track",
+                 "within_reach": "within reach",
                  "behind": "behind", "past_date": "past its date"}.get(g["status"], g["status"])
         lines.append(f"{g['goal_name'] or 'Your goal'}: {g['pct'] or 0:.0f}% of {money(g['target'])} "
                      f"by {g['target_date'][:7]} - {words}.")

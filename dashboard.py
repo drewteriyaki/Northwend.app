@@ -255,6 +255,26 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   transition: background .3s ease; }
 .pt-fs-dot-on { background: var(--pt-compass); }
 [class*="st-key-pt_slide_"] { animation: pt-slide-in .35s ease-out both; }
+/* a chosen answer in a slide (first steps, Learn's waypoints) reads as chosen
+   at a glance: a check, a firmer edge and bold, not just a pale tint */
+[class*="st-key-pt_slide_"] button[data-variant="pills"][data-selected="true"] {
+  border: 2px solid var(--pt-compass) !important; background: var(--pt-compass-soft) !important;
+  color: var(--pt-link) !important; font-weight: 600; }
+[class*="st-key-pt_slide_"] button[data-variant="pills"][data-selected="true"]::before {
+  content: "\\2713"; margin-right: .35rem; font-weight: 700; }
+/* just signed up: the one line about the email link, its Send it again a
+   small link-sized button rather than a full row of its own */
+.st-key-pt_email_brief { row-gap: 0 !important; }
+.st-key-pt_email_brief button { min-height: 0; padding: 0; }
+.st-key-pt_email_brief button p { font-size: .85rem; }
+/* phones: first steps' Back / Next stay in reach at the bottom of the screen
+   (the tab bar steps aside while they're open - render_first_steps) */
+@media (max-width: 640px) {
+  /* the row sits in a wrapper just its own size, so the wrapper is what sticks */
+  div:has(> .st-key-pt_fs_nav) { position: sticky; bottom: 0; z-index: 20; }
+  .st-key-pt_fs_nav { background: var(--pt-bg, transparent);
+    padding: .5rem 0 calc(.5rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--pt-line); }
+}
 @keyframes pt-slide-in { from { opacity: 0; transform: translateX(18px); }
   to { opacity: 1; transform: none; } }
 /* read by screen readers, not shown */
@@ -349,18 +369,25 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-alloc-bar { display: flex; gap: 2px; height: 14px; border-radius: 4px;
   overflow: hidden; margin-bottom: .6rem; }
 .pt-alloc-seg { height: 100%; min-width: 3px; }
-.pt-legend { display: grid; gap: .3rem; margin-bottom: .75rem; }
-.pt-legend-row { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
-.pt-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-.pt-legend-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; }
-.pt-legend-pct { font-weight: 600; font-variant-numeric: tabular-nums; }
-.pt-legend-val { opacity: .75; font-variant-numeric: tabular-nums; min-width: 5.5rem;
+/* the legend's one column never grows past its card (a grid track sizes to
+   its widest line otherwise); a long label wraps, and the percentage and
+   amount keep their place at the right, top-aligned with the label */
+.pt-legend { display: grid; grid-template-columns: minmax(0, 1fr); gap: .3rem;
+  margin-bottom: .75rem; }
+.pt-legend-row { display: flex; align-items: flex-start; gap: .5rem; font-size: .9rem;
+  line-height: 1.4; min-width: 0; }
+.pt-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; margin-top: .35em; }
+.pt-legend-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.pt-legend-pct { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pt-legend-val { flex: none; opacity: .75; font-variant-numeric: tabular-nums; min-width: 5.5rem;
   text-align: right; }
 .pt-acct { margin-bottom: .8rem; }
 .pt-acct .pt-legend-row { margin-bottom: .3rem; }
 .pt-alloc-bar.pt-mini { height: 8px; margin-bottom: 0; }
 .pt-warn { color: var(--pt-warn); } .pt-muted { opacity: .7; }
+/* a goal with nothing invested yet: a calm compass chip, not a red "Behind" */
+.pt-chip.pt-start { color: var(--pt-link); background: var(--pt-compass-soft);
+  border-color: transparent; }
 .pt-wl-name { font-size: .85rem; opacity: .7; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 .pt-wl-quote { text-align: right; font-size: .9rem; line-height: 1.3;
@@ -660,13 +687,18 @@ def _signup() -> bool:
     st.session_state["user_id"] = result["user_id"]
     st.session_state["username"] = result["username"]
     st.session_state["session_token"] = session
-    st.session_state["import_flash"] = (
-        f"Your account is ready. Welcome to {APP_NAME}!" + (
-            " We're checking your advisor details; advisor tools appear once they're "
-            "approved. Until then, have a look around as an investor."
-            if role == "advisor" else ""))
-    st.session_state["email_flash"] = (sent, "Confirm your email: " + note[0].lower() + note[1:]
-                                       if sent else note)
+    if role == "advisor":
+        st.session_state["import_flash"] = (
+            f"Your account is ready. Welcome to {APP_NAME}! We're checking your advisor "
+            "details; advisor tools appear once they're approved. Until then, have a look "
+            "around as an investor.")
+    if sent:
+        # just signed up: one short line about the link, so the welcome screen
+        # stays in view (a phone has room for little else); the fuller card with
+        # "Send it again" comes back in later sessions
+        st.session_state["email_brief"] = True
+    else:
+        st.session_state["email_flash"] = (False, note)
     if "signup" in st.query_params:
         del st.query_params["signup"]
     st.rerun()
@@ -1006,6 +1038,11 @@ try:
     # the latest holdings' date (load() reads that snapshot below)
     _LATEST_SNAPSHOT = latest_snapshot(_conn, _active)
     HAS_HOLDINGS = _LATEST_SNAPSHOT is not None
+    # where they came from (load() below reuses it): the example portfolio
+    # isn't an account they've opened, so Learn keeps its place while it's all
+    # there is (HAS_REAL_HOLDINGS)
+    _LATEST_SOURCE = snapshot_source(_conn, _active, _LATEST_SNAPSHOT) if HAS_HOLDINGS else None
+    HAS_REAL_HOLDINGS = HAS_HOLDINGS and _LATEST_SOURCE != SAMPLE_SOURCE
     # A client whose account an advisor manages: the plan, target mix, alert
     # limits and imports are the advisor's, so the client's view is read-only
     # for those. MY_ADVISOR_CARD is how the advisor presents themselves.
@@ -1053,10 +1090,10 @@ if IS_ADVISOR:
              "Watchlist", "Activity", "Income", "AI Assistant",
              *(_start if HAS_HOLDINGS else []), "Account", "About"]
 else:
-    PAGES = [*([] if HAS_HOLDINGS else ["Get started"]),
+    PAGES = [*([] if HAS_REAL_HOLDINGS else ["Get started"]),
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
-             *(["Get started"] if HAS_HOLDINGS else []), "Account", "About"]
+             *(["Get started"] if HAS_REAL_HOLDINGS else []), "Account", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
 
@@ -1065,11 +1102,13 @@ if IS_ADMIN:
 # Income, Account, About, Admin): one tap away, not gone. The sidebar and the
 # phone tab bar show the same split. Advisors keep the full list. PAGES stays
 # every page this account can open (the address, ?page=, checks against it).
-MAIN_PAGES = ("Get started", "Dashboard", "Plan", "AI Assistant")
+MAIN_PAGES = ("Dashboard", "Plan", "AI Assistant", "Get started")
 if IS_ADVISOR:
     MENU, MORE = list(PAGES), []
 else:
-    MENU = [p for p in PAGES if p in MAIN_PAGES]
+    # always in this order, before holdings and after (where they land is
+    # PAGES[0]): a tab never moves under someone's thumb
+    MENU = [p for p in MAIN_PAGES if p in PAGES]
     MORE = [p for p in PAGES if p not in MAIN_PAGES]
 
 
@@ -1526,7 +1565,14 @@ else:
 _email_flash = st.session_state.pop("email_flash", None)
 if _email_flash:
     (st.success if _email_flash[0] else st.warning)(_email_flash[1])
-if _waiting_email:
+if _waiting_email and st.session_state.get("email_brief"):
+    with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                      key="pt_email_brief"):
+        st.caption(f":material/mail: We've sent a link to {_waiting_email} - confirm any time.",
+                   width="content")
+        st.button("Send it again", key="email_resend", type="tertiary",
+                  on_click=_resend_confirmation)
+elif _waiting_email:
     with st.container(border=True, horizontal=True, vertical_alignment="center"):
         st.markdown(f":material/mail: **Confirm your email** - open the link we sent to "
                     f"{_waiting_email}. It unlocks Ask {GUIDE} and the other AI features, and "
@@ -1574,6 +1620,16 @@ QUICK_STARTS = {
     "Review my portfolio": "Review my current portfolio against my goals and suggest improvements.",
     "Check for overlap and concentration": "Check my holdings for overlap between funds and "
                                            "for anything I'm too concentrated in.",
+}
+# ...and before anything is invested: nothing to review yet
+QUICK_STARTS_NEW = {
+    "Help me get started": QUICK_STARTS["Help me get started"],
+    "What should I do before I invest?": "I haven't started investing yet. Looking at my "
+                                         "situation, what do people usually take care of "
+                                         "first, and in what order?",
+    "Which account type fits me?": "What's the difference between a regular brokerage "
+                                   "account, a Roth IRA and a 401(k)? Which questions should I "
+                                   "ask myself to pick one?",
 }
 
 
@@ -2011,8 +2067,12 @@ def load(conn):
     this run (holdings are only saved in a callback or a window, each
     followed by a new run)."""
     snap = _LATEST_SNAPSHOT
+    import overview
     if not snap:
-        return None, [], {}, {}, []
+        # nothing brought in yet - the watchlist still works (Learn's example
+        # funds go on it before anything is bought)
+        watch = watchlist.list_tickers(conn, USER_ID) if PAGE == "Watchlist" else []
+        return None, [], {}, overview.latest_quotes(conn, sorted(watch)) if watch else {}, watch
     rows = conn.execute(
         "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ? ORDER BY account, symbol",
         (snap, USER_ID)
@@ -2025,7 +2085,6 @@ def load(conn):
     }
     # the latest quote of each ticker this account holds or watches - not
     # every ticker in price_history, which grows every minute
-    import overview
     watch = watchlist.list_tickers(conn, USER_ID)   # read once: the Watchlist uses it too
     quotes = overview.latest_quotes(conn, sorted({r["symbol"] for r in rows} | set(watch)))
     # Nicknames replace the broker's account names from here on (display
@@ -2122,6 +2181,9 @@ def _fmt_date(d):
 _view("holdings_input")
 
 
+_view("start_home")
+
+
 def _toggle_hide():
     st.session_state["hide_amounts"] = not st.session_state.get("hide_amounts", False)
     save_hide(st.session_state["hide_amounts"])
@@ -2165,7 +2227,9 @@ def _live_status():
         prices += f" ({n_live} of {len(positions)} priced)"
     _what = {manual_entry.SOURCE: "Entered by hand", manual_entry.PCT_SOURCE: "Percentages",
              SAMPLE_SOURCE: "Example portfolio"}.get(SNAPSHOT_SOURCE, "Statement")
-    st.html(f"<div class='pt-status'>{prices} · {_what} from {_fmt_date(snapshot)}</div>")
+    st.html(f"<div class='pt-status'>{prices}"
+            # the watchlist before anything is brought in: no holdings to date
+            + (f" · {_what} from {_fmt_date(snapshot)}" if snapshot else "") + "</div>")
 
 
 def _expedition_eyebrow():
@@ -2190,10 +2254,13 @@ def _page_header(title, *, data=True):
         st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.title(title, anchor=False, width="stretch")
-        st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
-                  key="pt_hide", type="tertiary", on_click=_toggle_hide,
-                  help="Show amounts" if _hidden() else "Hide amounts - mask every dollar and "
-                                                         "percent with " + MASK)
+        # Learn (and first steps, shown in its place) has nothing of theirs to
+        # hide: examples and practice money only. The setting still holds.
+        if PAGE != "Get started":
+            st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
+                      key="pt_hide", type="tertiary", on_click=_toggle_hide,
+                      help="Show amounts" if _hidden() else "Hide amounts - mask every dollar "
+                                                             "and percent with " + MASK)
     if data:
         _live_status()
         if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
@@ -2336,7 +2403,8 @@ else:
     try:
         snapshot, positions, cash_by_account, quotes, watch_tickers = load(_data_conn)
         # an import, a hand entry, a percentages portfolio or the example portfolio
-        SNAPSHOT_SOURCE = snapshot_source(_data_conn, USER_ID, snapshot)
+        SNAPSHOT_SOURCE = (_LATEST_SOURCE if snapshot == _LATEST_SNAPSHOT   # read above
+                           else snapshot_source(_data_conn, USER_ID, snapshot))
     finally:
         _data_conn.close()
 # what the value chart prices, from the holdings just loaded (no re-reads)
@@ -2384,49 +2452,31 @@ if PAGE == "About":
     _page_header("About and disclosures", data=False)
     _render_disclosures()
     st.stop()
-if not positions:
-    # Blank-account onboarding: a brand-new admin-provisioned account has no
-    # data at all yet. Skip straight to a CSV upload prompt instead of the
-    # rest of the page (which would otherwise render a wall of "no data"
-    # empty states across every section) - reuses the same import_csv()
-    # entry point as the full "Import a new positions CSV" expander further
-    # down, just without that flow's diff-preview step (there's nothing to
-    # diff a first import against).
-    _page_header("Welcome", data=False)
-    if not CAN_IMPORT:
+if not positions and PAGE != "Watchlist":
+    # Nothing brought in yet (the watchlist works regardless - Learn's example
+    # funds go on it before anything is bought). What shows depends on whose
+    # account it is (views/start_home.py):
+    if ON_CLIENT or IS_ADVISOR:
+        # an advisor: a client's (or their own) statements to bring in
+        _page_header(_label(PAGE), data=False)
+        _render_bring_in(ACTIVE_NAME if ON_CLIENT else None)
+    elif not CAN_IMPORT:
+        # a client whose advisor brings the statements in
+        _page_header("Welcome", data=False)
         st.info(f"Welcome, **{ACTIVE_NAME}**. Your advisor, {_advisor_display_name()}, "
                 "brings your statements in - your portfolio shows up here once they have.")
         with st.container(horizontal=True):
             st.button("Get started", key="onboard_get_started", type="primary", on_click=_go,
                       args=("Get started",))
             st.button("Advisor notes", key="onboard_notes", on_click=_go, args=("Advisor notes",))
-        st.stop()
-    st.info(f"Welcome, **{ACTIVE_NAME}** — this account has no data yet. Paste your holdings, "
-            "enter them by hand, or upload your brokerage's positions CSV.")
-    st.caption(":material/lock: " + TRUST_LINE)
-    with st.container(horizontal=True, vertical_alignment="center"):
-        st.markdown("New to investing, or don't have an account yet?", width="stretch")
-        st.button("Start here", key="onboard_get_started", type="primary", on_click=_go,
-                  args=("Get started",))
-    with st.container(horizontal=True, vertical_alignment="center"):
-        st.markdown("**Quickest:** copy your positions table from your brokerage's website "
-                    "and paste it - any brokerage.", width="stretch")
-        if st.button("Paste your holdings", key="onboard_paste", type="primary"):
-            _manual_clear()
-            _manual_dialog([], {})
-    with st.container(horizontal=True, vertical_alignment="center"):
-        st.markdown("No file, or rather not share your real numbers?", width="stretch")
-        if st.button("Enter holdings by hand", key="onboard_manual",
-                     help="Shares from any brokerage - or just percentages, no real amounts."):
-            _manual_clear()
-            _manual_dialog([], {})
-        st.button("Try it with example data", key="onboard_sample", on_click=_load_sample,
-                  help="A made-up portfolio to explore with. Removed when you add your own.")
-    up = st.file_uploader("Positions export (.csv)", type=["csv"], key="onboard_csv_upload")
-    if up is not None:
-        # the same check and review as the sidebar's Upload a CSV, for any brokerage
-        with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
-            _import_csv_file(src_path, upload_label(up.name))
+    elif PAGE == "Dashboard":
+        # someone not investing yet: Home is their route, not an import form
+        _page_header(_label(PAGE), data=False)
+        _render_start_home()
+    else:
+        # Activity, Income: one calm line until there's something to show
+        _page_header(_label(PAGE), data=False)
+        _render_not_yet(PAGE)
     st.stop()
 
 cash = sum(cash_by_account.values())
@@ -2490,7 +2540,7 @@ day_change_total = sum(
 # "since you last opened" would just be comparing the portfolio to itself.
 if "last_open_snapshot" not in st.session_state:
     st.session_state["last_open_snapshot"] = perf.last_open(DB, USER_ID)
-if "value_logged" not in st.session_state:
+if "value_logged" not in st.session_state and positions:   # (none: the watchlist alone)
     # just saved new holdings (_after_import): log their value now, whatever the
     # gap, so the next visit is compared with them
     _rebase = st.session_state.pop("value_rebase", False)

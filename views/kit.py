@@ -24,7 +24,8 @@ def _read_gear_facts(value):
     state = _route_state(HAS_HOLDINGS)
     plan = state["plan"]
     reached = False
-    if plans.has_goal(plan) and value is not None:
+    # made-up money never reaches a real goal (the example portfolio)
+    if plans.has_goal(plan) and value is not None and SNAPSHOT_SOURCE != SAMPLE_SOURCE:
         reached = _goal_progress(plan, value)["status"] == "reached"
     c = connect(DB)
     try:

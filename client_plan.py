@@ -225,13 +225,13 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
     g, plan = facts.get("goal"), facts.get("plan") or {}
     if g:
         heading("Goal")
-        words = {"reached": "reached", "on_track": "on track", "within_reach": "within reach",
+        words = {"reached": "reached", "starting": "just starting out", "on_track": "on track", "within_reach": "within reach",
                  "behind": "behind", "past_date": "past its date"}[g["status"]]
         para(f"{plan.get('goal_name') or plan.get('goal_type') or 'Goal'}: "
              f"{_money0(g['target'])} by {plan['target_date'][:7]}, adding "
              f"{_money0(g['monthly'])} a month. Now {_money0(g['current'])} "
              f"({g['pct_of_target'] or 0:.0f}% of the goal) - {words}.")
-        if g["status"] in ("on_track", "within_reach", "behind"):
+        if g["status"] in ("on_track", "within_reach", "behind", "starting"):
             para(f"At {plans.DEFAULT_RETURN_PCT:g}% a year it would reach about "
                  f"{_money0(g['projected'])} "
                  f"({_money0(g['projected_low'])} to {_money0(g['projected_high'])} at "

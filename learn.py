@@ -138,24 +138,34 @@ def starter_mix(profile: dict, horizon_years: float | None = None) -> dict:
         return None
     years = float(years)
     base = _base_stock_pct(years)
-    reasons = [f"{round(years, 1):g}-year horizon: about {base}% in stocks is a common starting "
-               "point - "
+    # each step says how many points it moves the split, so the list adds up
+    # to the number shown above it (a starting point, then the adjustments)
+    reasons = [f"{round(years, 1):g}-year horizon: start from about {base}% in stocks, a "
+               "common starting point - "
                + ("the longer the money can stay invested, the more time there is to recover "
                   "from drops." if years >= 5 else
                   "money needed soon has less time to recover from a drop.")]
+
+    def _pts(n):
+        return f"{abs(n)} points {'less' if n < 0 else 'more'} in stocks"
+
     stocks = base
     risk = p.get("risk_tolerance")
     if risk in _RISK_ADJ and _RISK_ADJ[risk]:
         stocks += _RISK_ADJ[risk]
-        reasons.append(f"{risk.capitalize()} comfort with risk: "
-                       + ("less in stocks." if _RISK_ADJ[risk] < 0 else "more in stocks."))
+        reasons.append(f"{risk.capitalize()} comfort with risk: {_pts(_RISK_ADJ[risk])}.")
     drop = p.get("drawdown_reaction")
     if drop in _DROP_ADJ and _DROP_ADJ[drop]:
         stocks += _DROP_ADJ[drop]
         reasons.append(f"You said you'd \"{drop.lower()}\" after a 20% drop: "
+                       f"{_pts(_DROP_ADJ[drop])} - "
                        + ("a steadier mix makes that less likely." if _DROP_ADJ[drop] < 0
                           else "you're comfortable riding out drops."))
+    adjusted = stocks
     stocks = int(5 * round(max(10, min(95, stocks)) / 5))
+    if len(reasons) > 1 or stocks != adjusted:
+        reasons.append(f"That comes to about {stocks}% in stocks"
+                       + (" (kept between 10% and 95%)." if stocks != adjusted else "."))
     us = round(stocks * US_SHARE_OF_STOCKS)
     return {"stocks_pct": stocks, "weights": {"us": us, "intl": stocks - us, "bonds": 100 - stocks},
             "horizon_years": years, "short_horizon": years < 3, "reasons": reasons}

@@ -121,11 +121,29 @@ def _step_profile(advisor, profile, missing):
         _render_profile_form(advisor, profile)
 
 
-def _step_ready(items):
+# the readiness questions, answered right in waypoint 2 (learn.readiness)
+READY_FIELDS = ("emergency_fund", "high_interest_debt", "employer_match")
+
+
+def _ready_answer(field):
+    """A tap on one of waypoint 2's questions: saved straight away."""
+    _fs_save_answers((field,))
+
+
+def _step_ready(items, profile):
     st.markdown(f"**{learn.readiness_summary(items)}**")
+    editing = st.session_state.get("gs_ready_edit")
     for it in items:
         icon, words = _READY_ICON[it["state"]]
-        st.markdown(f"{icon} **{it['label']}** ({words}) - {it['text']}")
+        if it["key"] in READY_FIELDS and (it["state"] == learn.UNKNOWN or editing):
+            # the answer, as taps, in place of "answer it in your profile"
+            st.markdown(f"{icon} **{it['label']}**"
+                        + ("" if it["state"] == learn.UNKNOWN else f" ({words}) - {it['text']}"))
+            _fs_question(it["key"], profile, on_change=_ready_answer, args=(it["key"],))
+        else:
+            st.markdown(f"{icon} **{it['label']}** ({words}) - {it['text']}")
+    if any(it["key"] in READY_FIELDS and it["state"] != learn.UNKNOWN for it in items):
+        st.toggle("Change my answers", key="gs_ready_edit")
     st.caption("These are common first steps many people take before investing, not rules - "
                "your situation may differ.")
     _coach_button("ready")
@@ -229,7 +247,8 @@ def _step_mix(mix, profile, plan, done):
     st.markdown(f"An example for someone with your answers: **{mix['stocks_pct']}% stocks, "
                 f"{mix['weights']['bonds']}% bonds.**")
     _render_mix_bar(mix["weights"])
-    st.markdown("Why this split:  \n" + "  \n".join(f"- {r}" for r in mix["reasons"]))
+    st.markdown(f"How it adds up to {mix['stocks_pct']}% stocks:  \n"
+                + "  \n".join(f"- {r}" for r in mix["reasons"]))
     extra = []
     year = learn.target_date_year(plan, profile.get("age_range"), datetime.now().date())
     prefs_set = set((profile.get("preferences") or "").split("; "))
@@ -285,15 +304,26 @@ def _step_practice(mix, plan, profile, done):
         st.caption("The practice portfolio uses real past prices for "
                    + ", ".join(learn.PRACTICE_TICKERS.values()) + ". Load them first (takes a "
                    "few seconds).")
+        if st.session_state.pop("gs_prices_failed", False):
+            st.info(":material/cloud_off: Couldn't load past prices right now - try again "
+                    "later.")
         if st.button("Load price history", key="gs_load_prices", type="primary"):
+            before = sum(len(p) for p in prices.values())
             try:
                 import sync_history
-            except ImportError:
-                st.error("Price history needs yfinance - run: pip install yfinance")
-                return
-            with st.spinner("Loading 10 years of prices..."):
-                sync_history.sync(DB, list(learn.PRACTICE_TICKERS.values()), period="10y",
-                                  with_intraday=False, with_info=False, delay=0.0)
+                with st.spinner("Loading 10 years of prices..."):
+                    sync_history.sync(DB, list(learn.PRACTICE_TICKERS.values()), period="10y",
+                                      with_intraday=False, with_info=False, delay=0.0)
+                conn = connect(DB)
+                try:
+                    got = sum(len(p) for p in _practice_prices(conn).values())
+                finally:
+                    conn.close()
+            except Exception:  # noqa: BLE001 - no prices is a calm note, never an error page
+                got = before
+            # nothing new came back (the price source unreachable, or busy):
+            # say so after the rerun instead of leaving the button as it was
+            st.session_state["gs_prices_failed"] = got <= before
             st.rerun()
         if not first:
             return
@@ -352,35 +382,98 @@ def _step_practice(mix, plan, profile, done):
     _done_button("practice", done)
 
 
-def _step_account(monthly, has_holdings):
-    if not CAN_IMPORT and not has_holdings:
+# Waypoint 7 as a checklist they tick off (saved like the waypoint ticks):
+# (key, the step, a line about it). The waypoint itself is reached once their
+# own holdings are brought in.
+ACCOUNT_STEPS = (
+    ("chosen", "Chosen a brokerage",
+     "Large low-cost ones include Schwab, Fidelity and Vanguard - look for no account minimum "
+     "and no trading commissions. Pick the account type too (*Account types* in waypoint 4)."),
+    ("opened", "Opened the account", "Usually online, in one sitting."),
+    ("funded", "Moved money in", "Link your bank and move in what you'd like to start with."),
+    ("first_buy", "Made a first buy", "What it looks like is just below."),
+    ("monthly", "Set up a monthly amount",
+     "Automatic investing each month, so it happens without you having to remember."),
+)
+
+
+def _account_ticks():
+    return set(_read_prefs().get("account_steps") or [])
+
+
+def _tick_account(*keys, done=None):
+    """Tick (or untick) checklist steps; `done` None reads the checkbox."""
+    p = _read_prefs()
+    ticks = set(p.get("account_steps") or [])
+    for k in keys:
+        on = st.session_state.get(f"gs_acct_{k}") if done is None else done
+        (ticks.add if on else ticks.discard)(k)
+        st.session_state[f"gs_acct_{k}"] = bool(on)
+    p["account_steps"] = [k for k, _, _ in ACCOUNT_STEPS if k in ticks]
+    _write_prefs(p)
+
+
+def _first_buy_steps():
+    """What a first buy looks like, with an example ticker already shown in
+    waypoint 5 - the steps, not a recommendation."""
+    t = learn.PRACTICE_TICKERS["us"]
+    _md(f"Every brokerage's screens look a little different, but a first buy usually goes like "
+        f"this - here with **{t}**, one of the example funds from waypoint 5:\n\n"
+        f"1. **Search the ticker.** Type {t} into the brokerage's search or Trade box.\n"
+        "2. **Choose a dollar amount.** Many brokerages let you buy in dollars (fractional "
+        "shares), so you can enter $100 rather than a number of whole shares.\n"
+        "3. **Review.** Check the ticker, the amount and the order type - a *market order* buys "
+        "at the going price while the market is open.\n"
+        "4. **Confirm.** The shares show up in your account, usually within moments.")
+    st.caption(f"An example of the steps, not a recommendation to buy {t} or any other fund.")
+
+
+def _step_account(monthly, real, has_holdings, items):
+    """`real`: their own holdings are in (the waypoint is reached);
+    `has_holdings` alone may be just the example portfolio."""
+    if not CAN_IMPORT and not real:
         st.markdown(f"Your advisor, {_advisor_display_name()}, helps you open the account and "
                     "brings your statements in - your portfolio shows up on Home once they have.")
         _coach_button("account")
         return
-    if has_holdings:
+    if real:
         st.markdown("You've brought in your first statement - **Home** shows your real "
                     "portfolio and the **Plan** tracks it against your goal.")
         st.button("Open Home", key="gs_open_dash", on_click=_go, args=("Dashboard",))
         return
-    st.markdown(
-        "1. **Pick a brokerage.** Large low-cost ones include Schwab, Fidelity and Vanguard. "
-        "Look for no account minimum and no trading commissions.\n"
-        "2. **Pick the account type** - see *Account types* in step 4.\n"
-        "3. **Link your bank** and move money in.\n"
-        "4. **Buy your funds.** Many brokerages let you buy fractional shares, so you can start "
-        "with a small amount.\n"
-        + (f"5. **Set up automatic investing** of {_usd0(monthly)} a month - the amount in your "
-           "plan - so it happens without you having to remember.\n".replace("$", r"\$")
-           if monthly else
-           "5. **Set up automatic monthly investing** so it happens without you having to "
-           "remember.\n")
-        + "6. **Bring it in here:** use **Holdings** in the sidebar - paste your positions, "
-        "upload a CSV or type them in; any brokerage works. Your Plan then tracks the real thing.")
+    if any(i["key"] == "emergency_fund" and i["state"] in (learn.CAUTION, learn.STOP)
+           for i in items):
+        with st.container(horizontal=True, vertical_alignment="center"):
+            st.markdown(":material/savings: Many people finish a 3-6 month emergency fund "
+                        "first - there's no rush to open an account.", width="stretch")
+            st.button("See where you stand", key="gs_acct_ready", type="tertiary",
+                      on_click=_gs_go, args=("ready",))
+    if has_holdings:
+        st.caption(":material/science: You're exploring with the example portfolio. When you "
+                   "bring in your own, it replaces the example.")
+    ticks = _account_ticks()
+    st.markdown("**Your checklist**")
+    for k, label, line in ACCOUNT_STEPS:
+        if k == "monthly" and monthly:
+            line = (f"Automatic investing of {_usd0(monthly)} a month - the amount in your plan "
+                    "- so it happens without you having to remember.")
+        st.session_state.setdefault(f"gs_acct_{k}", k in ticks)
+        st.checkbox(f"**{label}** - {line}".replace("$", r"\$"), key=f"gs_acct_{k}",
+                    on_change=_tick_account, args=(k,))
+    with st.expander("What your first buy looks like"):
+        _first_buy_steps()
     learn_more("brokerage_accounts")
     with st.container(horizontal=True):
-        st.button("Import my first statement", key="gs_import", type="primary", on_click=_go,
-                  args=("Dashboard",))
+        if "opened" in ticks:
+            # straight to the paste / import window - not back to Home
+            st.button(":material/move_to_inbox: Bring it in", key="gs_import", type="primary",
+                      on_click=_open_holdings_dialog, args=("manual",),
+                      help="Paste your positions from any brokerage, upload a CSV, read "
+                           "screenshots or type them in.")
+        else:
+            st.button("I've opened an account", key="gs_opened", type="primary",
+                      on_click=_tick_account, args=("chosen", "opened"),
+                      kwargs={"done": True})
         _coach_button("account")
 
 
@@ -406,7 +499,9 @@ def _route_state(has_holdings):
         "basics": "basics" in manual,
         "mix": "mix" in manual,
         "practice": "practice" in manual,
-        "account": has_holdings,
+        # their own holdings brought in - the example portfolio is for looking
+        # around, not an account they've opened
+        "account": has_holdings and globals().get("SNAPSHOT_SOURCE") != SAMPLE_SOURCE,
     }
     return {"profile": profile, "missing": missing, "items": items, "plan": plan,
             "horizon": horizon, "done": done}
@@ -523,7 +618,7 @@ def _render_get_started(has_holdings, value):
         if at == "profile":
             _step_profile(advisor, profile, missing)
         elif at == "ready":
-            _step_ready(items)
+            _step_ready(items, profile)
         elif at == "goal":
             _step_goal(plan, value)
         elif at == "basics":
@@ -533,7 +628,7 @@ def _render_get_started(has_holdings, value):
         elif at == "practice":
             _step_practice(mix, plan, profile, done["practice"])
         else:
-            _step_account(monthly, has_holdings)
+            _step_account(monthly, done["account"], has_holdings, items)
     with st.container(horizontal=True):
         if i:
             st.button(":material/arrow_back: " + titles[keys[i - 1]], key="gs_prev",

@@ -53,10 +53,12 @@ def _render_assistant(contexts, cash_by_account):
 
     profile, memory = _assist_profile()
 
-    missing = advisor.missing_fields(profile)
+    # the count covers the readiness questions too (debt, employer match), so
+    # it never says every question is answered while some are still open
+    missing = [f for f in advisor.KEY_PROFILE_FIELDS if profile.get(f) in (None, "")]
     display = st.session_state.setdefault("chat_display", [])
     history = st.session_state.setdefault("chat_api", [])
-    n_required = len(advisor.REQUIRED_PROFILE_FIELDS)
+    n_required = len(advisor.KEY_PROFILE_FIELDS)
     answered = f"{n_required - len(missing)}/{n_required}"
     full = _show_everything()
     if full:
@@ -92,8 +94,9 @@ def _render_assistant(contexts, cash_by_account):
     if not display:
         if not full:
             st.caption("Not sure where to start? Try one of these:")
-        cols = st.columns(len(QUICK_STARTS))
-        for col, (label, text) in zip(cols, QUICK_STARTS.items()):
+        starts = QUICK_STARTS if contexts else QUICK_STARTS_NEW   # nothing to review yet
+        cols = st.columns(len(starts))
+        for col, (label, text) in zip(cols, starts.items()):
             if col.button(label, width="stretch", key=f"quick_{label}"):
                 prompt = text
 
