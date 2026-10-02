@@ -191,6 +191,19 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 [data-testid^="stBaseButton-secondary"]:not(:hover):not(:focus-visible),
 [data-testid="stButtonGroup"] button[aria-checked="false"]:not(:hover):not(:focus-visible) {
   border-color: var(--pt-line-strong) !important; }
+/* dark: the selected tab, segment or pill, and a slider's value, are labelled
+   in the link blue - the theme's primary blue reads only 3.9:1 as text on the
+   dark page */
+:root[data-pt-theme="dark"] [data-testid="stButtonGroup"] button[aria-checked="true"],
+:root[data-pt-theme="dark"] [data-testid="stTab"][aria-selected="true"],
+:root[data-pt-theme="dark"] [data-testid="stSliderThumbValue"] {
+  color: var(--pt-link); }
+/* captions: Streamlit fades the whole caption to 60%, which left its text
+   under AA on the light theme (4.0:1) and a link in it (the Learn more lines)
+   too faint on the dark one (3.8:1); fade only the text, a little less, so
+   it passes on both and a link keeps its full color */
+[data-testid="stCaptionContainer"] { opacity: 1;
+  color: color-mix(in srgb, currentColor 70%, transparent); }
 /* the expedition (ROADMAP T1): faint contour lines behind every page, drawn in
    static/topo-light.svg and topo-dark.svg, one step above the page colour */
 [data-testid="stMain"] { background-repeat: no-repeat;
@@ -251,6 +264,10 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 @media (max-width: 640px) {
   [data-testid="stMainBlockContainer"] { padding: 3.75rem 1rem 6rem; }
   h1 { font-size: 1.6rem !important; }
+  /* a ticker's stats (_stat_tiles): two per line, not one long column */
+  .st-key-pt_stat_tiles [data-testid="stColumn"] { min-width: calc(50% - 8px) !important; }
+  .st-key-pt_stat_tiles [data-testid="stColumn"]:not(:has([data-testid="stElementContainer"])) {
+    display: none; }
 }
 /* phone tab bar (_render_tab_bar): pinned to the bottom on narrow screens,
    hidden on wider ones where the sidebar is the menu. --pt-bg is the page's
@@ -295,13 +312,18 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   gap: .6rem; margin-top: 1rem; }
 .pt-stat { border: 1px solid var(--pt-line); border-radius: .5rem;
   padding: .55rem .7rem; min-width: 0; }
-.pt-stat-label { font-size: .75rem; opacity: .7; white-space: nowrap; }
+.pt-stat-label { font-size: .75rem; opacity: .7; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
 .pt-stat-value { font-size: 1.1rem; font-weight: 600; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .pt-stat-sub { font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
+/* phones: three boxes in a row leave about 90px each, so a label or note
+   wraps onto a second line instead of running into the next box */
 @media (max-width: 640px) { .pt-hero-value { font-size: 2.2rem; }
-  .pt-stat-value { font-size: .95rem; } }
+  .pt-stat { padding: .5rem .5rem; }
+  .pt-stat-value { font-size: .9rem; }
+  .pt-stat-label, .pt-stat-sub { white-space: normal; overflow-wrap: break-word; } }
 /* summary tiles that open a window (Learn the basics; Income, Activity,
    Watchlist and Ask Northwend in the calm view): lift a little on hover */
 [class*="st-key-pt_tile_"] { transition: border-color .2s ease, transform .2s ease; }
@@ -1659,18 +1681,21 @@ def _stat_tiles(ctx, keys, ncols=4):
     keys = [k for k in keys if k in M.BY_KEY]
     if not keys:
         return
-    cols = st.columns(ncols)
-    for i, k in enumerate(keys):
-        m = M.BY_KEY[k]
-        v = M.value(k, ctx)
-        text = FORMATTERS[m.fmt](v) if m.fmt in FORMATTERS else ("—" if _blank(v) else str(v))
-        with cols[i % ncols]:
-            st.caption(m.label)
-            if m.color_sign and not _hidden() and not _blank(v) and v != 0:
-                st.markdown(f"<span class='{'pt-up' if v > 0 else 'pt-down'}' style='font-weight:600'>"
-                            f"{text}</span>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"**{text}**")
+    # one row of columns per ncols stats, so a phone (where columns stack;
+    # two per line there, .st-key-pt_stat_tiles) keeps the reading order
+    with st.container(key="pt_stat_tiles"):
+        for start in range(0, len(keys), ncols):
+            for col, k in zip(st.columns(ncols), keys[start:start + ncols]):
+                m = M.BY_KEY[k]
+                v = M.value(k, ctx)
+                text = FORMATTERS[m.fmt](v) if m.fmt in FORMATTERS else ("—" if _blank(v) else str(v))
+                with col:
+                    st.caption(m.label)
+                    if m.color_sign and not _hidden() and not _blank(v) and v != 0:
+                        st.markdown(f"<span class='{'pt-up' if v > 0 else 'pt-down'}' "
+                                    f"style='font-weight:600'>{text}</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**{text}**")
 
 
 # Categorical palette (dataviz reference palette, fixed slot order), light and

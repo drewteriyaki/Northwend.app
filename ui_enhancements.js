@@ -52,6 +52,8 @@
     }
     #pt-sb-handle svg { width: 16px; height: 16px; transition: transform 0.2s; }
     #pt-sb-handle.open svg { transform: rotate(180deg); }
+    /* hidden while a window (st.dialog) is open: it would sit on top of it */
+    body:has(section[role="dialog"]) #pt-sb-handle { visibility: hidden; }
     /* phones: slimmer, and see-through while closed so it doesn't cover content */
     @media (max-width: 640px) {
       #pt-sb-handle { width: 16px; height: 56px; margin-top: -28px; }

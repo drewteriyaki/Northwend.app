@@ -2895,6 +2895,52 @@ class AppFilesCompileTests(unittest.TestCase):
         self.assertEqual(tag.findall(js), [])
 
 
+class PhoneAndDarkStyleTests(unittest.TestCase):
+    """Rules from the phone / dark browser pass (390px wide, dark theme) that
+    keep text inside its box and readable - checked in the stylesheet, since
+    a unit test can't see the page."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(REPO, "dashboard.py"), encoding="utf-8") as fh:
+            cls.css = re.search(r'st\.html\("""<style>(.*?)</style>"""\)', fh.read(), re.S).group(1)
+        cls.flat = re.sub(r"\s+", " ", cls.css)
+
+    def _phone_blocks(self):
+        return " ".join(m.group(1) for m in re.finditer(
+            r"@media \(max-width: 640px\) \{(.*?\}) \}", self.flat))
+
+    def test_stat_box_labels_wrap_on_a_phone(self):
+        # three boxes in a row are ~90px wide: "Expected, next 12 months" ran
+        # into the next box and off the screen
+        phone = self._phone_blocks()
+        self.assertRegex(phone, r"\.pt-stat-label, \.pt-stat-sub \{[^}]*white-space: normal")
+        self.assertRegex(self.flat, r"\.pt-stat-label \{[^}]*overflow: hidden")
+
+    def test_ticker_stats_two_per_line_on_a_phone(self):
+        self.assertIn('.st-key-pt_stat_tiles [data-testid="stColumn"] { min-width: calc(50% - 8px)',
+                      self._phone_blocks())
+
+    def test_dark_selected_controls_use_the_link_blue(self):
+        # the theme's primary blue as text on the dark page is 3.9:1
+        rule = re.search(r'(:root\[data-pt-theme="dark"\] \[data-testid="stButtonGroup"\][^{]*)'
+                         r'\{([^}]*)\}', self.flat)
+        self.assertIsNotNone(rule)
+        self.assertIn('[data-testid="stTab"][aria-selected="true"]', rule.group(1))
+        self.assertIn('[data-testid="stSliderThumbValue"]', rule.group(1))
+        self.assertIn("color: var(--pt-link)", rule.group(2))
+
+    def test_captions_fade_their_text_not_their_links(self):
+        rule = re.search(r'\[data-testid="stCaptionContainer"\] \{([^}]*)\}', self.flat)
+        self.assertIsNotNone(rule)
+        self.assertIn("opacity: 1", rule.group(1))
+        self.assertIn("color-mix(in srgb, currentColor 70%, transparent)", rule.group(1))
+
+    def test_sidebar_handle_hides_under_a_window(self):
+        with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
+            self.assertIn('body:has(section[role="dialog"]) #pt-sb-handle', fh.read())
+
+
 class AnyBrokerCsvTests(TempDBMixin, unittest.TestCase):
     """Roadmap 9b: positions CSVs from any brokerage (csv_import.py)."""
     DIR = os.path.join(os.path.dirname(__file__), "fixtures", "brokers")

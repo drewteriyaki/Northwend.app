@@ -679,6 +679,12 @@ started, the Plan and Ask Northwend - always optional.
 
 - [x] **Phone navigation** - a bottom tab bar on narrow screens (Home, Plan,
       Sage, Watch or Clients, More); the sidebar stays on wider ones.
+      **Phone and dark pass (Oct 2):** every page checked at 390px and in dark
+      mode - the summary boxes no longer run off the screen (labels wrap);
+      a ticker's stats two per line in reading order; captions and Learn more
+      links, selected tabs/segments and slider values pass AA in dark, the
+      light warning text too; the sidebar handle hides under an open window.
+      Left: amounts of $1,000,000+ still cut with "…" in a phone summary box.
 - [x] **Watchlist** - a row per ticker with its live price and today's change,
       tap to open its chart, remove from the row; Enter adds a ticker.
 - [x] **Income** - estimated income by month, not just a yearly total. (S) - next 12 months by ex-dividend month, from the past year's payments (saved by the nightly sync) at today's shares.
