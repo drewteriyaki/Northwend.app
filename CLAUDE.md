@@ -93,6 +93,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
   `hosting.py` (`CLIENT_IP_HEADER` for the visitor's address behind a proxy;
   `MOVED_TO` turns an old copy into a "has moved" page).
+- Packaging: `pyproject.toml` (`pip install -e .`) and `cli.py` (the `northwend*`
+  commands). Its `dependencies` match requirements.txt and `py-modules` lists every
+  top-level module - a new module goes there too (a test checks).
 - Jobs: `.github/workflows/scheduled-sync.yml` (prices every 15 min in market
   hours, history nightly, advisors' Monday email via `weekly_email.py`), `tests.yml`.
 

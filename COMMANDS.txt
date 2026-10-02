@@ -37,6 +37,17 @@ Local:
   streamlit run dashboard.py
   (or double-click dashboard.cmd)
 
+Or install the project once from this folder:
+  pip install -e .
+and then, from any folder:
+  northwend                       (the app; same as streamlit run dashboard.py)
+  northwend-portfolio import ...  (= python portfolio.py import ...)
+  northwend-prices                (= python update_prices.py)
+  northwend-history               (= python sync_history.py)
+  northwend-users list            (= python manage_users.py list)
+  northwend-weekly-email          (= python weekly_email.py)
+Each takes the same options, --db included.
+
 Against a different database (e.g. a throwaway test copy):
   set PORTFOLIO_DB=path\to\other.db
   streamlit run dashboard.py

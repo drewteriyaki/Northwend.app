@@ -192,6 +192,12 @@ python update_prices.py                       # fetch Finnhub quotes, refresh li
 python sync_history.py                         # pull daily + intraday bars + fundamentals from Yahoo
 ```
 
+Or install the project once (`pip install -e .` from this folder, Python 3.10+)
+for the same tools as commands that work from any folder: `northwend` (the app),
+`northwend-portfolio` (import / verify / report), `northwend-prices`,
+`northwend-history`, `northwend-users` and `northwend-weekly-email` - each takes
+the same options as its script (`cli.py`, `pyproject.toml`).
+
 Common options: `--db PATH` (default `./portfolio.db`), and
 `--snapshot YYYY-MM-DD` on `verify` / `report`. `update_prices.py` takes
 `--key`, `--delay`, `--timeout`; `sync_history.py` takes `--period` (daily

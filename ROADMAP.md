@@ -766,4 +766,11 @@ started, the Plan and Ask Northwend - always optional.
         reports' money in. Hand-logged entries dated inside the imported
         history aren't counted (shown crossed out) - it has the real
         figures. Moves between your own accounts and sweeps never count.
-- [ ] **Packaging** - `pyproject.toml` and console entry points. (S)
+- [x] **Packaging** - `pyproject.toml` and console entry points. (S) -
+      `pip install -e .` gives `northwend` (the app), `northwend-portfolio`,
+      `northwend-prices`, `northwend-history`, `northwend-users` and
+      `northwend-weekly-email` (`cli.py`: each runs its script's main() and
+      closes pooled Postgres connections, like the scripts do). Editable
+      install: the app reads views/, static/ and the schema files from the
+      folder. requirements.txt stays for Streamlit Cloud and CI; a test keeps
+      the two lists of pins the same and every module listed.

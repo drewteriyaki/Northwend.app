@@ -1,0 +1,50 @@
+# Northwend as an installable project: `pip install -e .` from this folder
+# gives the console commands in cli.py (northwend, northwend-prices, ...).
+#
+# Install it editable (-e): the app reads its pages (views/), styles, fonts
+# (static/) and schema files from this folder, so it runs from here.
+# requirements.txt stays - Streamlit Community Cloud and the Tests workflow
+# install from it. Keep `dependencies` below the same as its pins (a test
+# checks), and list every top-level module in py-modules (a test checks).
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "northwend"
+version = "0.1.0"
+description = "Northwend - bring holdings from any brokerage and get a plan, income and an AI guide."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "streamlit==1.62.0",
+    "pandas==2.2.3",
+    "altair==6.2.2",
+    "yfinance==1.7.0",
+    "psycopg[binary]==3.2.3",
+    "psycopg-pool==3.2.4",
+    "anthropic==1.8.0",
+    "fpdf2==2.8.8",
+    "segno==1.6.6",
+]
+
+[project.scripts]
+northwend = "cli:dashboard"
+northwend-portfolio = "cli:portfolio"
+northwend-prices = "cli:prices"
+northwend-history = "cli:history"
+northwend-users = "cli:users"
+northwend-weekly-email = "cli:weekly_email"
+
+[tool.setuptools]
+py-modules = [
+    "accounts", "admin", "advising", "advisor", "ai_usage", "alerts", "allocation",
+    "asset_classes", "auth", "changes", "charts", "cli", "client_plan", "codefresh",
+    "csv_import", "dashboard", "disclosures", "error_alerts", "export", "fees",
+    "friendly_errors", "gear", "hosting", "income", "learn", "live_prices", "mailer",
+    "manage_users", "manual_entry", "meeting", "metrics", "news", "overview",
+    "paste_parse", "perf", "pgcompat", "plans", "portfolio", "prefs", "proposals",
+    "reports", "route", "sample_data", "screenshot_read", "storms", "sync_history",
+    "two_step", "txn_import", "update_prices", "watchlist", "weekly_email",
+]
