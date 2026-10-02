@@ -181,20 +181,29 @@ def status(conn, user_id: int) -> dict:
     must be on), "stamp": a fingerprint that changes whenever it's turned on,
     off or reset (None when off), "backup_left": unused backup codes}. One
     query - the app checks this on every run."""
+    return status_and_login(conn, user_id)[0]
+
+
+def status_and_login(conn, user_id: int) -> tuple[dict, dict | None]:
+    """(status(), the login's users row it came from - auth.LOGIN_COLUMNS, or
+    None when there's no such login), in status()'s one query. The sign-in
+    gate reads this first thing on every run, and the rest of that run uses
+    the row instead of reading it again (auth.login_facts_of)."""
     import admin  # admin imports auth; not at the top, to keep auth's import light
     row = conn.execute(
-        "SELECT u.username, u.is_advisor, u.is_admin, u.terms_version, u.email_verified_at, "
+        "SELECT " + ", ".join(f"u.{c}" for c in auth.LOGIN_COLUMNS) + ", "
         "t.totp_secret, t.enabled_at, t.backup_codes_hash FROM users u "
         "LEFT JOIN two_step t ON t.user_id = u.id WHERE u.id = ?", (user_id,)).fetchone()
     if row is None:
-        return {"on": False, "required": False, "stamp": None, "backup_left": 0}
+        return {"on": False, "required": False, "stamp": None, "backup_left": 0}, None
     on = bool(row["totp_secret"])
     stamp = (hashlib.sha256(f"{row['enabled_at']}:{row['totp_secret']}".encode("utf-8"))
              .hexdigest()[:16] if on else None)
-    return {"on": on,
-            "required": bool(row["is_advisor"]) or admin._admin_row(row, admin.listed_admins()),
-            "stamp": stamp,
-            "backup_left": len((row["backup_codes_hash"] or "").split()) if on else 0}
+    return ({"on": on,
+             "required": bool(row["is_advisor"]) or admin._admin_row(row, admin.listed_admins()),
+             "stamp": stamp,
+             "backup_left": len((row["backup_codes_hash"] or "").split()) if on else 0},
+            {c: row[c] for c in auth.LOGIN_COLUMNS})
 
 
 def is_on(conn, user_id: int) -> bool:

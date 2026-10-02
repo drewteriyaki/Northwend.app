@@ -173,61 +173,75 @@ def _ensure_schema(conn) -> None:
         conn.execute("SELECT pg_advisory_xact_lock(CAST(? AS BIGINT))", (SCHEMA_ADVISORY_LOCK_ID,))
     with open(schema_path, "r", encoding="utf-8") as fh:
         schema_text = fh.read()
-    conn.executescript(schema_text)
-    for table, cols in (("positions", LIVE_POSITION_COLS),
-                        ("price_history", PRICE_HISTORY_EXTRA_COLS),
-                        # dividend per share paid on that day's ex-date, 0 if none
-                        # (income.py) - None until the bar is re-synced
-                        ("daily_bars", [("dividend", "REAL")]),
-                        ("transactions", TRANSACTIONS_EXTRA_COLS),
-                        ("snapshots", USER_ID_COL),
-                        ("positions", USER_ID_COL),
-                        ("account_totals", USER_ID_COL),
-                        ("transactions", USER_ID_COL),
-                        ("value_log", USER_ID_COL),
-                        ("users", [("is_advisor", "INTEGER"),
-                                   ("ai_unlimited", "INTEGER"),  # ai_usage.py
-                                   # self-serve sign-up (auth.sign_up)
-                                   ("email", "TEXT"), ("email_verified_at", "TEXT"),
-                                   ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT"),
-                                   # the admin portal (admin.py)
-                                   ("is_admin", "INTEGER"), ("last_login_at", "TEXT"),
-                                   # the Account page (auth.set_display_name)
-                                   ("display_name", "TEXT")]),
-                        ("advisor_clients", [("client_can_import", "INTEGER")]),
-                        # what a fund holds, from Yahoo (asset_classes.py)
-                        ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),
-                                           ("stock_pct", "REAL"), ("bond_pct", "REAL"),
-                                           ("cash_pct", "REAL"), ("other_pct", "REAL"),
-                                           # a fund's yearly fee, a fraction (fees.py)
-                                           ("expense_ratio", "REAL")]),
-                        ("plans", [("targets_cleared", "INTEGER")]),
-                        # "remember this device" for two-step sign-in (two_step.py)
-                        ("login_sessions", [("two_step_until", "TEXT")]),
-                        ("investor_profiles", PROFILE_EXTRA_COLS)):
-        if is_pg:
-            have = {r["column_name"] for r in conn.execute(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
-                (table,))}
-        else:
-            have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    conn.executescript(schema_text)  # Postgres: one round trip (pgcompat.executescript)
+    backfill = (("positions", LIVE_POSITION_COLS),
+                ("price_history", PRICE_HISTORY_EXTRA_COLS),
+                # dividend per share paid on that day's ex-date, 0 if none
+                # (income.py) - None until the bar is re-synced
+                ("daily_bars", [("dividend", "REAL")]),
+                ("transactions", TRANSACTIONS_EXTRA_COLS),
+                ("snapshots", USER_ID_COL),
+                ("positions", USER_ID_COL),
+                ("account_totals", USER_ID_COL),
+                ("transactions", USER_ID_COL),
+                ("value_log", USER_ID_COL),
+                ("users", [("is_advisor", "INTEGER"),
+                           ("ai_unlimited", "INTEGER"),  # ai_usage.py
+                           # self-serve sign-up (auth.sign_up)
+                           ("email", "TEXT"), ("email_verified_at", "TEXT"),
+                           ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT"),
+                           # the admin portal (admin.py)
+                           ("is_admin", "INTEGER"), ("last_login_at", "TEXT"),
+                           # the Account page (auth.set_display_name)
+                           ("display_name", "TEXT")]),
+                ("advisor_clients", [("client_can_import", "INTEGER")]),
+                # what a fund holds, from Yahoo (asset_classes.py)
+                ("security_info", [("quote_type", "TEXT"), ("category", "TEXT"),
+                                   ("stock_pct", "REAL"), ("bond_pct", "REAL"),
+                                   ("cash_pct", "REAL"), ("other_pct", "REAL"),
+                                   # a fund's yearly fee, a fraction (fees.py)
+                                   ("expense_ratio", "REAL")]),
+                ("plans", [("targets_cleared", "INTEGER")]),
+                # "remember this device" for two-step sign-in (two_step.py)
+                ("login_sessions", [("two_step_until", "TEXT")]),
+                ("investor_profiles", PROFILE_EXTRA_COLS))
+    tables = list(dict.fromkeys(t for t, _ in backfill))
+    have: dict[str, set] = {t: set() for t in tables}
+    if is_pg:
+        # every table's columns in one query: on Postgres each query is a
+        # round trip, and this runs at every process start
+        for r in conn.execute(
+                "SELECT table_name, column_name FROM information_schema.columns "
+                f"WHERE table_name IN ({', '.join('?' for _ in tables)})", tables):
+            have[r["table_name"]].add(r["column_name"])
+    else:
+        for table in tables:
+            have[table] = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    for table, cols in backfill:
         for name, decl in cols:
-            if name not in have:
+            if name not in have[table]:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} "
                              f"{'DOUBLE PRECISION' if is_pg and decl == 'REAL' else decl}")
+                have[table].add(name)
     # Indexes led by user_id - nearly every read is "this account's ...". Made
     # here, after the back-fill above, since older databases only now have
     # the column. The two dropped ones duplicated their table's primary key.
-    for name, table, cols in USER_INDEXES:
-        conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({cols})")
-    # one account per email (NULL for accounts made by an admin or advisor)
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_signups_time ON signups (created_at)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_email_sends_email ON email_sends (email_key, sent_at)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_proposals_client ON proposals (client_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_client ON progress_reports (client_id)")
-    for name in ("idx_daily_bars_ticker", "idx_intraday_bars_lookup"):
-        conn.execute(f"DROP INDEX IF EXISTS {name}")
+    indexes = [f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({cols})"
+               for name, table, cols in USER_INDEXES]
+    indexes += [
+        # one account per email (NULL for accounts made by an admin or advisor)
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)",
+        "CREATE INDEX IF NOT EXISTS idx_signups_time ON signups (created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_email_sends_email ON email_sends (email_key, sent_at)",
+        "CREATE INDEX IF NOT EXISTS idx_proposals_client ON proposals (client_id)",
+        "CREATE INDEX IF NOT EXISTS idx_reports_client ON progress_reports (client_id)",
+        *(f"DROP INDEX IF EXISTS {name}"
+          for name in ("idx_daily_bars_ticker", "idx_intraday_bars_lookup"))]
+    if is_pg:
+        conn.executescript(";\n".join(indexes))  # one round trip
+    else:
+        for stmt in indexes:
+            conn.execute(stmt)
     # saved targets from before Stocks / Bonds / Cash / Other; a no-op once done
     import asset_classes
     moved = asset_classes.migrate_targets(conn)

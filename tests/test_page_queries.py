@@ -23,7 +23,7 @@ import portfolio  # noqa: E402
 import sample_data  # noqa: E402
 import two_step  # noqa: E402
 
-HOME_QUERIES = 44       # Home's queries on a rerun here: 39 when written (it was 52)
+HOME_QUERIES = 40       # Home's queries on a rerun here: 35 now (39 when written; it was 52)
 HOME_CONNECTIONS = 11   # 9 (it was 23)
 BOOK_MORE = 12          # Your clients: one client, then this many more ...
 BOOK_EXTRA = 2          # ... adds at most this many queries: 0 when written (it was ~8 each)
@@ -61,17 +61,22 @@ class PageQueryTests(unittest.TestCase):
         cls.env.stop()
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def _count(self, user_id, username, page, **state):
-        """(queries, connections) of the page's second run."""
+    def _count(self, user_id, username, page, statements=None, **state):
+        """(queries, connections) of the page's second run. `statements`: a
+        list to collect that run's SQL in."""
         from streamlit.testing.v1 import AppTest
         seen = {"sql": 0, "connect": 0}
         real = sqlite3.connect
 
+        def note(s):
+            seen["sql"] += not s.startswith("PRAGMA")
+            if statements is not None and not s.startswith("PRAGMA"):
+                statements.append(s)
+
         def counting(*a, **k):
             conn = real(*a, **k)
             seen["connect"] += 1
-            conn.set_trace_callback(
-                lambda s: seen.__setitem__("sql", seen["sql"] + (not s.startswith("PRAGMA"))))
+            conn.set_trace_callback(note)
             return conn
 
         def offline(*a, **k):
@@ -85,6 +90,8 @@ class PageQueryTests(unittest.TestCase):
             at.run()
             self.assertFalse(at.exception, [e.value for e in at.exception])
             seen.update(sql=0, connect=0)
+            if statements is not None:
+                statements.clear()
             at.run()
             self.assertFalse(at.exception, [e.value for e in at.exception])
         return seen["sql"], seen["connect"]
@@ -93,6 +100,16 @@ class PageQueryTests(unittest.TestCase):
         queries, connections = self._count(self.alice, "alice", "Dashboard")
         self.assertLessEqual(queries, HOME_QUERIES)
         self.assertLessEqual(connections, HOME_CONNECTIONS)
+
+    def test_the_login_row_is_read_once_a_run(self):
+        # the two-step gate's read, handed on to the password check, the email
+        # notice and Ask Northwend's allowance (views/two_step.py _gate_read)
+        sql = []
+        with unittest.mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test-not-used"}):
+            self._count(self.alice, "alice", "AI Assistant", statements=sql)
+        self.assertTrue(any("FROM ai_usage" in s for s in sql), sql)   # the chat was drawn
+        self.assertEqual(len([s for s in sql if " FROM users" in s]), 1, sql)
+        self.assertEqual(len([s for s in sql if "FROM investor_profiles" in s]), 1, sql)
 
     def test_your_clients_reads_the_whole_book_at_once(self):
         import advising
@@ -140,6 +157,41 @@ class OneReadHelperTests(unittest.TestCase):
                     "stamp": auth.password_stamp(c, uid), "is_advisor": auth.is_advisor(c, uid),
                     "is_admin": admin.is_admin(c, uid), "display_name": auth.display_name(c, uid)})
         self.assertIsNone(auth.login_facts(c, 9999)["stamp"])
+
+    def test_the_gates_row_gives_the_same_answers(self):
+        # two_step.status_and_login: the one read the rest of a run reuses
+        import advisor
+        import ai_usage
+        import two_step
+        c = self.c
+        uid = auth.sign_up(c, "ann@example.com", "pw-123456789", agreed=True, adult=True,
+                           terms_version="2026-01-01", seconds_open=30)["user_id"]
+        auth.set_display_name(c, uid, "Ann")
+        for step in ("unconfirmed", "confirmed", "advisor", "unlimited"):
+            if step == "confirmed":
+                c.execute("UPDATE users SET email_verified_at = '2026-10-01 10:00:00' WHERE id = ?",
+                          (uid,))
+            elif step == "advisor":
+                auth.set_advisor(c, "ann@example.com", True)
+                secret = two_step.new_secret()
+                two_step.enable(c, uid, secret, two_step.totp(secret))
+            elif step == "unlimited":
+                ai_usage.set_unlimited(c, uid, True)
+            ai_usage.record(c, uid, "chat")
+            state, row = two_step.status_and_login(c, uid)
+            self.assertEqual(state, two_step.status(c, uid), step)
+            self.assertEqual(auth.login_facts_of(row), auth.login_facts(c, uid), step)
+            self.assertEqual(auth.email_status_of(row), auth.email_status(c, uid), step)
+            self.assertEqual(ai_usage.status(c, uid, "chat", user=row),
+                             ai_usage.status(c, uid, "chat"), step)
+        self.assertEqual(two_step.status_and_login(c, 9999),
+                         (two_step.status(c, 9999), None))
+        self.assertEqual(auth.login_facts_of(None), auth.login_facts(c, 9999))
+        advisor.save_profile(c, uid, {"goal": "Retirement"})
+        advisor.save_memory(c, uid, "likes index funds")
+        for who in (uid, 9999):
+            self.assertEqual(advisor.get_profile_and_memory(c, who),
+                             (advisor.get_profile(c, who), advisor.get_memory(c, who)))
 
     def test_month_total_from_moves_read_once(self):
         import plans

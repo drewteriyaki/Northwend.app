@@ -21,7 +21,7 @@ def _assist_profile():
     import advisor
     c = connect(DB)
     try:
-        return advisor.get_profile(c, USER_ID), advisor.get_memory(c, USER_ID)
+        return advisor.get_profile_and_memory(c, USER_ID)
     finally:
         c.close()
 
@@ -51,12 +51,7 @@ def _render_assistant(contexts, cash_by_account):
                 "Settings → Secrets on Streamlit Cloud.")
         return
 
-    conn = connect(DB)
-    try:
-        profile = advisor.get_profile(conn, USER_ID)
-        memory = advisor.get_memory(conn, USER_ID)
-    finally:
-        conn.close()
+    profile, memory = _assist_profile()
 
     missing = advisor.missing_fields(profile)
     display = st.session_state.setdefault("chat_display", [])
@@ -103,7 +98,8 @@ def _render_assistant(contexts, cash_by_account):
                 prompt = text
 
     n_sent = sum(1 for m in display if m["role"] == "user")
-    quota = _ai_status("chat")  # this month's allowance (ai_usage.py)
+    # this month's allowance (ai_usage.py); this page is drawn in the full run
+    quota = _ai_status("chat", full_run=True)
     at_limit = n_sent >= CHAT_MESSAGE_LIMIT or not quota["ok"]
     # Inside a container the input sits inline under the chat instead of pinned to
     # the bottom of the screen. Pinned, Streamlit also keeps the page stuck to the

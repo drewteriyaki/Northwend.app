@@ -184,7 +184,10 @@ def _render_proposals_advisor(alloc_rows, value):
     today_pct = {r["label"]: r["pct"] or 0.0 for r in (alloc_rows or [])}
     c = connect(DB)
     try:
-        models = advising.list_models(c, LOGIN_ID)
+        # the Target mix tab just above read them, this run (views/plan.py)
+        models = _RUN.get("models")
+        if models is None:
+            models = advising.list_models(c, LOGIN_ID)
         mine = proposals.for_client(c, USER_ID, include_drafts=True)
     finally:
         c.close()

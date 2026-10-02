@@ -688,6 +688,9 @@ started, the Plan and Ask Northwend - always optional.
       long one after a comma ($1,000,000+ no longer cut off); yields and
       shares of the portfolio read "0.87%", not "+0.87%" (changes keep their
       sign); money axes "$0", "$1.5k", "$1.2M" (were "$0.0", "$1.0k").
+      Plan's tabs wrap onto two lines on a phone (no sideways scroll); the
+      metric change chip and slider end labels pass AA in light mode
+      (`--pt-ink-muted` / grayTextColor).
 - [x] **Watchlist** - a row per ticker with its live price and today's change,
       tap to open its chart, remove from the row; Enter adds a ticker.
 - [x] **Income** - estimated income by month, not just a yearly total. (S) - next 12 months by ex-dividend month, from the past year's payments (saved by the nightly sync) at today's shares.
@@ -715,6 +718,14 @@ started, the Plan and Ask Northwend - always optional.
       price check (live_prices.freshen) takes the page's holdings and
       watchlist (`known=`) instead of reading them again: 3 fewer queries a
       minute per open page; same fetches and prices (a test compares).
+      **Then:** the login's users row is read once a run - the two-step gate
+      reads it first (as before, fresh every run) and the run reuses that
+      read (`_gate_read`; windows and fragments read fresh); Income on one
+      connection; Ask Northwend's profile and memory in one query; a client's
+      model portfolios once. Ask 21 -> 17 queries, Account 11 -> 8. Schema
+      setup on Postgres batched (same statements, same order): 73 -> 7 round
+      trips per process start. Proposed, not done: quotes saved in fewer
+      statements (price fetching - a plan first).
 - [x] **Split dashboard.py** - one file per page in `views/` (dashboard.py 4,504 ->
       1,657 lines). Code moved unchanged; every page drew identically before
       and after (18 page views compared). (M)

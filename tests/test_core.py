@@ -2504,12 +2504,14 @@ class PostgresPrecisionTests(unittest.TestCase):
                     self.rows = list(reals)
                     self.description = [Col("table_name"), Col("column_name")]
                 elif "information_schema.columns WHERE table_name" in sql:
-                    # every back-filled column already there except one REAL one
-                    self.rows = [(c,) for c in ("live_price_at", "user_id", "is_advisor")
+                    # every back-filled column already there except one REAL
+                    # one (all the tables' columns come back in one query)
+                    self.rows = [(t, c) for t in params
+                                 for c in ("live_price_at", "user_id", "is_advisor")
                                  + tuple(n for n, _ in portfolio.PROFILE_EXTRA_COLS)
                                  + ("live_price", "live_market_value", "live_unrealized_gain_pct",
                                     "day_open", "day_high", "day_low", "realized_gain")]
-                    self.description = [Col("column_name")]
+                    self.description = [Col("table_name"), Col("column_name")]
                 else:
                     self.rows, self.description = [], None
 
@@ -2534,6 +2536,9 @@ class PostgresPrecisionTests(unittest.TestCase):
             'ALTER COLUMN "market_value" TYPE DOUBLE PRECISION',
             'ALTER TABLE "daily_bars" ALTER COLUMN "close" TYPE DOUBLE PRECISION'])  # not someone else's
         self.assertIn("ALTER TABLE positions ADD COLUMN live_unrealized_gain DOUBLE PRECISION", executed)
+        # every table's columns in one query (a round trip each on Postgres)
+        self.assertEqual(sum("information_schema.columns WHERE table_name" in q
+                             for q in executed), 1)
         self.assertEqual(executed[-1], "COMMIT")
         self.assertIn("3 REAL column(s)", err.getvalue())
 
@@ -2993,6 +2998,41 @@ class PhoneAndDarkStyleTests(unittest.TestCase):
     def test_sidebar_handle_hides_under_a_window(self):
         with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
             self.assertIn('body:has(section[role="dialog"]) #pt-sb-handle', fh.read())
+
+    def test_tabs_wrap_on_a_phone_only(self):
+        # Plan's five or six tabs scrolled sideways behind an arrow at 390px
+        phone = self._phone_blocks()
+        self.assertRegex(phone, r'\[data-testid="stTabs"\] \[role="tablist"\] \{[^}]*flex-wrap: wrap')
+        self.assertRegex(phone, r'\[data-testid="stTabsScrollRight"\] \{ display: none')
+        desktop = re.sub(r"@media \(max-width: 640px\) \{(.*?\}) \}", "", self.flat)
+        self.assertNotIn('[role="tablist"]', desktop)
+
+    def test_grey_text_is_the_muted_ink_and_passes_aa(self):
+        # a metric's plain change chip (theme grayTextColor) read 3.4:1 and a
+        # slider's min / max labels 4.0:1 on the light theme
+        import tomllib
+        with open(os.path.join(REPO, ".streamlit", "config.toml"), "rb") as fh:
+            theme = tomllib.load(fh)["theme"]
+        light = re.search(r":root \{[^}]*--pt-ink-muted: (#[0-9a-f]{6})", self.flat).group(1)
+        dark = re.search(r':root\[data-pt-theme="dark"\] \{[^}]*--pt-ink-muted: (#[0-9a-f]{6})',
+                         self.flat).group(1)
+        self.assertEqual(theme["light"]["grayTextColor"], light)
+        self.assertEqual(theme["dark"]["grayTextColor"], dark)
+
+        def lum(h):
+            c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            c = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+        for fg, bg in ((light, theme["light"]["backgroundColor"]),
+                       (light, theme["light"]["secondaryBackgroundColor"]),
+                       (dark, theme["dark"]["backgroundColor"]),
+                       (dark, theme["dark"]["secondaryBackgroundColor"])):
+            a, b = sorted((lum(fg), lum(bg)))
+            self.assertGreaterEqual((b + 0.05) / (a + 0.05), 4.5, (fg, bg))
+        rule = re.search(r'\[data-testid="stSliderTickBar"\] \{([^}]*)\}', self.flat)
+        self.assertIsNotNone(rule)
+        self.assertIn("color: var(--pt-ink-muted)", rule.group(1))
 
 
 class AnyBrokerCsvTests(TempDBMixin, unittest.TestCase):

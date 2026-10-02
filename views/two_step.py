@@ -20,6 +20,22 @@ import two_step
 
 TWO_STEP_ISSUER = APP_NAME + (" staging" if STAGING else "")
 
+# What the gate read this run: {login id: (two_step.status, the login's users
+# row - auth.LOGIN_COLUMNS, None if the login is gone)}. This file runs afresh
+# with dashboard.py on every full run, so this starts empty each time and the
+# gate fills it before anything else reads the row. A fragment's or window's
+# own rerun skips the gate and would still see the last full run's: so only
+# code drawn in the full run itself uses it (_gate_read).
+_GATE_ROW = {}
+
+
+def _gate_read(uid):
+    """(status, users row) as the gate read them at the top of this run, or
+    None if it hasn't for `uid`. Only for code that runs in the page's full
+    run - never in a fragment or a window (st.dialog), whose own reruns skip
+    the gate."""
+    return _GATE_ROW.get(uid)
+
 
 def _two_step_qr(uri):
     """The setup QR code as an image address (SVG), or None when segno isn't
@@ -147,7 +163,11 @@ def _two_step_gate() -> bool:
     passed = st.session_state.get("two_step_ok")
     c = connect(DB)
     try:
-        s = two_step.status(c, uid)
+        s, row = two_step.status_and_login(c, uid)
+        # as of this check: the rest of this run reads them from here
+        # (_gate_read) instead of reading the row again
+        _GATE_ROW.clear()
+        _GATE_ROW[uid] = (s, row)
         mine = f"{uid}:{s['stamp']}"
         remembered = (s["on"] and passed != mine
                       and two_step.device_remembered(c, token, uid))

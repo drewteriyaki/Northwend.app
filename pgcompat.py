@@ -152,9 +152,14 @@ class ConnWrapper:
         return _CursorWrapper(cur)
 
     def executescript(self, sql_text):
-        cur = self._conn.cursor()
-        for stmt in _split_statements(sql_text):
-            cur.execute(stmt)
+        """The script's statements (_split_statements) sent together: one
+        round trip, not one per statement - psycopg runs several statements
+        in one execute() when there are no parameters. They run in order in
+        the open transaction, as one at a time did; an error stops there and
+        raises."""
+        stmts = _split_statements(sql_text)
+        if stmts:
+            self._conn.cursor().execute(";\n".join(stmts))
 
     def commit(self):
         self._conn.commit()

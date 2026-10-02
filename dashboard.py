@@ -145,13 +145,15 @@ st.html("""<style>
    (the rest is in .streamlit/config.toml); ui_enhancements.js marks the theme
    on the page root. up / down / warning pass WCAG AA (4.5:1) as text; compass
    is the brand blue for bars and marks; line a hairline; line-strong the edge
-   of a control (3:1); sunken the track behind a bar. */
+   of a control (3:1); sunken the track behind a bar; ink-muted quieter
+   text that still passes AA. */
 :root { --pt-up: #15803d; --pt-down: #b91c1c; --pt-warn: #a16207; --pt-compass: #2a78d6;
   --pt-line: #d5dde5; --pt-line-strong: #74838f; --pt-sunken: #e8eef4; --pt-dawn-soft: #fbebc9;
-  --pt-link: #1d5fae; --pt-compass-soft: #e3eefb; --pt-dawn: #f0b23c; }
+  --pt-link: #1d5fae; --pt-compass-soft: #e3eefb; --pt-dawn: #f0b23c; --pt-ink-muted: #4d5d6c; }
 :root[data-pt-theme="dark"] { --pt-up: #4ade80; --pt-down: #f87171; --pt-warn: #fbbf24;
   --pt-compass: #3987e5; --pt-line: #2a3847; --pt-line-strong: #62748a; --pt-sunken: #1c2a38;
-  --pt-dawn-soft: #3a2f17; --pt-link: #7cb3f2; --pt-compass-soft: #16304d; --pt-dawn: #f2bd57; }
+  --pt-dawn-soft: #3a2f17; --pt-link: #7cb3f2; --pt-compass-soft: #16304d; --pt-dawn: #f2bd57;
+  --pt-ink-muted: #9eadbb; }
 /* the advisor app's role chip, and the bar shown while inside a client's account */
 .pt-role { color: var(--pt-link); background: var(--pt-compass-soft); border-color: transparent;
   margin: -.4rem 0 .4rem; }
@@ -205,6 +207,10 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
    it passes on both and a link keeps its full color */
 [data-testid="stCaptionContainer"] { opacity: 1;
   color: color-mix(in srgb, currentColor 70%, transparent); }
+/* a slider's min and max labels: Streamlit fades them to 60%, under AA on
+   the light theme (4.0:1); the design system's muted text passes on both */
+[data-testid="stSlider"]:not(:has([role="slider"][aria-disabled="true"])) [data-testid="stSliderTickBar"] {
+  color: var(--pt-ink-muted); }
 /* the expedition (ROADMAP T1): faint contour lines behind every page, drawn in
    static/topo-light.svg and topo-dark.svg, one step above the page colour */
 [data-testid="stMain"] { background-repeat: no-repeat;
@@ -269,6 +275,10 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .st-key-pt_stat_tiles [data-testid="stColumn"] { min-width: calc(50% - 8px) !important; }
   .st-key-pt_stat_tiles [data-testid="stColumn"]:not(:has([data-testid="stElementContainer"])) {
     display: none; }
+  /* tabs (Plan's) wrap onto a second line instead of scrolling sideways
+     behind Streamlit's arrow */
+  [data-testid="stTabs"] [role="tablist"] { flex-wrap: wrap; overflow-x: visible; row-gap: .25rem; }
+  [data-testid="stTabsScrollLeft"], [data-testid="stTabsScrollRight"] { display: none !important; }
 }
 /* phone tab bar (_render_tab_bar): pinned to the bottom on narrow screens,
    hidden on wider ones where the sidebar is the menu. --pt-bg is the page's
@@ -961,8 +971,11 @@ if (st.session_state.get("session_token")
 LOGIN_ID = st.session_state["user_id"]
 _conn = connect(DB)
 try:
-    # the login's own row, read once (password stamp, advisor, admin, name)
-    _me = auth.login_facts(_conn, LOGIN_ID)
+    # the login's own row (password stamp, advisor, admin, name): as the
+    # two-step gate read it just now, in this run (views/two_step.py)
+    _gate = _gate_read(LOGIN_ID)
+    _me = (auth.login_facts_of(_gate[1]) if _gate is not None
+           else auth.login_facts(_conn, LOGIN_ID))
     # A password change (here, on another device, or by an admin or advisor)
     # signs out tabs that are already open, not just the saved cookies.
     _stamp = _me["stamp"]
@@ -1497,11 +1510,14 @@ def _resend_confirmation():
 # notice with "Send it again" until it is. Looked up each run only while
 # waiting - the link may be opened in another tab - then remembered.
 if st.session_state.get("email_state") is None:
-    _ec = connect(DB)
-    try:
-        _es = auth.email_status(_ec, LOGIN_ID)
-    finally:
-        _ec.close()
+    if _gate is not None:   # the row the two-step gate read at the top of this run
+        _es = auth.email_status_of(_gate[1])
+    else:
+        _ec = connect(DB)
+        try:
+            _es = auth.email_status(_ec, LOGIN_ID)
+        finally:
+            _ec.close()
     if not _es["email"] or _es["confirmed"]:
         st.session_state["email_state"] = "done"
     _waiting_email = None if st.session_state.get("email_state") else _es["email"]
@@ -1529,12 +1545,16 @@ def _anthropic_key() -> str | None:
             or "").strip() or None
 
 
-def _ai_status(kind):
+def _ai_status(kind, *, full_run=False):
     """This month's AI allowance for `kind` (ai_usage.py) of whoever is signed
-    in - an advisor in a client's account uses their own."""
+    in - an advisor in a client's account uses their own. `full_run`: the
+    caller is drawn in the page's full run (not in a fragment or a window), so
+    the login's row the two-step gate read at the top of this run is used
+    rather than read again; the count used so far is always read."""
+    gate = _gate_read(LOGIN_ID) if full_run else None
     c = connect(DB)
     try:
-        return ai_usage.status(c, LOGIN_ID, kind)
+        return ai_usage.status(c, LOGIN_ID, kind, user=gate[1] if gate else None)
     finally:
         c.close()
 

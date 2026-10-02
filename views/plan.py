@@ -344,6 +344,10 @@ def _render_target_mix(alloc_rows):
             models = advising.list_models(conn, LOGIN_ID)
         finally:
             conn.close()
+        # read fresh here (a fragment); the Proposals tab, drawn after this
+        # one in the same full run, uses this read (they change only on Your
+        # clients)
+        _RUN["models"] = models
         if any(m["target_alloc"] for m in models):
             by_id = {m["id"]: m for m in models if m["target_alloc"]}
             c1, c2 = st.columns([3, 1], vertical_alignment="bottom")

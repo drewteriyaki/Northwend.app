@@ -136,6 +136,16 @@ def split_multi(value) -> list[str]:
 def get_memory(conn, user_id: int) -> str:
     row = conn.execute("SELECT ai_memory FROM investor_profiles WHERE user_id = ?",
                        (user_id,)).fetchone()
+    return _memory_from(row)
+
+
+def get_profile_and_memory(conn, user_id: int) -> tuple[dict, str]:
+    """(get_profile(), get_memory()) - they share one row: one query."""
+    row = conn.execute("SELECT * FROM investor_profiles WHERE user_id = ?", (user_id,)).fetchone()
+    return _profile_from(row), _memory_from(row)
+
+
+def _memory_from(row) -> str:
     return (row["ai_memory"] or "") if row else ""
 
 

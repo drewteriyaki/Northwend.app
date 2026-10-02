@@ -42,6 +42,10 @@ def limit_for(conn, user_id: int, kind: str) -> int | None:
     """This account's monthly allowance for `kind`, or None for unlimited."""
     row = conn.execute("SELECT is_advisor, ai_unlimited FROM users WHERE id = ?",
                        (user_id,)).fetchone()
+    return _limit_of(row, kind)
+
+
+def _limit_of(row, kind: str) -> int | None:
     if row and row["ai_unlimited"]:
         return None
     return LIMITS[kind] * (ADVISOR_SCALE if row and row["is_advisor"] else 1)
@@ -55,7 +59,11 @@ def awaiting_confirmation(conn, user_id: int) -> bool:
         return False
     row = conn.execute("SELECT email, email_verified_at FROM users WHERE id = ?",
                        (user_id,)).fetchone()
-    return bool(row and row["email"] and not row["email_verified_at"])
+    return _waiting_of(row)
+
+
+def _waiting_of(row) -> bool:
+    return CONFIRM_FOR_AI and bool(row and row["email"] and not row["email_verified_at"])
 
 
 def used(conn, user_id: int, kind: str, now: datetime | None = None) -> int:
@@ -64,13 +72,19 @@ def used(conn, user_id: int, kind: str, now: datetime | None = None) -> int:
     return row["used"] if row else 0
 
 
-def status(conn, user_id: int, kind: str, now: datetime | None = None) -> dict:
+def status(conn, user_id: int, kind: str, now: datetime | None = None, *,
+           user=None) -> dict:
     """{"used", "limit" (None = unlimited), "left" (None = unlimited), "ok"
     (one more is allowed), "resets" (a date), "unconfirmed" (waiting on the
-    email to be confirmed - then ok is False)}."""
-    n, limit = used(conn, user_id, kind, now), limit_for(conn, user_id, kind)
+    email to be confirmed - then ok is False)}. `user`: the account's users
+    row when the caller has just read it (auth.LOGIN_COLUMNS) - else it's read
+    here, once for both the allowance and the email check."""
+    if user is None:
+        user = conn.execute("SELECT is_advisor, ai_unlimited, email, email_verified_at "
+                            "FROM users WHERE id = ?", (user_id,)).fetchone()
+    n, limit = used(conn, user_id, kind, now), _limit_of(user, kind)
     left = None if limit is None else max(0, limit - n)
-    waiting = awaiting_confirmation(conn, user_id)
+    waiting = _waiting_of(user)
     return {"used": n, "limit": limit, "left": left,
             "ok": not waiting and (left is None or left > 0),
             "resets": resets_on(now), "unconfirmed": waiting}

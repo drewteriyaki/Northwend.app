@@ -129,15 +129,31 @@ def _stamp_of(password_hash) -> str:
     return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
 
 
+# What the app reads about the signed-in login on every run - its password
+# stamp, roles, name, email state and AI allowance - all from one read of its
+# users row. two_step.status_and_login reads these along with two-step's own
+# state (the sign-in gate, first thing every run) and hands them on, so the
+# rest of that run doesn't read the row again: login_facts_of, email_status_of,
+# ai_usage.status(user=...) and the Account page.
+LOGIN_COLUMNS = ("username", "password_hash", "is_advisor", "is_admin", "terms_version",
+                 "email", "email_verified_at", "display_name", "ai_unlimited",
+                 "created_at", "last_login_at")
+
+
 def login_facts(conn, user_id: int) -> dict:
     """What the app checks about the signed-in login on every run, from one
     read of its users row: {"stamp": password_stamp(), "is_advisor":
     is_advisor(), "is_admin": admin.is_admin(), "display_name":
     display_name()} - the same answers as those four, in one query."""
-    import admin  # admin imports auth; not at the top
-    row = conn.execute("SELECT password_hash, is_advisor, username, is_admin, terms_version, "
-                       "email_verified_at, display_name FROM users WHERE id = ?",
+    row = conn.execute(f"SELECT {', '.join(LOGIN_COLUMNS)} FROM users WHERE id = ?",
                        (user_id,)).fetchone()
+    return login_facts_of(row)
+
+
+def login_facts_of(row) -> dict:
+    """login_facts() from a users row already read (LOGIN_COLUMNS; None for
+    a login that no longer exists)."""
+    import admin  # admin imports auth; not at the top
     if row is None:
         return {"stamp": None, "is_advisor": False, "is_admin": False, "display_name": None}
     return {"stamp": _stamp_of(row["password_hash"]), "is_advisor": bool(row["is_advisor"]),
@@ -493,6 +509,11 @@ def email_status(conn, user_id: int) -> dict:
     by an admin or advisor have no email."""
     row = conn.execute("SELECT email, email_verified_at FROM users WHERE id = ?",
                        (user_id,)).fetchone()
+    return email_status_of(row)
+
+
+def email_status_of(row) -> dict:
+    """email_status() from a users row already read (LOGIN_COLUMNS)."""
     return {"email": row["email"] if row else None,
             "confirmed": bool(row and row["email_verified_at"])}
 

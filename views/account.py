@@ -165,8 +165,18 @@ def _acct_delete():
 
 
 def _acct_facts(c):
-    row = c.execute("SELECT username, email, email_verified_at, display_name, created_at, "
-                    "last_login_at FROM users WHERE id = ?", (LOGIN_ID,)).fetchone()
+    # the login's row and two-step state as the sign-in gate read them at the
+    # top of this run (this page is drawn in the full run; its changes are
+    # made in callbacks, before the gate's read)
+    gate = _gate_read(LOGIN_ID)
+    if gate is not None and gate[1] is not None:
+        state, row = gate
+    else:
+        row = c.execute("SELECT username, email, email_verified_at, display_name, created_at, "
+                        "last_login_at FROM users WHERE id = ?", (LOGIN_ID,)).fetchone()
+        state = two_step.status(c, LOGIN_ID)
+    me = {k: row[k] for k in ("username", "email", "email_verified_at", "display_name",
+                              "created_at", "last_login_at")}
     sessions = c.execute("SELECT COUNT(*) AS n FROM login_sessions WHERE user_id = ? AND "
                          "expires_at > ?", (LOGIN_ID, datetime.now(timezone.utc)
                                             .strftime("%Y-%m-%d %H:%M:%S"))).fetchone()["n"]
@@ -174,7 +184,7 @@ def _acct_facts(c):
     advisor = auth.get_username(c, advisor_id) if advisor_id else None
     pending = auth.pending_email_change(c, LOGIN_ID)
     can_delete = not (IS_ADMIN or CLIENTS or advisor_id)
-    return dict(row), sessions, advisor, pending, can_delete, two_step.status(c, LOGIN_ID)
+    return me, sessions, advisor, pending, can_delete, state
 
 
 def _render_account():

@@ -17,23 +17,37 @@ def _income_month_label(m):
     return datetime.strptime(m + "-01", "%Y-%m-%d").strftime("%b %Y")
 
 
-def _income_schedule(income_rows):
-    """The next 12 months of estimated dividend income (income.py): each
-    holding's past year of payments repeated, times the shares held now.
-    Returns (schedule, unsynced symbols)."""
-    import income
-    today = datetime.now().date()
-    qty, annual = {}, {}
+def _income_held():
+    """{symbol: shares held now}, across accounts."""
+    qty = {}
     for p in positions:
         qty[p["symbol"]] = qty.get(p["symbol"], 0.0) + (p.get("quantity") or 0.0)
-    for r in income_rows:
-        annual[r["symbol"]] = annual.get(r["symbol"], 0.0) + r["est_income"]
+    return qty
+
+
+def _income_reads():
+    """What the Income page reads, on one connection: (_income_received(),
+    the held symbols with price history, their past year of payments)."""
+    import income
+    today = datetime.now().date()
+    qty = _income_held()
     c = connect(DB)
     try:
-        synced = income.has_history(c, qty)
-        paid = income.payments(c, qty, today)
+        return (income.received(c, USER_ID, today), income.has_history(c, qty),
+                income.payments(c, qty, today))
     finally:
         c.close()
+
+
+def _income_schedule(income_rows, synced, paid):
+    """The next 12 months of estimated dividend income (income.py): each
+    holding's past year of payments repeated, times the shares held now.
+    `synced` / `paid` from _income_reads. Returns (schedule, unsynced symbols)."""
+    import income
+    today = datetime.now().date()
+    qty, annual = _income_held(), {}
+    for r in income_rows:
+        annual[r["symbol"]] = annual.get(r["symbol"], 0.0) + r["est_income"]
     # payment dates come with the price history; fetch it once for holdings
     # synced before dividends were kept
     unsynced = sorted(set(qty) - synced)
@@ -85,17 +99,6 @@ def _income_bars(months, label):
         y=alt.Y("Income:Q", title=None, axis=charts.y_axis(charts.MONEY_AXIS, labels=not _hidden())),
         tooltip=[alt.Tooltip("Month:N"), alt.Tooltip("Income:Q", format="$,.2f"),
                  alt.Tooltip("Paid by:N")])
-
-
-def _income_received():
-    """What was actually paid in the last 12 months, from an imported activity
-    export (income.received). None when none was imported."""
-    import income
-    c = connect(DB)
-    try:
-        return income.received(c, USER_ID, datetime.now().date())
-    finally:
-        c.close()
 
 
 def _render_income_received(got, in_window=False):
@@ -255,8 +258,12 @@ def _render_income_calm(income_rows, plan, unsynced, got):
 if PAGE == "Income":
     # ---- income: received, the next 12 months, and yields per holding ------ #
     _income_rows = _income_yield_rows()
-    _income_got = _income_received()
-    _income_plan, _income_unsynced = _income_schedule(_income_rows)
+    # what was actually paid in the last 12 months, from an imported activity
+    # export (income.received; None when none was imported), and what the
+    # schedule needs - one connection
+    _income_got, _income_synced, _income_paid = _income_reads()
+    _income_plan, _income_unsynced = _income_schedule(_income_rows, _income_synced,
+                                                      _income_paid)
     if _show_everything():
         _render_income_received(_income_got)
         _render_income_by_month(_income_plan, _income_unsynced)
