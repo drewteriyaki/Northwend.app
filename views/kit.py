@@ -13,7 +13,14 @@ import storms
 
 
 def _gear_facts(value):
-    """What gear.earned() needs, from what the app already knows."""
+    """What gear.earned() needs, from what the app already knows. Read once
+    per run (Home's kit card and the milestone check both ask - _RUN)."""
+    if ("gear_facts", value) not in _RUN:
+        _RUN[("gear_facts", value)] = _read_gear_facts(value)
+    return dict(_RUN[("gear_facts", value)])
+
+
+def _read_gear_facts(value):
     state = _route_state(HAS_HOLDINGS)
     plan = state["plan"]
     reached = False

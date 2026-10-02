@@ -58,11 +58,7 @@ def first_steps_active(has_holdings):
     if s.get("done") or s.get("skipped"):
         return False
     import advisor
-    c = connect(DB)
-    try:
-        missing = advisor.missing_fields(advisor.get_profile(c, USER_ID))
-    finally:
-        c.close()
+    missing = advisor.missing_fields(_profile())   # read once per run (dashboard.py)
     return bool(missing) or not has_holdings
 
 
@@ -205,15 +201,10 @@ def _fs_screen_bring():
 
 
 def render_first_steps(has_holdings):
-    import advisor
     steps = _fs_steps()
     i = min(int(_fs_state().get("step") or 0), len(steps) - 1)
     key, title, fields = steps[i]
-    c = connect(DB)
-    try:
-        profile = advisor.get_profile(c, USER_ID)
-    finally:
-        c.close()
+    profile = _profile()   # read once per run (dashboard.py)
     _, mid, _ = st.columns([1, 3, 1])
     with mid:
         _fs_dots(i, len(steps))

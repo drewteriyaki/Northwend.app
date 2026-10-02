@@ -122,7 +122,27 @@ def password_stamp(conn, user_id: int) -> str | None:
     row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         return None
-    return hashlib.sha256((row["password_hash"] or "").encode("utf-8")).hexdigest()[:16]
+    return _stamp_of(row["password_hash"])
+
+
+def _stamp_of(password_hash) -> str:
+    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+
+
+def login_facts(conn, user_id: int) -> dict:
+    """What the app checks about the signed-in login on every run, from one
+    read of its users row: {"stamp": password_stamp(), "is_advisor":
+    is_advisor(), "is_admin": admin.is_admin(), "display_name":
+    display_name()} - the same answers as those four, in one query."""
+    import admin  # admin imports auth; not at the top
+    row = conn.execute("SELECT password_hash, is_advisor, username, is_admin, terms_version, "
+                       "email_verified_at, display_name FROM users WHERE id = ?",
+                       (user_id,)).fetchone()
+    if row is None:
+        return {"stamp": None, "is_advisor": False, "is_admin": False, "display_name": None}
+    return {"stamp": _stamp_of(row["password_hash"]), "is_advisor": bool(row["is_advisor"]),
+            "is_admin": bool(admin._admin_row(row, admin.listed_admins())),
+            "display_name": row["display_name"] or None}
 
 
 # --------------------------------------------------------------------------- #

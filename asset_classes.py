@@ -97,7 +97,12 @@ OVERRIDES_PREF = "class_overrides"   # user_prefs key: {symbol: class}
 
 def load_overrides(conn, user_id: int) -> dict:
     import prefs
-    raw = prefs.load(conn, user_id).get(OVERRIDES_PREF) or {}
+    return overrides_in(prefs.load(conn, user_id))
+
+
+def overrides_in(saved_prefs: dict) -> dict:
+    """load_overrides() from an account's settings already read (prefs.load)."""
+    raw = saved_prefs.get(OVERRIDES_PREF) or {}
     return {s: c for s, c in raw.items() if c in CLASSES} if isinstance(raw, dict) else {}
 
 

@@ -192,7 +192,7 @@ if PAGE in ("Dashboard", "Watchlist"):
             ])
             if not _blank(M.value("div_yield_pct", _ctx)):
                 learn_more("dividends")   # beside its dividend yield
-            if not perf.has_bars(DB):
+            if not (_covered or bar_stats or perf.has_bars(DB)):   # any Yahoo history at all
                 st.caption("Fundamentals (52-wk range, beta, P/E, market cap, sector, moving averages) "
                            "fill in after you tap sync history (:material/history:) up top.")
 

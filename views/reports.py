@@ -99,13 +99,13 @@ def _render_reports_bulk(rows):
                                     key="rep_all_period") or reports.PERIODS[0]
         c = connect(DB)
         try:
-            labels = {r["user_id"]: reports.period_bounds(
-                kind, today, reports.last_end(c, r["user_id"]))[2] for r in rows}
-            already = {r["user_id"] for r in rows if c.execute(
-                "SELECT 1 FROM progress_reports WHERE client_id = ? AND period_label = ? LIMIT 1",
-                (r["user_id"], labels[r["user_id"]])).fetchone()}
+            # every client's reports at once, not two queries per client
+            ends, sent = reports.sent(c, [r["user_id"] for r in rows])
         finally:
             c.close()
+        labels = {r["user_id"]: reports.period_bounds(
+            kind, today, ends.get(r["user_id"]))[2] for r in rows}
+        already = {r["user_id"] for r in rows if (r["user_id"], labels[r["user_id"]]) in sent}
         names = {r["user_id"]: r["name"] for r in rows}
         if "rep_all_clients" not in st.session_state or                 st.session_state.get("rep_all_for") != kind:
             st.session_state["rep_all_clients"] = [r["user_id"] for r in rows

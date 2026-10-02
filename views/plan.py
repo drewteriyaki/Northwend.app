@@ -215,12 +215,13 @@ def _render_projection(plan, value, today):
 def _render_contributions(plan, today):
     conn = connect(DB)
     try:
-        this_month = plans.month_total(conn, USER_ID, today.year, today.month)
-        recent = plans.list_contributions(conn, USER_ID, limit=10)
-        moves = plans.money_moves(conn, USER_ID)[:10]
         window = plans.imported_window(conn, USER_ID)
+        moves = plans.money_moves(conn, USER_ID, window=window)   # read once: the month's total too
+        recent = plans.list_contributions(conn, USER_ID, limit=10)
     finally:
         conn.close()
+    this_month = plans.month_total(None, USER_ID, today.year, today.month, moves=moves)
+    moves = moves[:10]
     planned = float((plan or {}).get("monthly_contribution") or 0.0)
     _md(f"This month: **{fmt_money0(this_month)}**"
                 + (f" of {fmt_money0(planned)} planned" if planned else ""))

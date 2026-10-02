@@ -282,14 +282,18 @@ if PAGE == "Dashboard":
     # backfill, before the nightly intraday sync) a short range can come back
     # empty - then show the shortest wider range that has data, and say so.
     _shown_rng = prng
-    _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[prng], include_app_open=False,
-                         basis=PERF_BASIS)
-    for _wider in charts.RANGE_LABELS[charts.RANGE_LABELS.index(prng) + 1:]:
-        if len(_hist) >= 2:
-            break
-        _shown_rng = _wider
-        _hist = perf.history(DB, USER_ID, days=charts.RANGE_DAYS[_wider], include_app_open=False,
-                             basis=PERF_BASIS)
+    _hist_conn = connect(DB)   # one connection for every range tried
+    try:
+        _hist = perf.history(_hist_conn, USER_ID, days=charts.RANGE_DAYS[prng],
+                             include_app_open=False, basis=PERF_BASIS)
+        for _wider in charts.RANGE_LABELS[charts.RANGE_LABELS.index(prng) + 1:]:
+            if len(_hist) >= 2:
+                break
+            _shown_rng = _wider
+            _hist = perf.history(_hist_conn, USER_ID, days=charts.RANGE_DAYS[_wider],
+                                 include_app_open=False, basis=PERF_BASIS)
+    finally:
+        _hist_conn.close()
     if _shown_rng != prng and len(_hist) >= 2:
         st.caption(f"No {prng} data yet - showing {_shown_rng}. Intraday history loads each evening.")
     if len(_hist) < 2:
@@ -521,7 +525,8 @@ if PAGE == "Dashboard":
         if new_keys and new_keys != st.session_state["col_keys"]:
             st.session_state["col_keys"] = new_keys
             save_columns(new_keys)
-        if not perf.has_bars(DB):
+        # any Yahoo history at all (what's already read shows it without asking)
+        if not (_covered or bar_stats or perf.has_bars(DB)):
             st.caption("The **Yahoo history** columns (MA, Volume, 52-wk, Beta, P/E, Sector) "
                        "stay blank until you tap sync history (:material/history:) up top.")
 

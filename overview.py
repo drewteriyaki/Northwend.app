@@ -36,9 +36,10 @@ def latest_quotes(conn, tickers=None) -> dict:
         ") latest ON ph.ticker = latest.ticker AND ph.fetched_at = latest.m WHERE ph.ok = 1")}
 
 
-def account_summary(conn, user_id: int, quotes: dict, rules=None) -> dict:
+def account_summary(conn, user_id: int, quotes: dict, rules=None, *, overrides=None) -> dict:
     """Headline figures for one account. `rules` are that account's alert
-    rules (alerts.DEFAULT_RULES if None)."""
+    rules (alerts.DEFAULT_RULES if None); `overrides` its asset-class choices
+    (asset_classes.load_overrides - read here if None)."""
     profile = advisor.get_profile(conn, user_id)
     answered = len(advisor.REQUIRED_PROFILE_FIELDS) - len(advisor.missing_fields(profile))
     out = {"user_id": user_id, "has_data": False, "snapshot_date": None, "imported_at": None,
@@ -84,7 +85,8 @@ def account_summary(conn, user_id: int, quotes: dict, rules=None) -> dict:
         "alloc_pct": {r["label"]: r["pct"] or 0.0 for r in allocate(
             [{**p, "live_market_value": M.eff_mv(c)} for p, c in zip(positions, contexts)],
             cash_by_account,
-            asset_classes.splits(conn, positions, asset_classes.load_overrides(conn, user_id))
+            asset_classes.splits(conn, positions, asset_classes.load_overrides(conn, user_id)
+                                 if overrides is None else overrides)
         )["by_asset_class"]},
     })
     return out

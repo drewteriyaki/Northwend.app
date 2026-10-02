@@ -105,6 +105,21 @@ def last_end(conn, client_id: int) -> str | None:
     return row["d"] if row else None
 
 
+def sent(conn, client_ids) -> tuple[dict, set]:
+    """For several clients in two queries: ({client_id: last_end()} - only
+    clients with a report - and every (client_id, period_label) sent)."""
+    ids = tuple(client_ids)
+    if not ids:
+        return {}, set()
+    where = f"client_id IN ({', '.join('?' for _ in ids)})"
+    ends = {r["client_id"]: r["d"] for r in conn.execute(
+        f"SELECT client_id, MAX(period_end) AS d FROM progress_reports WHERE {where} "
+        "GROUP BY client_id", ids)}
+    labels = {(r["client_id"], r["period_label"]) for r in conn.execute(
+        f"SELECT DISTINCT client_id, period_label FROM progress_reports WHERE {where}", ids)}
+    return ends, labels
+
+
 def mark_read(conn, client_id: int, report_id: int) -> None:
     conn.execute("UPDATE progress_reports SET read_at = COALESCE(read_at, ?) WHERE id = ? AND "
                  "client_id = ?", (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),

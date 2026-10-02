@@ -258,35 +258,45 @@ def _client_rows(today):
     conn = connect(DB)
     try:
         # only the tickers these clients hold
-        _ids = [cid for cid, _ in CLIENTS]
+        _ids = tuple(cid for cid, _ in CLIENTS)
+        _in = ", ".join("?" for _ in _ids)
         quotes = overview.latest_quotes(conn, [r["symbol"] for r in conn.execute(
-            f"SELECT DISTINCT symbol FROM positions WHERE user_id IN "
-            f"({', '.join('?' for _ in _ids)})", tuple(_ids))])
+            f"SELECT DISTINCT symbol FROM positions WHERE user_id IN ({_in})", _ids)])
+        # read for the whole book at once, not once per client
+        logins = {r["id"]: r["last_login_at"] for r in conn.execute(
+            f"SELECT id, last_login_at FROM users WHERE id IN ({_in})", _ids)}
+        all_props = {}
+        for r in conn.execute("SELECT client_id, status, COUNT(*) AS n FROM proposals WHERE "
+                              f"client_id IN ({_in}) AND status IN ('shared', 'accepted') "
+                              "GROUP BY client_id, status", _ids):
+            all_props.setdefault(r["client_id"], {})[r["status"]] = r["n"]
+        last_reports = {r["client_id"]: r["period_label"] for r in conn.execute(
+            "SELECT client_id, period_label FROM progress_reports p WHERE id = (SELECT MAX(id) "
+            f"FROM progress_reports q WHERE q.client_id = p.client_id) AND client_id IN ({_in})",
+            _ids)}
+        can_import = advising.clients_can_import(conn, _ids)
         rows = []
         for cid, name in CLIENTS:
-            summ = overview.account_summary(conn, cid, quotes, _rules_for(cid, conn))
+            # one read of their settings: alert limits and asset-class choices
+            saved = prefs.load(conn, cid, _legacy_prefs_path(cid))
+            summ = overview.account_summary(conn, cid, quotes, _rules_from(saved),
+                                            overrides=asset_classes.overrides_in(saved))
             plan = plans.get_plan(conn, cid)
             goal = (plans.progress(plan, summ["portfolio_value"] or 0.0, today=today)
                     if plans.has_goal(plan) else None)
             drift = (advising.max_drift(summ["alloc_pct"], (plan or {}).get("target_alloc"))
                      if summ["has_data"] else None)
-            review, days = advising.review_status(advising.last_review(conn, cid), today)
-            steps = advising.open_next_steps(advising.list_notes(conn, cid, include_private=True))
-            login = conn.execute("SELECT last_login_at FROM users WHERE id = ?",
-                                 (cid,)).fetchone()["last_login_at"]
+            notes = advising.list_notes(conn, cid, include_private=True)
+            review, days = advising.review_status(advising.last_review_in(notes), today)
+            steps = advising.open_next_steps(notes)
+            login = logins.get(cid)
             login_days = ((today - date.fromisoformat(login[:10])).days if login else None)
-            props = conn.execute("SELECT status, COUNT(*) AS n FROM proposals WHERE "
-                                 "client_id = ? AND status IN ('shared', 'accepted') "
-                                 "GROUP BY status", (cid,)).fetchall()
-            props = {r["status"]: r["n"] for r in props}
-            last_report = conn.execute("SELECT period_label FROM progress_reports WHERE "
-                                       "client_id = ? ORDER BY id DESC LIMIT 1",
-                                       (cid,)).fetchone()
+            props = all_props.get(cid, {})
             rows.append({**summ, "name": name, "plan": plan, "goal": goal, "drift": drift,
-                         "can_import": advising.client_can_import(conn, cid),
+                         "can_import": cid in can_import,
                          "review": review, "review_days": days, "n_steps": len(steps),
                          "login_days": login_days, "proposals": props,
-                         "last_report": last_report["period_label"] if last_report else None,
+                         "last_report": last_reports.get(cid),
                          "reasons": advising.attention(
                              has_data=summ["has_data"],
                              goal_status=goal["status"] if goal else None, review=review,

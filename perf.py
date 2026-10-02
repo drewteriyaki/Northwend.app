@@ -10,6 +10,8 @@ recorded - so `SERIES` doubles as the "pick a stat" menu.
 
 from __future__ import annotations
 
+import contextlib
+import os
 from datetime import datetime, timedelta, timezone
 
 from portfolio import connect
@@ -94,6 +96,21 @@ INTERVAL_LABEL["1d"] = "daily"
 _LOG_COLS = ["logged_at", "snapshot_date", "source", "portfolio_value", "holdings_value",
              "cash", "cost_basis", "unrealized_gain", "unrealized_gain_pct",
              "day_change_usd", "n_positions", "n_priced", "priced_at"]
+
+
+@contextlib.contextmanager
+def _open(db):
+    """A connection for `db`: a database path / Postgres DSN (opened here and
+    closed after), or a connection the caller already has open (used as is
+    and left open - the dashboard reads several of these on one)."""
+    if not isinstance(db, (str, os.PathLike)):
+        yield db
+        return
+    conn = connect(db)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _utc_now_iso() -> str:
@@ -194,9 +211,9 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
     Yahoo's intraday bars actually have data for, falling back to daily, and
     finally to the last 2 points overall so the chart is never empty. Sorted
     by time. `basis` (basis_of()) skips re-reading the latest holdings.
+    `db_path` may also be an open connection (see _open).
     """
-    conn = connect(db_path)
-    try:
+    with _open(db_path) as conn:
         rows: list[dict] = []
         if include_snapshots:
             for s in conn.execute(
@@ -228,8 +245,6 @@ def history(db_path: str, user_id: int, *, days: int | None = None, reconstruct:
         cutoff = _cutoff_ts(days)
         clipped = [r for r in rows if r["t"] >= cutoff]
         return clipped if len(clipped) >= 2 else (rows[-2:] if len(rows) >= 2 else rows)
-    finally:
-        conn.close()
 
 
 def daily_values(db_path: str, basis, since: str) -> list[tuple[str, float]]:
@@ -248,12 +263,10 @@ def daily_values(db_path: str, basis, since: str) -> list[tuple[str, float]]:
 
 def holdings_coverage(db_path: str, user_id: int, basis=None):
     """(covered_tickers, missing_tickers) for the latest snapshot vs daily_bars.
-    `basis` (basis_of()) skips re-reading the latest holdings."""
-    conn = connect(db_path)
-    try:
+    `basis` (basis_of()) skips re-reading the latest holdings. `db_path` may
+    also be an open connection (see _open)."""
+    with _open(db_path) as conn:
         return _coverage(conn, user_id, basis)
-    finally:
-        conn.close()
 
 
 def _coverage(conn, user_id: int, basis=None):
@@ -553,11 +566,10 @@ def ticker_has_bars(db_path: str, ticker: str) -> bool:
 def bar_stats(db_path: str, tickers=None) -> dict:
     """{ticker: {last_close, volume, ma_20, ma_50, ma_200}} from daily_bars -
     only `tickers` (all of them if None), and only as far back as the longest
-    moving average needs."""
+    moving average needs. `db_path` may also be an open connection (see _open)."""
     since = (datetime.now(timezone.utc) - timedelta(days=int(max(MA_WINDOWS) * 1.5) + 30)
              ).strftime("%Y-%m-%d")
-    conn = connect(db_path)
-    try:
+    with _open(db_path) as conn:
         sql, params = "SELECT ticker, date, close, volume FROM daily_bars WHERE date >= ?", (since,)
         if tickers is not None:
             if not tickers:
@@ -565,8 +577,6 @@ def bar_stats(db_path: str, tickers=None) -> dict:
             where, tick_params = _in(tickers)
             sql, params = sql + where, params + tick_params
         rows = conn.execute(sql + " ORDER BY ticker, date", params).fetchall()
-    finally:
-        conn.close()
     want = set(tickers) if tickers else None
     series: dict[str, list] = {}
     for r in rows:
@@ -586,9 +596,9 @@ def bar_stats(db_path: str, tickers=None) -> dict:
 
 
 def security_info(db_path: str, tickers=None) -> dict:
-    """{ticker: row dict} from security_info - only `tickers` if given."""
-    conn = connect(db_path)
-    try:
+    """{ticker: row dict} from security_info - only `tickers` if given.
+    `db_path` may also be an open connection (see _open)."""
+    with _open(db_path) as conn:
         if tickers is None:
             return {r["ticker"]: dict(r) for r in conn.execute("SELECT * FROM security_info")}
         if not tickers:
@@ -596,5 +606,3 @@ def security_info(db_path: str, tickers=None) -> dict:
         where, params = _in(tickers)
         return {r["ticker"]: dict(r) for r in conn.execute(
             "SELECT * FROM security_info WHERE 1 = 1" + where, params)}
-    finally:
-        conn.close()

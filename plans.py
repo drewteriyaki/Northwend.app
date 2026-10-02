@@ -94,15 +94,18 @@ def imported_window(conn, user_id: int) -> tuple[str, str] | None:
     return (row["a"], row["b"]) if row and row["a"] else None
 
 
-def money_moves(conn, user_id: int, start: str | None = None, end: str | None = None) -> list[dict]:
+def money_moves(conn, user_id: int, start: str | None = None, end: str | None = None,
+                *, window=False) -> list[dict]:
     """Money added (+) or taken out (-), newest first: hand-logged entries
     and the deposits and withdrawals in imported activity history.
     [{"id", "date", "amount", "note", "source": "hand" | "brokerage",
     "counted"}]. A hand entry dated inside the imported history isn't
     counted - the history already has the real figure (moves between your
-    own accounts and money-market sweeps are never money added)."""
+    own accounts and money-market sweeps are never money added).
+    `window`: imported_window() if the caller already read it."""
     start, end = start or "0000-00-00", end or "9999-99-99"
-    window = imported_window(conn, user_id)
+    if window is False:
+        window = imported_window(conn, user_id)
     out = [{"id": r["id"], "date": r["date"], "amount": float(r["amount"]), "note": r["note"],
             "source": "hand",
             "counted": not (window and window[0] <= r["date"] <= window[1])}
@@ -124,9 +127,14 @@ def money_added(conn, user_id: int, start: str, end: str) -> float:
                      if m["counted"]), 2)
 
 
-def month_total(conn, user_id: int, year: int, month: int) -> float:
-    prefix = f"{year:04d}-{month:02d}-"
-    return money_added(conn, user_id, prefix + "01", prefix + "31")
+def month_total(conn, user_id: int, year: int, month: int, moves=None) -> float:
+    """Net money added in that month. `moves`: every money_moves() already
+    read - that month's are picked from them, nothing is read again."""
+    start, end = f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-31"
+    if moves is not None:
+        return round(sum(m["amount"] for m in moves
+                         if m["counted"] and start <= m["date"] <= end), 2)
+    return money_added(conn, user_id, start, end)
 
 
 def money_in_history(conn, user_id: int) -> list[dict]:

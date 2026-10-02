@@ -391,11 +391,7 @@ def _route_state(has_holdings):
     import advisor
 
     today = datetime.now().date()
-    conn = connect(DB)
-    try:
-        profile = advisor.get_profile(conn, USER_ID)
-    finally:
-        conn.close()
+    profile = _profile()   # read once per run (dashboard.py)
     plan = load_plan()
     missing = advisor.missing_fields(profile)
     items = learn.readiness(profile)

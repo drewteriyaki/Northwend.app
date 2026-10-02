@@ -41,6 +41,16 @@ def client_can_import(conn, client_id: int) -> bool:
     return row is not None
 
 
+def clients_can_import(conn, client_ids) -> set:
+    """client_can_import() for several clients in one query: the ids allowed."""
+    ids = tuple(client_ids)
+    if not ids:
+        return set()
+    return {r["client_id"] for r in conn.execute(
+        "SELECT DISTINCT client_id FROM advisor_clients WHERE client_can_import = 1 AND "
+        f"client_id IN ({', '.join('?' for _ in ids)})", ids)}
+
+
 def set_client_can_import(conn, advisor_id: int, client_id: int, allowed: bool) -> bool:
     """Turn a client's own imports on or off. Only for the advisor's own
     clients; returns False (and changes nothing) otherwise."""
@@ -92,6 +102,12 @@ def last_review(conn, client_id: int) -> str | None:
     row = conn.execute("SELECT MAX(note_date) AS d FROM advisor_notes "
                        "WHERE client_id = ? AND kind = 'Review'", (client_id,)).fetchone()
     return row["d"] if row else None
+
+
+def last_review_in(notes: list[dict]) -> str | None:
+    """last_review() from the client's notes already read (list_notes with
+    include_private - a private Review counts too)."""
+    return max((n["note_date"] for n in notes if n["kind"] == "Review"), default=None)
 
 
 def review_status(last: str | None, today: date) -> tuple[str, int | None]:

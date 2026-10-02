@@ -45,7 +45,6 @@ import pgcompat
 import plans
 import prefs
 import route
-from admin import is_admin as _is_admin
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
 from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
@@ -934,19 +933,21 @@ if (st.session_state.get("session_token")
 LOGIN_ID = st.session_state["user_id"]
 _conn = connect(DB)
 try:
+    # the login's own row, read once (password stamp, advisor, admin, name)
+    _me = auth.login_facts(_conn, LOGIN_ID)
     # A password change (here, on another device, or by an admin or advisor)
     # signs out tabs that are already open, not just the saved cookies.
-    _stamp = auth.password_stamp(_conn, LOGIN_ID)
+    _stamp = _me["stamp"]
     if st.session_state.setdefault("pw_stamp", _stamp) != _stamp:
         st.session_state.clear()
         st.session_state["signed_out"] = True
         st.session_state["login_notice"] = "Your password was changed. Sign in again."
         st.rerun()
-    IS_ADVISOR = auth.is_advisor(_conn, LOGIN_ID)
+    IS_ADVISOR = _me["is_advisor"]
     # the Admin portal (admin.py; granted only from the command line)
-    IS_ADMIN = _is_admin(_conn, LOGIN_ID)
+    IS_ADMIN = _me["is_admin"]
     # what they asked to be called (the Account page), else their login
-    MY_NAME = auth.display_name(_conn, LOGIN_ID) or st.session_state["username"]
+    MY_NAME = _me["display_name"] or st.session_state["username"]
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
     # an investor account that asked for advisor access (shown in the sidebar)
     ADVISOR_REQUEST = None if IS_ADVISOR else auth.advisor_request(_conn, LOGIN_ID)
@@ -961,7 +962,9 @@ try:
     if not auth.can_view(_conn, LOGIN_ID, _active):
         _active = LOGIN_ID
     ACCOUNT_LABELS = accounts.labels(_conn, _active)
-    HAS_HOLDINGS = latest_snapshot(_conn, _active) is not None
+    # the latest holdings' date (load() reads that snapshot below)
+    _LATEST_SNAPSHOT = latest_snapshot(_conn, _active)
+    HAS_HOLDINGS = _LATEST_SNAPSHOT is not None
     # A client whose account an advisor manages: the plan, target mix, alert
     # limits and imports are the advisor's, so the client's view is read-only
     # for those. MY_ADVISOR_CARD is how the advisor presents themselves.
@@ -1534,10 +1537,16 @@ def _rules_for(account_id, conn=None):
     """That account's saved alert limits, else defaults."""
     c = conn or connect(DB)
     try:
-        saved = prefs.load(c, account_id, _legacy_prefs_path(account_id)).get("rules") or {}
+        saved = prefs.load(c, account_id, _legacy_prefs_path(account_id))
     finally:
         if conn is None:
             c.close()
+    return _rules_from(saved)
+
+
+def _rules_from(saved_prefs):
+    """The alert limits in an account's settings (prefs.load), else defaults."""
+    saved = saved_prefs.get("rules") or {}
     if not isinstance(saved, dict):
         saved = {}
     return [{**r, "abs_gt": float(saved.get(r["key"], r["abs_gt"]))} for r in alerts.DEFAULT_RULES]
@@ -1874,6 +1883,29 @@ def save_plan_fields(fields: dict):
     return plan
 
 
+# Read once per run: what several parts of one page need. This script runs
+# afresh on every rerun, so it starts empty each time (a click's callback has
+# already saved its change). A fragment's or window's own rerun still sees the
+# last full run's, so keep here only what changes by a full rerun - never what
+# a fragment itself saves (the Plan tabs read their own).
+_RUN = {}
+
+
+def _profile():
+    """This account's investor profile (advisor.get_profile), read once per
+    run - Home's route card and kit, Get started, the first steps and the map
+    plate above the title all use it. Saving it (the profile form, then
+    st.rerun; a first steps button's callback) starts a new run."""
+    if "profile" not in _RUN:
+        import advisor
+        conn = connect(DB)
+        try:
+            _RUN["profile"] = advisor.get_profile(conn, USER_ID)
+        finally:
+            conn.close()
+    return dict(_RUN["profile"])
+
+
 def load_alloc_targets():
     """{asset-type label: target %}, from the plan's target mix. Only labels
     with a nonzero target are included — an unset label has no target and is
@@ -1913,31 +1945,29 @@ def save_perf_series(col):
     _write_prefs(p)
 
 
-def load():
-    """Return (snapshot_date, positions, cash_by_account, quotes)."""
-    conn = connect(DB)
-    try:
-        snap = latest_snapshot(conn, USER_ID)
-        if not snap:
-            return None, [], {}, {}
-        rows = conn.execute(
-            "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ? ORDER BY account, symbol",
-            (snap, USER_ID)
-        ).fetchall()
-        cash_by_account = {
-            r["account"]: r["cash_value"] or 0.0
-            for r in conn.execute(
-                "SELECT account, cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
-                (snap, USER_ID))
-        }
-        # the latest quote of each ticker this account holds or watches - not
-        # every ticker in price_history, which grows every minute
-        import overview
-        mine = sorted({r["symbol"] for r in rows} | {r["ticker"] for r in conn.execute(
-            "SELECT ticker FROM watchlist WHERE user_id = ?", (USER_ID,))})
-        quotes = overview.latest_quotes(conn, mine)
-    finally:
-        conn.close()
+def load(conn):
+    """Return (snapshot_date, positions, cash_by_account, quotes, watchlist
+    tickers), read on `conn`. The snapshot is the one found at the top of
+    this run (holdings are only saved in a callback or a window, each
+    followed by a new run)."""
+    snap = _LATEST_SNAPSHOT
+    if not snap:
+        return None, [], {}, {}, []
+    rows = conn.execute(
+        "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ? ORDER BY account, symbol",
+        (snap, USER_ID)
+    ).fetchall()
+    cash_by_account = {
+        r["account"]: r["cash_value"] or 0.0
+        for r in conn.execute(
+            "SELECT account, cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
+            (snap, USER_ID))
+    }
+    # the latest quote of each ticker this account holds or watches - not
+    # every ticker in price_history, which grows every minute
+    import overview
+    watch = watchlist.list_tickers(conn, USER_ID)   # read once: the Watchlist uses it too
+    quotes = overview.latest_quotes(conn, sorted({r["symbol"] for r in rows} | set(watch)))
     # Nicknames replace the broker's account names from here on (display
     # only); the broker's name stays available as "broker_account".
     positions = [dict(r) for r in rows]
@@ -1945,7 +1975,7 @@ def load():
         p["broker_account"] = p["account"]
         p["account"] = accounts.display(p["account"], ACCOUNT_LABELS)
     cash_by_account = {accounts.display(a, ACCOUNT_LABELS): v for a, v in cash_by_account.items()}
-    return snap, positions, cash_by_account, quotes
+    return snap, positions, cash_by_account, quotes, watch
 
 
 AUTO_REFRESH_AFTER = timedelta(minutes=15)
@@ -2217,17 +2247,23 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
-snapshot, positions, cash_by_account, quotes = load()
-# what the value chart prices, from the holdings just loaded (no re-reads)
-PERF_BASIS = perf.basis_of(snapshot, positions, cash_by_account)
-_src_conn = connect(DB)
-try:
-    # an import, a hand entry, a percentages portfolio or the example portfolio
-    SNAPSHOT_SOURCE = snapshot_source(_src_conn, USER_ID, snapshot)
-finally:
-    _src_conn.close()
 # a Holdings button in the sidebar was pressed (_open_holdings_dialog)
 _open = st.session_state.pop("open_dialog", None)
+if PAGE in ("Clients", "Admin", "Account", "About") and not _open:
+    # these pages are about the login, its clients or the app - not the viewed
+    # account's holdings, so they aren't read (a Holdings window needs them)
+    snapshot, positions, cash_by_account, quotes, watch_tickers = None, [], {}, {}, []
+    SNAPSHOT_SOURCE = None
+else:
+    _data_conn = connect(DB)   # one connection for the holdings, their source and the watchlist
+    try:
+        snapshot, positions, cash_by_account, quotes, watch_tickers = load(_data_conn)
+        # an import, a hand entry, a percentages portfolio or the example portfolio
+        SNAPSHOT_SOURCE = snapshot_source(_data_conn, USER_ID, snapshot)
+    finally:
+        _data_conn.close()
+# what the value chart prices, from the holdings just loaded (no re-reads)
+PERF_BASIS = perf.basis_of(snapshot, positions, cash_by_account)
 if _open == "manual" and CAN_IMPORT:
     _manual_dialog(positions, cash_by_account, SNAPSHOT_SOURCE)
 elif _open == "import" and CAN_IMPORT:
@@ -2318,17 +2354,19 @@ if not positions:
 
 cash = sum(cash_by_account.values())
 
-_wl_conn = connect(DB)
-try:
-    watch_tickers = watchlist.list_tickers(_wl_conn, USER_ID)
-finally:
-    _wl_conn.close()
 _held_symbols = {p["symbol"] for p in positions}
 # Deep Yahoo history (moving averages, volume, 52-wk, beta, P/E, sector) - for
 # this account's holdings and watchlist only, not every ticker anyone holds.
 _my_tickers = _held_symbols | set(watch_tickers)
-bar_stats = perf.bar_stats(DB, _my_tickers)
-sec_info = perf.security_info(DB, _my_tickers)
+_bars_conn = connect(DB)   # one connection for the history these need
+try:
+    bar_stats = perf.bar_stats(_bars_conn, _my_tickers)
+    sec_info = perf.security_info(_bars_conn, _my_tickers)
+    # Holdings with no Yahoo history yet (a first import, or a new position) -
+    # filled in below, once per visit, so the charts fill in without a manual sync
+    _covered, _missing = perf.holdings_coverage(_bars_conn, USER_ID, PERF_BASIS)
+finally:
+    _bars_conn.close()
 # What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):
 # the account's own choice, else Yahoo's fund breakdown, else the broker type.
 CLASS_OVERRIDES = {s: c for s, c in (_read_prefs().get(asset_classes.OVERRIDES_PREF) or {}).items()
@@ -2391,10 +2429,10 @@ if "value_logged" not in st.session_state:
     })
 
 
-# Holdings with no Yahoo history yet (a first import, or a new position):
-# fetch it once per visit so the charts fill in without a manual sync. Runs
-# before the header so the header's one-shot messages survive its rerun.
-_covered, _missing = perf.holdings_coverage(DB, USER_ID, PERF_BASIS)
+# Holdings with no Yahoo history yet (a first import, or a new position;
+# _missing, read above): fetch it once per visit so the charts fill in without
+# a manual sync. Runs before the header so the header's one-shot messages
+# survive its rerun.
 # ...and holdings Yahoo was never asked to describe (what a fund holds -
 # asset_classes.py). quote_type is None until asked, "" if Yahoo had nothing.
 _undescribed = sorted({p["symbol"] for p in positions

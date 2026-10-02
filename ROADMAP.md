@@ -690,6 +690,15 @@ started, the Plan and Ask Northwend - always optional.
       loaded holdings (Dashboard 39 -> 25 statements); per-account indexes; the
       15-minute job skips prices the app fetched in the last 10 minutes; a fund
       held in two accounts now counts both on the chart. `CLAUDE.md` added.
+      **Again (Oct 2):** the login's row read once (`auth.login_facts`), the
+      holdings, their source and the watchlist on one connection, price history
+      on one, the profile once per run; Your clients, Admin, Account and About
+      skip the holdings; Your clients reads logins, proposals, reports and
+      settings once for the whole book. Home 49 -> 35 queries (21 -> 8
+      connections), Your clients with 25 clients 408 -> 216; every page draws
+      the same. A test caps both. Left for later: live_prices.freshen re-reads
+      what load() has (~3 queries a run - it's price fetching, so a plan
+      first), and a whole-book account_summary (~8 queries per client).
 - [x] **Split dashboard.py** - one file per page in `views/` (dashboard.py 4,504 ->
       1,657 lines). Code moved unchanged; every page drew identically before
       and after (18 page views compared). (M)
