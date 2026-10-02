@@ -137,10 +137,16 @@ def _fs_finish(then=None):
         st.session_state["page"] = "Get started"
 
 
-def _fs_dots(i, n):
-    dots = "".join(f"<span class='pt-fs-dot{' pt-fs-dot-on' if k <= i else ''}'></span>"
+def _fs_dots(i, n, label=None, on=None):
+    """Progress dots: the first `i` + 1 lit, or those in `on` (indexes) when
+    given - Learn's goal parts light the ones completed. `label` is what a
+    screen reader hears (default "Step i of n")."""
+    lit = set(range(i + 1)) if on is None else set(on)
+    dots = "".join(f"<span class='pt-fs-dot{' pt-fs-dot-on' if k in lit else ''}"
+                   f"{' pt-fs-dot-at' if on is not None and k == i else ''}'></span>"
                    for k in range(n))
-    st.html(f"<div class='pt-fs-dots' role='img' aria-label='Step {i + 1} of {n}'>{dots}</div>")
+    label = html.escape(label or f"Step {i + 1} of {n}", quote=True)
+    st.html(f"<div class='pt-fs-dots' role='img' aria-label='{label}'>{dots}</div>")
 
 
 def _fs_question(field, profile, on_change=None, args=None):
@@ -178,14 +184,26 @@ def _fs_screen_goal(profile):
         st.session_state["fs_goal_type"] = _fs_goal_fallback()
     # required: tapping the chosen one keeps it chosen (a second tap used to
     # un-pick it, and the goal was then quietly not saved)
-    st.pills("What's the goal?", plans.GOAL_TYPES, key="fs_goal_type", required=True)
+    st.pills("What are you saving for?", plans.GOAL_TYPES, key="fs_goal_type", required=True)
     c1, c2 = st.columns(2)
-    c1.number_input("About how much you'll need ($)", min_value=0.0, step=1000.0,
+    c1.number_input("I want to have ($)", min_value=0.0, step=1000.0,
                     format="%.0f", key="fs_goal_target")
-    c2.number_input("In how many years?", min_value=1, max_value=60, step=1,
+    c2.number_input("in how many years", min_value=1, max_value=60, step=1,
                     key="fs_goal_years")
-    c1.number_input("What you might add each month ($)", min_value=0.0, step=50.0,
+    c1.number_input("I'll invest each month ($)", min_value=0.0, step=50.0,
                     format="%.0f", key="fs_goal_monthly")
+    target = float(st.session_state.get("fs_goal_target") or 0)
+    if target > 0:
+        # what reaches it, worked out the same way as everywhere else
+        today = datetime.now().date()
+        when = plans.add_months(today, 12 * int(st.session_state.get("fs_goal_years") or 10))
+        tip = learn.suggestions(profile, {"target_amount": target, "target_date": when.isoformat()},
+                                today=today, return_pct=_plan_return_pct())
+        if tip["monthly"]:
+            _suggestion_line(f"{fmt_money0(tip['monthly'])} a month - what reaches "
+                             f"{fmt_money0(target)} by {_fmt_month(when.isoformat())} at "
+                             f"{_plan_return_pct():g}% a year", key="fs_goal_monthly_use",
+                             values={"fs_goal_monthly": tip["monthly"]})
     st.caption("Not sure yet? Leave the amount at 0 and press Next.")
 
 

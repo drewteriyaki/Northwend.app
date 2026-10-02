@@ -223,10 +223,24 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-trail-advance { animation: pt-trail-draw .9s ease-out; }
 @keyframes pt-trail-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 /* milestones and gear (views/kit.py, gear.py): icon tiles, earned ones in dawn */
-.pt-gear-row { display: flex; flex-wrap: wrap; gap: 8px; margin: .55rem 0 .35rem; }
-.pt-gear-tile { width: 40px; height: 40px; border-radius: 10px; display: inline-flex;
+.pt-gear-row { display: flex; flex-wrap: wrap; gap: 10px 8px; margin: .6rem 0 .45rem !important;
+  padding: 0 !important; list-style: none; }
+.pt-gear-cell { width: 64px; margin: 0 !important; padding: 0; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; }
+.pt-gear-label { font-size: .72rem; line-height: 1.2; text-align: center; color: var(--pt-ink-muted); }
+.pt-gear-tile { width: 40px; height: 40px; border-radius: 10px; display: inline-flex; flex: none;
   align-items: center; justify-content: center; border: 1px dashed var(--pt-line-strong); }
 .pt-gear-earned { border: 0; background: var(--pt-dawn-soft); }
+/* the kit window: one row per piece - what it's for, how it's earned */
+.pt-gear-item { display: flex; gap: .8rem; align-items: flex-start; }
+.pt-gear-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .5rem;
+  margin-bottom: .15rem; }
+.pt-gear-how { font-size: .85rem; color: var(--pt-ink-muted); margin-top: .15rem; }
+.pt-gear-why { color: var(--pt-ink-muted); }
+.pt-gear-chip { display: inline-block; padding: .05rem .55rem; border-radius: 999px;
+  font-size: .75rem; font-weight: 600; color: var(--pt-ink-muted);
+  border: 1px dashed var(--pt-line-strong); }
+.pt-gear-chip-earned { color: inherit; background: var(--pt-dawn-soft); border: 1px solid var(--pt-dawn); }
 .pt-milestone { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
 .pt-milestone-badge { width: 76px; height: 76px; border-radius: 999px; background: var(--pt-dawn-soft);
   display: flex; align-items: center; justify-content: center; margin-bottom: .3rem; }
@@ -254,6 +268,22 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-fs-dot { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--pt-sunken);
   transition: background .3s ease; }
 .pt-fs-dot-on { background: var(--pt-compass); }
+.pt-fs-dot-at { outline: 2px solid var(--pt-compass); outline-offset: 1px; }
+/* Learn (views/get_started.py): how far along the route, one segment per
+   waypoint - complete ones filled, the open one outlined - and each
+   waypoint's one line about why it matters */
+.pt-steps { margin: 0 0 .4rem; }
+.pt-steps-top { display: flex; justify-content: space-between; align-items: baseline;
+  gap: .5rem; font-size: .95rem; margin-bottom: .35rem; }
+.pt-steps-top span { font-size: .85rem; color: var(--pt-ink-muted); font-variant-numeric: tabular-nums; }
+.pt-steps-bar { display: flex; gap: 4px; }
+.pt-steps-seg { flex: 1 1 0; height: 10px; border-radius: 5px; background: var(--pt-sunken);
+  box-shadow: inset 0 0 0 1px var(--pt-line); transition: background .3s ease; }
+.pt-steps-done { background: var(--pt-compass); box-shadow: none; }
+.pt-steps-at { outline: 2px solid var(--pt-compass); outline-offset: 2px; }
+.pt-why { font-family: Newsreader, Georgia, serif; font-style: italic; font-size: 1.08rem;
+  line-height: 1.4; margin: -.35rem 0 .35rem; }
+.st-key-pt_gs_nav button p { font-size: .9rem; }
 [class*="st-key-pt_slide_"] { animation: pt-slide-in .35s ease-out both; }
 /* a chosen answer in a slide (first steps, Learn's waypoints) reads as chosen
    at a glance: a check, a firmer edge and bold, not just a pale tint */

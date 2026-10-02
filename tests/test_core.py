@@ -1786,6 +1786,78 @@ class GearTests(unittest.TestCase):
         self.assertNotIn("<svg", html)
         self.assertIn("Storm cloak, not earned yet", html)
 
+    def test_every_piece_says_what_its_for_and_how_its_earned(self):
+        import gear
+        for k in gear.KEYS:
+            for words, start in ((gear.FOR, "For "), (gear.HOW, "Earned when "), (gear.WHY, "")):
+                line = words[k]
+                self.assertTrue(line.startswith(start), (k, line))
+                self.assertTrue(line.endswith("."), (k, line))
+                self.assertNotIn("\n", line)
+                self.assertLess(len(line), 170, (k, line))     # one short line
+            self.assertTrue(gear.BY_KEY[k][3].endswith("."), k)
+        # the owner's example: the cloak says plainly what it's for
+        self.assertEqual(gear.FOR["cloak"],
+                         "For holding steady through a market drop instead of selling.")
+
+    def test_how_its_earned_matches_the_real_rule(self):
+        import gear
+        # each piece is earned by its own fact, and only that
+        self.assertEqual(sorted(gear.NEED), sorted(gear.KEYS))
+        for k in gear.KEYS:
+            self.assertEqual(gear.earned({gear.NEED[k]: True}), [k])
+        self.assertIn(f"{gear.STORM_DROP_PCT:.0f}% or more below its high", gear.HOW["cloak"])
+        self.assertIn("don't sell anything between the high and the low", gear.HOW["cloak"])
+        self.assertEqual(gear.STREAK_MONTHS, 3)
+        self.assertIn("three calendar months in a row, up to this month or last",
+                      gear.HOW["lantern"])
+        self.assertIn("an amount and a date", gear.HOW["compass"])   # plans.has_goal
+        for k in ("boots", "flag"):    # the example portfolio never counts
+            self.assertIn("example portfolio doesn't count", gear.HOW[k])
+        # the Learn waypoints named are Learn's own titles
+        with open(os.path.join(REPO, "views", "get_started.py"), encoding="utf-8") as fh:
+            steps = fh.read().split("GET_STARTED_STEPS = (", 1)[1].split("\n)", 1)[0]
+        self.assertIn('("profile", "About you")', steps)
+        self.assertIn("(About you, on Learn)", gear.HOW["map"])
+        self.assertIn('("basics", "Learn the basics")', steps)
+        self.assertIn('"Learn the basics"', gear.HOW["tent"])
+        self.assertIn('("practice", "Try it with practice money")', steps)
+        self.assertIn('"Try it with practice money"', gear.HOW["rope"])
+
+    def test_each_button_goes_where_its_earned(self):
+        import gear
+        with open(os.path.join(REPO, "views", "get_started.py"), encoding="utf-8") as fh:
+            steps = fh.read().split("GET_STARTED_STEPS = (", 1)[1].split("\n)", 1)[0]
+        for k, (label, (kind, where)) in gear.GO.items():
+            self.assertIn(k, gear.KEYS)
+            self.assertTrue(label)
+            if kind == "learn":
+                self.assertIn(f'("{where}", ', steps)
+            elif kind == "page":
+                self.assertEqual(where, "Plan")
+            else:
+                self.assertEqual((kind, where), ("dialog", "manual"))
+        self.assertNotIn("cloak", gear.GO)    # nothing to do but stay in
+
+    def test_next_up_skips_the_cloak_until_last(self):
+        import gear
+        self.assertEqual(gear.next_up([]), "map")
+        self.assertEqual(gear.next_up(["map", "compass", "tent", "rope", "boots", "lantern"]),
+                         "flag")
+        self.assertEqual(gear.next_up([k for k in gear.KEYS if k != "cloak"]), "cloak")
+        self.assertIsNone(gear.next_up(list(gear.KEYS)))
+
+    def test_when_each_piece_was_earned(self):
+        import gear
+        dates = gear.stamp(None, ["map", "compass"], ["compass"], "2026-10-02")
+        self.assertEqual(dates, {"map": {"by": "2026-10-02"}, "compass": {"on": "2026-10-02"}})
+        # kept once set
+        self.assertEqual(gear.stamp(dates, ["map", "compass"], [], "2026-11-05"), dates)
+        fmt = lambda d: "Oct 2, 2026"     # noqa: E731
+        self.assertEqual(gear.when_text(dates["compass"], fmt), "Earned Oct 2, 2026")
+        self.assertEqual(gear.when_text(dates["map"], fmt), "Earned by Oct 2, 2026")
+        self.assertEqual(gear.when_text(None, fmt), "Earned")
+
 
 class RouteTests(unittest.TestCase):
     """The investor home's next step (route.py): one step, in priority order."""

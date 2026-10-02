@@ -71,7 +71,47 @@ def _goal_progress(plan, value):
                           return_pct=_plan_return_pct())
 
 
-def _render_plan_form(plan, today):
+# ---- suggested starting points (learn.suggestions) - Plan and Learn ---------- #
+SUGGEST_LEAD = "Suggested starting point for your answers"
+SUGGEST_HELP = ("Worked out from your answers as a place to start - not advice. Pick whatever "
+                "suits you; you can change it any time.")
+
+
+def _suggest(value=None, plan=None):
+    """learn.suggestions() for this account: its answers, its plan (`plan`
+    when the caller has a fresher one), what's invested now, and the plan's
+    assumed yearly return."""
+    return learn.suggestions(_profile(), plan if plan is not None else load_plan(),
+                             today=datetime.now().date(), present=float(value or 0.0),
+                             return_pct=_plan_return_pct())
+
+
+def _set_state(**values):
+    """A "Use the suggestion" button: put the suggestion in its fields
+    (a callback, so it lands before they're drawn again)."""
+    st.session_state.update(values)
+
+
+def _suggestion_line(text, key=None, values=None):
+    """"Suggested starting point for your answers: X" and, with `values`
+    ({widget key: value}), a small Use the suggestion button that fills them
+    in - shown as in use when they already hold it."""
+    in_use = bool(values) and all(st.session_state.get(k) == v for k, v in values.items())
+    with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                      key=f"pt_suggest_{key}" if key else None):
+        st.caption(f":material/lightbulb: {SUGGEST_LEAD}: **{text}**".replace("$", r"\$"),
+                   help=SUGGEST_HELP, width="stretch")
+        if values:
+            st.button("In use" if in_use else "Use the suggestion", key=key, type="tertiary",
+                      icon=":material/check:" if in_use else None, disabled=in_use,
+                      on_click=_set_state, kwargs=values)
+
+
+def _years_text(n):
+    return f"{n} year{'s' if n != 1 else ''}"
+
+
+def _render_plan_form(plan, today, value=None):
     import advisor
 
     plan = plan or {}
@@ -81,34 +121,43 @@ def _render_plan_form(plan, today):
     finally:
         conn.close()
     first_goal = (advisor.split_multi(profile.get("goal")) or [None])[0]
-    horizon = int(profile.get("time_horizon_years") or 10)
+    tip = learn.suggestions(profile, plan, today=today)
     when_default = (datetime.strptime(plan["target_date"], "%Y-%m-%d").date()
-                    if plan.get("target_date") else plans.add_months(today, 12 * horizon))
+                    if plan.get("target_date") else tip["goal_date"])
     if not plans.has_goal(plan):
         st.markdown("#### Set a goal")
-        st.caption("What you're investing for, how much you'll need, and by when. The plan then "
-                   "shows whether you're on track and what it would take to get there.")
+        st.caption("What you're saving for, how much you'd like to have, and by when. The plan "
+                   "then shows whether you're on track and what it would take to get there.")
     with st.form("plan_form"):
-        goal_type = st.pills("What's the goal?", plans.GOAL_TYPES,
+        goal_type = st.pills("What are you saving for?", plans.GOAL_TYPES,
                              default=plan.get("goal_type") or _GOAL_FROM_PROFILE.get(first_goal))
         goal_name = st.text_input("Name it (optional)", value=plan.get("goal_name") or "",
                                   placeholder="e.g. Retire at 60", max_chars=60)
         c1, c2 = st.columns(2)
-        target = c1.number_input("Target amount ($)", min_value=0.0, step=1000.0, format="%.0f",
+        target = c1.number_input("I want to have ($)", min_value=0.0, step=1000.0, format="%.0f",
                                  value=float(plan.get("target_amount") or 0.0))
-        when = c2.date_input("Target date", value=when_default,
+        when = c2.date_input("by (date)", value=when_default,
                              min_value=min(when_default, plans.add_months(today, 1)),
                              max_value=date(today.year + 80, 12, 31))
-        monthly = c1.number_input("Adding each month ($)", min_value=0.0, step=50.0, format="%.0f",
+        if not plan.get("target_date"):
+            _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
+                             f"{_years_text(tip['goal_years'])} from now, from your timeline")
+        monthly = c1.number_input("I'll invest each month ($)", min_value=0.0, step=50.0,
+                                  format="%.0f",
                                   value=float(plan.get("monthly_contribution") or 0.0))
+        if plans.has_goal(plan):
+            need = _suggest(value, plan)["monthly"]
+            if need:
+                _suggestion_line(f"{fmt_money0(need)} a month - what reaches this goal at "
+                                 f"{_plan_return_pct():g}% a year")
         notes = st.text_area("Notes (optional)", value=plan.get("notes") or "",
                              placeholder="Anything worth remembering about this goal")
         with st.container(horizontal=True):
-            save = st.form_submit_button("Save plan", type="primary")
+            save = st.form_submit_button("Save my plan", type="primary")
             cancel = plans.has_goal(plan) and st.form_submit_button("Cancel")
     if save:
         if not goal_type or target <= 0:
-            st.error("Pick a goal and enter a target amount above $0.")
+            st.error("Pick what you're saving for and an amount above $0.")
             return
         save_plan_fields({"goal_type": goal_type, "goal_name": goal_name.strip() or None,
                           "target_amount": float(target), "target_date": when.isoformat(),
@@ -198,8 +247,18 @@ def _render_projection(plan, value, today):
                     f"{fmt_money0(target)} would take about **{needed}** a month.")
 
     if prog["months"] > 0:
-        st.select_slider("Assumed yearly return", RETURN_CHOICES, key="plan_return",
-                         format_func=lambda v: f"{v:g}%")
+        # set again just before it's drawn: a value put in session state on an
+        # earlier run without the slider (Learn's goal parts read it first)
+        # isn't sent to a newly drawn slider, which would show - and then
+        # save - its first choice, 2%
+        st.session_state["plan_return"] = rp
+        st.select_slider("How much your money grows in a typical year (the assumed return)",
+                         RETURN_CHOICES, key="plan_return", format_func=lambda v: f"{v:g}%",
+                         help="Nobody knows future returns. Long-run averages for a mix of "
+                              "stocks and bonds have been somewhere in this range.")
+        _suggestion_line(f"{learn.SUGGESTED_RETURN_PCT:g}% a year - a typical middle value",
+                         key="plan_return_use",
+                         values={"plan_return": learn.SUGGESTED_RETURN_PCT})
         if st.session_state["plan_return"] != _read_prefs().get("plan_return_pct"):
             _p = _read_prefs()
             _p["plan_return_pct"] = st.session_state["plan_return"]
@@ -368,14 +427,23 @@ def _render_target_mix(alloc_rows):
                                                       f"{advising.mix_text(by_id[i]['target_alloc'])}")
             if c2.button("Apply", disabled=pick is None, width="stretch", key="apply_model"):
                 save_alloc_targets(by_id[pick]["target_alloc"])
+                for lbl in asset_classes.CLASSES:   # the form below shows the new targets
+                    st.session_state.pop(f"plan_target_{lbl}", None)
                 st.rerun(scope="fragment")
     if CAN_MANAGE:
-        with st.expander("Edit target mix"):
+        with st.expander("Edit target mix", expanded=not targets):
+            tip = _suggest()["target_mix"]
+            for lbl in asset_classes.CLASSES:
+                st.session_state.setdefault(f"plan_target_{lbl}", float(targets.get(lbl, 0.0)))
+            _suggestion_line(", ".join(f"{v:g}% {k.lower()}" for k, v in tip.items())
+                             + " - the example mix for your answers", key="plan_target_use",
+                             values={f"plan_target_{lbl}": float(tip.get(lbl, 0.0))
+                                     for lbl in asset_classes.CLASSES})
             with st.form("target_mix_form", border=False):
                 cols = st.columns(len(asset_classes.CLASSES))
                 new = {lbl: cols[i].number_input(
-                           f"{lbl} %", min_value=0.0, max_value=100.0, step=5.0, format="%.0f",
-                           value=float(targets.get(lbl, 0.0)), key=f"plan_target_{lbl}")
+                           f"% in {lbl.lower()}", min_value=0.0, max_value=100.0, step=5.0,
+                           format="%.0f", key=f"plan_target_{lbl}")
                        for i, lbl in enumerate(asset_classes.CLASSES)}
                 if st.form_submit_button("Save target mix", type="primary"):
                     total = sum(new.values())
@@ -405,25 +473,36 @@ def _render_what_if(plan, value, alloc_rows, today):
     present = float(value or 0.0)
     target = float(plan["target_amount"]) if has_goal else None
     base_monthly = float((plan or {}).get("monthly_contribution") or 0.0)
-    base_months = (max(12, plans.months_until(plan["target_date"], today)) if has_goal else 120)
     actual = {r["label"]: r["pct"] or 0.0 for r in (alloc_rows or [])}
-    base_stocks = float(round(actual.get("Stocks") or load_alloc_targets().get("Stocks") or 60))
-    st.session_state.setdefault("wi_monthly", float(base_monthly or 200))
-    st.session_state.setdefault("wi_years", max(1, min(40, round(base_months / 12))))
+    tip = _suggest(value, plan)
+    tip_monthly = float(tip["monthly"] or 0.0)
+    base_stocks = float(round(actual.get("Stocks") or load_alloc_targets().get("Stocks")
+                              or tip["stocks_pct"]))
+    # pre-filled with the plan's own numbers, else the suggested starting points
+    st.session_state.setdefault("wi_monthly", float(base_monthly or tip_monthly or 200))
+    st.session_state.setdefault("wi_years", tip["years"])
     st.session_state.setdefault("wi_stocks", int(5 * round(base_stocks / 5)))
     st.session_state.setdefault("wi_extra", 0.0)
+    top = float(max(2000.0, 3 * base_monthly, 1.5 * tip_monthly,
+                    st.session_state["wi_monthly"]))
 
     with st.container():
         st.caption("Try different amounts, years and mixes to see how the range moves. "
                    "Nothing is saved unless you choose to.")
         c1, c2 = st.columns(2)
-        c1.slider("Each month ($)", 0.0, float(max(2000.0, 3 * base_monthly)), step=25.0,
+        c1.slider("How much you'll invest each month ($)", 0.0, 50 * -(-top // 50), step=1.0,
                   key="wi_monthly", format="$%d")
-        c2.slider("Years", 1, 40, key="wi_years")
+        c2.slider("How many years you'll keep investing", 1, 40, key="wi_years")
         c3, c4 = st.columns(2)
-        c3.slider("In stocks (%) - the rest in bonds", 0, 100, step=5, key="wi_stocks")
+        c3.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="wi_stocks")
         c4.number_input("Add a one-off amount now ($)", min_value=0.0, step=500.0,
                         key="wi_extra", format="%.0f")
+        _suggestion_line(" · ".join(
+            ([f"{fmt_money0(tip_monthly)} a month"] if tip_monthly else [])
+            + [_years_text(tip["years"]), f"{tip['stocks_pct']}% in stocks"]),
+            key="wi_use_tip",
+            values={**({"wi_monthly": tip_monthly} if tip_monthly else {}),
+                    "wi_years": tip["years"], "wi_stocks": tip["stocks_pct"]})
         monthly, months = st.session_state["wi_monthly"], 12 * st.session_state["wi_years"]
         stocks, start = st.session_state["wi_stocks"], present + st.session_state["wi_extra"]
         ret, base_ret = plans.mix_return(stocks), plans.mix_return(base_stocks)
@@ -477,11 +556,17 @@ def _render_plan(value, growth, alloc_rows):
     account with no holdings yet - the goal and contributions still work."""
     today = datetime.now().date()
     plan = load_plan()
+    if _on_the_route():
+        # the plan is changed here, but planning is part of the route on
+        # Learn: a clear way back to it, so nobody is left here wondering
+        st.button(":material/arrow_back: Back to your route", key="plan_back_route",
+                  on_click=_go, args=("Get started",),
+                  help=f"Back to where you were on {_label('Get started')}.")
     if not CAN_MANAGE and not plans.has_goal(plan):
         st.info(f"Your advisor, {_advisor_display_name()}, sets your goal - it shows up here "
                 "once they have.")
     elif CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan)):
-        _render_plan_form(plan, today)
+        _render_plan_form(plan, today, value)
     else:
         _render_plan_status(plan, value, today)
     editing = CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan))

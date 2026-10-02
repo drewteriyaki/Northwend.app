@@ -818,6 +818,17 @@ phone-only beginner). What they found, fixed in this order:
       place (debt and employer match also on the safety-net slide); one
       welcome line after sign-up instead of three banners. Menu order is the
       same before and after holdings.
+- [x] **The route, from the owner's own test** - each waypoint says what
+      it's for; a progress bar ("Step 3 of 7 · 2 complete"); one big
+      "Complete this step" button (small Back and "Skip for now"), no "Mark
+      as done". "Set a goal" stays in Learn as four short parts (the goal as
+      "I want to have $___ by ___", the monthly amount, how it's going, the
+      mix); Plan has "Back to your route". Labels say what each number is
+      for ("How much you'll invest each month"). A "Suggested starting
+      point for your answers" on every slider and the target mix
+      (`learn.suggestions`), never called a recommendation. The kit says
+      what each piece is for and exactly how it's earned. Fixed on the way:
+      the assumed-return slider could save 2% while saying 6%.
 - [ ] **Next, from the walkthroughs:** website hooks (a "New to investing?"
       line, an "Already investing?" section, a phone menu; growth, fee and
       inflation calculators; the direction quiz before sign-up); advisor

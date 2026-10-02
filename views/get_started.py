@@ -23,6 +23,29 @@ GET_STARTED_STEPS = (
     ("practice", "Try it with practice money"),
     ("account", "Open an account and bring it in"),
 )
+# each waypoint opens with one plain line: why it matters, and what you'll do
+WAYPOINT_WHY = {
+    "profile": "So the rest of your route fits you - a few taps about your timeline and how "
+               "you feel about ups and downs.",
+    "ready": "So you start on solid ground - a quick check of what most people take care of "
+             "before they invest.",
+    "goal": "So you know how much to invest each month to get there - your goal, a monthly "
+            "amount and a mix, one at a time.",
+    "basics": "So the words and ideas make sense - six short reads, a minute or two each.",
+    "mix": "So you can see what a simple portfolio looks like - an example split for someone "
+           "with your answers.",
+    "practice": "So you can feel the ups and downs before using real money - try a mix on "
+                "real past prices.",
+    "account": "So your own investing can begin - open an account, then bring it in here to "
+               "follow it.",
+}
+# "Set a goal" in short parts, each with its own Complete button (key, title)
+GOAL_PARTS = (
+    ("what", "What are you saving for?"),
+    ("monthly", "How much you'll invest each month"),
+    ("how", "How it's going"),
+    ("mix", "Your target mix"),
+)
 # questions a step can hand to the AI Assistant
 COACH_PROMPTS = {
     "ready": "Looking at my situation, what should I take care of before I start investing, "
@@ -56,25 +79,68 @@ def _coach_button(step):
               type="tertiary", on_click=_ask_coach, args=(step,))
 
 
-def _done_steps():
-    return set(_read_prefs().get("get_started_done") or [])
-
-
-def _mark_done(step, done=True):
+def _complete(step):
+    """A waypoint's Complete this step: noted in get_started_done (what
+    completes Learn the basics, An example mix, Practice and Set a goal; the
+    others are complete by what they ask for, and the button is only open
+    then), then on to the next waypoint not complete yet."""
     p = _read_prefs()
-    steps = set(p.get("get_started_done") or [])
-    (steps.add if done else steps.discard)(step)
-    p["get_started_done"] = sorted(steps)
+    p["get_started_done"] = sorted(set(p.get("get_started_done") or []) | {step})
     _write_prefs(p)
-    if done:
-        st.session_state["gs_advance"] = step   # move on to the next waypoint
+    _skip(step)
 
-def _done_button(step, done):
-    if done:
-        st.button("Mark as not done", key=f"undone_{step}", type="tertiary",
-                  on_click=_mark_done, args=(step, False))
-    else:
-        st.button("Mark as done", key=f"done_{step}", on_click=_mark_done, args=(step,))
+
+def _skip(step):
+    """Skip for now (and a completed waypoint's Next): on to the next
+    waypoint not complete yet, without marking this one."""
+    st.session_state["gs_advance"] = step
+    st.session_state.pop("gs_goal_part", None)
+
+
+def _next_open(at, keys, done):
+    """The next waypoint after `at` that isn't complete (wrapping round), or None."""
+    i = keys.index(at)
+    return next((k for k in keys[i + 1:] + keys[:i] if not done[k]), None)
+
+
+def _waypoint_footer(at, keys, titles, done, pressed, *, ready=True, why_not=None,
+                     action=None, main=True, back=None):
+    """The bottom of a waypoint: one big button - Complete this step, which
+    marks it and moves on (`ready` False: not yet, `why_not` says what
+    completes it; `action` (label, on_click, args): a button that does what
+    completes it instead) - then a small Back and Skip for now. `pressed`:
+    completed with the button before, so it reads Next instead. `main`
+    False: no big button (Set a goal's parts have their own); `back`: what
+    Back does instead of opening the waypoint before."""
+    nxt = _next_open(at, keys, done)
+    if main:
+        if action:
+            label, fn, args, key = action
+            st.button(label, key=key, type="primary", width="stretch", on_click=fn, args=args,
+                      icon=":material/move_to_inbox:")
+        elif done[at] and pressed:
+            if nxt:
+                st.button(f"Next: {titles[nxt]}", key="gs_complete", type="primary",
+                          width="stretch", icon=":material/arrow_forward:", icon_position="right",
+                          on_click=_skip, args=(at,))
+        else:
+            st.button("Complete this step ✓", key="gs_complete", type="primary",
+                      width="stretch", disabled=not ready, on_click=_complete, args=(at,))
+        if why_not and not (done[at] or ready):
+            st.caption(why_not)
+    i = keys.index(at)
+    with st.container(horizontal=True, vertical_alignment="center", key="pt_gs_nav"):
+        if back:
+            st.button(":material/arrow_back: Back", key="gs_prev", type="tertiary",
+                      on_click=back[0], args=back[1])
+        elif i:
+            st.button(":material/arrow_back: Back", key="gs_prev", type="tertiary",
+                      on_click=_gs_go, args=(keys[i - 1],),
+                      help=f"Back to {titles[keys[i - 1]]}")
+        st.space("stretch")
+        if nxt and not done[at]:
+            st.button("Skip for now", key="gs_skip", type="tertiary", on_click=_skip, args=(at,),
+                      help=f"On to {titles[nxt]} - this step stays open for later.")
 
 
 def _practice_prices(conn):
@@ -109,9 +175,9 @@ def _render_mix_bar(weights):
 
 def _step_profile(advisor, profile, missing):
     if missing:
-        st.caption("A few questions so the rest of this page fits you. Every answer is a tap, "
-                   "and you can change them any time.")
-        _render_profile_form(advisor, profile)
+        st.caption("Every answer is a tap, saved as you go, and you can change them any time.")
+        for f in advisor.REQUIRED_PROFILE_FIELDS:
+            _fs_question(f, profile, on_change=_ready_answer, args=(f,))
         return
     known = [f"{advisor.PROFILE_FIELDS[f]}: **{profile[f]}**" for f in
              ("goal", "time_horizon_years", "risk_tolerance", "experience", "age_range")
@@ -126,7 +192,7 @@ READY_FIELDS = ("emergency_fund", "high_interest_debt", "employer_match")
 
 
 def _ready_answer(field):
-    """A tap on one of waypoint 2's questions: saved straight away."""
+    """A tap on one of waypoint 1's or 2's questions: saved straight away."""
     _fs_save_answers((field,))
 
 
@@ -137,11 +203,11 @@ def _step_ready(items, profile):
         icon, words = _READY_ICON[it["state"]]
         if it["key"] in READY_FIELDS and (it["state"] == learn.UNKNOWN or editing):
             # the answer, as taps, in place of "answer it in your profile"
-            st.markdown(f"{icon} **{it['label']}**"
-                        + ("" if it["state"] == learn.UNKNOWN else f" ({words}) - {it['text']}"))
+            _md(f"{icon} **{it['label']}**"   # (_md: "$500-$1,000" isn't a formula)
+                + ("" if it["state"] == learn.UNKNOWN else f" ({words}) - {it['text']}"))
             _fs_question(it["key"], profile, on_change=_ready_answer, args=(it["key"],))
         else:
-            st.markdown(f"{icon} **{it['label']}** ({words}) - {it['text']}")
+            _md(f"{icon} **{it['label']}** ({words}) - {it['text']}")
     if any(it["key"] in READY_FIELDS and it["state"] != learn.UNKNOWN for it in items):
         st.toggle("Change my answers", key="gs_ready_edit")
     st.caption("These are common first steps many people take before investing, not rules - "
@@ -149,20 +215,174 @@ def _step_ready(items, profile):
     _coach_button("ready")
 
 
-def _step_goal(plan, value):
-    if plans.has_goal(plan):
-        gp = _goal_progress(plan, value)
-        label, _tone_cls = PLAN_STATUS[gp["status"]]
-        _md(f"**{plan.get('goal_name') or plan['goal_type']}**: {fmt_money0(gp['target'])} by "
-            f"{_fmt_month(plan['target_date'])} - {label.lower()}.")
-        st.button("Open plan", key="gs_open_plan", on_click=_go, args=("Plan",))
-    elif not CAN_MANAGE:
-        st.caption("Your advisor sets your goal with you - it shows up on the Plan page once "
-                   "they have.")
+def _goal_parts_done(plan):
+    """{part: completed} for Set a goal's parts: the goal itself is there
+    once it's saved; the others once their Complete button is pressed."""
+    walked = set(_read_prefs().get("goal_parts") or [])
+    return {k: plans.has_goal(plan) if k == "what" else k in walked for k, _ in GOAL_PARTS}
+
+
+def _goal_part(part):
+    st.session_state["gs_goal_part"] = part
+
+
+def _goal_part_done(part, then=None):
+    p = _read_prefs()
+    p["goal_parts"] = sorted(set(p.get("goal_parts") or []) | {part})
+    _write_prefs(p)
+    st.session_state["gs_goal_part"] = then
+
+
+def _save_goal_what():
+    """Part 1's button: the goal into the plan (Plan's own fields), then part 2."""
+    target = float(st.session_state.get("gs_goal_target") or 0)
+    when = st.session_state.get("gs_goal_date")
+    if target <= 0 or not when:
+        st.session_state["gs_goal_err"] = "Enter how much you'd like to have - an amount above $0."
+        return
+    save_plan_fields({"goal_type": st.session_state.get("gs_goal_type") or _fs_goal_fallback(),
+                      "target_amount": target, "target_date": when.isoformat()})
+    st.session_state.pop("gs_goal_monthly", None)   # its suggestion follows the new goal
+    _goal_part("monthly")
+
+
+def _save_goal_monthly():
+    save_plan_fields({"monthly_contribution": float(st.session_state.get("gs_goal_monthly") or 0)})
+    _goal_part_done("monthly", "how")
+
+
+def _save_goal_mix():
+    """The last part: the target mix into the plan, and the waypoint complete."""
+    stocks = float(st.session_state.get("gs_goal_stocks") or 0)
+    save_alloc_targets({"Stocks": stocks, "Bonds": 100.0 - stocks})
+    _goal_part_done("mix")
+    _complete("goal")
+
+
+def _two_part_bar(stocks):
+    """Stocks and bonds as one bar, with a two-line legend."""
+    palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+    parts = (("Stocks", stocks, palette[0], "grow more over time, and drop more along the way"),
+             ("Bonds", 100 - stocks, palette[2], "steadier, and grow more slowly"))
+    st.html("<div class='pt-alloc-bar' aria-hidden='true'>"
+            + "".join(f"<div class='pt-alloc-seg' style='flex:{p} 0 0;background:{c}'></div>"
+                      for _, p, c, _ in parts if p > 0)
+            + "</div><div class='pt-legend'>"
+            + "".join("<div class='pt-legend-row'>"
+                      f"<span class='pt-swatch' style='background:{c}'></span>"
+                      f"<span class='pt-legend-label'><b>{n}</b> - {about}</span>"
+                      f"<span class='pt-legend-pct'>{p:g}%</span></div>"
+                      for n, p, c, about in parts)
+            + "</div>")
+
+
+def _step_goal(plan, value, profile, keys, titles, done, pressed):
+    """Set a goal, in four short parts inside Learn - never a trip to Plan:
+    the goal, the monthly amount that gets there, how it's going, and a
+    target mix. Each saves into the same plan the Plan page shows."""
+    today = datetime.now().date()
+    if not CAN_MANAGE:   # an advisor's client: the advisor sets the goal with them
+        if plans.has_goal(plan):
+            name = plan.get("goal_name") or plan["goal_type"]
+            _md(f"Your advisor set your goal with you: **{name}**, "
+                f"{fmt_money0(float(plan['target_amount']))} by {_fmt_month(plan['target_date'])}.")
+            _render_projection(plan, value, today)
+        else:
+            st.caption("Your advisor sets your goal with you - it shows up here and on the Plan "
+                       "page once they have.")
+        _waypoint_footer("goal", keys, titles, done, pressed, ready=plans.has_goal(plan),
+                         why_not="This step completes once your advisor has set your goal.")
+        return
+
+    parts_done = _goal_parts_done(plan)
+    pkeys = [k for k, _ in GOAL_PARTS]
+    part = st.session_state.get("gs_goal_part")
+    if part not in pkeys or (part != "what" and not plans.has_goal(plan)):
+        part = next((k for k in pkeys if not parts_done[k]), "what")
+    n = pkeys.index(part)
+    _fs_dots(n, len(pkeys), label=f"Part {n + 1} of {len(pkeys)}, "
+                                  f"{sum(parts_done.values())} complete",
+             on=[i for i, k in enumerate(pkeys) if parts_done[k]])
+    st.caption(f"Part {n + 1} of {len(pkeys)}"
+               + (" · :material/check_circle: Complete" if parts_done[part] else ""))
+    st.markdown(f"#### {dict(GOAL_PARTS)[part]}")
+    if part != "what":
+        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+            _md(f":material/flag: Your goal: **{fmt_money0(float(plan['target_amount']))}** by "
+                f"**{_fmt_month(plan['target_date'])}**")
+            st.button("Change", key="gs_goal_change", type="tertiary", on_click=_goal_part,
+                      args=("what",))
+    tip = _suggest(value, plan)
+    back = ((_goal_part, (pkeys[n - 1],)) if n else None)
+
+    if part == "what":
+        p = plan or {}
+        if not st.session_state.get("gs_goal_type"):
+            st.session_state["gs_goal_type"] = p.get("goal_type") or _fs_goal_fallback()
+        st.session_state.setdefault("gs_goal_target", float(p.get("target_amount") or 0.0))
+        st.session_state.setdefault(
+            "gs_goal_date", date.fromisoformat(p["target_date"][:10]) if p.get("target_date")
+            else tip["goal_date"])
+        st.pills("What are you saving for?", plans.GOAL_TYPES, key="gs_goal_type", required=True)
+        c1, c2 = st.columns(2)
+        c1.number_input("I want to have ($)", min_value=0.0, step=1000.0, format="%.0f",
+                        key="gs_goal_target",
+                        help="A rough number is fine - you can change it any time.")
+        c2.date_input("by (date)", key="gs_goal_date",
+                      min_value=min(st.session_state["gs_goal_date"], plans.add_months(today, 1)),
+                      max_value=date(today.year + 80, 12, 31), format="MM/DD/YYYY")
+        _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
+                         f"{_years_text(tip['goal_years'])} from now, from your timeline",
+                         key="gs_goal_date_use", values={"gs_goal_date": tip["goal_date"]})
+        err = st.session_state.pop("gs_goal_err", None)
+        if err:
+            st.error(err)
+        st.button("Save my goal ✓", key="gs_goal_save", type="primary", width="stretch",
+                  on_click=_save_goal_what)
+    elif part == "monthly":
+        need = tip["monthly"]
+        st.session_state.setdefault(
+            "gs_goal_monthly", float((plan or {}).get("monthly_contribution") or need or 0.0))
+        if need:
+            _md(f"About **{fmt_money0(need)} a month** gets you to "
+                f"{fmt_money0(float(plan['target_amount']))} by {_fmt_month(plan['target_date'])}, "
+                f"if your money grows about {_plan_return_pct():g}% a year.")
+        elif need == 0:
+            _md("What you have now could grow to your goal on its own at "
+                f"{_plan_return_pct():g}% a year - anything you add each month gets you there "
+                "sooner.")
+        st.number_input("I'll invest each month ($)", min_value=0.0, step=25.0, format="%.0f",
+                        key="gs_goal_monthly",
+                        help="The part of your income you'll put toward this goal each month.")
+        if need:
+            _suggestion_line(f"{fmt_money0(need)} a month - what reaches your goal",
+                             key="gs_goal_monthly_use", values={"gs_goal_monthly": need})
+        st.caption("Many people start with a smaller amount and raise it over time - any amount "
+                   "counts, and you can change it whenever you like.")
+        st.button("Save my monthly amount ✓", key="gs_goal_save", type="primary",
+                  width="stretch", on_click=_save_goal_monthly)
+    elif part == "how":
+        _render_projection(plan, value, today)   # Plan's own "How it's going" (views/plan.py)
+        st.button("Got it ✓", key="gs_goal_save", type="primary", width="stretch",
+                  on_click=_goal_part_done, args=("how", "mix"))
     else:
-        st.caption("Pick what you're investing for and roughly how much you'll need. Even a "
-                   "rough goal makes it easier to know how much to put in each month.")
-        st.button("Set a goal", key="gs_set_goal", type="primary", on_click=_go, args=("Plan",))
+        saved = (plan or {}).get("target_alloc") or {}
+        st.session_state.setdefault("gs_goal_stocks", int(5 * round(saved["Stocks"] / 5))
+                                    if saved.get("Stocks") else tip["stocks_pct"])
+        st.markdown("How you'd like to split your money between stocks and bonds. Once you "
+                    "invest, your plan shows when your portfolio drifts away from it.")
+        st.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="gs_goal_stocks")
+        _two_part_bar(st.session_state["gs_goal_stocks"])
+        _suggestion_line(f"{tip['stocks_pct']}% stocks, {100 - tip['stocks_pct']}% bonds - "
+                         "the example mix for your answers (waypoint 5 shows how it adds up)",
+                         key="gs_goal_stocks_use", values={"gs_goal_stocks": tip["stocks_pct"]})
+        if set(saved) - {"Stocks", "Bonds"}:
+            st.caption("Saving here sets stocks and bonds only; the Plan page can add cash and "
+                       "other targets.")
+        st.button("Save and complete this step ✓", key="gs_goal_save", type="primary",
+                  width="stretch", on_click=_save_goal_mix)
+        st.caption("You can change any of this later on the Plan page.")
+    _waypoint_footer("goal", keys, titles, done, pressed, main=False, back=back)
 
 
 def _basics_topics(monthly, years):
@@ -221,7 +441,7 @@ def _basics_window(key, monthly, years):
         st.rerun()
 
 
-def _step_basics(monthly, years, done):
+def _step_basics(monthly, years):
     st.caption("Six short ideas worth knowing before you invest. Open any of them.")
     topics = _basics_topics(monthly, years)
     cols = st.columns(3)
@@ -233,10 +453,9 @@ def _step_basics(monthly, years, done):
                          icon=":material/open_in_new:"):
                 _basics_window(k, monthly, years)
     render_fee_step()   # your own funds' fees, once there are holdings (views/fees.py)
-    _done_button("basics", done)
 
 
-def _step_mix(mix, profile, plan, done):
+def _step_mix(mix, profile, plan):
     if mix is None:
         st.caption("Answer the time horizon question in step 1 to see an example mix.")
         return
@@ -285,10 +504,9 @@ def _step_mix(mix, profile, plan, done):
                   help="Adds " + ", ".join(learn.PRACTICE_TICKERS.values())
                        + " to your Watchlist so you can follow their prices.")
         _coach_button("mix")
-    _done_button("mix", done)
 
 
-def _step_practice(mix, plan, profile, done):
+def _step_practice(mix, plan, profile, value):
     today = datetime.now().date()
     conn = connect(DB)
     try:
@@ -328,18 +546,27 @@ def _step_practice(mix, plan, profile, done):
         if not first:
             return
 
-    default_monthly = float((plan or {}).get("monthly_contribution") or 200.0)
+    tip_monthly = _suggest(value, plan)["monthly"]
+    st.session_state.setdefault(
+        "gs_monthly", float((plan or {}).get("monthly_contribution") or tip_monthly or 200.0))
+    st.session_state.setdefault("gs_initial", 0.0)
     c1, c2 = st.columns(2)
-    monthly = c1.number_input("Put in each month ($)", min_value=0.0, step=50.0, format="%.0f",
-                              value=default_monthly, key="gs_monthly")
-    initial = c2.number_input("Starting amount ($)", min_value=0.0, step=100.0, format="%.0f",
-                              value=0.0, key="gs_initial")
+    monthly = c1.number_input("How much you'll invest each month ($)", min_value=0.0, step=50.0,
+                              format="%.0f", key="gs_monthly",
+                              help="The part of your income you'd put in each month.")
+    initial = c2.number_input("Amount to start with ($)", min_value=0.0, step=100.0,
+                              format="%.0f", key="gs_initial",
+                              help="Money put in on the first day, if any - 0 is fine.")
+    if tip_monthly:
+        _suggestion_line(f"{fmt_money0(tip_monthly)} a month - what reaches your goal",
+                         key="gs_monthly_use", values={"gs_monthly": tip_monthly})
     span_opts = [y for y in (1, 3, 5, 10) if y <= years_avail + 0.05] or [1]
-    years = st.segmented_control("Starting", span_opts, default=span_opts[-1], key="gs_years",
+    years = st.segmented_control("When you'd have started", span_opts, default=span_opts[-1],
+                                 key="gs_years",
                                  format_func=lambda y: f"{y} year{'s' if y != 1 else ''} ago") \
         or span_opts[-1]
-    which = st.segmented_control("Mix", PRACTICE_MIXES, default=PRACTICE_MIXES[0],
-                                 key="gs_mix") or PRACTICE_MIXES[0]
+    which = st.segmented_control("Mix to practice with", PRACTICE_MIXES,
+                                 default=PRACTICE_MIXES[0], key="gs_mix") or PRACTICE_MIXES[0]
     stocks = {"Example mix": (mix or {}).get("stocks_pct", 60), "All stocks": 100,
               "Mostly bonds": 20}[which]
     us = round(stocks * learn.US_SHARE_OF_STOCKS)
@@ -379,7 +606,6 @@ def _step_practice(mix, plan, profile, done):
                "rebalanced. Past results don't predict future ones - this is practice, not "
                "a forecast.")
     _coach_button("practice")
-    _done_button("practice", done)
 
 
 # Waypoint 7 as a checklist they tick off (saved like the waypoint ticks):
@@ -439,7 +665,8 @@ def _step_account(monthly, real, has_holdings, items):
     if real:
         st.markdown("You've brought in your first statement - **Home** shows your real "
                     "portfolio and the **Plan** tracks it against your goal.")
-        st.button("Open Home", key="gs_open_dash", on_click=_go, args=("Dashboard",))
+        st.button("Open Home", key="gs_open_dash", type="tertiary", on_click=_go,
+                  args=("Dashboard",))
         return
     if any(i["key"] == "emergency_fund" and i["state"] in (learn.CAUTION, learn.STOP)
            for i in items):
@@ -464,17 +691,13 @@ def _step_account(monthly, real, has_holdings, items):
         _first_buy_steps()
     learn_more("brokerage_accounts")
     with st.container(horizontal=True):
-        if "opened" in ticks:
-            # straight to the paste / import window - not back to Home
-            st.button(":material/move_to_inbox: Bring it in", key="gs_import", type="primary",
-                      on_click=_open_holdings_dialog, args=("manual",),
-                      help="Paste your positions from any brokerage, upload a CSV, read "
-                           "screenshots or type them in.")
-        else:
-            st.button("I've opened an account", key="gs_opened", type="primary",
+        if "opened" not in ticks:
+            st.button("I've opened an account", key="gs_opened",
                       on_click=_tick_account, args=("chosen", "opened"),
                       kwargs={"done": True})
         _coach_button("account")
+    st.caption("This step is complete once you bring in your holdings - paste them from any "
+               "brokerage, upload a CSV, read screenshots or type them in.")
 
 
 def _route_state(has_holdings):
@@ -489,13 +712,20 @@ def _route_state(has_holdings):
     plan = load_plan()
     missing = advisor.missing_fields(profile)
     items = learn.readiness(profile)
-    manual = _done_steps()
+    p = _read_prefs()
+    manual = set(p.get("get_started_done") or [])
     horizon = (plans.months_until(plan["target_date"], today) / 12
                if plans.has_goal(plan) and plans.months_until(plan["target_date"], today) > 0 else None)
+    # Set a goal is walked in Learn (its last part completes it). Its gear,
+    # the compass, already shown means the goal was set before that walk
+    # existed: still complete, so nothing earned is lost. A client's goal is
+    # their advisor's to set.
+    walked = ("goal" in manual or not CAN_MANAGE
+              or "compass" in (p.get("gear_seen") or []))
     done = {
         "profile": not missing,
         "ready": all(i["state"] != learn.UNKNOWN for i in items),
-        "goal": plans.has_goal(plan),
+        "goal": plans.has_goal(plan) and walked,
         "basics": "basics" in manual,
         "mix": "mix" in manual,
         "practice": "practice" in manual,
@@ -504,7 +734,15 @@ def _route_state(has_holdings):
         "account": has_holdings and globals().get("SNAPSHOT_SOURCE") != SAMPLE_SOURCE,
     }
     return {"profile": profile, "missing": missing, "items": items, "plan": plan,
-            "horizon": horizon, "done": done}
+            "horizon": horizon, "done": done, "pressed": manual}
+
+
+def _on_the_route():
+    """Someone still walking Learn's route (the investor experience, a
+    waypoint not complete yet): Plan offers a clear way back to it."""
+    if not INVESTOR_VIEW or "Get started" not in PAGES:
+        return False
+    return not all(_route_state(HAS_HOLDINGS)["done"].values())
 
 
 def _ask_type(name):
@@ -538,11 +776,12 @@ def _render_direction(kind, mix):
 
 def _gs_go(key):
     st.session_state["gs_at"] = key
+    st.session_state.pop("gs_goal_part", None)   # Set a goal opens at its first open part
 
 
 def _gs_pick():
     if st.session_state.get("gs_pick"):
-        st.session_state["gs_at"] = st.session_state["gs_pick"]
+        _gs_go(st.session_state["gs_pick"])
 
 
 @st.dialog("Your direction", width="large")
@@ -556,6 +795,22 @@ def _direction_window(kind_key):
         st.rerun()
 
 
+def _progress_html(keys, titles, done, at):
+    """Learn's progress bar: "Step 3 of 7 · 2 complete" over one segment per
+    waypoint - complete ones filled, the open one outlined - like the trail."""
+    n, n_done = len(keys), sum(done.values())
+    words = (f"All {n} steps complete" if n_done == n else
+             f"Step {keys.index(at) + 1} of {n} · {n_done} complete")
+    segs = "".join(f"<span class='pt-steps-seg{' pt-steps-done' if done[k] else ''}"
+                   f"{' pt-steps-at' if k == at else ''}' "
+                   f"title='{html.escape(titles[k], quote=True)}'></span>" for k in keys)
+    return ("<div class='pt-steps'>"
+            f"<div class='pt-steps-top'><b>{words}</b><span>{round(100 * n_done / n)}%</span></div>"
+            f"<div class='pt-steps-bar' role='progressbar' aria-label='Your route' "
+            f"aria-valuemin='0' aria-valuemax='{n}' aria-valuenow='{n_done}' "
+            f"aria-valuetext='{n_done} of {n} steps complete'>{segs}</div></div>")
+
+
 def _render_get_started(has_holdings, value):
     import advisor
 
@@ -567,7 +822,7 @@ def _render_get_started(has_holdings, value):
     state = _route_state(has_holdings)
     profile, missing, items, plan = (state["profile"], state["missing"], state["items"],
                                      state["plan"])
-    horizon, done = state["horizon"], state["done"]
+    horizon, done, pressed = state["horizon"], state["done"], state["pressed"]
     mix = learn.starter_mix(profile, horizon)
     monthly = float((plan or {}).get("monthly_contribution") or 0.0)
     years = horizon or float(profile.get("time_horizon_years") or 20)
@@ -576,17 +831,78 @@ def _render_get_started(has_holdings, value):
     keys = [k for k, _ in GET_STARTED_STEPS]
     titles = dict(GET_STARTED_STEPS)
 
-    # which waypoint is open: the first not reached, unless they picked one;
-    # marking one done (_mark_done) moves on to the next not reached
+    # which waypoint is open: the first not complete, unless they picked one;
+    # Complete this step and Skip for now (_complete, _skip) move on to the
+    # next one not complete
     after = st.session_state.pop("gs_advance", None)
     if after in keys:
-        later = keys[keys.index(after) + 1:] + keys[:keys.index(after)]
-        st.session_state["gs_at"] = next((k for k in later if not done[k]), after)
+        st.session_state["gs_at"] = _next_open(after, keys, done) or after
     first_open = next((k for k in keys if not done[k]), keys[-1])
     at = st.session_state.get("gs_at")
     if at not in keys:
         at = first_open
+    # kept open until they move on: answering a waypoint's last question
+    # completes it, but they stay to see it and press Complete this step
+    st.session_state["gs_at"] = at
     i = keys.index(at)
+
+    # ---- how far along: a bar, in step with the trail below (the same
+    # waypoints filled; the bar also outlines the one open here) ------------ #
+    st.html(_progress_html(keys, titles, done, at))
+    if n_done == len(keys):
+        st.success("Every step of your route is complete. Home keeps track of your goal from "
+                   "here, and these pages are here whenever you'd like a refresher.",
+                   icon=":material/flag:")
+
+    # ---- the route: drawn as a trail, then every waypoint to tap -------- #
+    waypoints = [(k, titles[k], done[k]) for k in keys]
+    here, nxt = route.region(waypoints)
+    st.html(route.trail_html(route.dots(waypoints, False),
+                             f"{n_done} of {len(keys)} waypoints reached")
+            + f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
+            + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
+    st.session_state["gs_pick"] = at   # always the open one
+    st.pills("Waypoints", keys, key="gs_pick", label_visibility="collapsed",
+             on_change=_gs_pick,
+             format_func=lambda k: ("✓ " if done[k] else f"{keys.index(k) + 1}. ") + titles[k])
+
+    # ---- the open waypoint: why, the step, then Complete this step -------- #
+    with st.container(border=True, key=f"pt_slide_gs_{at}"):
+        st.caption(f"Step {i + 1} of {len(keys)}"
+                   + (" · :material/check_circle: Complete" if done[at] else ""))
+        st.markdown(f"### {titles[at]}")
+        st.html(f"<div class='pt-why'>{html.escape(WAYPOINT_WHY[at])}</div>")
+        footer = {}
+        if at == "profile":
+            _step_profile(advisor, profile, missing)
+            footer = {"ready": not missing,
+                      "why_not": "Answer the questions above to complete this step - or skip "
+                                 "it for now and come back later."}
+        elif at == "ready":
+            _step_ready(items, profile)
+            footer = {"ready": done["ready"],
+                      "why_not": "Answer the questions above to complete this step - or skip "
+                                 "it for now and come back later."}
+        elif at == "goal":
+            _step_goal(plan, value, profile, keys, titles, done, "goal" in pressed)
+            footer = None   # its parts have their own buttons
+        elif at == "basics":
+            _step_basics(monthly or 200.0, years)
+        elif at == "mix":
+            _step_mix(mix, profile, plan)
+        elif at == "practice":
+            _step_practice(mix, plan, profile, value)
+        else:
+            _step_account(monthly, done["account"], has_holdings, items)
+            if not done["account"]:
+                # what completes it: straight to the paste / import window
+                footer = ({"action": ("Bring it in to complete this step",
+                                      _open_holdings_dialog, ("manual",), "gs_import")}
+                          if CAN_IMPORT else
+                          {"ready": False, "why_not": "This step completes when your advisor "
+                                                      "brings your statements in."})
+        if footer is not None:
+            _waypoint_footer(at, keys, titles, done, at in pressed, **footer)
 
     # ---- your direction, in one line (the whole card in a window) --------- #
     if kind and not missing:
@@ -597,46 +913,7 @@ def _render_get_started(has_holdings, value):
             if st.button("See your mix", key="gs_direction", type="tertiary",
                          icon=":material/open_in_new:"):
                 _direction_window(kind["key"])
-
-    # ---- the route: drawn as a trail, then every waypoint to tap -------- #
-    waypoints = [(k, titles[k], done[k]) for k in keys]
-    here, nxt = route.region(waypoints)
-    st.html(route.trail_html(route.dots(waypoints, False),
-                             f"{n_done} of {len(keys)} waypoints reached")
-            + f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
-            + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
-    st.caption("It explains and shows examples; it never tells you what to buy.")
-    st.session_state["gs_pick"] = at   # always the open one
-    st.pills("Waypoints", keys, key="gs_pick", label_visibility="collapsed",
-             on_change=_gs_pick,
-             format_func=lambda k: ("✓ " if done[k] else f"{keys.index(k) + 1}. ") + titles[k])
-
-    # ---- the open waypoint ------------------------------------------------ #
-    with st.container(border=True, key=f"pt_slide_gs_{at}"):
-        st.caption(f"Waypoint {i + 1} of {len(keys)}" + (" · reached" if done[at] else ""))
-        st.markdown(f"### {titles[at]}")
-        if at == "profile":
-            _step_profile(advisor, profile, missing)
-        elif at == "ready":
-            _step_ready(items, profile)
-        elif at == "goal":
-            _step_goal(plan, value)
-        elif at == "basics":
-            _step_basics(monthly or 200.0, years, done["basics"])
-        elif at == "mix":
-            _step_mix(mix, profile, plan, done["mix"])
-        elif at == "practice":
-            _step_practice(mix, plan, profile, done["practice"])
-        else:
-            _step_account(monthly, done["account"], has_holdings, items)
-    with st.container(horizontal=True):
-        if i:
-            st.button(":material/arrow_back: " + titles[keys[i - 1]], key="gs_prev",
-                      on_click=_gs_go, args=(keys[i - 1],))
-        st.space("stretch")
-        if i < len(keys) - 1:
-            st.button(titles[keys[i + 1]] + " :material/arrow_forward:", key="gs_next",
-                      on_click=_gs_go, args=(keys[i + 1],))
+    st.caption("Learn explains and shows examples; it never tells you what to buy.")
     if not IS_ADVISOR and USER_ID == LOGIN_ID:
         st.button(":material/replay: Go through the first steps again", key="fs_restart",
                   type="tertiary", on_click=_fs_restart)

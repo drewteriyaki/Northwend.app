@@ -34,6 +34,7 @@ PROFILE = {"goal": "Build long-term wealth", "time_horizon_years": 10,
            "risk_tolerance": "conservative", "drawdown_reaction": "Sell some",
            "experience": "new", "age_range": "Under 25", "income_stability": "Very stable",
            "emergency_fund": "Under 3 months"}
+READY = {**PROFILE, "high_interest_debt": "None", "employer_match": "No match or no plan"}
 STEPS_DONE = {"first_steps": {"done": True}}
 GOAL = {"goal_type": "Build long-term wealth", "target_amount": 20000.0,
         "target_date": "2036-10-01", "monthly_contribution": 100.0}
@@ -74,6 +75,24 @@ class BeginnerPathTests(unittest.TestCase):
             cls.carol_ok = f"{cls.carol}:{two_step.status(c, cls.carol)['stamp']}"
             cls.dana = auth.create_user(c, "dana", "pw-123456789")
             auth.link_client(c, cls.carol, cls.dana)
+            # Learn's route (the reworked waypoints): every question answered,
+            # no goal yet
+            cls.gary = auth.create_user(c, "gary", "pw-123456789")
+            advisor.save_profile(c, cls.gary, READY)
+            prefs.save(c, cls.gary, STEPS_DONE)
+            cls.fay = auth.create_user(c, "fay", "pw-123456789")
+            advisor.save_profile(c, cls.fay, READY)
+            prefs.save(c, cls.fay, STEPS_DONE)
+            # a goal set before Set a goal was walked in Learn, compass shown
+            cls.olga = auth.create_user(c, "olga", "pw-123456789")
+            advisor.save_profile(c, cls.olga, READY)
+            prefs.save(c, cls.olga, {**STEPS_DONE, "gear_seen": ["map", "compass"]})
+            plans.save_plan(c, cls.olga, GOAL, set_by=cls.olga)
+            # the same, without the compass: the goal's parts are still to walk
+            cls.walt = auth.create_user(c, "walt", "pw-123456789")
+            advisor.save_profile(c, cls.walt, READY)
+            prefs.save(c, cls.walt, STEPS_DONE)
+            plans.save_plan(c, cls.walt, GOAL, set_by=cls.walt)
         finally:
             c.close()
 
@@ -246,6 +265,159 @@ class BeginnerPathTests(unittest.TestCase):
             # the profile count includes the two readiness questions still open
             self.assertTrue(any("(8/10)" in b for b in labels), labels)
 
+    # ---- Learn's route: Complete this step, Skip for now, Set a goal's parts ---- #
+    def _prefs(self, uid):
+        c = portfolio.connect(self.db)
+        try:
+            return prefs.load(c, uid)
+        finally:
+            c.close()
+
+    def _plan(self, uid):
+        c = portfolio.connect(self.db)
+        try:
+            return plans.get_plan(c, uid)
+        finally:
+            c.close()
+
+    def _set_prefs(self, uid, **changes):
+        c = portfolio.connect(self.db)
+        try:
+            prefs.save(c, uid, {**prefs.load(c, uid), **changes})
+        finally:
+            c.close()
+
+    def test_complete_marks_the_step_and_moves_on_skip_does_not(self):
+        self._set_prefs(self.olga, get_started_done=[])
+        with self._run(self.olga, "olga", "Get started", gs_at="basics") as at:
+            keys = self._keys(at)
+            # one big button; no Mark as done, no next-waypoint button
+            self.assertIn("gs_complete", keys)
+            self.assertEqual(at.button(key="gs_complete").label, "Complete this step ✓")
+            self.assertEqual(at.button(key="gs_complete").proto.type, "primary")
+            for gone in ("done_basics", "undone_basics", "gs_next"):
+                self.assertNotIn(gone, keys)
+            self.assertIn("Step 4 of 7", self._html(at))
+            self.assertIn("progressbar", self._html(at))   # the bar, for screen readers too
+            # Skip for now: on to An example mix, basics still open
+            at.button(key="gs_skip").click().run()
+            self.assertEqual(at.session_state["gs_at"], "mix")
+            self.assertNotIn("basics", self._prefs(self.olga).get("get_started_done") or [])
+            # Complete this step: marked, and on to the next one not complete
+            at.button(key="gs_complete").click().run()
+            self.assertEqual(self._prefs(self.olga)["get_started_done"], ["mix"])
+            self.assertEqual(at.session_state["gs_at"], "practice")
+            self.assertIn("Step 6 of 7 · 4 complete", self._html(at))
+            # Back is there, small
+            self.assertEqual(at.button(key="gs_prev").proto.type, "tertiary")
+
+    def test_real_world_steps_complete_by_their_answers(self):
+        with self._run(self.gina, "gina", "Get started", fs_hide=True, gs_at="ready") as at:
+            # questions still open: the button waits for them, Skip is there
+            self.assertTrue(at.button(key="gs_complete").disabled)
+            self.assertIn("gs_skip", self._keys(at))
+        with self._run(self.olga, "olga", "Get started", gs_at="ready") as at:
+            self.assertFalse(at.button(key="gs_complete").disabled)
+            at.button(key="gs_complete").click().run()
+            self.assertNotEqual(at.session_state["gs_at"], "ready")
+
+    def test_goal_parts_save_a_plan_without_leaving_learn(self):
+        today = date.today()
+        with self._run(self.gary, "gary", "Get started", gs_at="goal") as at:
+            self.assertNotIn("gs_set_goal", self._keys(at))     # no trip to Plan
+            self.assertIn("Part 1 of 4", " ".join(c.value for c in at.caption))
+            # part 1: the date starts at the suggestion from their timeline
+            tip = learn.suggestions(READY, None, today=today)
+            self.assertEqual(at.session_state["gs_goal_date"], tip["goal_date"])
+            at.number_input(key="gs_goal_target").set_value(30000.0)
+            at.button(key="gs_goal_save").click().run()
+            self.assertEqual(at.session_state["page"], "Get started")
+            plan = self._plan(self.gary)
+            self.assertEqual((plan["target_amount"], plan["target_date"]),
+                             (30000.0, tip["goal_date"].isoformat()))
+            # part 2: the monthly amount that reaches it, pre-filled
+            tip = learn.suggestions(READY, plan, today=today)
+            self.assertEqual(at.session_state["gs_goal_monthly"], tip["monthly"])
+            self.assertIn(f"About **${tip['monthly']:,.0f} a month**".replace("$", r"\$"),
+                          self._md(at))
+            at.number_input(key="gs_goal_monthly").set_value(150.0)
+            at.button(key="gs_goal_save").click().run()
+            self.assertEqual(self._plan(self.gary)["monthly_contribution"], 150.0)
+            # part 3: how it's going, then part 4: the target mix
+            self.assertEqual(at.session_state["plan_return"], learn.SUGGESTED_RETURN_PCT)
+            at.button(key="gs_goal_save").click().run()
+            self.assertEqual(at.session_state["gs_goal_stocks"], tip["stocks_pct"])
+            at.button(key="gs_goal_save").click().run()
+            self.assertEqual(at.session_state["page"], "Get started")
+            self.assertEqual(at.session_state["gs_at"], "basics")
+        self.assertEqual(self._plan(self.gary)["target_alloc"],
+                         {"Stocks": float(tip["stocks_pct"]),
+                          "Bonds": float(100 - tip["stocks_pct"])})
+        self.assertIn("goal", self._prefs(self.gary)["get_started_done"])
+
+    def test_a_goal_from_before_the_walk_keeps_its_compass(self):
+        # olga's compass was shown: Set a goal stays complete. walt's wasn't:
+        # its parts open at the monthly amount (the goal itself is there)
+        with self._run(self.olga, "olga", "Get started", gs_at="goal") as at:
+            self.assertIn("Step 3 of 7 · 3 complete", self._html(at))
+        with self._run(self.walt, "walt", "Get started", gs_at="goal") as at:
+            self.assertIn("Step 3 of 7 · 2 complete", self._html(at))
+            self.assertIn("Part 2 of 4", " ".join(c.value for c in at.caption))
+            self.assertIn("gs_goal_save", self._keys(at))
+
+    def test_suggestions_match_the_helper(self):
+        today = date.today()
+        tip = learn.suggestions(PROFILE, GOAL, today=today)
+        with self._run(self.nina, "nina", "Plan") as at:
+            # What if: pre-filled from the plan, with the suggestion offered
+            self.assertEqual(at.session_state["wi_years"], tip["years"])
+            self.assertIn(f"${tip['monthly']:,.0f} a month · {tip['years']} years · "
+                          f"{tip['stocks_pct']}% in stocks", " ".join(c.value for c in at.caption)
+                          .replace("\\$", "$"))
+            at.slider(key="wi_years").set_value(30).run()
+            at.button(key="wi_use_tip").click().run()
+            self.assertEqual(at.session_state["wi_years"], tip["years"])
+            self.assertEqual(at.session_state["wi_monthly"], tip["monthly"])
+            self.assertEqual(at.session_state["wi_stocks"], tip["stocks_pct"])
+        # the target mix: the example mix for their answers
+        mix = learn.suggestions(PROFILE, None, today=today)["target_mix"]
+        with self._run(self.ezra, "ezra", "Plan") as at:
+            at.button(key="plan_target_use").click().run()
+            self.assertEqual(at.session_state["plan_target_Stocks"], mix["Stocks"])
+            self.assertEqual(at.session_state["plan_target_Bonds"], mix["Bonds"])
+
+    def test_plan_has_a_way_back_to_the_route(self):
+        with self._run(self.nina, "nina", "Plan") as at:
+            self.assertEqual(at.button(key="plan_back_route").label,
+                             ":material/arrow_back: Back to your route")
+            at.button(key="plan_back_route").click().run()
+            self.assertEqual(at.session_state["page"], "Get started")
+        # an advisor's own portfolio isn't on a route
+        with self._run(self.carol, "carol", "Plan", two_step_ok=self.carol_ok) as at:
+            self.assertNotIn("plan_back_route", self._keys(at))
+
+    def test_advisor_and_client_see_learn(self):
+        # the advisor in a client's Learn: the same route, nothing breaks
+        with self._run(self.carol, "carol", "Get started", active_user_id=self.dana,
+                       two_step_ok=self.carol_ok) as at:
+            self.assertIn("gs_complete", self._keys(at))
+            self.assertIn("Step 1 of 7", self._html(at))
+        # the client herself: her advisor sets the goal - no goal form, no
+        # Complete until it's set, and Skip for now to move on
+        with self._run(self.dana, "dana", "Get started", gs_at="goal", fs_hide=True) as at:
+            self.assertNotIn("gs_goal_save", self._keys(at))
+            self.assertTrue(at.button(key="gs_complete").disabled)
+            self.assertIn("gs_skip", self._keys(at))
+
+    def test_plan_wording(self):
+        with self._run(self.fay, "fay", "Plan") as at:
+            labels = [n.label for n in at.number_input]
+            self.assertIn("I want to have ($)", labels)
+            self.assertIn("I'll invest each month ($)", labels)
+            self.assertNotIn("Target amount ($)", labels)
+            self.assertIn("by (date)", [d.label for d in at.date_input])
+            self.assertIn("Save my plan", [b.label for b in at.button])
+
 
 class BeginnerPiecesTests(unittest.TestCase):
     TODAY = date(2026, 10, 2)
@@ -258,6 +430,28 @@ class BeginnerPiecesTests(unittest.TestCase):
         self.assertEqual(plans.progress(GOAL, 1000.0, today=self.TODAY)["status"], "behind")
         self.assertEqual(plans.progress({**GOAL, "target_date": "2026-01-01"}, 0.0,
                                         today=self.TODAY)["status"], "past_date")
+
+    def test_suggested_starting_points(self):
+        tip = learn.suggestions(PROFILE, GOAL, today=self.TODAY)
+        months = plans.months_until(GOAL["target_date"], self.TODAY)
+        self.assertEqual(tip["years"], round(months / 12))
+        self.assertEqual(tip["monthly"],
+                         round(plans.required_monthly(0.0, 20000.0, 6.0, months)))
+        self.assertEqual(tip["stocks_pct"], learn.starter_mix(PROFILE, months / 12)["stocks_pct"])
+        self.assertEqual(sum(tip["target_mix"].values()), 100.0)
+        self.assertEqual(tip["return_pct"], plans.DEFAULT_RETURN_PCT)
+        # a different assumed return changes only the monthly amount
+        self.assertLess(learn.suggestions(PROFILE, GOAL, today=self.TODAY,
+                                          return_pct=8.0)["monthly"], tip["monthly"])
+        # no goal: the date from their timeline, no monthly amount
+        tip = learn.suggestions(PROFILE, None, today=self.TODAY)
+        self.assertIsNone(tip["monthly"])
+        self.assertEqual(tip["goal_date"], plans.add_months(self.TODAY, 120))
+        self.assertEqual(tip["stocks_pct"], learn.starter_mix(PROFILE)["stocks_pct"])
+        # nothing answered yet: middle-of-the-road starting points
+        tip = learn.suggestions({}, None, today=self.TODAY)
+        self.assertEqual((tip["years"], tip["stocks_pct"]),
+                         (learn.DEFAULT_YEARS, learn.DEFAULT_STOCKS_PCT))
 
     def test_route_when_starting_is_the_next_waypoint(self):
         wps = [("profile", "About you", True), ("ready", "Ready?", False),

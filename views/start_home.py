@@ -31,7 +31,7 @@ def _start_words(step):
     """(title, line, button label, action) for route.next_step(starting=True)."""
     k = step["key"]
     if k == "goal":
-        return ("Set your goal", START_WAYPOINT_LINES["goal"], "Set a goal", ("page", "Plan"))
+        return ("Set your goal", START_WAYPOINT_LINES["goal"], "Set a goal", ("learn", "goal"))
     if k == "goal_wait":
         return ("Your advisor sets your goal with you", "It shows up here once they have. Their "
                 "notes to you are under Advisor notes.", "Advisor notes", ("page", "Advisor notes"))

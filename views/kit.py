@@ -58,32 +58,83 @@ def _milestone_done():
     st.session_state["dialog_open"] = False
 
 
+def _gear_go(target):
+    """A gear's button (Your kit, its window, the milestone window): close
+    any window and go where that piece is earned (gear.GO)."""
+    _milestone_done()
+    kind, where = target
+    if kind == "dialog":
+        _open_holdings_dialog(where)
+    elif kind == "learn":
+        # that waypoint open on Learn (if Learn still has it)
+        if where in dict(globals().get("GET_STARTED_STEPS") or ()):
+            st.session_state["gs_at"] = where
+        _go("Get started")
+    else:
+        _go(where)
+
+
+def _gear_can_go(k):
+    """A button to where the piece is earned - not for a managed client's
+    goal or money added, which their advisor keeps (Plan is read-only)."""
+    return k in gear.GO and (CAN_MANAGE or k not in ("compass", "lantern"))
+
+
+def _gear_name(k):
+    return gear.BY_KEY[k][1]
+
+
+def _gear_hover(k):
+    """'Storm cloak - for holding steady...' (a tile's hover text on Home)."""
+    return f"{_gear_name(k)} - {gear.FOR[k][0].lower()}{gear.FOR[k][1:]}"
+
+
+def _next_html(k, lead="Next to earn"):
+    """'Next to earn: the compass - set a goal...' in one line."""
+    step = gear.BY_KEY[k][3]
+    return (f"<div class='pt-region'>{lead}: <b>{html.escape(_gear_name(k).lower())}</b> - "
+            f"{html.escape(step[0].lower() + step[1:])}</div>")
+
+
 @st.dialog("Milestone reached", width="small", on_dismiss=_milestone_done)
-def _milestone_window(keys):
+def _milestone_window(keys, have):
     for k in keys:
-        _key, name, title, _how, region, _paths = gear.BY_KEY[k]
+        _key, name, title, _step, region, _paths = gear.BY_KEY[k]
+        what = gear.FOR[k][0].lower() + gear.FOR[k][1:]
         st.html("<div class='pt-milestone'>"
                 f"<div class='pt-milestone-badge'>{gear.icon_html(k, True, 44)}</div>"
                 + (f"<div class='pt-eyebrow' style='margin:0'>{html.escape(region)}</div>"
                    if region else "")
                 + f"<div class='pt-milestone-title'>{html.escape(title)}</div>"
-                f"<div>You've earned the <b>{html.escape(name.lower())}</b> for your kit.</div>"
+                f"<div>You've earned the <b>{html.escape(name.lower())}</b> for your kit - "
+                f"{html.escape(what)}</div>"
+                f"<div class='pt-gear-why'>{html.escape(gear.WHY[k])}</div>"
                 "</div>")
-    if st.button("Continue", key="milestone_ok", type="primary", width="stretch"):
-        _milestone_done()
-        st.rerun()
+    nxt = gear.next_up(have)
+    st.html(_next_html(nxt, "Next") if nxt else
+            "<div class='pt-region'>That's every piece in your kit.</div>")
+    with st.container(horizontal=True):
+        if st.button("Continue", key="milestone_ok", type="primary"):
+            _milestone_done()
+            st.rerun()
+        # a click inside a window redraws just the window: st.rerun() closes it
+        if nxt and _gear_can_go(nxt) and st.button(gear.GO[nxt][0], key="milestone_go"):
+            _gear_go(gear.GO[nxt][1])
+            st.rerun()
 
 
 def check_milestones(value):
     """Show the window once for gear earned since last time (an account from
-    before gear existed takes what it has quietly - gear.new_since)."""
+    before gear existed takes what it has quietly - gear.new_since), and keep
+    when each piece was earned for the kit window (gear.stamp)."""
     if not _kit_shown():
         return
     have = gear.earned(_gear_facts(value))
     p = _read_prefs()
     fresh, seen = gear.new_since(have, p.get("gear_seen"))
-    if seen != p.get("gear_seen"):
-        p["gear_seen"] = seen
+    dates = gear.stamp(p.get("gear_dates"), have, fresh, datetime.now().date().isoformat())
+    if seen != p.get("gear_seen") or dates != (p.get("gear_dates") or {}):
+        p["gear_seen"], p["gear_dates"] = seen, dates
         _write_prefs(p)
     # kept until it's closed: a redraw that didn't open the window again
     # would close it (live prices wait while it's open - dialog_open)
@@ -91,44 +142,67 @@ def check_milestones(value):
     if queue:
         st.session_state["milestone_queue"] = queue
         st.session_state["dialog_open"] = True
-        _milestone_window(queue)
+        _milestone_window(queue, have)
 
 
 @st.dialog("Your kit", width="large", on_dismiss=_dialog_closed)
 def _kit_window(have):
-    st.caption(f"{len(have)} of {len(gear.KEYS)} earned. Gear is for learning and steady "
-               "habits - never for trading more or taking more risk - and nothing is lost if "
-               "you miss a month.")
-    cols = st.columns(4)
-    for n, k in enumerate(gear.KEYS):
-        _key, name, _title, how, _region, _paths = gear.BY_KEY[k]
+    st.caption(f"{len(have)} of {len(gear.KEYS)} earned. Each piece of gear marks something "
+               "you've learned or a steady habit - never trading more or taking more risk. "
+               "Nothing is ever lost, and there's no hurry.")
+    dates = _read_prefs().get("gear_dates") or {}
+    for k in gear.KEYS:
         got = k in have
-        with cols[n % 4].container(border=True, key=f"pt_gear_{k}"):
-            st.html(f"<div class='pt-gear-tile{' pt-gear-earned' if got else ''}'>"
-                    f"{gear.icon_html(k, got, 28)}</div>"
-                    f"<div style='font-weight:600;margin-top:.4rem'>{html.escape(name)}</div>")
-            st.caption("Earned" if got else how)
+        chip = (f"<span class='pt-gear-chip pt-gear-chip-earned'>"
+                f"{html.escape(gear.when_text(dates.get(k), _fmt_date))}</span>" if got else
+                "<span class='pt-gear-chip'>Not yet</span>")
+        with st.container(border=True, horizontal=True, vertical_alignment="center",
+                          key=f"pt_gear_{k}"):
+            st.html("<div class='pt-gear-item'>"
+                    f"<span class='pt-gear-tile{' pt-gear-earned' if got else ''}'>"
+                    f"{gear.icon_html(k, got, 28)}</span><div>"
+                    f"<div class='pt-gear-head'><b>{html.escape(_gear_name(k))}</b>{chip}</div>"
+                    f"<div>{html.escape(gear.FOR[k])}</div>"
+                    f"<div class='pt-gear-how'>{html.escape(gear.HOW[k])}</div>"
+                    # no button (the cloak just comes): what to do, in words
+                    + ("" if got or _gear_can_go(k) else
+                       f"<div class='pt-gear-how'>{html.escape(gear.BY_KEY[k][3])}</div>")
+                    + "</div></div>", width="stretch")
+            # (a click in a window redraws just the window: st.rerun() closes it)
+            if not got and _gear_can_go(k) and st.button(gear.GO[k][0], key=f"kit_go_{k}"):
+                _gear_go(gear.GO[k][1])
+                st.rerun()
 
 
 def render_kit_card(value):
-    """Your kit on Home: what's earned, and the next one to earn."""
+    """Your kit on Home: each piece with its name (what it's for on hover),
+    the next one to earn, and the window that explains every piece."""
     if not _kit_shown():
         return
     have = gear.earned(_gear_facts(value))
-    nxt = next((k for k in gear.KEYS if k not in have), None)
-    with st.container(border=True, horizontal=True, vertical_alignment="center",
-                      key="pt_kit"):
-        icons = "".join(f"<span class='pt-gear-tile{' pt-gear-earned' if k in have else ''}'>"
-                        f"{gear.icon_html(k, k in have)}</span>" for k in gear.KEYS)
+    nxt = gear.next_up(have)
+    with st.container(border=True, key="pt_kit"):
+        cells = "".join(
+            f"<li class='pt-gear-cell' title='{html.escape(_gear_hover(k), quote=True)}'>"
+            f"<span class='pt-gear-tile{' pt-gear-earned' if k in have else ''}'>"
+            f"{gear.icon_html(k, k in have)}</span>"
+            f"<span class='pt-gear-label' aria-hidden='true'>{html.escape(_gear_name(k))}</span></li>"
+            for k in gear.KEYS)
         st.html("<div class='pt-route-label'>Your kit · "
-                f"{len(have)} of {len(gear.KEYS)}</div><div class='pt-gear-row'>{icons}</div>"
-                + (f"<div class='pt-region'>Next to earn: <b>{html.escape(gear.BY_KEY[nxt][1].lower())}</b>"
-                   f" - {html.escape(gear.BY_KEY[nxt][3][0].lower() + gear.BY_KEY[nxt][3][1:])}</div>"
-                   if nxt else "<div class='pt-region'>Every piece earned.</div>"),
-                width="stretch")
-        if st.button("See your kit", key="kit_open", type="tertiary"):
-            st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
-            _kit_window(have)
+                f"{len(have)} of {len(gear.KEYS)} earned</div>"
+                "<div class='pt-region' style='margin:0'>Gear for learning and steady habits. "
+                "Filled ones are earned.</div>"
+                f"<ul class='pt-gear-row' aria-label='Your kit'>{cells}</ul>"
+                + (_next_html(nxt) if nxt else
+                   "<div class='pt-region'>Every piece earned.</div>"))
+        with st.container(horizontal=True, key="pt_kit_buttons"):
+            if st.button("What each piece is for", key="kit_open",
+                         icon=":material/open_in_new:"):
+                st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
+                _kit_window(have)
+            if nxt and _gear_can_go(nxt):
+                st.button(gear.GO[nxt][0], key="kit_go", type="tertiary", on_click=_gear_go,
+                          args=(gear.GO[nxt][1],))
 
 
 # ---- storms (ROADMAP T4, storms.py): a sharp drop as weather to wait out --- #

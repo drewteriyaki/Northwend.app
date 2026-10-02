@@ -32,7 +32,7 @@ def _route_words(step, gp, monthly, plan):
     when = _fmt_month(plan["target_date"]) if plans.has_goal(plan) else ""
     if k == "goal":
         return ("Set your goal", "Pick what you're investing for and roughly when. Everything "
-                "else on your route follows from it.", "Set a goal", ("page", "Plan"))
+                "else on your route follows from it.", "Set a goal", ("learn", "goal"))
     if k == "goal_wait":
         return ("Your advisor sets your goal with you", "It shows up here once they have. Their "
                 "notes to you are under Advisor notes.", "Advisor notes", ("page", "Advisor notes"))
@@ -67,7 +67,7 @@ def _route_words(step, gp, monthly, plan):
                 ("dialog", "manual"))
     if k == "learn":
         return (f"Waypoint {step['number']}: {step['title']}", f"Next on your route in {_label('Get started')}.",
-                "Continue", ("page", "Get started"))
+                "Continue", ("learn", step["step"]))
     if k == "reached":
         return ("You've reached your goal", "Well done. Set your next goal whenever you're "
                 "ready.", "Set the next goal", ("page", "Plan"))
@@ -79,6 +79,10 @@ def _route_go(action):
     kind, target = action
     if kind == "dialog":
         _open_holdings_dialog(target)
+    elif kind == "learn":   # that waypoint open on Learn (Set a goal is walked there)
+        st.session_state["gs_at"] = target
+        st.session_state.pop("gs_goal_part", None)
+        _go("Get started")
     else:
         _go(target)
 

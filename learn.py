@@ -263,6 +263,58 @@ def target_date_year(plan: dict | None, age_range: str | None, today: date) -> i
     return int(5 * round(year / 5))
 
 
+# ---- suggested starting points ------------------------------------------------ #
+# The numbers a beginner would otherwise have to guess - the monthly amount,
+# the years, the share in stocks, the yearly return to assume, a target mix -
+# worked out from their own answers and plan. Shown as "Suggested starting
+# point for your answers" with a way to use it, and always theirs to change:
+# a place to start for learning, not a recommendation (disclosures.py).
+SUGGESTED_RETURN_PCT = 6.0   # a typical middle value, the plan's own default
+DEFAULT_YEARS = 10           # no goal date and no timeline answered yet
+DEFAULT_STOCKS_PCT = 60      # no timeline answered yet: a middle-of-the-road mix
+
+
+def suggestions(profile: dict | None, plan: dict | None, *, today: date, present: float = 0.0,
+                return_pct: float | None = None) -> dict:
+    """Suggested starting points from the profile's answers and the plan:
+
+    goal_years / goal_date - a goal date from the timeline answer (years from
+                 `today`; DEFAULT_YEARS when it isn't answered)
+    years      - years to the plan's goal date, else goal_years (1 to 40)
+    stocks_pct - the example mix's share in stocks (starter_mix, with the plan's
+                 horizon), else DEFAULT_STOCKS_PCT
+    target_mix - {"Stocks": %, "Bonds": %} from that example mix
+    return_pct - SUGGESTED_RETURN_PCT
+    monthly    - with a goal: the monthly amount that reaches it from `present`
+                 by its date at `return_pct` (default SUGGESTED_RETURN_PCT), in
+                 whole dollars - the Plan's "About $X a month gets you there";
+                 None without a goal or with its date passed
+    """
+    import plans   # (pure, like this module)
+
+    p = profile or {}
+    try:
+        answered = int(float(p.get("time_horizon_years") or 0))
+    except (TypeError, ValueError):
+        answered = 0
+    goal_years = max(1, min(40, answered or DEFAULT_YEARS))
+    months = plans.months_until(plan["target_date"], today) if plans.has_goal(plan) else None
+    horizon = months / 12 if months and months > 0 else None
+    years = max(1, min(40, round(horizon))) if horizon else goal_years
+    mix = starter_mix(p, horizon)
+    stocks = mix["stocks_pct"] if mix else DEFAULT_STOCKS_PCT
+    monthly = None
+    if horizon:
+        need = plans.required_monthly(float(present or 0.0), float(plan["target_amount"]),
+                                      SUGGESTED_RETURN_PCT if return_pct is None else return_pct,
+                                      months)
+        monthly = None if need is None else float(round(need))
+    return {"goal_years": goal_years, "goal_date": plans.add_months(today, 12 * goal_years),
+            "years": years, "stocks_pct": stocks,
+            "target_mix": {"Stocks": float(stocks), "Bonds": float(100 - stocks)},
+            "return_pct": SUGGESTED_RETURN_PCT, "monthly": monthly}
+
+
 # ---- lesson numbers --------------------------------------------------------- #
 def grow_monthly(monthly: float, years: float, annual_pct: float) -> float:
     """What `monthly` a month grows to over `years` at `annual_pct`."""
