@@ -191,6 +191,9 @@ class CalmPagesTests(unittest.TestCase):
             self.assertEqual(at.session_state["watchlist_pill"], "TSLA")
             self.assertFalse(at.session_state["dialog_open"])
             self.assertIn("## TSLA", [m.value for m in at.markdown])
+            # a watched ticker has no shares: today's move per share, not "—"
+            price = next(m for m in at.metric if m.label == "Price")
+            self.assertEqual(price.proto.delta, "-1.00 (-1.10%) today")
         for view in (self._run(self.erin, "erin", "Watchlist"), self._advisor("Watchlist")):
             with view as at:
                 self.assertEqual([k[8:] for k in self._keys(at) if k.startswith("wl_open_")],
