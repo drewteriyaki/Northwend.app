@@ -30,6 +30,20 @@ _FIELDS = ("goal_type", "goal_name", "target_amount", "target_date", "monthly_co
 # --------------------------------------------------------------------------- #
 def get_plan(conn, user_id: int) -> dict | None:
     row = conn.execute("SELECT * FROM plans WHERE user_id = ?", (user_id,)).fetchone()
+    return _plan_from(row)
+
+
+def get_plans(conn, user_ids) -> dict:
+    """get_plan() for several accounts in one query: {user_id: plan or None}."""
+    ids = tuple(dict.fromkeys(user_ids))
+    if not ids:
+        return {}
+    rows = {r["user_id"]: r for r in conn.execute(
+        f"SELECT * FROM plans WHERE user_id IN ({', '.join('?' for _ in ids)})", ids)}
+    return {i: _plan_from(rows.get(i)) for i in ids}
+
+
+def _plan_from(row) -> dict | None:
     if row is None:
         return None
     plan = dict(row)

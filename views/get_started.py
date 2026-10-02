@@ -324,14 +324,15 @@ def _step_practice(mix, plan, profile, done):
     growth = end["value"] - end["money_in"]
     dd = learn.max_drawdown(rows)
     tone = "pt-up" if growth > 0 else "pt-down" if growth < 0 else ""
-    st.html("<div class='pt-stats'>"
-            f"<div class='pt-stat'><div class='pt-stat-label'>Put in</div>"
+    st.html(_stat_row(
+            "<div class='pt-stats' role='list' aria-label='How it would have gone'>"
+            f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Put in</div>"
             f"<div class='pt-stat-value'>{_usd0(end['money_in'])}</div></div>"
-            f"<div class='pt-stat'><div class='pt-stat-label'>Worth today</div>"
+            f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Worth today</div>"
             f"<div class='pt-stat-value'>{_usd0(end['value'])}</div>"
             f"<div class='pt-stat-sub {tone}'>{'+' if growth >= 0 else ''}{_usd0(growth)}</div></div>"
-            f"<div class='pt-stat'><div class='pt-stat-label'>Worst drop</div>"
-            f"<div class='pt-stat-value'>{dd:.0f}%</div></div></div>")
+            f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Worst drop</div>"
+            f"<div class='pt-stat-value'>{dd:.0f}%</div></div></div>"))
     df = pd.DataFrame(rows[::5] + ([rows[-1]] if len(rows) % 5 != 1 else []))
     df["date"] = pd.to_datetime(df["date"])
     palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT

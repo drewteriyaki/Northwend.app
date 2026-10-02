@@ -14,6 +14,21 @@ RANGES = [("1D", 1), ("5D", 5), ("2W", 14), ("1M", 30), ("6M", 182), ("1Y", 365)
 RANGE_DAYS = dict(RANGES)
 RANGE_LABELS = [label for label, _ in RANGES]
 
+# Dollars on a chart's axis: short, with trailing zeros trimmed - "$0", "$500",
+# "$1.5k", "$2M" (d3 calls a billion "G"). Under a dollar the short form would
+# read "$500m" (milli), so those ticks show cents instead (MONEY_LABELS).
+MONEY_AXIS = "$,.3~s"
+MONEY_LABELS = ("abs(datum.value) > 0 && abs(datum.value) < 1 "
+                "? format(datum.value, '$,.2f') : datum.label")
+
+
+def y_axis(fmt: str, **kw) -> alt.Axis:
+    """An alt.Axis with number format `fmt`; a money axis (MONEY_AXIS) also
+    gets the under-a-dollar labels."""
+    if fmt == MONEY_AXIS:
+        kw.setdefault("labelExpr", MONEY_LABELS)
+    return alt.Axis(format=fmt, **kw)
+
 
 def clip_range(df: pd.DataFrame, tcol: str, days: int | None) -> pd.DataFrame:
     """Rows within `days` of the most recent point. `days=None` returns all."""
@@ -99,7 +114,7 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
     enc = {
         "x": alt.X(x_key, title=None, sort=x_sort, axis=x_axis),
         "y": alt.Y(f"{y}:Q", title=y_title, scale=alt.Scale(zero=False),
-                   axis=alt.Axis(format=y_format, labels=not mask, **grid)),
+                   axis=y_axis(y_format, labels=not mask, **grid)),
     }
     if color is not None:
         enc["color"] = (alt.Color(f"{color}:N", title="Point source", scale=color_scale)
@@ -136,11 +151,11 @@ def projection(df: pd.DataFrame, *, target: float | None, color: str, mask: bool
     `tooltip` on a wide invisible hit target."""
     grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
     x = alt.X("date:T", title=None, axis=alt.Axis(**grid))
-    y_axis = alt.Axis(format="$,.2s", labels=not mask, **grid)
+    money_axis = y_axis(MONEY_AXIS, labels=not mask, **grid)
     base = alt.Chart(df)
     layers = [
         base.mark_area(opacity=0.18, color=color).encode(
-            x=x, y=alt.Y("low:Q", title=None, axis=y_axis), y2="high:Q"),
+            x=x, y=alt.Y("low:Q", title=None, axis=money_axis), y2="high:Q"),
         base.mark_line(strokeWidth=2, color=color).encode(x=x, y="mid:Q"),
     ]
     if target is not None:
@@ -173,7 +188,7 @@ def money_in_chart(df: pd.DataFrame, *, money_color: str, value_color: str,
     color = alt.Color("series:N", title=None, legend=alt.Legend(orient="top"),
                       scale=alt.Scale(domain=["Money in", "Value"], range=[money_color, value_color]))
     enc = dict(x=alt.X("date:T", title=None, axis=alt.Axis(**grid, **x_fmt)),
-               y=alt.Y("v:Q", title=None, axis=alt.Axis(format="$,.2s", labels=not mask, **grid)),
+               y=alt.Y("v:Q", title=None, axis=y_axis(MONEY_AXIS, labels=not mask, **grid)),
                color=color,
                tooltip=[alt.Tooltip("date:T", title="Statement", format="%b %d, %Y"), "series:N"]
                + ([] if mask else [alt.Tooltip("v:Q", title="Amount", format="$,.2f")]))

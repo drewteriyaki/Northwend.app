@@ -313,6 +313,20 @@ class MetricsTests(unittest.TestCase):
         self.assertIsNone(M.value("not_a_metric", {}))           # unknown key -> None, no raise
         self.assertIsNone(M.value("unrealized_usd", {"pos": {}, "quote": {}}))  # missing data -> None
 
+    def test_levels_and_changes(self):
+        """A level (a yield, a share of the portfolio) is "pct_level", shown
+        without a sign; a change keeps "pct" and its sign. Alerts treat both
+        as percents."""
+        for key in ("pct_of_portfolio", "pct_of_account", "pct_of_account_csv", "div_yield_pct"):
+            self.assertEqual(M.BY_KEY[key].fmt, "pct_level", key)
+        for key in ("day_change_pct", "price_change_pct", "unrealized_pct", "unrealized_csv_pct",
+                    "price_vs_ma50", "pct_off_high", "pct_off_52wk_high"):
+            self.assertEqual(M.BY_KEY[key].fmt, "pct", key)
+        ctx = {"pos": {"symbol": "X", "account": "A", "market_value": 900}, "quote": {},
+               "port_value": 1000, "acct_value": 1000}
+        fired = alerts.evaluate([ctx], [{"key": "big", "metric": "pct_of_portfolio", "abs_gt": 50}])
+        self.assertEqual([a.is_pct for a in fired], [True])
+
 
 class PerfTests(TempDBMixin, unittest.TestCase):
     AGG = {"snapshot_date": "2026-01-15", "portfolio_value": 3400.0, "holdings_value": 3250.0,
@@ -2780,6 +2794,46 @@ class ChartsTests(unittest.TestCase):
     def _df(self, n=40):
         idx = pd.date_range("2026-01-01", periods=n, freq="D", tz="UTC")
         return pd.DataFrame({"t": idx, "v": [100.0 + i for i in range(n)]})
+
+    def test_money_axes(self):
+        """Dollar axes read "$0", "$500", "$1.5k", "$2M" (d3's "$,.3~s", trailing
+        zeros trimmed), with cents under a dollar instead of "$500m"; the old
+        "$,.2s" (which drew 0 as "$0.0") is gone everywhere."""
+        self.assertEqual(charts.MONEY_AXIS, "$,.3~s")
+
+        def axes(spec):
+            if isinstance(spec, dict):
+                if "format" in spec and "labels" in spec:
+                    yield spec
+                for v in spec.values():
+                    yield from axes(v)
+            elif isinstance(spec, list):
+                for v in spec:
+                    yield from axes(v)
+        idx = pd.date_range("2026-01-01", periods=6, freq="MS")
+        built = [
+            charts.line(self._df(10), x="t", y="v", y_title="", y_format=charts.MONEY_AXIS),
+            charts.projection(pd.DataFrame({"date": idx, "low": range(6), "mid": range(6),
+                                            "high": range(6)}), target=10, color="#000"),
+            charts.money_in_chart(pd.DataFrame({"date": idx, "money_in": range(6),
+                                                "value": range(6)}),
+                                  money_color="#000", value_color="#111"),
+        ]
+        for chart in built:
+            found = [a for a in axes(chart.to_dict()) if a["format"].startswith("$")]
+            self.assertTrue(found)
+            for a in found:
+                self.assertEqual((a["format"], a["labelExpr"]),
+                                 (charts.MONEY_AXIS, charts.MONEY_LABELS))
+        # a price axis keeps its cents and no label rewrite
+        price = charts.line(self._df(10), x="t", y="v", y_title="", y_format="$,.2f").to_dict()
+        self.assertTrue(all("labelExpr" not in a for a in axes(price)))
+        sources = ["dashboard.py", "charts.py"] + [os.path.join("views", f) for f in
+                                                   os.listdir(os.path.join(REPO, "views"))
+                                                   if f.endswith(".py")]
+        for path in sources:
+            with open(os.path.join(REPO, path), encoding="utf-8") as fh:
+                self.assertNotIn("$,.2s", fh.read(), path)
 
     def test_clip_range(self):
         df = self._df(40)

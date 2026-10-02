@@ -165,7 +165,7 @@ if PAGE in ("Dashboard", "Watchlist"):
                 pc5.metric("Cost Basis", fmt_money(_cost_basis))
                 pc6.metric("Today's Return", fmt_money(_dchg_usd),
                           delta=(None if hide_amounts or _dchg_pct is None else f"{_dchg_pct:+.2f}%"))
-                pc7.metric("% of Portfolio", fmt_pct(_pct_port))
+                pc7.metric("% of Portfolio", fmt_pct_level(_pct_port))
                 pc8.metric("Account", _pos.get("account") or "—")
             else:
                 st.markdown("#### On your watchlist")

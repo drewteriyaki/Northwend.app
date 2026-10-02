@@ -183,17 +183,17 @@ if PAGE == "Dashboard":
                        + ("" if hide_amounts or _since_pct is None else f" ({_since_pct:+.2f}%)"))
 
     def _stat(label, value, sub=""):
-        return (f"<div class='pt-stat'><div class='pt-stat-label'>{label}</div>"
+        return (f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>{label}</div>"
                 f"<div class='pt-stat-value'>{value}</div>"
                 + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>")
 
-    st.html(
+    st.html(_stat_row(
         "<div class='pt-hero'>"
         "<div class='pt-hero-label'>Portfolio value</div>"
         f"<div class='pt-hero-value'>{fmt_money(portfolio_value)}</div>"
         + (f"<div class='pt-hero-delta'>{_day_html}</div>" if _day_html else "")
         + (f"<div class='pt-hero-sub'>{_since_html}</div>" if _since_html else "")
-        + "</div><div class='pt-stats'>"
+        + "</div><div class='pt-stats' role='list' aria-label='Portfolio summary'>"
         + _stat("Total gain/loss", _tone(tot_gl, _signed_money(tot_gl)),
                 _tone(tot_glp, fmt_pct(tot_glp)) if tot_glp is not None else "")
         + _stat("Holdings", fmt_money(tot_mv), f"{len(positions)} positions")
@@ -201,7 +201,7 @@ if PAGE == "Dashboard":
                 "" if hide_amounts or not portfolio_value
                 else f"{cash / portfolio_value * 100:.1f}% of total")
         + "</div>"
-    )
+    ))
 
     # ---- goal: one line from the plan, or a nudge to set one ----------- #
     # (the advisor's own portfolio; the investor home has it in Your route)
@@ -483,7 +483,7 @@ if PAGE == "Dashboard":
         _adf_raw = pd.DataFrame(_acct_rows)
         _adf = pd.DataFrame([{
             "Account": r["account"], "Total Value": fmt_money(r["total"]),
-            "% of Portfolio": fmt_pct(r["pct_of_portfolio"]), "Holdings": fmt_money(r["holdings"]),
+            "% of Portfolio": fmt_pct_level(r["pct_of_portfolio"]), "Holdings": fmt_money(r["holdings"]),
             "Cash": fmt_money(r["cash"]), "Gain/Loss": fmt_money(r["gain_usd"]),
             "Gain/Loss %": fmt_pct(r["gain_pct"]), "Today": fmt_money(r["day_change"]),
             "Positions": r["n_positions"],

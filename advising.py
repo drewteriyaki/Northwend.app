@@ -83,6 +83,20 @@ def list_notes(conn, client_id: int, *, include_private: bool) -> list[dict]:
     return [dict(r) for r in conn.execute(sql + " ORDER BY note_date DESC, id DESC", (client_id,))]
 
 
+def notes_for(conn, client_ids, *, include_private: bool) -> dict:
+    """list_notes() for several clients in one query: {client_id: notes}."""
+    ids = tuple(dict.fromkeys(client_ids))
+    if not ids:
+        return {}
+    sql = f"SELECT * FROM advisor_notes WHERE client_id IN ({', '.join('?' for _ in ids)})"
+    if not include_private:
+        sql += " AND private = 0"
+    out = {i: [] for i in ids}
+    for r in conn.execute(sql + " ORDER BY client_id, note_date DESC, id DESC", ids):
+        out[r["client_id"]].append(dict(r))
+    return out
+
+
 def open_next_steps(notes: list[dict]) -> list[dict]:
     return [n for n in notes if n["kind"] == "Next step" and not n["done"]]
 

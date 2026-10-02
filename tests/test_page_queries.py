@@ -1,5 +1,5 @@
 """How many database queries a page makes. Home stays under a cap, and Your
-clients reads a few things per client - not one query per fact per client.
+clients reads the whole book at once - more clients, not more queries.
 Counts the SQL statements and connections of a page's second run (a rerun:
 what every click costs), as in CLAUDE.md's "Testing on scratch data". On
 Postgres each statement and each connection is a round trip.
@@ -25,7 +25,8 @@ import two_step  # noqa: E402
 
 HOME_QUERIES = 44       # Home's queries on a rerun here: 39 when written (it was 52)
 HOME_CONNECTIONS = 11   # 9 (it was 23)
-PER_CLIENT = 10         # Your clients: queries per client, about 8 (it was 17)
+BOOK_MORE = 12          # Your clients: one client, then this many more ...
+BOOK_EXTRA = 2          # ... adds at most this many queries: 0 when written (it was ~8 each)
 
 
 class PageQueryTests(unittest.TestCase):
@@ -93,19 +94,27 @@ class PageQueryTests(unittest.TestCase):
         self.assertLessEqual(queries, HOME_QUERIES)
         self.assertLessEqual(connections, HOME_CONNECTIONS)
 
-    def test_your_clients_reads_a_few_things_per_client(self):
+    def test_your_clients_reads_the_whole_book_at_once(self):
+        import advising
+        import prefs
         state = {"two_step_ok": self.carol_ok, "active_user_id": self.carol}
-        one, _ = self._count(self.carol, "carol", "Clients", **state)
+        one, one_conns = self._count(self.carol, "carol", "Clients", **state)
         c = portfolio.connect(self.db)
         try:
-            for name in ("erin", "frank"):
-                cid = auth.create_user(c, name, "pw-123456789")
+            for n in range(BOOK_MORE):
+                cid = auth.create_user(c, f"client{n:02d}", "pw-123456789")
                 auth.link_client(c, self.carol, cid)
-                sample_data.load(c, cid)
+                if n % 4 != 3:  # some with no statement yet
+                    sample_data.load(c, cid)
+                if n % 2 == 0:
+                    advising.add_note(c, cid, self.carol, "Next step", "call", "2026-09-01")
+                if n % 3 == 0:
+                    prefs.save(c, cid, {"class_overrides": {"VTI": "Bonds"}})
         finally:
             c.close()
-        three, _ = self._count(self.carol, "carol", "Clients", **state)
-        self.assertLessEqual((three - one) / 2, PER_CLIENT)
+        many, many_conns = self._count(self.carol, "carol", "Clients", **state)
+        self.assertLessEqual(many - one, BOOK_EXTRA)
+        self.assertLessEqual(many_conns, one_conns)
 
 
 class OneReadHelperTests(unittest.TestCase):
@@ -175,6 +184,112 @@ class OneReadHelperTests(unittest.TestCase):
             self.assertEqual(advising.last_review_in(notes), advising.last_review(c, cid))
             self.assertEqual(ends.get(cid), reports.last_end(c, cid))
         self.assertEqual(sent, {(ids[2], "Q2 2026")})
+
+    def _book(self):
+        """An advisor's book of varied clients: (advisor id, client ids)."""
+        import advising
+        import advisor
+        import manual_entry
+        import plans
+        import prefs
+        from datetime import date
+        c = self.c
+        adv = auth.create_user(c, "adv", "pw-123456789")
+        auth.set_advisor(c, "adv", True)
+        ids = []
+        for n in range(6):
+            cid = auth.create_user(c, f"client{n}", "pw-123456789")
+            auth.link_client(c, adv, cid)
+            ids.append(cid)
+        a, empty, pcts, moved, plain, two = ids
+        # the example portfolio, with a plan, notes, settings and part of a profile
+        sample_data.load(c, a)
+        plans.save_plan(c, a, {"goal_type": "Retirement", "target_amount": 500000,
+                               "target_date": "2040-01-01", "monthly_contribution": 500,
+                               "target_alloc": {"Stocks": 70, "Bonds": 30}}, adv)
+        advising.add_note(c, a, adv, "Review", "met", "2026-03-01")
+        advising.add_note(c, a, adv, "Next step", "call", "2026-04-01", private=True)
+        prefs.save(c, a, {"rules": {"day_move": 1.0}, "class_overrides": {"VTI": "Bonds"}})
+        advisor.save_profile(c, a, {"goal": "retire", "risk_tolerance": "moderate"})
+        # no holdings at all, but a full profile and a plan without a goal
+        advisor.save_profile(c, empty, {**{f: "x" for f in advisor.REQUIRED_PROFILE_FIELDS},
+                                        "time_horizon_years": 10})
+        plans.save_plan(c, empty, {"target_alloc": {"Stocks": 100}}, adv)
+        # percentages only, against a pretend total, with cash
+        holdings, cash, errors = manual_entry.validate_weights(
+            [{"Symbol": "VTI", "Percent": 60, "Type": "ETF"},
+             {"Symbol": "BND", "Percent": 30, "Type": "ETF"}], 10, 10000)
+        self.assertEqual(errors, [])
+        meta, rows, totals, errors = manual_entry.build_weights(
+            holdings, cash, 10000, {"VTI": {"price": 300.0}, "BND": {"price": 72.0}},
+            today=date(2026, 9, 1))
+        portfolio.write_snapshot(c, pcts, meta, rows, totals, manual_entry.PCT_SOURCE)
+        # two statements (the latest counts) and imported activity
+        for day, qty in ((date(2026, 6, 30), 10), (date(2026, 9, 30), 12)):
+            meta, rows, totals, _ = manual_entry.build(
+                [{"account": "Brokerage", "symbol": "AAPL", "quantity": qty, "cost_basis": 1500.0,
+                  "asset_type": "Equity"},
+                 {"account": "IRA", "symbol": "ZZZZ", "quantity": 3, "cost_basis": None,
+                  "asset_type": None}],
+                {"Brokerage": 250.0, "IRA": 40.0}, {"AAPL": {"price": 200.0}, "ZZZZ": {"price": 9.0}},
+                today=day)
+            portfolio.write_snapshot(c, moved, meta, rows, totals, manual_entry.SOURCE)
+        c.execute("INSERT INTO transactions (user_id, account, trade_date, action, amount, origin) "
+                  "VALUES (?, 'Brokerage', '2026-08-10', 'DEPOSIT', 300, 'imported')", (moved,))
+        prefs.save(c, moved, {"class_overrides": {"AAPL": "Other", "BAD": "Nope"}})
+        # the example portfolio with nothing else; and another on a different day
+        sample_data.load(c, plain)
+        sample_data.load(c, two, today=date(2026, 1, 15))
+        c.execute("INSERT INTO security_info (ticker, quote_type, stock_pct, bond_pct, cash_pct, "
+                  "other_pct) VALUES ('VTI', 'ETF', 0.98, 0.0, 0.02, 0.0)")
+        for t, p in (("VTI", 310.0), ("AAPL", 230.0), ("BND", 71.0)):
+            c.execute("INSERT INTO price_history (ticker, price, prev_close, change, pct_change, "
+                      "ok) VALUES (?, ?, ?, ?, ?, 1)", (t, p, p - 5, 5, 5 / p * 100))
+        c.commit()
+        return adv, ids
+
+    def test_whole_book_summaries_match_one_at_a_time(self):
+        import alerts
+        import overview
+        c = self.c
+        _, ids = self._book()
+        for quotes in ({}, overview.latest_quotes(c)):
+            book = overview.account_summaries(c, ids, quotes)
+            self.assertEqual(list(book), ids)
+            self.assertEqual(book, {i: overview.account_summary(c, i, quotes) for i in ids})
+            # alert limits and asset-class choices handed in, for some accounts only
+            rules = {ids[0]: [{**r, "abs_gt": 0.1} for r in alerts.DEFAULT_RULES]}
+            over = {ids[3]: {}, ids[0]: {"BND": "Stocks"}}
+            book = overview.account_summaries(c, ids, quotes, rules, overrides=over)
+            for i in ids:
+                kw = {"overrides": over[i]} if i in over else {}
+                self.assertEqual(book[i], overview.account_summary(c, i, quotes, rules.get(i), **kw))
+        self.assertEqual(overview.account_summaries(c, [], {}), {})
+        # the book is varied: data and none, alerts, a target mix moved by overrides
+        self.assertEqual([book[i]["has_data"] for i in ids], [True, False, True, True, True, True])
+        self.assertEqual(book[ids[3]]["snapshot_date"], "2026-09-30")
+
+    def test_whole_book_reads_match_per_client_ones(self):
+        import advising
+        import advisor
+        import plans
+        import prefs
+        c = self.c
+        _, ids = self._book()
+        legacy = os.path.join(self.tmp, "legacy.json")
+        with open(legacy, "w", encoding="utf-8") as fh:
+            fh.write('{"rules": {"day_move": 2.0}}')
+        paths = {ids[5]: legacy}
+        self.assertEqual(prefs.load_many(c, ids, paths.get),
+                         {i: prefs.load(c, i, paths.get(i)) for i in ids})
+        self.assertEqual(prefs.load(c, ids[5]), {"rules": {"day_move": 2.0}})  # carried over
+        self.assertEqual(advisor.get_profiles(c, ids), {i: advisor.get_profile(c, i) for i in ids})
+        self.assertEqual(plans.get_plans(c, ids), {i: plans.get_plan(c, i) for i in ids})
+        for private in (True, False):
+            self.assertEqual(advising.notes_for(c, ids, include_private=private),
+                             {i: advising.list_notes(c, i, include_private=private) for i in ids})
+        for helper in (prefs.load_many, advisor.get_profiles, plans.get_plans):
+            self.assertEqual(helper(c, []), {})
 
 
 if __name__ == "__main__":

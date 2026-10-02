@@ -124,7 +124,8 @@ class CalmPagesTests(unittest.TestCase):
 
     @staticmethod
     def _stats(at):
-        body = " ".join(h.proto.body for h in at.get("html"))
+        # (the line-break chances _stat_row puts after thousands commas left out)
+        body = " ".join(h.proto.body for h in at.get("html")).replace(",<wbr>", ",")
         return dict(re.findall(r"pt-stat-label'>([^<]*)</div><div class='pt-stat-value'>(.*?)</div>",
                                body)), body
 
@@ -271,6 +272,59 @@ class CalmPagesTests(unittest.TestCase):
         self.assertIn("st-key-assist_profile_open", js)
         self.assertIn('[data-testid="stIconMaterial"]', js)
         self.assertIn('setAttribute("aria-hidden", "true")', js)
+
+    def test_levels_unsigned_changes_signed(self):
+        """A level - a yield, a share of the portfolio - reads "1.23%"; a
+        change - a gain, a day's move - keeps its sign. Hidden amounts mask
+        both."""
+        level = r"^\d+\.\d\d%$"
+        with self._run(self.erin, "erin", "Income") as at:
+            self.assertRegex(next(m.value for m in at.metric if m.label == "Yield on holdings"),
+                             level)
+            table = at.dataframe[0].value
+            yields = [v for v in table["Div Yield %"] if v != "—"]
+            self.assertTrue(yields)
+            for v in yields:
+                self.assertRegex(v, level)
+        with self._run(self.erin, "erin", "Income", hide_amounts=True) as at:
+            self.assertEqual(next(m.value for m in at.metric if m.label == "Yield on holdings"),
+                             "•••")
+        with self._run(self.erin, "erin", "Dashboard", holdings_pill="VTI") as at:
+            self.assertRegex(next(m.value for m in at.metric if m.label == "% of Portfolio"),
+                             level)
+            self.assertRegex(next(m.proto.delta for m in at.metric if m.label == "Total Return"),
+                             r"^[+-]\d+\.\d\d%$")
+            _, body = self._stats(at)
+            # Home's total gain/loss %: a change, signed
+            self.assertRegex(body, r"Total gain/loss</div>.*?pt-stat-sub'><span class='pt-up'>"
+                                   r"\+\d+\.\d\d%")
+
+    def test_stat_rows_are_lists(self):
+        """Every row of stat boxes reads to a screen reader as a named list,
+        one item per box (Home, Plan, Learn, Your clients and the calm
+        summaries), and a long amount can wrap at its thousands commas."""
+        for (uid, name, page, state), label in (
+                ((self.alice, "alice", "Dashboard", {}), "Portfolio summary"),
+                ((self.alice, "alice", "Plan", {}), "Money in and growth"),
+                ((self.carol, "carol", "Clients", {"two_step_ok": self.carol_ok}),
+                 "Client summary")):
+            with self._run(uid, name, page, **state) as at:
+                body = " ".join(h.proto.body for h in at.get("html"))
+                self.assertIn(f"<div class='pt-stats' role='list' aria-label='{label}'", body)
+                row = body.split(f"aria-label='{label}'", 1)[1].split("role='list'", 1)[0]
+                self.assertEqual(row.count("<div class='pt-stat' role='listitem'>"), 3, label)
+                if page == "Dashboard":
+                    self.assertIn("$32,<wbr>250.00", row)       # wraps at a comma on a phone
+        # the rows built by hand in the code, Learn's among them
+        for path in ["dashboard.py"] + [os.path.join("views", f) for f in
+                                        sorted(os.listdir(os.path.join(REPO, "views")))
+                                        if f.endswith(".py")]:
+            with open(os.path.join(REPO, path), encoding="utf-8") as fh:
+                src = fh.read()
+            for m in re.finditer(r"class='pt-stats'([^>]*)>", src):
+                self.assertRegex(m.group(1), r"^ role='list' aria-label='[^']+'", path)
+            for m in re.finditer(r"class='pt-stat'([^>]*)>", src):
+                self.assertEqual(m.group(1), " role='listitem'", path)
 
     def test_show_everything_switch(self):
         with self._run(self.alice, "alice", "Account") as at:

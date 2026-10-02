@@ -84,6 +84,20 @@ REFUSAL_TEXT = "Sorry - I can't help with that one. Try asking it a different wa
 # --------------------------------------------------------------------------- #
 def get_profile(conn, user_id: int) -> dict:
     row = conn.execute("SELECT * FROM investor_profiles WHERE user_id = ?", (user_id,)).fetchone()
+    return _profile_from(row)
+
+
+def get_profiles(conn, user_ids) -> dict:
+    """get_profile() for several accounts in one query: {user_id: profile}."""
+    ids = tuple(dict.fromkeys(user_ids))
+    if not ids:
+        return {}
+    rows = {r["user_id"]: r for r in conn.execute(
+        f"SELECT * FROM investor_profiles WHERE user_id IN ({', '.join('?' for _ in ids)})", ids)}
+    return {i: _profile_from(rows.get(i)) for i in ids}
+
+
+def _profile_from(row) -> dict:
     if row is None:
         return {f: None for f in PROFILE_FIELDS}
     return {f: row[f] for f in PROFILE_FIELDS}

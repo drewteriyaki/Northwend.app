@@ -684,7 +684,10 @@ started, the Plan and Ask Northwend - always optional.
       a ticker's stats two per line in reading order; captions and Learn more
       links, selected tabs/segments and slider values pass AA in dark, the
       light warning text too; the sidebar handle hides under an open window.
-      Left: amounts of $1,000,000+ still cut with "…" in a phone summary box.
+      Then (Oct 2): a phone summary box sizes its amount to fit and wraps a
+      long one after a comma ($1,000,000+ no longer cut off); yields and
+      shares of the portfolio read "0.87%", not "+0.87%" (changes keep their
+      sign); money axes "$0", "$1.5k", "$1.2M" (were "$0.0", "$1.0k").
 - [x] **Watchlist** - a row per ticker with its live price and today's change,
       tap to open its chart, remove from the row; Enter adds a ticker.
 - [x] **Income** - estimated income by month, not just a yearly total. (S) - next 12 months by ex-dividend month, from the past year's payments (saved by the nightly sync) at today's shares.
@@ -705,6 +708,10 @@ started, the Plan and Ask Northwend - always optional.
       the same. A test caps both. Left for later: live_prices.freshen re-reads
       what load() has (~3 queries a run - it's price fetching, so a plan
       first), and a whole-book account_summary (~8 queries per client).
+      **Whole book (Oct 2):** `overview.account_summaries` reads each table
+      once for every client (`user_id IN (...)`), sharing `_summary` with the
+      one-client version - Your clients is 23 queries with 1 client or 25
+      (was 216); a test checks it doesn't grow with the book.
 - [x] **Split dashboard.py** - one file per page in `views/` (dashboard.py 4,504 ->
       1,657 lines). Code moved unchanged; every page drew identically before
       and after (18 page views compared). (M)
@@ -717,8 +724,8 @@ started, the Plan and Ask Northwend - always optional.
       **The S6 summaries too (Oct 2):** stat boxes and Activity's latest moves
       read as lists; "+$215.00 gain" / "loss" in words, not only color;
       watchlist prices say what they are; a button with words is named by its
-      words (no "open_in_new" read out), icons beside text hidden. Still flat:
-      the older .pt-stats rows (Home hero, Plan, Get started, Clients).
+      words (no "open_in_new" read out), icons beside text hidden. The older
+      .pt-stats rows (Home hero, Plan, Get started, Clients) too, since.
       Learn more: bonds and ETFs under a fund's name on its ticker page,
       dividends beside its yield - every topic now placed (a test checks).
 - [x] **Advisor invites** - a one-time setup link for a new client instead of

@@ -7,6 +7,7 @@ import functools
 import html
 import json
 import os
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 
@@ -319,10 +320,15 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-stat-sub { font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 /* phones: three boxes in a row leave about 90px each, so a label or note
-   wraps onto a second line instead of running into the next box */
+   wraps onto a second line instead of running into the next box. A value's
+   size follows its box (cqi, a share of the box's width; .75rem to .9rem),
+   which fits $1,234,567.00 in a 113px box, and a longer amount or a narrower
+   box wraps after a thousands comma (_stat_row marks those spots) rather
+   than being cut off */
 @media (max-width: 640px) { .pt-hero-value { font-size: 2.2rem; }
-  .pt-stat { padding: .5rem .5rem; }
-  .pt-stat-value { font-size: .9rem; }
+  .pt-stat { padding: .5rem .5rem; container-type: inline-size; }
+  .pt-stat-value { font-size: .9rem; font-size: clamp(.75rem, 14cqi, .9rem);
+    white-space: normal; line-height: 1.3; }
   .pt-stat-label, .pt-stat-sub { white-space: normal; overflow-wrap: break-word; } }
 /* summary tiles that open a window (Learn the basics; Income, Activity,
    Watchlist and Ask Northwend in the calm view): lift a little on hover */
@@ -1637,10 +1643,17 @@ def fmt_money(v):
     return f"-${abs(v):,.2f}" if v < 0 else f"${v:,.2f}"
 
 
-def fmt_pct(v):
+def fmt_pct(v, signed=True):
+    """A percent. Signed ("+0.87%") for a change - a day's move, a gain, a
+    return; signed=False ("0.87%") for a level - a yield, a share of the
+    portfolio (fmt_pct_level, the metrics' "pct_level")."""
     if _hidden():
         return MASK
-    return "—" if _blank(v) else f"{v:+.2f}%"
+    return "—" if _blank(v) else (f"{v:+.2f}%" if signed else f"{v:.2f}%")
+
+
+def fmt_pct_level(v):
+    return fmt_pct(v, signed=False)
 
 
 def color_sign(v):
@@ -1666,12 +1679,14 @@ def fmt_int(v):
     return MASK if _hidden() else ("—" if _blank(v) else f"{v:,.0f}")
 
 
-FORMATTERS = {"money": fmt_money, "pct": fmt_pct, "price": fmt_price,
-              "qty": fmt_qty, "num": fmt_num, "int": fmt_int}
+FORMATTERS = {"money": fmt_money, "pct": fmt_pct, "pct_level": fmt_pct_level,
+              "price": fmt_price, "qty": fmt_qty, "num": fmt_num, "int": fmt_int}
 
 # axis / tooltip number format string per metric-format name
-AXIS_FORMAT = {"money": "$,.2s", "price": "$,.2f", "pct": ".2f", "int": "d", "num": ",.2f"}
-TOOLTIP_FORMAT = {"money": "$,.2f", "price": "$,.2f", "pct": ".2f", "int": "d", "num": ",.2f"}
+AXIS_FORMAT = {"money": charts.MONEY_AXIS, "price": "$,.2f", "pct": ".2f", "pct_level": ".2f",
+               "int": "d", "num": ",.2f"}
+TOOLTIP_FORMAT = {"money": "$,.2f", "price": "$,.2f", "pct": ".2f", "pct_level": ".2f",
+                  "int": "d", "num": ",.2f"}
 
 
 def _stat_tiles(ctx, keys, ncols=4):
@@ -2201,17 +2216,29 @@ def _show_everything():
     return IS_ADVISOR or bool(_read_prefs().get("show_everything"))
 
 
+_THOUSANDS_COMMA = re.compile(r"(?<=\d),(?=\d{3}\b)")
+
+
+def _stat_row(markup):
+    """A row of stat boxes (.pt-stats) with a line-break chance after each
+    thousands comma: on a phone a box can be about 90px wide, so a long
+    amount goes onto two lines at a comma instead of being cut off (the
+    phone styles let .pt-stat-value wrap; on a wider screen it fits)."""
+    return _THOUSANDS_COMMA.sub(",<wbr>", markup)
+
+
 def _summary_stats(items):
     """A row of small stat boxes (.pt-stats): [(label, value_html, sub_html or None)].
     Values are already formatted (and masked) by the caller. A list to screen
     readers, one item per box, so each reads as its label then its value."""
-    st.html("<div class='pt-stats' role='list' aria-label='Summary' style='margin-top:.25rem'>"
+    st.html(_stat_row(
+            "<div class='pt-stats' role='list' aria-label='Summary' style='margin-top:.25rem'>"
             + "".join(
                 "<div class='pt-stat' role='listitem'>"
                 f"<div class='pt-stat-label'>{html.escape(label)}</div>"
                 f"<div class='pt-stat-value'>{value}</div>"
                 + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>"
-                for label, value, sub in items) + "</div>")
+                for label, value, sub in items) + "</div>"))
 
 
 def _next_step_card(key, line, button=None):

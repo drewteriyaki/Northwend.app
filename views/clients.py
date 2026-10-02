@@ -275,18 +275,23 @@ def _client_rows(today):
             f"FROM progress_reports q WHERE q.client_id = p.client_id) AND client_id IN ({_in})",
             _ids)}
         can_import = advising.clients_can_import(conn, _ids)
+        # their settings (alert limits, asset-class choices), summaries, plans
+        # and notes: each read once for the whole book
+        saved = prefs.load_many(conn, _ids, _legacy_prefs_path)
+        summaries = overview.account_summaries(
+            conn, _ids, quotes, {cid: _rules_from(saved[cid]) for cid in _ids},
+            overrides={cid: asset_classes.overrides_in(saved[cid]) for cid in _ids})
+        all_plans = plans.get_plans(conn, _ids)
+        all_notes = advising.notes_for(conn, _ids, include_private=True)
         rows = []
         for cid, name in CLIENTS:
-            # one read of their settings: alert limits and asset-class choices
-            saved = prefs.load(conn, cid, _legacy_prefs_path(cid))
-            summ = overview.account_summary(conn, cid, quotes, _rules_from(saved),
-                                            overrides=asset_classes.overrides_in(saved))
-            plan = plans.get_plan(conn, cid)
+            summ = summaries[cid]
+            plan = all_plans[cid]
             goal = (plans.progress(plan, summ["portfolio_value"] or 0.0, today=today)
                     if plans.has_goal(plan) else None)
             drift = (advising.max_drift(summ["alloc_pct"], (plan or {}).get("target_alloc"))
                      if summ["has_data"] else None)
-            notes = advising.list_notes(conn, cid, include_private=True)
+            notes = all_notes[cid]
             review, days = advising.review_status(advising.last_review_in(notes), today)
             steps = advising.open_next_steps(notes)
             login = logins.get(cid)
@@ -322,16 +327,17 @@ def _render_clients():
         with st.expander(":material/event_upcoming: This week", expanded=_summary["any"]):
             _render_week_summary(_summary, where="clients")
 
-        st.html("<div class='pt-stats'>"
-                f"<div class='pt-stat'><div class='pt-stat-label'>Clients</div>"
+        st.html(_stat_row(
+                "<div class='pt-stats' role='list' aria-label='Client summary'>"
+                f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Clients</div>"
                 f"<div class='pt-stat-value'>{len(rows)}</div></div>"
-                f"<div class='pt-stat'><div class='pt-stat-label'>Total value</div>"
+                f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Total value</div>"
                 f"<div class='pt-stat-value'>{fmt_money0(sum(r['portfolio_value'] or 0 for r in rows))}"
                 "</div></div>"
-                f"<div class='pt-stat'><div class='pt-stat-label'>Need attention</div>"
+                f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Need attention</div>"
                 f"<div class='pt-stat-value'>{sum(1 for r in rows if r['reasons'])}</div>"
                 f"<div class='pt-stat-sub'>{sum(1 for r in rows if r['review'] != 'ok')} review(s) due"
-                "</div></div></div>")
+                "</div></div></div>"))
 
         _render_reports_bulk(rows)
 

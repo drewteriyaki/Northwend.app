@@ -82,7 +82,7 @@ def _income_bars(months, label):
                                         cornerRadiusTopRight=3).encode(
         x=alt.X("Month:N", sort=alt.SortField("order"), title=None,
                 axis=alt.Axis(labelAngle=0, labelExpr="slice(datum.label, 0, 3)")),
-        y=alt.Y("Income:Q", title=None, axis=alt.Axis(format="$,.0f", labels=not _hidden())),
+        y=alt.Y("Income:Q", title=None, axis=charts.y_axis(charts.MONEY_AXIS, labels=not _hidden())),
         tooltip=[alt.Tooltip("Month:N"), alt.Tooltip("Income:Q", format="$,.2f"),
                  alt.Tooltip("Paid by:N")])
 
@@ -147,7 +147,7 @@ def _render_income_table(income_rows):
 
     ic1, ic2, ic3 = st.columns(3)
     ic1.metric("Est. annual dividend income", fmt_money(total_income))
-    ic2.metric("Yield on holdings", fmt_pct(yield_on_holdings))
+    ic2.metric("Yield on holdings", fmt_pct_level(yield_on_holdings))
     ic3.metric("Income-producing positions", f"{len(income_rows)} / {len(positions)}")
 
     idf_raw = pd.DataFrame([{
@@ -158,7 +158,7 @@ def _render_income_table(income_rows):
     } for r in income_rows])
     idf = pd.DataFrame([{
         "Symbol": r["symbol"], "Description": r["description"],
-        "Market Value": fmt_money(r["market_value"]), "Div Yield %": fmt_pct(r["yield_pct"]),
+        "Market Value": fmt_money(r["market_value"]), "Div Yield %": fmt_pct_level(r["yield_pct"]),
         "Est. Annual Income": fmt_money(r["est_income"]),
         "Last Pay Date": r["last_pay_date"] or "—", "Reinvest": r["reinvest"] or "—",
         "Account": r["account"],
@@ -209,7 +209,7 @@ def _render_income_calm(income_rows, plan, unsynced, got):
             stats.append(("Next payment", _income_month_label(upcoming["month"]),
                           fmt_money(upcoming["total"])))
         elif income_rows:
-            stats.append(("Yield on holdings", fmt_pct(yearly / tot_mv * 100 if tot_mv else None),
+            stats.append(("Yield on holdings", fmt_pct_level(yearly / tot_mv * 100 if tot_mv else None),
                           None))
         if got is not None:
             stats.append(("Received, last 12 months", fmt_money(got["total"]), None))

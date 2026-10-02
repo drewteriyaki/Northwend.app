@@ -282,13 +282,14 @@ def _render_contributions(plan, today):
 @st.fragment
 def _render_money_in(value, growth):
     money_in = value - growth
-    st.html("<div class='pt-stats'>"
-            f"<div class='pt-stat'><div class='pt-stat-label'>Money in</div>"
+    st.html(_stat_row(
+            "<div class='pt-stats' role='list' aria-label='Money in and growth'>"
+            f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Money in</div>"
             f"<div class='pt-stat-value'>{fmt_money(money_in)}</div></div>"
-            f"<div class='pt-stat'><div class='pt-stat-label'>Growth</div>"
+            f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Growth</div>"
             f"<div class='pt-stat-value'>{_tone(growth, _signed_money(growth))}</div></div>"
-            f"<div class='pt-stat'><div class='pt-stat-label'>Value</div>"
-            f"<div class='pt-stat-value'>{fmt_money(value)}</div></div></div>")
+            f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Value</div>"
+            f"<div class='pt-stat-value'>{fmt_money(value)}</div></div></div>"))
     conn = connect(DB)
     try:
         hist = plans.money_in_history(conn, USER_ID)

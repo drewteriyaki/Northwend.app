@@ -14,6 +14,23 @@ import json
 
 def load(conn, user_id: int, legacy_path: str | None = None) -> dict:
     row = conn.execute("SELECT data FROM user_prefs WHERE user_id = ?", (user_id,)).fetchone()
+    return _from_row(conn, user_id, row, legacy_path)
+
+
+def load_many(conn, user_ids, legacy_path=None) -> dict:
+    """load() for several accounts in one query: {user_id: settings}.
+    `legacy_path`, if given, is a function of the account id (see load())."""
+    ids = tuple(dict.fromkeys(user_ids))
+    if not ids:
+        return {}
+    rows = {r["user_id"]: r for r in conn.execute(
+        f"SELECT user_id, data FROM user_prefs WHERE user_id IN ({', '.join('?' for _ in ids)})",
+        ids)}
+    return {i: _from_row(conn, i, rows.get(i), legacy_path(i) if legacy_path else None)
+            for i in ids}
+
+
+def _from_row(conn, user_id: int, row, legacy_path: str | None) -> dict:
     if row is not None:
         try:
             data = json.loads(row["data"])

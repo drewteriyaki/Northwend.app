@@ -57,7 +57,7 @@ def evaluate(contexts, rules=None) -> list[Alert]:
         limit = float(rule.get("abs_gt") or 0.0)
         if not limit:
             continue
-        is_pct = (M.BY_KEY[mk].fmt == "pct") if mk in M.BY_KEY else True
+        is_pct = (M.BY_KEY[mk].fmt in ("pct", "pct_level")) if mk in M.BY_KEY else True
         for ctx in contexts:
             raw = M.value(mk, ctx)
             try:

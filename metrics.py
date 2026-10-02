@@ -28,7 +28,10 @@ class Metric:
     label: str
     group: str
     fn: Callable[[dict], Any]
-    fmt: str = "text"          # text | money | pct | price | qty | int | date
+    # text | money | pct | pct_level | price | qty | int | date. "pct" is a
+    # change, shown signed (+0.87%); "pct_level" a level - a yield, a share of
+    # the portfolio - shown without a sign (0.87%).
+    fmt: str = "text"
     available: bool = True
     note: str = ""
     color_sign: bool = False   # UI: green/red by sign
@@ -160,13 +163,13 @@ METRICS: list[Metric] = [
 
     # -- Allocation ---------------------------------------------- #
     Metric("pct_of_portfolio", "% of Portfolio", "Allocation",
-           lambda c: _ratio(eff_mv(c), c.get("port_value")), "pct"),
+           lambda c: _ratio(eff_mv(c), c.get("port_value")), "pct_level"),
     Metric("pct_of_account", "% of Account", "Allocation",
-           lambda c: _ratio(eff_mv(c), c.get("acct_value")), "pct"),
-    Metric("pct_of_account_csv", "% of Account (CSV)", "Allocation", lambda c: _p(c, "pct_of_account"), "pct"),
+           lambda c: _ratio(eff_mv(c), c.get("acct_value")), "pct_level"),
+    Metric("pct_of_account_csv", "% of Account (CSV)", "Allocation", lambda c: _p(c, "pct_of_account"), "pct_level"),
 
     # -- Income -------------------------------------------- #
-    Metric("div_yield_pct", "Dividend Yield %", "Income", lambda c: _p(c, "div_yield_pct"), "pct"),
+    Metric("div_yield_pct", "Dividend Yield %", "Income", lambda c: _p(c, "div_yield_pct"), "pct_level"),
     Metric("div_pay_date", "Dividend Pay Date", "Income", lambda c: (c["pos"] or {}).get("div_pay_date"), "text"),
     Metric("reinvest", "Reinvest", "Income", _reinvest, "text"),
     Metric("next_earnings", "Next Earnings", "Income", lambda c: (c["pos"] or {}).get("next_earnings_date"), "text"),
