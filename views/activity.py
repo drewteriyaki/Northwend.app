@@ -113,7 +113,7 @@ def _render_activity_table(all_txns):
     gain_raw = [t["realized_gain"] for t in filtered]
     tdf = pd.DataFrame([{
         "Date": t["trade_date"], "Action": txn_import.TYPES.get(t["action"], t["action"]),
-        "Symbol": t["symbol"],
+        "Symbol": t["symbol"] or "—",   # deposits, withdrawals, fees have none
         "Description": t["description"] or "", "Qty": fmt_qty(t["quantity"]),
         "Price": fmt_price(t["price"]), "Amount": fmt_money(t["amount"]),
         "Realized G/L": fmt_money(t["realized_gain"]), "Account": t["account"],

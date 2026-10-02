@@ -139,6 +139,9 @@ class CalmPagesTests(unittest.TestCase):
             for k in ("next_income", "tile_income_months", "tile_income_received",
                       "tile_income_holdings"):
                 self.assertIn(k, self._keys(at))
+            # the tile's two amounts stay amounts: a bare "$...$" is math in markdown
+            paid = [c.value for c in at.caption if c.value.startswith("Dividends")]
+            self.assertEqual(paid, ["Dividends \\$25.50 · interest \\$0.00"])
             at.button(key="tile_income_holdings").click().run()
             self.assertEqual(len(at.dataframe), 1)
             self.assertEqual(len(at.get("download_button")), 1)

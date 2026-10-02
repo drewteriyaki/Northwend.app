@@ -2186,7 +2186,7 @@ def _detail_tiles(tiles):
     for col, (key, icon, title, summary, label, window, args) in zip(cols, tiles):
         with col.container(border=True, key=f"pt_tile_{key}"):
             st.markdown(f"{icon} **{title}**")
-            st.caption(summary)
+            st.caption(summary.replace("$", "\\$"))   # two amounts would read as math
             if st.button(label, key=f"tile_{key}", type="tertiary",
                          icon=":material/open_in_new:"):
                 _open_window(window, *args)
