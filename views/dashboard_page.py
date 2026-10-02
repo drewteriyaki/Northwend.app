@@ -385,6 +385,7 @@ if PAGE == "Dashboard":
         st.warning(f"Positions over {CONCENTRATION_PCT:.0f}% of portfolio value:  \n{lines}")
     else:
         st.caption(f"No single position exceeds {CONCENTRATION_PCT:.0f}% of portfolio value.")
+    learn_more("diversification")
 
     _targets = load_alloc_targets()
     if _targets:
@@ -406,6 +407,7 @@ if PAGE == "Dashboard":
             st.warning(f"Drifted beyond ±{_thresh:g} pts from target:  \n{lines}")
         else:
             st.caption(f"Every targeted asset class is within ±{_thresh:g} pts of target.")
+        learn_more("rebalancing")
 
     st.divider()
 
@@ -497,6 +499,7 @@ if PAGE == "Dashboard":
                 "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
                 if hide_amounts else None),
         )
+    learn_more("account_types")
 
 
     st.divider()

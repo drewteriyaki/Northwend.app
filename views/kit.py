@@ -159,8 +159,7 @@ def _storms_window():
                 "them: selling after a fall turns a drop on paper into a real loss, and "
                 "some of the market's best days have come soon after its worst. Past "
                 "storms don't promise what the next one will do.")
-    st.link_button(storms.LEARN_MORE[0], storms.LEARN_MORE[1], icon=":material/open_in_new:",
-                   type="tertiary")
+    learn_more("market_drops")
 
 
 def render_weather():

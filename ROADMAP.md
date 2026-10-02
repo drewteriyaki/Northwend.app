@@ -330,10 +330,25 @@ Activity, Income, Account, About) - the rest is one tap away, not gone.
 A small "Learn more" next to the ideas the app explains (index funds,
 diversification, expense ratios, account types, risk) to the matching page
 on Investor.gov, FINRA or the CFPB.
+- [x] **Built** - one table in `learn.py` (`LEARN_MORE`: topic -> label,
+      address, site; only Investor.gov, FINRA and the CFPB - a test checks)
+      and `learn_more(topic)` in dashboard.py, a small caption link. On the
+      Learn the basics cards, Get started (example mix, open an account,
+      comfort with risk), first steps, the fee check, Plan (projection, What
+      if, Target mix), Home (allocation, drift, accounts), storms and Income
+      (dividends).
 
 ### S6. The other pages - M
 The same pass over Income, Activity, Watchlist and Ask Northwend: a summary
 first, detail in a window.
+- [x] **Built** - each page leads with a few numbers and one next step:
+      Income (expected next 12 months, next payment, received), Activity
+      (money added, bought, sold in the last year, the 5 latest moves),
+      Watchlist (count, biggest rise and fall, the 5 biggest moves today),
+      Ask Northwend (suggested questions and the chat; profile and the
+      printable plan in windows). Tables and charts open in windows. "Show
+      everything" (Account > How pages look) brings back the full pages;
+      advisors always get them.
 
 ---
 

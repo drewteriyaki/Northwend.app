@@ -82,6 +82,7 @@ def _fee_window():
                     "market fund's fee is already taken out of the yield it shows.")
     st.caption(f"An illustration at {growth} a year, not a prediction. Expense ratios come "
                "from Yahoo Finance and can change; your brokerage's fund page has the latest.")
+    learn_more("expense_ratios")
     # (in a window: switch pages with a full rerun, which also closes it)
     if st.button(f":material/forum: Ask {GUIDE} about fees", key="fee_ask", type="tertiary"):
         _fee_ask()

@@ -3,8 +3,42 @@
 # (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# Ask Northwend: the AI guide's chat page.
+# Ask Northwend: the AI guide's chat page. Calm by default (ROADMAP S6): the
+# hello, a few suggested questions and the chat, with the investing profile
+# and the printable plan in a window; the full page (both open above the chat)
+# for advisors and for Show everything (_show_everything).
 # ruff: noqa: F821
+
+ASSIST_PROFILE_NOTE = (f"{GUIDE} also fills this in from what you tell it in the chat, and "
+                       "keeps short notes of its own so the next conversation picks up where "
+                       "this one left off.")
+ASSIST_DISCLAIMER = (f"Educational information only - not financial advice. {GUIDE} is not a "
+                     "licensed financial advisor; do your own research before making any "
+                     "investment decision.")
+
+
+def _assist_profile():
+    import advisor
+    c = connect(DB)
+    try:
+        return advisor.get_profile(c, USER_ID), advisor.get_memory(c, USER_ID)
+    finally:
+        c.close()
+
+
+@st.dialog("Your investing profile", width="large", on_dismiss=_dialog_closed)
+def _assist_profile_window():
+    import advisor
+    st.caption(ASSIST_PROFILE_NOTE)
+    _render_profile_form(advisor, _assist_profile()[0])   # Save closes the window
+
+
+@st.dialog("Printable plan (PDF)", width="large", on_dismiss=_dialog_closed)
+def _assist_plan_window(api_key, contexts, cash_by_account):
+    profile, memory = _assist_profile()
+    _render_plan_export(api_key, profile, memory, contexts, cash_by_account,
+                        st.session_state.get("chat_display", []), in_window=True)
+
 
 def _render_assistant(contexts, cash_by_account):
     import advisor
@@ -28,18 +62,23 @@ def _render_assistant(contexts, cash_by_account):
     display = st.session_state.setdefault("chat_display", [])
     history = st.session_state.setdefault("chat_api", [])
     n_required = len(advisor.REQUIRED_PROFILE_FIELDS)
-    with st.expander(f"Your investing profile ({n_required - len(missing)}/{n_required} key "
-                     "questions answered)", expanded=bool(missing) and not display):
-        _render_profile_form(advisor, profile)
-        st.caption(f"{GUIDE} also fills this in from what you tell it in the chat, and "
-                   "keeps short notes of its own so the next conversation picks up where this "
-                   "one left off.")
+    answered = f"{n_required - len(missing)}/{n_required}"
+    full = _show_everything()
+    if full:
+        with st.expander(f"Your investing profile ({answered} key questions answered)",
+                         expanded=bool(missing) and not display):
+            _render_profile_form(advisor, profile)
+            st.caption(ASSIST_PROFILE_NOTE)
 
-    st.caption(f"Educational information only - not financial advice. {GUIDE} is not a "
-               "licensed financial advisor; do your own research before making any investment "
-               "decision.")
+        st.caption(ASSIST_DISCLAIMER)
 
-    _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display)
+        _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display)
+    elif missing and not display:
+        # the calm view's one next step: the questions that make answers fit
+        if _next_step_card("assistant", f"Answer a few quick questions about you ({answered} "
+                           f"done), so {GUIDE}'s answers fit your timeline and comfort with "
+                           "ups and downs.", ("Answer the questions", None, ())):
+            _open_window(_assist_profile_window)
     # new messages are written into this box too, so they land above the input
     chat_box = st.container()
     with chat_box:
@@ -55,6 +94,8 @@ def _render_assistant(contexts, cash_by_account):
 
     prompt = None
     if not display:
+        if not full:
+            st.caption("Not sure where to start? Try one of these:")
         cols = st.columns(len(QUICK_STARTS))
         for col, (label, text) in zip(cols, QUICK_STARTS.items()):
             if col.button(label, width="stretch", key=f"quick_{label}"):
@@ -129,11 +170,24 @@ def _render_assistant(contexts, cash_by_account):
     elif at_limit:
         st.info(f"This conversation hit the {CHAT_MESSAGE_LIMIT}-message limit. Start a new one "
                 "to keep going.")
-    if display:
-        def _new_conversation():
-            st.session_state["chat_display"] = []
-            st.session_state["chat_api"] = []
-        st.button("New conversation", on_click=_new_conversation)
+    def _new_conversation():
+        st.session_state["chat_display"] = []
+        st.session_state["chat_api"] = []
+    if full:
+        if display:
+            st.button("New conversation", on_click=_new_conversation)
+    else:
+        # the calm view: the profile and the printable plan open in a window
+        with st.container(horizontal=True, vertical_alignment="center"):
+            if display:
+                st.button("New conversation", on_click=_new_conversation)
+            if st.button(f"Your investing profile ({answered})", key="assist_profile_open",
+                         type="tertiary", icon=":material/person:"):
+                _open_window(_assist_profile_window)
+            if st.button("Printable plan (PDF)", key="assist_plan_open", type="tertiary",
+                         icon=":material/picture_as_pdf:"):
+                _open_window(_assist_plan_window, api_key, contexts, cash_by_account)
+        st.caption(ASSIST_DISCLAIMER)
     st.caption(f"Your holdings are shared with {GUIDE} as percentages only - no dollar "
                "amounts, share counts, or account names."
                + (f" {ai_usage.left_text(quota, 'chat')}." if quota["ok"] and quota["limit"] else ""))

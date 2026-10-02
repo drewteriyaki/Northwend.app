@@ -32,6 +32,8 @@ PROFILE_SECTIONS = (
                         "withdrawal_needs")),
     ("Preferences", ("preferences",)),
 )
+# a section's idea -> where to read more (learn.LEARN_MORE)
+PROFILE_SECTION_LINKS = {"Comfort with risk": "risk_tolerance"}
 HORIZON_YEARS = (1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40)
 TARGET_RETURNS = (3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 15.0)
 _NOT_SET = "Not set"
@@ -49,6 +51,7 @@ def _render_profile_form(advisor, profile):
         answers = {}
         for title, fields in PROFILE_SECTIONS:
             st.markdown(f"**{title}**")
+            learn_more(PROFILE_SECTION_LINKS.get(title))
             for field in fields:
                 q, cur = PROFILE_QUESTIONS[field], profile.get(field)
                 if field in advisor.MULTI_CHOICES:
@@ -90,17 +93,20 @@ def _render_profile_form(advisor, profile):
                 advisor.save_profile(conn, USER_ID, fields, replace=True)
             finally:
                 conn.close()
+            st.session_state["dialog_open"] = False   # the rerun closes a window it's in
             st.rerun()
 
 
-def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display):
+def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display,
+                        in_window=False):
     """'Client plan' block: one API call for next steps, then a PDF download.
-    The PDF lives in session state only, so switching accounts drops it."""
+    The PDF lives in session state only, so switching accounts drops it.
+    `in_window`: drawn inside a window (Ask Northwend's calm view), not an expander."""
     import advisor
     import anthropic
     import client_plan
 
-    with st.expander("Client plan (PDF)", expanded=False):
+    with st.container() if in_window else st.expander("Client plan (PDF)", expanded=False):
         st.caption("A printable plan for this account: profile, allocation, holdings with "
                    "dollar amounts, things to watch, and AI-suggested next steps. The AI only "
                    "sees percentages; the dollar figures are added on this machine.")

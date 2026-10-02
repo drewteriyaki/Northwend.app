@@ -29,10 +29,7 @@ PAST_STORMS = (
     ("The 2020 pandemic drop", 34, "about 6 months"),
     ("The 2022 bear market", 25, "about 2 years"),
 )
-
-LEARN_MORE = ("Investor.gov: why a mix of investments softens a drop",
-              "https://www.investor.gov/additional-resources/general-resources/"
-              "publications-research/info-sheets/beginners-guide-asset")
+# (the storms window's "Learn more" is learn.LEARN_MORE["market_drops"])
 
 
 def weather(points: list[tuple[str, float]], today: date | None = None) -> dict | None:

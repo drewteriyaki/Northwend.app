@@ -92,7 +92,7 @@
   // A button showing only an icon would be read out as the icon's name
   // ("close"); give screen readers what it does. Keyed by the widget key.
   const ICON_LABELS = [
-    [/^st-key-wl_del_(.+)$/, (m) => `Remove ${m[1]} from your watchlist`],
+    [/^st-key-wl_(?:w_)?del_(.+)$/, (m) => `Remove ${m[1]} from your watchlist`],
     [/^st-key-model_del_/, () => "Delete this model portfolio"],
     [/^st-key-me_del_/, () => "Remove this holding"],
     [/^st-key-me_cdel_/, () => "Remove this cash line"],

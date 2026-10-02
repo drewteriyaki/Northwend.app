@@ -56,7 +56,7 @@ class WeatherTests(unittest.TestCase):
         self.assertFalse(storms.hidden(None, hide))
 
     def test_never_advice(self):
-        text = " ".join(name for name, _, _ in storms.PAST_STORMS) + storms.LEARN_MORE[0]
+        text = " ".join(name for name, _, _ in storms.PAST_STORMS)
         for word in ("buy", "sell", "should"):
             self.assertNotIn(word, text.lower())
 

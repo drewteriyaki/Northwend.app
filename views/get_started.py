@@ -36,6 +36,9 @@ COACH_PROMPTS = {
                "401(k), and which questions should I ask to pick one?",
 }
 PRACTICE_MIXES = ("Example mix", "All stocks", "Mostly bonds")
+# each basics topic -> where to read more (learn.LEARN_MORE)
+BASICS_LINKS = {"funds": "index_funds", "spread": "diversification", "time": "compound_interest",
+                "fees": "expense_ratios", "ups": "risk", "accounts": "account_types"}
 
 
 def _usd0(v):
@@ -193,6 +196,7 @@ def _basics_window(key, monthly, years):
         if k == key:
             st.markdown(f"### {icon} {title}")
             st.markdown(body)
+            learn_more(BASICS_LINKS.get(k))
     # (in a window: switch pages with a full rerun, which also closes it)
     if st.button(f":material/forum: Ask {GUIDE} about this", key="basics_ask", type="tertiary"):
         _ask_coach("basics")
@@ -245,6 +249,7 @@ def _step_mix(mix, profile, plan, done):
     st.caption("An example for learning, based on common rules of thumb - not a recommendation "
                "to buy these funds. The tickers are examples of well-known, low-cost index "
                "funds; many similar funds exist.")
+    learn_more("asset_allocation")
 
     def _watch_examples():
         c = connect(DB)
@@ -371,6 +376,7 @@ def _step_account(monthly, has_holdings):
            "remember.\n")
         + "6. **Bring it in here:** use **Holdings** in the sidebar - paste your positions, "
         "upload a CSV or type them in; any brokerage works. Your Plan then tracks the real thing.")
+    learn_more("brokerage_accounts")
     with st.container(horizontal=True):
         st.button("Import my first statement", key="gs_import", type="primary", on_click=_go,
                   args=("Dashboard",))

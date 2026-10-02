@@ -1,0 +1,146 @@
+"""Learn more links (ROADMAP S5): learn.LEARN_MORE and learn.learn_more_md()."""
+
+import contextlib
+import glob
+import os
+import re
+import shutil
+import sys
+import tempfile
+import unittest
+import unittest.mock
+from urllib.parse import urlparse
+
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, HERE)
+
+import learn  # noqa: E402
+
+
+def _view_sources():
+    for path in [os.path.join(HERE, "dashboard.py"), *glob.glob(os.path.join(HERE, "views", "*.py"))]:
+        with open(path, encoding="utf-8") as fh:
+            yield os.path.basename(path), fh.read()
+
+
+class LearnMoreTableTests(unittest.TestCase):
+    def test_only_trusted_public_sites(self):
+        self.assertEqual(set(learn.LEARN_MORE_SITES),
+                         {"www.investor.gov", "www.finra.org", "www.consumerfinance.gov"})
+        for topic, (label, url, source) in learn.LEARN_MORE.items():
+            u = urlparse(url)
+            self.assertEqual(u.scheme, "https", topic)
+            self.assertIn(u.netloc, learn.LEARN_MORE_SITES, topic)
+            self.assertEqual(source, learn.LEARN_MORE_SITES[u.netloc], topic)
+            self.assertTrue(u.path and u.path != "/", topic)        # a page, not the home page
+            self.assertFalse(re.search(r"[\s()\[\]<>\"']", url), topic)   # safe in a markdown link
+
+    def test_every_topic_has_a_label(self):
+        self.assertGreaterEqual(len(learn.LEARN_MORE), 10)
+        for topic, entry in learn.LEARN_MORE.items():
+            self.assertRegex(topic, r"^[a-z_]+$")
+            self.assertEqual(len(entry), 3, topic)
+            label = entry[0]
+            self.assertTrue(label.strip(), topic)
+            self.assertFalse(re.search(r"[\[\]*_`$<>]", label), topic)   # plain words only
+
+    def test_the_ideas_the_app_explains_are_covered(self):
+        for topic in ("index_funds", "diversification", "expense_ratios", "account_types",
+                      "risk", "risk_tolerance", "asset_allocation", "compound_interest",
+                      "dividends", "bonds", "etfs", "emergency_fund", "market_drops"):
+            self.assertIn(topic, learn.LEARN_MORE)
+
+    def test_never_advice(self):
+        for label, _url, _source in learn.LEARN_MORE.values():
+            for word in ("buy", "sell", "should"):
+                self.assertNotIn(word, label.lower())
+
+    def test_markdown_line(self):
+        line = learn.learn_more_md("index_funds")
+        label, url, source = learn.LEARN_MORE["index_funds"]
+        self.assertIn("Learn more", line)
+        self.assertIn(f"[{label}]({url})", line)
+        self.assertIn(source, line)
+        self.assertEqual(learn.learn_more_md("no_such_topic"), "")
+        self.assertEqual(learn.learn_more_md(None), "")
+
+    def test_pages_use_known_topics(self):
+        """Every learn_more("topic") call and every *_LINKS table in the pages
+        names a topic in learn.LEARN_MORE - a typo would quietly show nothing."""
+        used = set()
+        for name, src in _view_sources():
+            for topic in re.findall(r"learn_more\(\"([a-z_]+)\"\)", src):
+                used.add((name, topic))
+            for body in re.findall(r"^[A-Z_]+_LINKS = \{(.*?)\}", src, re.M | re.S):
+                for topic in re.findall(r":\s*\"([a-z_]+)\"", body):
+                    used.add((name, topic))
+        self.assertGreaterEqual(len(used), 10)
+        for name, topic in used:
+            self.assertIn(topic, learn.LEARN_MORE, f"{name}: {topic}")
+
+
+class LearnMorePageTests(unittest.TestCase):
+    """The links show up where the idea is explained (AppTest, scratch DB)."""
+
+    @classmethod
+    def setUpClass(cls):
+        import auth
+        import portfolio
+        import sample_data
+
+        cls.dir = tempfile.mkdtemp(prefix="pt_learn_more_")
+        cls.db = os.path.join(cls.dir, "app.db")
+        portfolio._SCHEMA_READY.discard(os.path.abspath(cls.db))
+        conn = portfolio.connect(cls.db)
+        cls.uid = auth.create_user(conn, "alice", "pw-123456")
+        sample_data.load(conn, cls.uid)
+        conn.commit()
+        conn.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    @contextlib.contextmanager
+    def _run(self, page, **state):
+        import yfinance
+        from streamlit.testing.v1 import AppTest
+
+        def offline(*a, **k):
+            raise RuntimeError("offline in tests")
+        at = AppTest.from_file(os.path.join(HERE, "dashboard.py"), default_timeout=120)
+        for k, v in {"user_id": self.uid, "username": "alice", "page": page,
+                     "auto_backfilled": True, **state}.items():
+            at.session_state[k] = v
+        env = {k: v for k, v in os.environ.items() if k != "FINNHUB_API_KEY"}
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1")
+        with unittest.mock.patch.dict(os.environ, env, clear=True), \
+                unittest.mock.patch.object(yfinance, "Ticker", offline), \
+                unittest.mock.patch("socket.socket.connect", offline):
+            at.run()
+            self.assertEqual([e.message for e in at.exception], [])
+            yield at
+            self.assertEqual([e.message for e in at.exception], [])
+
+    @staticmethod
+    def _links(at):
+        return " ".join(c.value for c in at.caption)
+
+    def test_home(self):
+        with self._run("Dashboard") as at:
+            text = self._links(at)
+            self.assertIn(learn.LEARN_MORE["diversification"][1], text)
+            self.assertIn(learn.LEARN_MORE["account_types"][1], text)
+
+    def test_learn_the_basics_window(self):
+        with self._run("Get started", gs_at="basics", fs_hide=True) as at:
+            at.button(key="basics_funds").click().run()
+            self.assertIn(learn.LEARN_MORE["index_funds"][1], self._links(at))
+
+    def test_plan(self):
+        with self._run("Plan") as at:   # no goal yet: the goal form, Target mix below
+            self.assertIn(learn.LEARN_MORE["asset_allocation"][1], self._links(at))
+
+
+if __name__ == "__main__":
+    unittest.main()

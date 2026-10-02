@@ -317,3 +317,72 @@ def max_drawdown(rows: list[dict]) -> float | None:
         peak = max(peak, r["nav"])
         worst = min(worst, r["nav"] / peak - 1)
     return worst * 100
+
+
+# ---- learn more from trusted sources -------------------------------------- #
+# One small "Learn more" next to an idea the app explains, to the matching page
+# on a public education site - Investor.gov (the SEC), FINRA or the CFPB -
+# never their text copied in. topic -> (what the page is about, its address,
+# who runs it). A page shows one with learn_more(topic) (dashboard.py).
+LEARN_MORE_SITES = {   # the only sites linked to, and how they're named
+    "www.investor.gov": "Investor.gov",
+    "www.finra.org": "FINRA",
+    "www.consumerfinance.gov": "the CFPB",
+}
+LEARN_MORE = {
+    "index_funds": ("what an index fund is",
+                    "https://www.investor.gov/introduction-investing/investing-basics/"
+                    "glossary/index-fund", "Investor.gov"),
+    "etfs": ("ETFs and mutual funds, side by side",
+             "https://www.finra.org/investors/insights/etf-vs-mutual-fund", "FINRA"),
+    "bonds": ("how bonds work",
+              "https://www.investor.gov/introduction-investing/investing-basics/"
+              "investment-products/bonds-or-fixed-income-products/bonds", "Investor.gov"),
+    "diversification": ("spreading your money out",
+                        "https://www.investor.gov/introduction-investing/investing-basics/"
+                        "save-and-invest/diversify-your-investments", "Investor.gov"),
+    "asset_allocation": ("asset allocation and diversification",
+                         "https://www.investor.gov/introduction-investing/getting-started/"
+                         "asset-allocation", "Investor.gov"),
+    "rebalancing": ("rebalancing back to your mix",
+                    "https://www.investor.gov/introduction-investing/investing-basics/"
+                    "glossary/rebalancing", "Investor.gov"),
+    "market_drops": ("why a mix of investments softens a drop",
+                     "https://www.investor.gov/additional-resources/general-resources/"
+                     "publications-research/info-sheets/beginners-guide-asset", "Investor.gov"),
+    "expense_ratios": ("fund fees and expenses",
+                       "https://www.investor.gov/introduction-investing/general-resources/"
+                       "news-alerts/alerts-bulletins/investor-bulletins/"
+                       "mutual-fund-and-etf-fees-and-expenses-investor-bulletin", "Investor.gov"),
+    "compound_interest": ("compound interest",
+                          "https://www.investor.gov/introduction-investing/investing-basics/"
+                          "glossary/compound-interest", "Investor.gov"),
+    "risk": ("what risk means in investing",
+             "https://www.investor.gov/introduction-investing/investing-basics/what-risk",
+             "Investor.gov"),
+    "risk_tolerance": ("knowing your comfort with risk",
+                       "https://www.investor.gov/introduction-investing/investing-basics/"
+                       "save-and-invest/gauge-your-risk-tolerance", "Investor.gov"),
+    "account_types": ("retirement accounts: IRAs and 401(k)s",
+                      "https://www.finra.org/investors/investing/investment-accounts/"
+                      "retirement-accounts", "FINRA"),
+    "brokerage_accounts": ("brokerage accounts",
+                           "https://www.finra.org/investors/investing/investment-accounts/"
+                           "brokerage-accounts", "FINRA"),
+    "dividends": ("what a dividend is",
+                  "https://www.investor.gov/introduction-investing/investing-basics/"
+                  "glossary/dividend", "Investor.gov"),
+    "emergency_fund": ("building an emergency fund",
+                       "https://www.consumerfinance.gov/an-essential-guide-to-building-an-"
+                       "emergency-fund/", "the CFPB"),
+}
+
+
+def learn_more_md(topic: str) -> str:
+    """The "Learn more" line for `topic` as Streamlit markdown - a link,
+    which Streamlit opens in a new tab - or "" for an unknown topic."""
+    entry = LEARN_MORE.get(topic)
+    if not entry:
+        return ""
+    label, url, source = entry
+    return f":material/open_in_new: Learn more at {source}: [{label}]({url})"

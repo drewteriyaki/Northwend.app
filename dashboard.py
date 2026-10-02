@@ -89,6 +89,15 @@ TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts
 NOT_KEPT = ("Not kept: the file, image or pasted text itself, balances and gains, and account "
             "numbers beyond their last 3 digits.")
 
+
+def learn_more(topic):
+    """A small, quiet "Learn more" link next to an idea the page explains, to
+    a public education page (Investor.gov, FINRA, the CFPB - learn.LEARN_MORE).
+    Opens in a new tab."""
+    line = learn.learn_more_md(topic)
+    if line:
+        st.caption(line)
+
 # The brand: Northwend, and the AI guide (the AI Assistant) carries the same
 # name - "Ask Northwend". Was Waypoint / Sage until October 2026. Pages keep
 # their internal names (session state, links, `if PAGE == ...`); PAGE_LABELS
@@ -294,6 +303,11 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   text-overflow: ellipsis; }
 @media (max-width: 640px) { .pt-hero-value { font-size: 2.2rem; }
   .pt-stat-value { font-size: .95rem; } }
+/* summary tiles that open a window (Learn the basics; Income, Activity,
+   Watchlist and Ask Northwend in the calm view): lift a little on hover */
+[class*="st-key-pt_tile_"] { transition: border-color .2s ease, transform .2s ease; }
+[class*="st-key-pt_tile_"]:hover { border-color: var(--pt-compass) !important;
+  transform: translateY(-2px); }
 .pt-alloc-title { font-size: .9rem; font-weight: 600; margin-bottom: .35rem; }
 .pt-alloc-bar { display: flex; gap: 2px; height: 14px; border-radius: 4px;
   overflow: hidden; margin-bottom: .6rem; }
@@ -2122,6 +2136,70 @@ def _tone(v, html):
     if _hidden() or _blank(v) or v == 0:
         return html
     return f"<span class='{'pt-up' if v > 0 else 'pt-down'}'>{html}</span>"
+
+
+# ---- calm by default (ROADMAP S6): a summary first, detail in a window ---- #
+def _show_everything():
+    """True for the full pages: advisors always, and an investor who turned on
+    Show everything on the Account page. Otherwise Income, Activity, Watchlist
+    and Ask Northwend lead with a short summary and open the detail in a window."""
+    return IS_ADVISOR or bool(_read_prefs().get("show_everything"))
+
+
+def _summary_stats(items):
+    """A row of small stat boxes (.pt-stats): [(label, value_html, sub_html or None)].
+    Values are already formatted (and masked) by the caller."""
+    st.html("<div class='pt-stats' style='margin-top:.25rem'>" + "".join(
+        f"<div class='pt-stat'><div class='pt-stat-label'>{html.escape(label)}</div>"
+        f"<div class='pt-stat-value'>{value}</div>"
+        + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>"
+        for label, value, sub in items) + "</div>")
+
+
+def _next_step_card(key, line, button=None):
+    """One next step under a page's summary, in the Fee check card's look:
+    `line` is HTML; `button` is (label, on_click or None, args) or None.
+    Returns whether the button was pressed (to open a window with it)."""
+    with st.container(border=True, horizontal=True, vertical_alignment="center",
+                      key=f"pt_next_{key}"):
+        st.html(f"<div class='pt-route-label'>Next step</div><div class='pt-region'>{line}</div>",
+                width="stretch")
+        if button:
+            label, on_click, args = button
+            return st.button(label, key=f"next_{key}", type="tertiary", on_click=on_click,
+                             args=args)
+    return False
+
+
+def _open_window(window, *args):
+    """Open a detail window (an st.dialog); live prices wait while it's open."""
+    st.session_state["dialog_open"] = True
+    window(*args)
+
+
+def _detail_tiles(tiles):
+    """Summary tiles in a row, each opening its detail in a window:
+    [(key, icon, title, summary, button label, window, args)]."""
+    if not tiles:
+        return
+    cols = st.columns(len(tiles))
+    for col, (key, icon, title, summary, label, window, args) in zip(cols, tiles):
+        with col.container(border=True, key=f"pt_tile_{key}"):
+            st.markdown(f"{icon} **{title}**")
+            st.caption(summary)
+            if st.button(label, key=f"tile_{key}", type="tertiary",
+                         icon=":material/open_in_new:"):
+                _open_window(window, *args)
+
+
+def _ask_guide(question):
+    """A button's "Ask Northwend": carry the question over to the chat."""
+    st.session_state["coach_prompt"] = question
+    st.session_state["page"] = "AI Assistant"
+
+
+def _calm_footer():
+    st.caption("Prefer everything on one page? Turn on **Show everything** on the Account page.")
 
 
 # --------------------------------------------------------------------------- #

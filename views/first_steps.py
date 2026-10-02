@@ -23,14 +23,11 @@ FIRST_STEPS = (
     ("direction", "Your direction", ()),
     ("bring", "Bring it in", ()),
 )
-# a trusted, public place to read more about each screen's idea
+# a trusted, public place to read more about each screen's idea (learn.LEARN_MORE)
 FIRST_STEPS_LINKS = {
-    "ups": ("Investor.gov: assessing your risk tolerance",
-            "https://www.investor.gov/introduction-investing/getting-started/assessing-your-risk-tolerance"),
-    "safety": ("CFPB: building an emergency fund",
-               "https://www.consumerfinance.gov/an-essential-guide-to-building-an-emergency-fund/"),
-    "direction": ("Investor.gov: asset allocation and diversification",
-                  "https://www.investor.gov/introduction-investing/getting-started/asset-allocation"),
+    "ups": "risk_tolerance",
+    "safety": "emergency_fund",
+    "direction": "asset_allocation",
 }
 
 
@@ -245,9 +242,8 @@ def render_first_steps(has_holdings):
                     _fs_screen_direction(profile)
                 elif key == "bring":
                     _fs_screen_bring()
-            link = FIRST_STEPS_LINKS.get(key)
-            if link:
-                st.markdown(f":material/open_in_new: Learn more: [{link[0]}]({link[1]})")
+            if key in FIRST_STEPS_LINKS:
+                learn_more(FIRST_STEPS_LINKS[key])
         with st.container(horizontal=True, vertical_alignment="center"):
             if i:
                 st.button(":material/arrow_back: Back", key="fs_back", on_click=_fs_move,

@@ -208,6 +208,7 @@ def _render_projection(plan, value, today):
                    f"{rp - plans.SPREAD_PCT:g}-{rp + plans.SPREAD_PCT:g}%. The dashed line is the "
                    "goal. Before inflation, fees and taxes - an illustration of the plan, not a "
                    "prediction.")
+        learn_more("compound_interest")
 
 
 @st.fragment
@@ -334,6 +335,7 @@ def _render_target_mix(alloc_rows):
                      + "</div>")
         st.html(f"<div class='pt-legend'>{rows}</div>")
         st.caption("The bar is where the portfolio is now; the mark is the target.")
+    learn_more("asset_allocation")
     if IS_ADVISOR:
         conn = connect(DB)
         try:
@@ -442,6 +444,7 @@ def _render_what_if(plan, value, alloc_rows, today):
                    f"{plans.BOND_RETURN_PCT:g}% for bonds, a range of ±{plans.SPREAD_PCT:g}%, "
                    "no fees, taxes or inflation. Real returns go up and down - this "
                    "illustrates, it doesn't predict.")
+        learn_more("risk")
         msg = st.session_state.pop("wi_msg", None)
         if msg:
             st.success(msg)

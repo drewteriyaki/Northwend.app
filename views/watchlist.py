@@ -3,14 +3,27 @@
 # (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# The Watchlist page.
+# The Watchlist page. Calm by default (ROADMAP S6): how many you watch and
+# today's biggest moves, with the whole list in a window; the full list on the
+# page for advisors and for Show everything (_show_everything).
 # ruff: noqa: F821
+
+WATCH_CALM_ROWS = 5   # rows on the page in the calm view; the rest in a window
+
 
 def _open_watch(sym):
     """A watchlist row: open (or close again) its chart and stats below."""
     st.session_state["holdings_pill"] = None
     st.session_state["watchlist_pill"] = None if st.session_state.get("watchlist_pill") == sym \
         else sym
+
+
+def _open_watch_from_window(sym):
+    """A row in the watchlist window: close the window, and open the ticker's
+    chart and stats on the page (_watch_window sees the flag)."""
+    st.session_state["holdings_pill"] = None
+    st.session_state["watchlist_pill"] = sym
+    st.session_state["watch_window_close"] = True
 
 
 def _remove_watch(sym):
@@ -23,23 +36,28 @@ def _remove_watch(sym):
         st.session_state["watchlist_pill"] = None
 
 
-def _render_watch_rows(symbols):
-    """One row per watched ticker: symbol and name, the latest price and today's
-    change - kept current by the live price updates - then open or remove."""
+def _watch_quotes(symbols):
     c = connect(DB)
     try:
-        q = live_prices.quotes(c, symbols)
+        return live_prices.quotes(c, symbols)
     finally:
         c.close()
-    st.caption("Prices update by themselves while the market is open. Tap a ticker for its "
-               "chart and stats.")
+
+
+def _render_watch_rows(symbols, q, in_window=False):
+    """One row per watched ticker: symbol and name, the latest price and today's
+    change - kept current by the live price updates - then open or remove.
+    `q` is live_prices.quotes() for them."""
+    w = "w_" if in_window else ""   # the window's rows can be drawn with the page's
     for sym in symbols:
         quote = q.get(sym) or {}
         name = (sec_info.get(sym) or {}).get("name") or ""
         price, chg, pct = quote.get("price"), quote.get("change"), quote.get("pct_change")
         with st.container(border=True, horizontal=True, vertical_alignment="center", gap="small",
-                          key=f"wlrow_{sym}"):
-            st.button(f"**{sym}**", key=f"wl_open_{sym}", on_click=_open_watch, args=(sym,),
+                          key=f"wlrow_{w}{sym}"):
+            st.button(f"**{sym}**", key=f"wl_{w}open_{sym}",
+                      on_click=_open_watch_from_window if in_window else _open_watch,
+                      args=(sym,),
                       type="primary" if st.session_state.get("watchlist_pill") == sym else "tertiary",
                       help="Show its chart and stats")
             st.html(f"<div class='pt-wl-name'>{html.escape(name)}</div>", width="stretch")
@@ -50,12 +68,62 @@ def _render_watch_rows(symbols):
                 st.html(f"<div class='pt-wl-quote'><b>{price:,.2f}</b><br>{move}</div>")
             else:
                 st.html("<div class='pt-wl-quote pt-muted'>No price yet</div>")
-            st.button(":material/close:", key=f"wl_del_{sym}", type="tertiary",
+            st.button(":material/close:", key=f"wl_{w}del_{sym}", type="tertiary",
                       on_click=_remove_watch, args=(sym,), help=f"Remove {sym} from your watchlist")
+
+
+@st.dialog("Your watchlist", width="large", on_dismiss=_dialog_closed)
+def _watch_window():
+    if st.session_state.pop("watch_window_close", False):
+        # a ticker was picked: close the window, its chart opens on the page
+        _dialog_closed()
+        st.rerun()
+    c = connect(DB)
+    try:   # read again: a removal here redraws only this window
+        symbols = [t for t in watchlist.list_tickers(c, USER_ID) if t not in _held_symbols]
+    finally:
+        c.close()
+    if not symbols:
+        st.caption("Nothing on your watchlist now.")
+        return
+    st.caption("Prices update by themselves while the market is open. Tap a ticker for its "
+               "chart and stats.")
+    _render_watch_rows(symbols, _watch_quotes(symbols), in_window=True)
+
+
+def _render_watch_calm(symbols):
+    """How many, today's biggest rise and fall, and the biggest movers' rows;
+    the whole list in a window."""
+    q = _watch_quotes(symbols)
+    moves = sorted(((q.get(s) or {}).get("pct_change"), s) for s in symbols
+                   if (q.get(s) or {}).get("pct_change") is not None)
+    stats = [("Watching", str(len(symbols)),
+              "ticker" + ("s" if len(symbols) != 1 else "") + " you don't own")]
+    up = [m for m in moves if m[0] > 0]
+    down = [m for m in moves if m[0] < 0]
+    stats.append(("Biggest rise today", html.escape(up[-1][1]) if up else "—",
+                  _tone(up[-1][0], f"{up[-1][0]:+.2f}%") if up else None))
+    stats.append(("Biggest fall today", html.escape(down[0][1]) if down else "—",
+                  _tone(down[0][0], f"{down[0][0]:+.2f}%") if down else None))
+    _summary_stats(stats)
+    # the biggest moves first, then the rest alphabetically
+    order = sorted(symbols, key=lambda s: (-abs((q.get(s) or {}).get("pct_change") or 0.0), s))
+    shown = order[:WATCH_CALM_ROWS]
+    st.caption(("Today's biggest moves. " if len(symbols) > len(shown) else "")
+               + "Prices update by themselves while the market is open. Tap a ticker for its "
+               "chart and stats.")
+    _render_watch_rows(shown, q)
+    if len(symbols) > len(shown):
+        if st.button(f"See all {len(symbols)}", key="watch_open", type="tertiary",
+                     icon=":material/open_in_new:"):
+            _open_window(_watch_window)
+        _calm_footer()
 
 
 if PAGE == "Watchlist":
     # ---- watchlist: tickers tracked for their chart/stats, not owned ------- #
+    if st.session_state.pop("watch_window_close", False):
+        _dialog_closed()   # a pick in the window that this whole-page run closed
     with st.form("wl_add_form", clear_on_submit=True, border=False):  # Enter adds it too
         wc1, wc2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
         _wl_raw = wc1.text_input("Add a ticker", key="wl_add_input",
@@ -88,7 +156,11 @@ if PAGE == "Watchlist":
     if not watch_only:
         st.caption("Nothing on your watchlist yet — add a ticker above to follow its price and chart "
                    "without owning it.")
+    elif _show_everything():
+        st.caption("Prices update by themselves while the market is open. Tap a ticker for its "
+                   "chart and stats.")
+        _render_watch_rows(sorted(watch_only), _watch_quotes(watch_only))
     else:
-        _render_watch_rows(sorted(watch_only))
+        _render_watch_calm(sorted(watch_only))
 
     st.divider()
