@@ -98,8 +98,22 @@
     [/^st-key-me_cdel_/, () => "Remove this cash line"],
     [/^st-key-pt_hide$/, (m, btn) =>
       btn.textContent.includes("visibility_off") ? "Show amounts" : "Hide amounts"],
+    // "Your investing profile (2/5)": the count said in words
+    [/^st-key-assist_profile_open$/, (m, btn) =>
+      wordsOf(btn).replace(/\s*\((\d+)\/(\d+)\)/, ", $1 of $2 questions answered")],
   ];
+  // A Material icon beside words is decoration, but Streamlit has it read out
+  // by name ("open_in_new See the months", "forum icon Ask Northwend"). A
+  // button with words is named by its words alone, and an icon in a line of
+  // text is hidden from screen readers. Icon-only buttons keep the names above.
+  const ICONS = '[data-testid="stIconMaterial"], span[role="img"][translate="no"]';
+  const wordsOf = (el) => {
+    const copy = el.cloneNode(true);
+    copy.querySelectorAll(ICONS).forEach((i) => i.remove());
+    return copy.textContent.replace(/\s+/g, " ").trim();
+  };
   const labelIconButtons = () => {
+    const named = new Set();
     document.querySelectorAll('[class*="st-key-"] button').forEach((btn) => {
       const holder = btn.closest('[class*="st-key-"]');
       const cls = [...holder.classList].find((c) => c.startsWith("st-key-"));
@@ -108,9 +122,30 @@
         if (m) {
           const text = label(m, btn);
           if (btn.getAttribute("aria-label") !== text) btn.setAttribute("aria-label", text);
+          named.add(btn);
           break;
         }
       }
+    });
+    document.querySelectorAll("button").forEach((btn) => {
+      if (named.has(btn) || !btn.querySelector(ICONS)) return;
+      // only a label Streamlit left empty, or one set here before
+      if (btn.getAttribute("aria-label") && !btn.dataset.ptWords) return;
+      const words = wordsOf(btn);
+      if (!words) return;   // icon only: not ours to name
+      if (btn.getAttribute("aria-label") !== words) btn.setAttribute("aria-label", words);
+      btn.dataset.ptWords = "1";
+    });
+    document.querySelectorAll('[data-testid="stMarkdownContainer"] span[role="img"][translate="no"], '
+                              + '[data-testid="stCaptionContainer"] span[role="img"][translate="no"]')
+      .forEach((ic) => {
+        if (ic.closest("button") || ic.getAttribute("aria-hidden") === "true") return;
+        const line = ic.closest("p, li, summary, h1, h2, h3, h4, h5, h6") || ic.parentElement;
+        if (line && wordsOf(line)) ic.setAttribute("aria-hidden", "true");
+      });
+    // the guide's avatar in the chat is a picture of a compass, not words
+    document.querySelectorAll('[data-testid^="stChatMessageAvatar"]').forEach((av) => {
+      if (av.getAttribute("aria-hidden") !== "true") av.setAttribute("aria-hidden", "true");
     });
   };
   labelIconButtons();

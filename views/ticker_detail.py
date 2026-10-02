@@ -6,6 +6,21 @@
 # One ticker's chart and details, opened from the Dashboard or the Watchlist.
 # ruff: noqa: F821
 
+import fees
+
+
+def _ticker_learn_more(sym, pos):
+    """One quiet Learn more under a fund's or bond's name: how bonds work for
+    something that's mostly bonds (BND, a single bond), ETFs and mutual funds
+    for any other fund. Nothing for a single stock."""
+    info = sec_info.get(sym) or {}
+    split, _ = asset_classes.split_for(sym, pos.get("asset_type"), info, CLASS_OVERRIDES)
+    if asset_classes.main_class(split) == "Bonds":
+        learn_more("bonds")
+    elif fees.holding_type(info.get("quote_type"), pos.get("asset_type")) == "fund":
+        learn_more("etfs")
+
+
 if PAGE in ("Dashboard", "Watchlist"):
     # Each page only renders its own pill strip, so the open ticker comes
     # from that page's strip alone.
@@ -35,6 +50,7 @@ if PAGE in ("Dashboard", "Watchlist"):
                 st.markdown(f"## {_sym}")
                 if _pos.get("description"):
                     st.caption(_pos["description"])
+                _ticker_learn_more(_sym, _pos)
             _price = M.eff_price(_ctx)
             _dchg_pct = M.value("day_change_pct", _ctx)
             _dchg_usd = M.value("day_change_usd", _ctx)
@@ -174,6 +190,8 @@ if PAGE in ("Dashboard", "Watchlist"):
                 "ma_20", "ma_50", "ma_200", "price_vs_ma50",
                 "div_yield_pct", "div_pay_date", "reinvest", "next_earnings",
             ])
+            if not _blank(M.value("div_yield_pct", _ctx)):
+                learn_more("dividends")   # beside its dividend yield
             if not perf.has_bars(DB):
                 st.caption("Fundamentals (52-wk range, beta, P/E, market cap, sector, moving averages) "
                            "fill in after you tap sync history (:material/history:) up top.")

@@ -75,8 +75,9 @@ def _render_assistant(contexts, cash_by_account):
         _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display)
     elif missing and not display:
         # the calm view's one next step: the questions that make answers fit
-        if _next_step_card("assistant", f"Answer a few quick questions about you ({answered} "
-                           f"done), so {GUIDE}'s answers fit your timeline and comfort with "
+        if _next_step_card("assistant", "Answer a few quick questions about you "
+                           f"({n_required - len(missing)} of {n_required} done), so "
+                           f"{GUIDE}'s answers fit your timeline and comfort with "
                            "ups and downs.", ("Answer the questions", None, ())):
             _open_window(_assist_profile_window)
     # new messages are written into this box too, so they land above the input

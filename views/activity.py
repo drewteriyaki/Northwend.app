@@ -178,8 +178,11 @@ def _activity_summary(all_txns, today):
     else:
         stats.append((f"Moves, {period}", str(len(rows)), None))
     stats.append(("Bought", fmt_money(bought), None))
+    gain = sum(gains)
+    # said in words too, not only by the color ("gain/loss" while amounts are hidden)
+    gain_word = " gain/loss" if _hidden() else (" loss" if gain < 0 else " gain")
     stats.append(("Sold", fmt_money(sold),
-                  _tone(sum(gains), _signed_money(sum(gains)) + " gain/loss") if gains else None))
+                  _tone(gain, _signed_money(gain) + gain_word) if gains else None))
     _summary_stats(stats)
 
 
@@ -194,9 +197,12 @@ def _activity_move(t):
 def _render_activity_calm(all_txns):
     _activity_summary(all_txns, datetime.now().date())
     st.markdown("**Latest moves**")
-    st.html("<div class='pt-legend'>" + "".join(
-        "<div class='pt-legend-row'>"
-        f"<span class='pt-legend-val' style='text-align:left'>{_fmt_date(t['trade_date'])}</span>"
+    # a list to screen readers: each move's date, what it was and its amount
+    st.html("<div class='pt-legend' role='list' aria-label='Latest moves'>" + "".join(
+        "<div class='pt-legend-row' role='listitem'>"
+        f"<time class='pt-legend-val' style='text-align:left' "
+        f"datetime='{html.escape(str(t['trade_date'] or '')[:10], quote=True)}'>"
+        f"{_fmt_date(t['trade_date'])}</time>"
         f"<span class='pt-legend-label'>{html.escape(_activity_move(t))}</span>"
         f"<span class='pt-legend-pct'>{_tone(t['amount'], _signed_money(t['amount']))}</span>"
         "</div>" for t in all_txns[:ACTIVITY_LATEST]) + "</div>")

@@ -77,6 +77,8 @@ class LearnMoreTableTests(unittest.TestCase):
         self.assertGreaterEqual(len(used), 10)
         for name, topic in used:
             self.assertIn(topic, learn.LEARN_MORE, f"{name}: {topic}")
+        # and every topic is placed somewhere
+        self.assertEqual(set(learn.LEARN_MORE) - {t for _, t in used}, set())
 
 
 class LearnMorePageTests(unittest.TestCase):
@@ -94,6 +96,11 @@ class LearnMorePageTests(unittest.TestCase):
         conn = portfolio.connect(cls.db)
         cls.uid = auth.create_user(conn, "alice", "pw-123456")
         sample_data.load(conn, cls.uid)
+        # what Yahoo would say: BND holds bonds, VTI stocks; VTI has a yield
+        for t, stock, bond in (("BND", 0.0, 0.99), ("VTI", 0.99, 0.0)):
+            conn.execute("INSERT INTO security_info (ticker, name, quote_type, stock_pct, bond_pct) "
+                         "VALUES (?, ?, 'ETF', ?, ?)", (t, t, stock, bond))
+        conn.execute("UPDATE positions SET div_yield_pct = 1.4 WHERE symbol = 'VTI'")
         conn.commit()
         conn.close()
 
@@ -136,6 +143,18 @@ class LearnMorePageTests(unittest.TestCase):
         with self._run("Get started", gs_at="basics", fs_hide=True) as at:
             at.button(key="basics_funds").click().run()
             self.assertIn(learn.LEARN_MORE["index_funds"][1], self._links(at))
+
+    def test_ticker_page(self):
+        """A holding's page: bonds for a bond fund, ETFs for another fund,
+        nothing for a single stock; dividends beside a dividend yield."""
+        url = {t: learn.LEARN_MORE[t][1] for t in ("bonds", "etfs", "dividends")}
+        for sym, shown in (("BND", {"bonds"}), ("VTI", {"etfs", "dividends"}),
+                           ("VXUS", {"etfs"}),     # no Yahoo data: the broker's type says fund
+                           ("AAPL", set())):
+            with self._run("Dashboard", holdings_pill=sym) as at:
+                self.assertIn(f"## {sym}", [m.value for m in at.markdown])
+                text = self._links(at)
+                self.assertEqual({t for t, u in url.items() if u in text}, shown, sym)
 
     def test_plan(self):
         with self._run("Plan") as at:   # no goal yet: the goal form, Target mix below

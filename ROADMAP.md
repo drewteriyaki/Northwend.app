@@ -699,6 +699,13 @@ started, the Plan and Ask Northwend - always optional.
       darkened; bars hidden from screen readers where the legend says the same,
       described where it doesn't; arrows and icon-only buttons named; less motion
       when the device asks for it.
+      **The S6 summaries too (Oct 2):** stat boxes and Activity's latest moves
+      read as lists; "+$215.00 gain" / "loss" in words, not only color;
+      watchlist prices say what they are; a button with words is named by its
+      words (no "open_in_new" read out), icons beside text hidden. Still flat:
+      the older .pt-stats rows (Home hero, Plan, Get started, Clients).
+      Learn more: bonds and ETFs under a fund's name on its ticker page,
+      dividends beside its yield - every topic now placed (a test checks).
 - [x] **Advisor invites** - a one-time setup link for a new client instead of
       sharing a password. (M) - Client login > Create setup link; the client
       picks their own password and is signed in. Works once, 7 days, only a hash

@@ -217,6 +217,58 @@ class CalmPagesTests(unittest.TestCase):
                 self.assertIn("Client plan (PDF)", labels)
                 self.assertNotIn("assist_profile_open", self._keys(at))
 
+    def test_screen_readers(self):
+        """The summaries' custom HTML (ROADMAP Polish: Accessibility): stat
+        boxes are a list of label + value items, the latest moves a list of
+        date, move and amount, gains said in words as well as color, the
+        watchlist's numbers named; ui_enhancements.js keeps icon names out of
+        buttons' names."""
+        def lists(body, label):
+            return re.findall(rf"role='list' aria-label='{label}'.*?(?=role='list'|$)", body, re.S)
+        with self._run(self.alice, "alice", "Activity") as at:
+            _, body = self._stats(at)
+            summary = lists(body, "Summary")
+            self.assertEqual(len(summary), 1)
+            self.assertEqual(summary[0].count("class='pt-stat' role='listitem'"), 3)
+            moves = lists(body, "Latest moves")
+            self.assertEqual(len(moves), 1)
+            self.assertEqual(moves[0].count("role='listitem'"), 5)
+            today = date.today().isoformat()
+            self.assertIn(f"datetime='{today}'>", moves[0])        # each move's date ...
+            self.assertIn("Buy 5 VTI", moves[0])                     # ... what it was ...
+            self.assertIn("-$1,500.00", moves[0])                    # ... and its amount, signed
+            self.assertIn("+$215.00 gain<", body)                    # not only green
+        with self._run(self.alice, "alice", "Activity", hide_amounts=True) as at:
+            _, body = self._stats(at)
+            self.assertIn("gain/loss", body)                         # hidden: no direction given
+            self.assertNotIn(" gain<", body)
+        with self._run(self.alice, "alice", "Watchlist") as at:
+            _, body = self._stats(at)
+            self.assertEqual(lists(body, "Summary")[0].count("role='listitem'"), 3)
+            self.assertIn("<span class='pt-sr'>Price </span><b>106.00</b>", body)
+            self.assertIn("+3.00 (+3.30%)</span><span class='pt-sr'> today</span>", body)
+            self.assertIn("-3.00 (-3.30%)", body)                    # a sign, not only red
+            at.button(key="watch_open").click().run()
+            removes = [k for k in self._keys(at) if k.startswith(("wl_del_", "wl_w_del_"))]
+            self.assertIn("wl_w_del_TSLA", removes)                  # the window's copies too
+            self.assertEqual(at.button(key="wl_w_del_TSLA").help,
+                             "Remove TSLA from your watchlist")
+        with self._run(self.alice, "alice", "AI Assistant") as at:
+            _, body = self._stats(at)
+            self.assertIn("Next step<span class='pt-sr'>:</span>", body)
+            self.assertRegex(body, r"\(\d+ of \d+ done\)")           # not "0/8"
+        with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
+            js = fh.read()
+        # icon-only buttons named, here and in the watchlist window ...
+        rule = re.search(r"\[/(\^st-key-wl_.*?)/,", js).group(1)
+        for key in removes:
+            self.assertRegex(f"st-key-{key}", rule)
+        # ... the profile button's count said in words, and icons beside
+        # words left out of names ("open_in_new See all 7" reads "See all 7")
+        self.assertIn("st-key-assist_profile_open", js)
+        self.assertIn('[data-testid="stIconMaterial"]', js)
+        self.assertIn('setAttribute("aria-hidden", "true")', js)
+
     def test_show_everything_switch(self):
         with self._run(self.alice, "alice", "Account") as at:
             switch = at.toggle(key="acct_show_all")

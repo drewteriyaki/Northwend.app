@@ -65,7 +65,11 @@ def _render_watch_rows(symbols, q, in_window=False):
                 move = (_tone(chg, f"{'+' if chg >= 0 else '-'}{abs(chg):,.2f}"
                                    + (f" ({pct:+.2f}%)" if pct is not None else ""))
                         if chg is not None else "")
-                st.html(f"<div class='pt-wl-quote'><b>{price:,.2f}</b><br>{move}</div>")
+                # what the two numbers are, for screen readers ("Price 106.00, +3.00 today")
+                st.html(f"<div class='pt-wl-quote'><span class='pt-sr'>Price </span>"
+                        f"<b>{price:,.2f}</b><br>"
+                        + (f"<span class='pt-sr'>, </span>{move}<span class='pt-sr'> today</span>"
+                           if move else "") + "</div>")
             else:
                 st.html("<div class='pt-wl-quote pt-muted'>No price yet</div>")
             st.button(":material/close:", key=f"wl_{w}del_{sym}", type="tertiary",

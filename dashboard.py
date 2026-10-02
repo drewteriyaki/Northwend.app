@@ -2148,12 +2148,15 @@ def _show_everything():
 
 def _summary_stats(items):
     """A row of small stat boxes (.pt-stats): [(label, value_html, sub_html or None)].
-    Values are already formatted (and masked) by the caller."""
-    st.html("<div class='pt-stats' style='margin-top:.25rem'>" + "".join(
-        f"<div class='pt-stat'><div class='pt-stat-label'>{html.escape(label)}</div>"
-        f"<div class='pt-stat-value'>{value}</div>"
-        + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>"
-        for label, value, sub in items) + "</div>")
+    Values are already formatted (and masked) by the caller. A list to screen
+    readers, one item per box, so each reads as its label then its value."""
+    st.html("<div class='pt-stats' role='list' aria-label='Summary' style='margin-top:.25rem'>"
+            + "".join(
+                "<div class='pt-stat' role='listitem'>"
+                f"<div class='pt-stat-label'>{html.escape(label)}</div>"
+                f"<div class='pt-stat-value'>{value}</div>"
+                + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>"
+                for label, value, sub in items) + "</div>")
 
 
 def _next_step_card(key, line, button=None):
@@ -2162,7 +2165,10 @@ def _next_step_card(key, line, button=None):
     Returns whether the button was pressed (to open a window with it)."""
     with st.container(border=True, horizontal=True, vertical_alignment="center",
                       key=f"pt_next_{key}"):
-        st.html(f"<div class='pt-route-label'>Next step</div><div class='pt-region'>{line}</div>",
+        # one sentence to a screen reader: "Next step: ..." (the button's icon
+        # is left out of its name by ui_enhancements.js)
+        st.html("<div class='pt-route-label'>Next step<span class='pt-sr'>:</span></div>"
+                f"<div class='pt-region'>{line}</div>",
                 width="stretch")
         if button:
             label, on_click, args = button
