@@ -127,18 +127,24 @@ def _parse(ts: str) -> datetime:
 
 
 def last_open(db_path: str, user_id: int) -> dict | None:
-    """The most recent app_open row, or None if this is the first visit ever.
-    Call this BEFORE log_open() logs the current session's row, or it'll just
-    return what you're about to log."""
+    """The most recent app_open row since the holdings were last saved, or
+    None (the first visit ever, or the first since a save). Call this BEFORE
+    log_open() logs the current session's row, or it'll just return what
+    you're about to log. A visit before the latest save (an import, a hand
+    entry - snapshots.imported_at) saw other holdings: comparing with it
+    would show the save as a market move."""
     conn = connect(db_path)
     try:
         # id DESC breaks ties between rows logged within the same second -
         # logged_at only has second resolution, so two opens close together
         # (as in a test with min_gap_sec=0) can otherwise tie and SQLite's
         # pick among tied rows isn't guaranteed to be the newest insert.
+        # imported_at is 'YYYY-MM-DD HH:MM:SS', logged_at ISO with a T.
         row = conn.execute(
-            "SELECT * FROM value_log WHERE source = 'app_open' AND user_id = ? "
-            "ORDER BY logged_at DESC, id DESC LIMIT 1", (user_id,)
+            "SELECT * FROM value_log WHERE source = 'app_open' AND user_id = ? AND "
+            "logged_at >= COALESCE((SELECT REPLACE(MAX(imported_at), ' ', 'T') "
+            "FROM snapshots WHERE user_id = ?), '') "
+            "ORDER BY logged_at DESC, id DESC LIMIT 1", (user_id, user_id)
         ).fetchone()
         return dict(row) if row else None
     finally:

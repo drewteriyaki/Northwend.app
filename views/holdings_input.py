@@ -17,6 +17,10 @@ def _after_import():
     st.session_state["dialog_open"] = False  # saved: the dialog is closing
     for k in ("last_open_snapshot", "value_logged", "export_zip"):  # it changed: start afresh
         st.session_state.pop(k, None)
+    # "Since your last visit" starts again from the holdings just saved: the
+    # next run logs their value at once (dashboard.py), and perf.last_open
+    # skips visits logged before the save - a save isn't a market move
+    st.session_state["value_rebase"] = True
 
 
 def _manual_rows_init(current_positions, current_cash, current_source=None):
@@ -29,7 +33,7 @@ def _manual_rows_init(current_positions, current_cash, current_source=None):
     holdings, cash_rows = manual_entry.prefill(base, cash)
     weights, cash_pct = manual_entry.prefill_weights(base, cash)
     pct_by = {(w["Account"], w["Symbol"]): w["Percent"] for w in weights}
-    holdings = holdings or [{"Account": manual_entry.DEFAULT_ACCOUNT, "Type": "ETF"}]
+    holdings = holdings or [{"Account": manual_entry.DEFAULT_ACCOUNT, "Type": "Other"}]
     cash_rows = cash_rows or [{"Account": holdings[0]["Account"], "Cash": None}]
     ss = st.session_state
     ss["me_next"] = 0
@@ -67,13 +71,13 @@ def _manual_new_id():
 
 
 def _manual_add_row(r=None):
-    r = r or {"Account": _manual_last_account(), "Type": "ETF"}
+    r = r or {"Account": _manual_last_account(), "Type": "Other"}
     i = _manual_new_id()
     st.session_state[f"me_acct_{i}"] = r.get("Account") or manual_entry.DEFAULT_ACCOUNT
     st.session_state[f"me_sym_{i}"] = r.get("Symbol") or ""
     st.session_state["me_vals"].update({f"qty_{i}": r.get("Shares"), f"cost_{i}": r.get("Total cost"),
                                         f"pct_{i}": r.get("Percent")})
-    st.session_state[f"me_type_{i}"] = r.get("Type") or "ETF"
+    st.session_state[f"me_type_{i}"] = r.get("Type") or "Other"
     st.session_state["me_ids"].append(i)
     st.session_state.pop("me_review", None)
 
@@ -157,11 +161,14 @@ def _render_screenshot_reader():
                    "just your holdings list first** - the whole image is sent to Anthropic's AI "
                    "to read it. Only symbols, share counts and cost are taken from what it "
                    "reads, and the images aren't saved.")
+        # both keyed by me_shots_n: a read starts them afresh (empty, unticked)
+        # with new keys - a drawn widget's own key can't be set in the same run
+        n = ss.get("me_shots_n", 0)
         shots = st.file_uploader(
             "Screenshots", type=sorted(screenshot_read.MEDIA_TYPES), accept_multiple_files=True,
-            key=f"me_shots_{ss.get('me_shots_n', 0)}", label_visibility="collapsed")
+            key=f"me_shots_{n}", label_visibility="collapsed")
         agreed = st.checkbox("Send these images to Anthropic's AI to read them",
-                             key="me_shots_ok")
+                             key=f"me_shots_ok_{n}")
         if msg:
             getattr(st, msg[0])(msg[1])
         quota = _ai_status("screenshot")  # this month's allowance (ai_usage.py)
@@ -176,12 +183,12 @@ def _render_screenshot_reader():
             if errors:
                 st.error("  \n".join(errors))
                 return
-            _ai_record("screenshot")
             with st.spinner("Reading your screenshots..."):
                 found = screenshot_read.read(images, key)
+            if found.get("answered"):
+                _ai_record("screenshot")  # counted once the AI has read them
             del images, shots  # nothing of the images is kept past this point
-            ss["me_shots_n"] = ss.get("me_shots_n", 0) + 1   # empties the uploader
-            ss["me_shots_ok"] = False
+            ss["me_shots_n"] = n + 1   # empties the uploader and unticks the box
             if found["error"]:
                 ss["me_shot_msg"] = ("error", found["error"])
             elif not found["holdings"]:
@@ -203,19 +210,8 @@ def _manual_save(meta, rows, totals, txns, source):
     conn = connect(DB)
     try:
         write_snapshot(conn, USER_ID, meta, rows, totals, source)
-        # the day's worked-out rows are redone; imported history stays
-        conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ? AND "
-                     "origin IS NULL", (meta["snapshot_date"], USER_ID))
-        txns = txn_import.drop_covered(txns, txn_import.covered(conn, USER_ID))
-        for tx in txns:
-            tx["user_id"] = USER_ID
-        if txns:
-            conn.executemany(
-                "INSERT INTO transactions (account, trade_date, action, symbol, "
-                "description, quantity, price, amount, fees, realized_gain, "
-                "source_file, user_id) VALUES "
-                "(:account, :trade_date, :action, :symbol, :description, :quantity, "
-                ":price, :amount, :fees, :realized_gain, :source_file, :user_id)", txns)
+        # the day's worked-out rows are redone (accounts masked); imported history stays
+        txn_import.save_worked_out(conn, USER_ID, meta["snapshot_date"], txns)
         conn.commit()
     except DBError:
         conn.rollback()
@@ -229,9 +225,13 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
     """"What we'll keep", the change summary and Save, for holdings about to be
     saved as a snapshot - hand entry, paste, screenshots and CSV files alike.
     `after` runs once saved (e.g. clearing the form)."""
+    # account names as they're saved - the last 3 digits of any account number -
+    # so they match what's already saved and nothing keeps the full number
+    rows = changes.masked(rows)
+    totals = {accounts.mask_number(a): t for a, t in totals.items()}
     st.markdown("**What we'll keep**")
     st.dataframe(pd.DataFrame([{
-        "Account": accounts.mask_number(r["account"]), "Symbol": r["symbol"],
+        "Account": r["account"], "Symbol": r["symbol"],
         "Name": r["description"] or "",
         "Shares": round(r["quantity"], 4), "Value": fmt_money(r["market_value"]),
         **({} if pct_mode else {"Total cost": fmt_money(r["cost_basis"])
@@ -240,18 +240,17 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
     total = sum(r["market_value"] for r in rows) + sum(t["cash_value"] or 0 for t in totals.values())
     conn = connect(DB)
     try:
-        base_date = conn.execute(
-            "SELECT MAX(snapshot_date) d FROM positions WHERE snapshot_date < ? AND user_id = ?",
-            (meta["snapshot_date"], USER_ID)).fetchone()["d"]
-        base_rows = [dict(r) for r in conn.execute(
-            "SELECT account, symbol, description, quantity, cost_basis, market_value "
-            "FROM positions WHERE snapshot_date = ? AND user_id = ?",
-            (base_date, USER_ID))] if base_date else []
+        # the last saved holdings (none if it was the example portfolio)
+        base_date, base_rows, base_accounts = previous_snapshot(conn, USER_ID,
+                                                                meta["snapshot_date"])
     finally:
         conn.close()
-    d = diff_positions(base_rows, rows)
-    # a pretend portfolio has no real buys and sells to record
-    txns = [] if pct_mode else synthesize_transactions(d, meta["snapshot_date"], source)
+    # buys and sells only in accounts held before and now: a new account's
+    # holdings are where it starts, not purchases
+    d, txns = changes.compare(base_rows, rows, meta["snapshot_date"], source,
+                              old_accounts=base_accounts, new_accounts=totals)
+    if pct_mode:
+        txns = []  # a pretend portfolio has no real buys and sells to record
     _md(f"Total **{fmt_money(total)}**"
         + (" (pretend)" if pct_mode else " today")
         + f" · {len(d['new'])} new, {len(d['increased']) + len(d['decreased'])} changed, "
@@ -502,6 +501,11 @@ def _import_csv_file(src_path, source_name):
     cash = sum(t["cash_value"] or 0 for t in totals.values())
     _md(f"Found **{len(prow)} holding(s)**" + (f" and {fmt_money(cash)} cash" if cash else "")
         + f" from {_fmt_date(meta['snapshot_date'])}.")
+    left_out = found.get("left_out") or []
+    if left_out:
+        # (a "$" pair would read as math in markdown)
+        st.info(csv_import.left_out_text(left_out, fmt_money).replace("$", "\\$")
+                + " Everything else in the file is imported as usual.")
     meta["as_of_text"] = meta["as_of_text"] or \
         f"Imported from {os.path.basename(source_name.replace('upload: ', ''))}"
 

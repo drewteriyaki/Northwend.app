@@ -48,10 +48,10 @@ import prefs
 import route
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
-from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
-                       temp_upload, upload_label, write_snapshot)
+from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, previous_snapshot,
+                       snapshot_source, temp_upload, upload_label, write_snapshot)
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
-from changes import diff_positions, synthesize_transactions
+import changes
 
 codefresh.carry_over(_OLD_MODULES)
 codefresh.mark_loaded(os.path.dirname(os.path.abspath(__file__)))
@@ -2491,6 +2491,9 @@ day_change_total = sum(
 if "last_open_snapshot" not in st.session_state:
     st.session_state["last_open_snapshot"] = perf.last_open(DB, USER_ID)
 if "value_logged" not in st.session_state:
+    # just saved new holdings (_after_import): log their value now, whatever the
+    # gap, so the next visit is compared with them
+    _rebase = st.session_state.pop("value_rebase", False)
     st.session_state["value_logged"] = perf.log_open(DB, USER_ID, {
         "snapshot_date": snapshot,
         "portfolio_value": portfolio_value,
@@ -2503,7 +2506,7 @@ if "value_logged" not in st.session_state:
         "n_positions": len(positions),
         "n_priced": n_live,
         "priced_at": last_live,
-    })
+    }, **({"min_gap_sec": 0} if _rebase else {}))
 
 
 # Holdings with no Yahoo history yet (a first import, or a new position;

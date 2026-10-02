@@ -257,7 +257,9 @@ def _snapshot_date(rows, header_i, data_end, filename, today) -> str:
 def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None) -> dict:
     """Holdings from `rows` with `mapping`: {"holdings": [{Account, Symbol,
     Shares, Total cost, Value, Percent}], "cash": {account: amount},
-    "snapshot_date", "mode", "skipped": rows that weren't holdings}."""
+    "snapshot_date", "mode", "skipped": rows that weren't holdings,
+    "left_out": those of them that look like a holding - [{Name, Value, why}] -
+    so the review can say what isn't imported}."""
     today = today or date.today()
     header_i, _ = find_header(rows)
     if header_i is None:
@@ -271,7 +273,7 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
         i = mapping.get(field)
         return row[i] if i is not None and i < len(row) else ""
 
-    section_account, holdings, cash, totals, skipped = None, [], {}, {}, 0
+    section_account, holdings, cash, totals, skipped, left_out = None, [], {}, {}, 0, []
     # the first section's account name can sit just above the header
     # ("Individual ...111", then the column names)
     for above in reversed(rows[:max(header_i, 0)]):
@@ -320,6 +322,9 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
             continue
         if not _is_ticker(sym):
             skipped += 1
+            if (desc or raw_sym) and (value or _num(cell(row, "quantity"))):
+                left_out.append({"Name": _text(desc) or raw_sym, "Value": value,
+                                 "why": "it has no ticker"})
             continue
         qty = _num(cell(row, "quantity"))
         cost = _num(cell(row, "cost"))
@@ -329,6 +334,8 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
         pct = _num(cell(row, "percent"))
         if qty is None and value is None and pct is None:
             skipped += 1
+            left_out.append({"Name": _text(desc) or sym, "Value": None,
+                             "why": "it has no shares or value"})
             continue
         extras = {f: _text(cell(row, f)) for f in _TEXT_EXTRAS}
         extras.update({f: _num(cell(row, f)) for f in _NUM_EXTRAS})
@@ -343,7 +350,17 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
             "snapshot_date": _snapshot_date(rows[:txn_start], max(header_i, 0), data_end,
                                             filename, today),
             "as_of_text": _as_of(rows[:max(header_i, 0)]),
-            "mode": mode, "skipped": skipped}
+            "mode": mode, "skipped": skipped, "left_out": left_out}
+
+
+def left_out_text(left_out: list[dict], money=lambda v: f"${v:,.2f}") -> str:
+    """'1 row skipped: FID CONTRAFUND POOL CL 2 ($5,112.00) - it has no ticker.'"""
+    n = len(left_out)
+    parts = [f"{r['Name']}" + (f" ({money(r['Value'])})" if r.get("Value") else "")
+             + f" - {r['why']}" for r in left_out[:5]]
+    more = f"; and {n - 5} more" if n > 5 else ""
+    return (f"{n} row{'s' if n != 1 else ''} skipped, not imported: " + "; ".join(parts)
+            + more + ".")
 
 
 _TEXT_EXTRAS = ("asset_type", "div_pay_date", "next_earnings_date")

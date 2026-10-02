@@ -343,6 +343,25 @@ def drop_covered(txns: list[dict], cover: dict[str, str]) -> list[dict]:
                                     and (t["trade_date"] or "") <= cover[t["account"]])]
 
 
+def save_worked_out(conn, user_id: int, trade_date: str, txns: list[dict]) -> int:
+    """Replace the day's worked-out rows (changes.compare) with `txns`, less
+    those the imported history already covers; imported rows stay. Account
+    names are saved masked. No commit - the caller's transaction. Returns
+    how many were written."""
+    conn.execute("DELETE FROM transactions WHERE trade_date = ? AND user_id = ? AND "
+                 "origin IS NULL", (trade_date, user_id))
+    txns = [{**t, "account": mask_number(t["account"]), "user_id": user_id} for t in txns]
+    txns = drop_covered(txns, covered(conn, user_id))
+    if txns:
+        conn.executemany(
+            "INSERT INTO transactions (account, trade_date, action, symbol, "
+            "description, quantity, price, amount, fees, realized_gain, "
+            "source_file, user_id) VALUES "
+            "(:account, :trade_date, :action, :symbol, :description, :quantity, "
+            ":price, :amount, :fees, :realized_gain, :source_file, :user_id)", txns)
+    return len(txns)
+
+
 def existing_keys(conn, user_id: int) -> set[str]:
     return {r["row_key"] for r in conn.execute(
         "SELECT row_key FROM transactions WHERE user_id = ? AND origin = ?", (user_id, ORIGIN))}
@@ -352,6 +371,7 @@ def save(conn, user_id: int, rows: list[dict], source: str) -> dict:
     """Save imported rows, in one transaction: rows already imported are
     skipped; each account's worked-out rows up to its imported history's last
     date are removed. {"added", "duplicates", "replaced"}."""
+    rows = [{**r, "account": mask_number(r["account"])} for r in rows]  # parse() did; be sure
     have = existing_keys(conn, user_id)
     keys = row_keys(rows)
     new = [(r, k) for r, k in zip(rows, keys) if k not in have]

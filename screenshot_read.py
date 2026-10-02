@@ -120,7 +120,9 @@ def _extract_json(text: str):
 
 def read(images: list[tuple[bytes, str]], api_key: str, *, client=None, model=None) -> dict:
     """Ask the AI to read `images`; returns clean()'s shape plus "error"
-    (a message, or None). `client` is for tests."""
+    (a message, or None) and "answered" (the AI replied, so the read counts
+    against the month's allowance; False when the request failed). `client`
+    is for tests."""
     import anthropic
     if model is None:
         from advisor import MODEL as model
@@ -129,7 +131,7 @@ def read(images: list[tuple[bytes, str]], api_key: str, *, client=None, model=No
                                             "data": base64.standard_b64encode(data).decode()}}
                for data, mt in images]
     content.append({"type": "text", "text": PROMPT})
-    empty = {"holdings": [], "cash": None, "mode": "Shares"}
+    empty = {"holdings": [], "cash": None, "mode": "Shares", "answered": False}
     try:
         resp = client.messages.create(model=model, max_tokens=MAX_TOKENS,
                                       messages=[{"role": "user", "content": content}])
@@ -145,6 +147,6 @@ def read(images: list[tuple[bytes, str]], api_key: str, *, client=None, model=No
     except ValueError:
         answer = None
     if not isinstance(answer, dict):
-        return {**empty, "error": "The AI's answer couldn't be understood - try a clearer "
-                                  "screenshot."}
-    return {**clean(answer), "error": None}
+        return {**empty, "answered": True,
+                "error": "The AI's answer couldn't be understood - try a clearer screenshot."}
+    return {**clean(answer), "error": None, "answered": True}

@@ -40,6 +40,7 @@ def labels(conn, user_id: int) -> dict[str, str]:
 def set_label(conn, user_id: int, account: str, nickname: str | None) -> None:
     """Save a nickname, or clear it when `nickname` is blank."""
     nickname = (nickname or "").strip()[:MAX_LEN]
+    account = mask_number(account)  # the name as holdings are saved
     conn.execute("DELETE FROM account_labels WHERE user_id = ? AND account = ?",
                  (user_id, account))
     if nickname:

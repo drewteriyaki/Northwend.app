@@ -1,6 +1,6 @@
 """Position-set diffing and transaction synthesis for the CSV re-upload flow.
 
-Pure functions, standard library only. Given the positions already in the DB
+Pure functions, standard library only (plus accounts.mask_number). Given the positions already in the DB
 (latest snapshot) and the positions parsed from a freshly uploaded CSV, work out
 what changed, and turn those changes into rows for the `transactions` table.
 
@@ -12,6 +12,8 @@ not broker trade confirmations.
 """
 
 from __future__ import annotations
+
+from accounts import mask_number
 
 QTY_EPS = 1e-6  # quantities within this are "the same" (guards float noise)
 
@@ -68,6 +70,29 @@ def diff_positions(old_rows, new_rows):
             out["closed"].append(_entry(acct, sym, o, None))
 
     return out
+
+
+def masked(rows):
+    """`rows` with each account name as it's saved: any full account number
+    cut to its last 3 digits (accounts.mask_number)."""
+    return [{**r, "account": mask_number(r.get("account"))} for r in rows]
+
+
+def compare(old_rows, new_rows, trade_date, source_file, *, old_accounts=(), new_accounts=()):
+    """What a save changes, and the buys and sells worked out from it:
+    (diff_positions() result, synthesize_transactions() rows).
+
+    Account names are compared as saved (masked), whatever the file wrote.
+    Trades are worked out only for accounts held both before and now
+    (`old_accounts` / `new_accounts` add accounts with only cash): an account
+    seen for the first time brings its starting holdings, not purchases, and
+    one missing from this save wasn't sold off."""
+    old, new = masked(old_rows), masked(new_rows)
+    d = diff_positions(old, new)
+    both = ({r["account"] for r in old} | {mask_number(a) for a in old_accounts}) & \
+        ({r["account"] for r in new} | {mask_number(a) for a in new_accounts})
+    traded = {k: [e for e in v if e["account"] in both] for k, v in d.items()}
+    return d, synthesize_transactions(traded, trade_date, source_file)
 
 
 def _price(mv, qty):
@@ -131,7 +156,7 @@ def synthesize_transactions(diff, trade_date, source_file):
 
 def _txn(entry, trade_date, action, qty, price, amount, source_file, realized_gain=None):
     return {
-        "account": entry["account"],
+        "account": mask_number(entry["account"]),   # never a full account number
         "trade_date": trade_date,
         "action": action,
         "symbol": entry["symbol"],

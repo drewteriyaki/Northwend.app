@@ -242,6 +242,9 @@ def _ensure_schema(conn) -> None:
     else:
         for stmt in indexes:
             conn.execute(stmt)
+    masked = _mask_saved_accounts(conn)
+    if masked:
+        print(f"schema: account numbers cut to their last 3 digits: {masked}", file=sys.stderr)
     # saved targets from before Stocks / Bonds / Cash / Other; a no-op once done
     import asset_classes
     moved = asset_classes.migrate_targets(conn)
@@ -253,6 +256,48 @@ def _ensure_schema(conn) -> None:
             print(f"schema: {len(widened)} REAL column(s) changed to DOUBLE PRECISION: "
                   + ", ".join(widened), file=sys.stderr)
     conn.commit()
+
+
+# Every table with an account name in it, and the columns that, with the
+# account, must stay unique (a name masked to one already there is left).
+ACCOUNT_COLUMNS = {"transactions": None,
+                   "positions": ("snapshot_date", "symbol", "user_id"),
+                   "account_totals": ("snapshot_date", "user_id"),
+                   "account_labels": ("user_id",)}
+
+
+def _mask_saved_accounts(conn) -> dict:
+    """A clean-up of rows saved before every path masked account names (hand
+    entry and imports once stored worked-out trades with the file's full
+    account number): any account name with a full number is cut to its last
+    3 digits (accounts.mask_number). Reads only the distinct names (one query)
+    and updates only those that differ, so once done it changes nothing.
+    {table: rows changed}."""
+    from accounts import mask_number
+    found = conn.execute(" UNION ALL ".join(
+        f"SELECT '{t}' AS t, account FROM (SELECT DISTINCT account FROM {t}) d{i}"
+        for i, t in enumerate(ACCOUNT_COLUMNS))).fetchall()
+    changed: dict = {}
+    for r in found:
+        table, old = r["t"], r["account"]
+        new = mask_number(old)
+        if new == old:
+            continue
+        keys = ACCOUNT_COLUMNS[table]
+        clash = "" if not keys else (
+            f" AND NOT EXISTS (SELECT 1 FROM {table} o WHERE o.account = ? AND "
+            + " AND ".join(f"o.{k} = {table}.{k}" for k in keys) + ")")
+        # Two accounts ending in the same 3 digits, both holding the same thing
+        # that day, can't share a name: the second becomes "... (2)".
+        for name in (new, *(f"{new} ({n})" for n in range(2, 6))):
+            cur = conn.execute(f"UPDATE {table} SET account = ? WHERE account = ?{clash}",
+                               (name, old, name) if keys else (name, old))
+            if cur.rowcount and cur.rowcount > 0:
+                changed[table] = changed.get(table, 0) + cur.rowcount
+            if not keys or not conn.execute(f"SELECT 1 FROM {table} WHERE account = ? LIMIT 1",
+                                            (old,)).fetchone():
+                break
+    return changed
 
 
 def _widen_real_columns(conn, schema_text: str) -> list[str]:
@@ -374,6 +419,26 @@ def snapshot_source(conn, user_id: int, snapshot_date: str | None) -> str | None
     row = conn.execute("SELECT source_file FROM snapshots WHERE snapshot_date = ? AND user_id = ? "
                        "ORDER BY imported_at DESC LIMIT 1", (snapshot_date, user_id)).fetchone()
     return row["source_file"] if row else None
+
+
+def previous_snapshot(conn, user_id: int, before: str) -> tuple[str | None, list[dict], set]:
+    """What a save dated `before` is compared with: (the latest earlier
+    snapshot's date, its holdings, every account it names - cash-only ones
+    too). Nothing (None, [], set()) when there is none, or when it's the
+    example portfolio, which a first real save replaces: made-up holdings
+    were never bought or sold."""
+    base_date = conn.execute(
+        "SELECT MAX(snapshot_date) d FROM snapshots WHERE snapshot_date < ? AND user_id = ?",
+        (before, user_id)).fetchone()["d"]   # (one with only cash counts too)
+    if not base_date or snapshot_source(conn, user_id, base_date) == SAMPLE_SOURCE:
+        return None, [], set()
+    rows = [dict(r) for r in conn.execute(
+        "SELECT account, symbol, description, quantity, cost_basis, market_value "
+        "FROM positions WHERE snapshot_date = ? AND user_id = ?", (base_date, user_id))]
+    accounts = {r["account"] for r in rows} | {r["account"] for r in conn.execute(
+        "SELECT account FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
+        (base_date, user_id))}
+    return base_date, rows, accounts
 
 
 def write_snapshot(conn, user_id: int, meta: dict, rows: list[dict], totals: dict,

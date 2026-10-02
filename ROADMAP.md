@@ -777,6 +777,22 @@ started, the Plan and Ask Northwend - always optional.
       sidebar); delete your account (password and DELETE; not for admins,
       advisors with clients, or managed clients).
 
+### From the persona walkthroughs (Oct 2)
+Seven people walked through the site and app in a browser (curious visitor,
+beginner, scattered accounts, dividend investor, near-retiree, advisor,
+phone-only beginner). What they found, fixed in this order:
+
+- [x] **Import and privacy bugs** - worked-out buys and sells were saved
+      with the file's full account number (holdings were masked); account
+      names are now masked before anything is compared or saved, and a
+      one-time clean-up at start masks rows saved before (checked on
+      Postgres). Re-importing a file no longer shows everything as new and
+      records fake sells; an account's first save is where it starts, not
+      purchases; replacing the example isn't a sale. The screenshot reader no
+      longer crashes (and counts only a read that ran); "since your last
+      visit" starts again after a save; a row with no ticker is named in the
+      review; "—" for a missing cost; typed rows default to "Other".
+
 ## Later
 
 - [x] **Real transactions** - import a brokerage's activity export (any

@@ -570,10 +570,20 @@ if PAGE == "Dashboard":
     df = pd.DataFrame(records, columns=[m.label for m in chosen])
     fmt_map = {m.label: FORMATTERS[m.fmt] for m in chosen if m.fmt in FORMATTERS}
     color_cols = [m.label for m in chosen if m.color_sign]
-    styler = df.style.format(fmt_map, na_rep="—")
-    if color_cols:
-        styler = styler.map(color_sign, subset=color_cols)
-    st.dataframe(styler, width="stretch", hide_index=True)
+    # The table draws an empty cell as a grey "None", whatever the format says:
+    # a column with blanks (a holding entered without its cost) is shown as its
+    # formatted text instead (still right-aligned, like numbers), "—" for the blanks.
+    shown, as_text = df.copy(), {}
+    for col in df.columns:
+        if df[col].isna().any():
+            fmt = fmt_map.pop(col, None)
+            shown[col] = [fmt(v) if fmt else ("—" if _blank(v) else str(v)) for v in df[col]]
+            if fmt:
+                as_text[col] = st.column_config.TextColumn(alignment="right")
+    styler = shown.style.format(fmt_map, na_rep="—")
+    if color_cols:   # colored by the numbers, not the text shown
+        styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)
+    st.dataframe(styler, width="stretch", hide_index=True, column_config=as_text or None)
     st.download_button(
         "Download CSV", df.to_csv(index=False).encode("utf-8"),
         file_name="holdings.csv", mime="text/csv", key="holdings_dl",
