@@ -138,10 +138,13 @@ def _record_yahoo(conn, ticker, data, error, ok):
 
 
 def freshen(conn, user_id: int, finnhub_key: str | None, *, now: datetime | None = None,
-            finnhub=None, yahoo=None) -> dict:
+            finnhub=None, yahoo=None, known=None) -> dict:
     """Fetch whatever quotes are due for this account's holdings and watchlist,
     and apply the newest known price of every holding to its positions.
     `finnhub(symbol)` and `yahoo(symbol)` return (data, error) and are for tests.
+    `known`: (latest snapshot date, {held symbol: asset type}, [watched
+    tickers]) when the caller has just read them (the dashboard's page run) -
+    the same three reads done here otherwise.
 
     Returns {"fetched": n, "updated": positions changed, "watch_fetched":
     watchlist tickers fetched, "as_of": newest quote time (UTC) of a holding or
@@ -150,12 +153,15 @@ def freshen(conn, user_id: int, finnhub_key: str | None, *, now: datetime | None
     finnhub = finnhub or (lambda s: fetch_quote(s, finnhub_key, 8.0) if finnhub_key
                           else ({}, "no FINNHUB_API_KEY"))
     yahoo = yahoo or yahoo_quote
-    snap = latest_snapshot(conn, user_id)
-    held = {r["symbol"]: r["asset_type"] for r in conn.execute(
-        "SELECT DISTINCT symbol, asset_type FROM positions WHERE snapshot_date = ? AND user_id = ?",
-        (snap, user_id))} if snap else {}
-    watched = [r["ticker"] for r in conn.execute(
-        "SELECT ticker FROM watchlist WHERE user_id = ?", (user_id,))]
+    if known is not None:
+        snap, held, watched = known
+    else:
+        snap = latest_snapshot(conn, user_id)
+        held = {r["symbol"]: r["asset_type"] for r in conn.execute(
+            "SELECT DISTINCT symbol, asset_type FROM positions "
+            "WHERE snapshot_date = ? AND user_id = ?", (snap, user_id))} if snap else {}
+        watched = [r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM watchlist WHERE user_id = ?", (user_id,))]
     kinds = {s: kind(s, t) for s, t in held.items()}
     for w in watched:
         kinds.setdefault(w, kind(w, None))

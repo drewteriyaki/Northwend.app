@@ -711,7 +711,10 @@ started, the Plan and Ask Northwend - always optional.
       **Whole book (Oct 2):** `overview.account_summaries` reads each table
       once for every client (`user_id IN (...)`), sharing `_summary` with the
       one-client version - Your clients is 23 queries with 1 client or 25
-      (was 216); a test checks it doesn't grow with the book.
+      (was 216); a test checks it doesn't grow with the book. The minute's
+      price check (live_prices.freshen) takes the page's holdings and
+      watchlist (`known=`) instead of reading them again: 3 fewer queries a
+      minute per open page; same fetches and prices (a test compares).
 - [x] **Split dashboard.py** - one file per page in `views/` (dashboard.py 4,504 ->
       1,657 lines). Code moved unchanged; every page drew identically before
       and after (18 page views compared). (M)

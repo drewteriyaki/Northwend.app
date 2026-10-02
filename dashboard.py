@@ -2118,7 +2118,12 @@ def _live_status():
     try:
         c = connect(DB)
         try:
-            live = live_prices.freshen(c, USER_ID, resolve_key(None, ENV_PATH))
+            # what this page run loaded (holdings and the watchlist only change
+            # by a save, which starts a new run) - not read again every minute
+            live = live_prices.freshen(
+                c, USER_ID, resolve_key(None, ENV_PATH),
+                known=(snapshot, {p["symbol"]: p["asset_type"] for p in positions},
+                       list(watch_tickers)))
         finally:
             c.close()
     except Exception:  # noqa: BLE001 - prices failing must never break the page

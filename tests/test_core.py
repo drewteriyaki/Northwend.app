@@ -3214,6 +3214,50 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
         self.assertEqual((r2["fetched"], calls2), (0, {"finnhub": [], "yahoo": []}))
         conn.close()
 
+    def test_known_holdings_skip_the_reads(self):
+        # the dashboard passes what its page run loaded (known=...): the same
+        # fetches and prices as reading them here, without the three reads
+        import shutil
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        self._hold(conn, self.user_id, [
+            {"Symbol": "VTI", "Shares": 2, "Total cost": 20},
+            {"Symbol": "VTSAX", "Shares": 1, "Total cost": 10, "Type": "Mutual fund"}])
+        watchlist.add(conn, self.user_id, "NVDA")
+        conn.close()
+        copy = self.db + ".copy"
+        shutil.copyfile(self.db, copy)
+
+        def run(db, known_from_db):
+            c = portfolio.connect(db)
+            try:
+                known = None
+                if known_from_db:
+                    snap = lp.latest_snapshot(c, self.user_id)
+                    held = {r["symbol"]: r["asset_type"] for r in c.execute(
+                        "SELECT symbol, asset_type FROM positions WHERE snapshot_date = ? "
+                        "AND user_id = ?", (snap, self.user_id))}
+                    known = (snap, held, watchlist.list_tickers(c, self.user_id))
+                sql = []
+                c.set_trace_callback(sql.append)
+                calls, fh, yh = self._fakes()
+                r = lp.freshen(c, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh,
+                               known=known)
+                c.set_trace_callback(None)
+                live = {p["symbol"]: p["live_price"] for p in c.execute(
+                    "SELECT symbol, live_price FROM positions WHERE user_id = ?", (self.user_id,))}
+                return r, calls, live, sql
+            finally:
+                c.close()
+        r1, calls1, live1, sql1 = run(self.db, False)
+        r2, calls2, live2, sql2 = run(copy, True)
+        self.assertEqual((r1, calls1, live1), (r2, calls2, live2))
+        self.assertEqual(r1["fetched"], 3)   # VTI, VTSAX and the watched NVDA
+        read_here = ("MAX(snapshot_date)", "DISTINCT symbol, asset_type", "FROM watchlist")
+        self.assertTrue(all(any(s in q for q in sql1) for s in read_here))
+        self.assertFalse(any(s in q for q in sql2 for s in read_here))
+        self.assertEqual(len(sql1) - len(sql2), 3)
+
     def test_trim_keeps_a_week_then_one_close_per_day(self):
         import live_prices as lp
         conn = portfolio.connect(self.db)
