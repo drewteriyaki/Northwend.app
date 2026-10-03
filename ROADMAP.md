@@ -854,10 +854,21 @@ phone-only beginner). What they found, fixed in this order:
       investments (the example-funds card under "Not sure what to start
       with?"), Bring it in. A managed client's Start investing is just Bring
       it in, with their advisor. Old account-checklist ticks carry over.
-- [ ] **Next, from the walkthroughs:** website hooks (a "New to investing?"
-      line, an "Already investing?" section, a phone menu; growth, fee and
-      inflation calculators; the direction quiz before sign-up); advisor
-      basics (approval email, client names, a branded invite, a client
+- [x] **The website for new investors and advisors** - redesigned in the
+      design system's expedition look (a Claude Design canvas first, then
+      ported): the app's own contour lines behind the top of each page, the
+      route drawn as a trail, regions in italic. Home speaks to three groups
+      (new to investing, already investing, advisors) and its "How it works"
+      follows the app's route. New pages: /new-to-investing (the two stages,
+      practice money, what a monthly amount could grow to and what a fund's
+      fee costs - tables worked out by build.py at one stated, hypothetical
+      rate, since the site runs no scripts - brokerages as equals, common
+      questions) and /advisors (the tools as they are, the client side, how
+      access works, questions). A phone menu with no script, a new footer,
+      a sitemap.
+- [ ] **Next, from the walkthroughs:** website: an inflation table and the
+      direction quiz before sign-up (needs the app, or a script the site
+      doesn't allow); advisor basics (approval email, client names, a branded invite, a client
       mode, proposal emails, friendly AI errors); then an overlap view, a
       retirement-income tab, total return with dividends, yield on cost.
 

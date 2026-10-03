@@ -84,6 +84,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is
   stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
+  Pages: Home, New to investing, For advisors, About, 404 (`PAGES`); its
+  tables are worked out in build.py (no scripts: the CSP allows none) and
+  its contour lines are the app's `static/topo-light.svg`. The design is
+  the "Northwend website redesign" Claude Design canvas.
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py` (the "something went wrong"

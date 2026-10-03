@@ -8,6 +8,10 @@ page's content; the About page is made from disclosures.py, so the website
 and the app's About page say the same thing (a test checks public/ is up to
 date). The fonts come from the app's own static/ folder. Change APP_URL here
 when the app moves (ROADMAP L4).
+
+The "calculators" are tables worked out here at build time (the CSP allows
+no scripts): what a monthly amount could grow to, and what a fund's yearly
+fee costs over time - always at one stated, hypothetical rate.
 """
 
 from __future__ import annotations
@@ -41,12 +45,103 @@ PAGES = {
                    "Follow your investments from any brokerage, set a goal, and get there one "
                    "waypoint at a time with a guide who explains everything in plain language.",
                    "/"),
+    "new-to-investing.html": ("new-to-investing.html", "New to investing? Start here · Northwend",
+                              "Never invested before? Learn the basics in short steps, try it "
+                              "with practice money, then open an account and make a first "
+                              "investment - with a guide that never sells you anything.",
+                              "/new-to-investing"),
+    "advisors.html": ("advisors.html", "For financial advisors · Northwend",
+                      "Bring your clients along: setup links, one view of every client, "
+                      "proposals, meeting prep and progress reports - clients bring holdings "
+                      "from any brokerage.",
+                      "/advisors"),
     "about.html": ("about.html", "About and disclosures · Northwend",
                    "What Northwend is, what it stores, what's sent to the AI, and who runs it.",
                    "/about"),
     "404.html": ("404.html", "Page not found · Northwend",
                  "This page isn't on the map.", "/404"),
 }
+
+
+# the header's links: (label, path); the current page's link is marked
+NAV = (("New to investing", "/new-to-investing"), ("For advisors", "/advisors"),
+       ("Privacy", "/#privacy"))
+
+# the worked-out tables: one hypothetical yearly growth rate, stated beside them
+RATE = 0.06
+MONTHLY = (100, 250, 500)
+YEARS = (10, 20, 30)
+FEE_START, FEE_YEARS = 10_000, 30
+FEES = (0.0005, 0.005, 0.01)   # 0.05% (a broad index fund), 0.5%, 1%
+
+
+def grown(monthly: float, years: int, rate: float = RATE) -> float:
+    """What `monthly` put in at the end of every month for `years` grows to,
+    growing `rate` a year (compounded monthly)."""
+    i, n = rate / 12, years * 12
+    return monthly * ((1 + i) ** n - 1) / i
+
+
+def after_fees(start: float, years: int, fee: float, rate: float = RATE) -> float:
+    """`start` left alone for `years`, growing `rate` a year less a yearly `fee`."""
+    return start * (1 + rate - fee) ** years
+
+
+def money(v: float, nearest: int = 100) -> str:
+    """$16,400: rounded, so the tables don't look more exact than they are."""
+    return f"${round(v / nearest) * nearest:,.0f}"
+
+
+def growth_table() -> str:
+    head = "".join(f'<th scope="col">{y} years</th>' for y in YEARS)
+    rows = []
+    for m in MONTHLY:
+        cells = "".join(
+            f"<td><strong>{money(grown(m, y))}</strong>"
+            f'<span class="cell-sub">you put in {money(m * 12 * y)}</span></td>' for y in YEARS)
+        rows.append(f'<tr><th scope="row">${m} a month</th>{cells}</tr>')
+    return (f'<table class="calc"><caption class="small muted">Growing {RATE:.0%} a year, '
+            f'every month\'s amount invested on the same day.</caption>'
+            f'<thead><tr><td></td>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table>')
+
+
+def fee_table() -> str:
+    best = after_fees(FEE_START, FEE_YEARS, FEES[0])
+    rows = []
+    for fee in FEES:
+        end = after_fees(FEE_START, FEE_YEARS, fee)
+        cost = "-" if fee == FEES[0] else f"{money(best - end)} less"
+        rows.append(f'<tr><th scope="row">{fee * 100:.2f}% a year</th>'
+                    f"<td><strong>{money(end)}</strong></td><td>{cost}</td></tr>")
+    return (f'<table class="calc"><caption class="small muted">{money(FEE_START, 1)} left '
+            f"alone for {FEE_YEARS} years, growing {RATE:.0%} a year before the fee.</caption>"
+            '<thead><tr><th scope="col">Yearly fund fee</th><th scope="col">After '
+            f'{FEE_YEARS} years</th><th scope="col">Compared with the lowest</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
+def contours() -> str:
+    """The app's own contour lines (static/topo-light.svg) drawn inline in
+    currentColor, so the site and the app share one map and its colour
+    follows the theme (--contour in styles.css)."""
+    with open(os.path.join(REPO, "static", "topo-light.svg"), encoding="utf-8") as fh:
+        paths = re.findall(r'<path d="([^"]+)"/>', fh.read())
+    return ('<svg class="contours" viewBox="0 0 1400 1000" preserveAspectRatio="xMidYMin slice" '
+            'fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true" '
+            'focusable="false">' + "".join(f'<path d="{d}"></path>' for d in paths) + "</svg>")
+
+
+def nav_links(path: str) -> str:
+    return "\n".join(f'<a class="nav-link" href="{href}"'
+                     + (' aria-current="page"' if href == path else "") + f">{label}</a>"
+                     for label, href in NAV)
+
+
+def sitemap() -> str:
+    urls = "".join(f"<url><loc>{SITE_URL}{path}</loc></url>"
+                   for _, _, _, path in PAGES.values() if path != "/404")
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')
 
 
 def slug(text: str) -> str:
@@ -110,7 +205,8 @@ def render() -> dict[str, str]:
         base = fh.read()
     common = {"APP_URL": APP_URL, "SIGNUP_URL": SIGNUP_URL,
               "ADVISOR_SIGNUP_URL": ADVISOR_SIGNUP_URL, "CHECK": CHECK,
-              "YEAR": COPYRIGHT_YEAR}
+              "YEAR": COPYRIGHT_YEAR, "GROWTH_TABLE": growth_table(),
+              "FEE_TABLE": fee_table(), "RATE": f"{RATE:.0%}", "CONTOURS": contours()}
     out = {}
     for name, (template, title, description, path) in PAGES.items():
         with open(os.path.join(HERE, "templates", template), encoding="utf-8") as fh:
@@ -118,11 +214,12 @@ def render() -> dict[str, str]:
         values = dict(common)
         if name == "about.html":
             values.update(about_values())
-        page = _fill(base, {**common, "TITLE": html.escape(title),
+        page = _fill(base, {**common, "TITLE": html.escape(title), "NAV": nav_links(path),
                             "DESCRIPTION": html.escape(description),
                             "CANONICAL": SITE_URL + path,
                             "CONTENT": _fill(content, values)})
         out[name] = page
+    out["sitemap.xml"] = sitemap()
     for name in os.listdir(os.path.join(HERE, "assets")):
         if name.endswith((".css", ".svg", ".txt")) or name == "_headers":
             with open(os.path.join(HERE, "assets", name), encoding="utf-8") as fh:

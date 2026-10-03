@@ -1,42 +1,46 @@
 <div class="wrap">
 <section class="split hero" aria-labelledby="hero-title">
-<div class="stack-lg">
+<div class="hero-copy">
 <span class="chip chip-compass">Free while in beta</span>
+<p class="eyebrow">Every route starts at base camp.</p>
 <h1 id="hero-title" class="display">Your guide from first step to goal.</h1>
-<p class="muted measure">Bring your investments from any brokerage, or just percentages. Set a goal, and Northwend walks you toward it one waypoint at a time, with a guide who explains everything in plain language.</p>
+<p class="lead muted measure">Never invested before? Learn the basics in short steps, practise with pretend money, then make your first real investment with a guide beside you. Already investing? Bring your holdings from any brokerage and see where you stand.</p>
 <div class="btn-row">
-<a class="btn btn-primary" href="{{SIGNUP_URL}}">Create account</a>
-<a class="btn" href="#how">See how it works</a>
+<a class="btn btn-primary btn-lg" href="{{SIGNUP_URL}}">Create account</a>
+<a class="btn btn-lg" href="/new-to-investing">I'm new to investing</a>
 </div>
-<p class="small muted">No brokerage login, ever, and nothing to sell you. Start with an example portfolio if you'd rather not use real numbers.</p>
+<p class="hero-note small muted"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg><span>No brokerage login, ever, and nothing to sell you. Try it with an example portfolio if you'd rather not use real numbers.</span></p>
 </div>
 
-<div class="card card-float" role="group" aria-label="An example portfolio in Northwend">
+<div class="card card-float" role="group" aria-label="An example of a route in Northwend">
 <div class="card-row">
-<span class="label muted">Portfolio value</span>
-<span class="chip chip-compass">Example portfolio</span>
+<span class="label muted">Your route</span>
+<span class="chip chip-compass">Example</span>
 </div>
+<svg class="trail" viewBox="0 0 420 176" role="img" aria-label="Step 3 of 6 on the way to a goal">
+<path class="trail-behind" d="M24 148C52 140 70 134 96 128S146 110 170 104"></path>
+<path class="trail-ahead" d="M170 104S214 96 240 92S280 76 300 70S336 58 352 52S384 34 400 26"></path>
+<circle class="wp wp-done" cx="24" cy="148" r="6"></circle>
+<circle class="wp wp-done" cx="96" cy="128" r="6"></circle>
+<circle class="wp wp-here" cx="170" cy="104" r="9"></circle>
+<circle class="wp" cx="240" cy="92" r="6"></circle>
+<circle class="wp" cx="300" cy="70" r="6"></circle>
+<circle class="wp" cx="352" cy="52" r="6"></circle>
+<circle class="wp wp-goal" cx="400" cy="26" r="10"></circle>
+<text class="region" x="14" y="172">Base camp</text>
+<text class="region" x="146" y="132">The foothills</text>
+<text class="region" x="262" y="104">Learner's ridge</text>
+<text class="region" x="384" y="16" text-anchor="end">Your goal</text>
+</svg>
 <div class="stack">
-<span class="figure-hero">$48,210.55</span>
-<span class="up">&#9650; +$312.40 (0.65%) today</span>
+<span class="label accent">Learn · step 3 of 6</span>
+<p class="heading">Set a goal</p>
+<p class="small muted">So you know how much to invest each month to get there - your goal, a monthly amount and a mix, one at a time.</p>
 </div>
-<div>
+<div class="divider">
 <div class="goal-top"><strong>House deposit</strong><span class="goal-pct">74%</span></div>
 <div class="goal-track" role="progressbar" aria-label="House deposit" aria-valuenow="74" aria-valuemin="0" aria-valuemax="100"><div class="goal-fill"></div></div>
 <div class="goal-sub">$18,400 of $25,000 · on track for June 2028</div>
-</div>
-<div class="divider">
-<span class="label muted">Get started · waypoint 3 of 7</span>
-<div class="route" role="img" aria-label="Waypoint 3 of 7, then the goal">
-<span class="dot dot-done"></span><span class="leg leg-done"></span>
-<span class="dot dot-done"></span><span class="leg leg-done"></span>
-<span class="dot dot-here"></span><span class="leg"></span>
-<span class="dot"></span><span class="leg"></span>
-<span class="dot"></span><span class="leg"></span>
-<span class="dot"></span><span class="leg"></span>
-<span class="dot"></span><span class="leg"></span>
-<span class="dot dot-goal"></span>
-</div>
 </div>
 <div class="guide-note">
 <span class="guide-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg></span>
@@ -46,31 +50,79 @@
 </section>
 </div>
 
+<div class="wrap">
+<section class="doors" aria-label="Where would you like to start?">
+<a class="door" href="/new-to-investing">
+<span class="door-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg></span>
+<span class="label accent">New to investing</span>
+<span class="heading">Start from zero</span>
+<span class="muted">Short lessons, practice money on real past prices, then help choosing a brokerage and making a first investment.</span>
+<span class="door-go">Start here &#8594;</span>
+</a>
+<a class="door" href="#already">
+<span class="door-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path><path d="M3 17.5l9 5 9-5"></path></svg></span>
+<span class="label accent">Already investing</span>
+<span class="heading">See it all in one place</span>
+<span class="muted">Accounts from any brokerage side by side, the income ahead, what you pay in fees, and whether you're on track.</span>
+<span class="door-go">What you'll see &#8594;</span>
+</a>
+<a class="door" href="/advisors">
+<span class="door-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3 3-5 6-5s6 2 6 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.5c3 0 5 1.6 5 4.5"></path></svg></span>
+<span class="label accent">Financial advisor</span>
+<span class="heading">Bring your clients along</span>
+<span class="muted">Every client on one page, proposals, meeting prep and progress reports - and the advice stays yours.</span>
+<span class="door-go">For advisors &#8594;</span>
+</a>
+</section>
+</div>
+
 <section id="how" class="band" aria-labelledby="how-title">
-<div class="wrap section stack-lg">
-<div class="stack measure">
+<div class="wrap section">
+<div class="section-head">
+<p class="eyebrow">The route</p>
 <h2 id="how-title" class="title">How it works</h2>
-<p class="muted">Three steps, at your own pace. Nothing is connected to your brokerage, and you can stop at any waypoint.</p>
+<p class="muted">One step at a time. Nothing is connected to your brokerage, and you can skip a step or stop whenever you like.</p>
 </div>
-<div class="route" role="img" aria-label="Three waypoints, then your goal">
-<span class="dot dot-done"></span><span class="leg leg-done leg-flex"></span>
-<span class="dot dot-done"></span><span class="leg leg-done leg-flex"></span>
-<span class="dot dot-here"></span><span class="leg leg-flex"></span>
-<span class="dot dot-goal"></span>
-</div>
-<ol class="steps">
-<li><span class="label accent">Waypoint 1</span><h3 class="heading">Bring your holdings</h3><p class="muted">Paste them from your brokerage's website, upload a CSV, read a screenshot or type them in. Any brokerage works, and percentages are enough.</p></li>
-<li><span class="label accent">Waypoint 2</span><h3 class="heading">Set a goal</h3><p class="muted">Answer a few questions about what you're investing for and when. Your plan shows where you stand and what a steady path could look like.</p></li>
-<li><span class="label accent">Waypoint 3</span><h3 class="heading">Follow the route</h3><p class="muted">Get started takes you one waypoint at a time. Ask Northwend explains anything along the way, from what a fund is to why your mix drifted.</p></li>
+<svg class="trail trail-wide" viewBox="0 0 1000 40" aria-hidden="true" focusable="false">
+<path class="trail-behind" d="M16 30C120 28 240 26 355 22"></path>
+<path class="trail-ahead" d="M355 22C470 18 580 16 693 14S900 8 975 6"></path>
+<circle class="wp wp-done" cx="16" cy="30" r="7"></circle>
+<circle class="wp wp-here" cx="355" cy="22" r="9"></circle>
+<circle class="wp" cx="693" cy="14" r="7"></circle>
+<circle class="wp wp-goal" cx="975" cy="6" r="10"></circle>
+</svg>
+<ol class="stops">
+<li><div class="stop-mark"><span class="stop-num">1</span><span class="eyebrow">Base camp</span></div><h3 class="heading">Learn, if you're new</h3><p class="muted">A few taps about you, a goal with an amount and a date, six short reads, an example mix, and practice money on real past prices. Already investing? Skip straight ahead.</p></li>
+<li><div class="stop-mark"><span class="stop-num">2</span><span class="eyebrow">The trailhead</span></div><h3 class="heading">Start investing</h3><p class="muted">What to compare in a brokerage, opening an account, what a first investment looks like, then bringing what you own into Northwend - pasted, uploaded, from a screenshot or typed in.</p></li>
+<li><div class="stop-mark"><span class="stop-num stop-num-goal">3</span><span class="eyebrow">On the trail</span></div><h3 class="heading">Follow your plan</h3><p class="muted">Your goal's progress, your mix against your target, the income ahead and what you pay in fees. Ask Northwend explains anything along the way.</p></li>
 </ol>
 </div>
 </section>
 
 <div class="wrap">
-<section id="privacy" class="split section" aria-labelledby="privacy-title">
+<section id="already" class="section" aria-labelledby="already-title">
+<div class="section-head">
+<p class="eyebrow">Already investing</p>
+<h2 id="already-title" class="title">Every account, one calm view</h2>
+<p class="muted">Schwab, Fidelity, Robinhood, a workplace plan - bring any of them in. Northwend reads your brokerage's own files, so there's nothing to connect.</p>
+</div>
+<ul class="features">
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path><path d="M3 17.5l9 5 9-5"></path></svg></span><h3 class="heading">All your accounts together</h3><p class="muted">Today's value, what changed and your mix across every brokerage, updated through the day.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 4h11l-2 4 2 4H5"></path></svg></span><h3 class="heading">Your goal and your plan</h3><p class="muted">Whether you're on track, what a steady monthly amount could do, and how far your mix has drifted from your target.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg></span><h3 class="heading">Income ahead</h3><p class="muted">The dividends and interest your holdings are expected to pay over the next twelve months, month by month.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5L5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle></svg></span><h3 class="heading">A fee check</h3><p class="muted">What each fund's yearly fee costs you in dollars, and what it could add up to over time.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v4h4"></path><path d="M12 7v5l3 2"></path></svg></span><h3 class="heading">Your activity</h3><p class="muted">Buys and sells worked out from each update, or your brokerage's own history if you upload it.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg></span><h3 class="heading">Answers in plain language</h3><p class="muted">Ask Northwend about anything you see, using your own goal and mix - never your dollar amounts.</p></li>
+</ul>
+</section>
+</div>
+
+<section id="privacy" class="band" aria-labelledby="privacy-title">
+<div class="wrap section split">
 <div class="stack">
-<h2 id="privacy-title" class="title">Privacy first</h2>
-<p class="muted measure">Less is kept than you share. You can try everything with an example portfolio, and delete all your holdings yourself at any time.</p>
+<p class="eyebrow">Privacy first</p>
+<h2 id="privacy-title" class="title">Less is kept than you share</h2>
+<p class="muted measure">You can try everything with an example portfolio, and delete all your holdings yourself at any time.</p>
 <p><a href="/about#your-data">What's stored, and for how long</a></p>
 </div>
 <ul class="checks">
@@ -81,8 +133,10 @@
 <li>{{CHECK}}<span><strong>The AI sees percentages.</strong> Never dollar amounts, share counts, account names or numbers.</span></li>
 <li>{{CHECK}}<span><strong>No ads, no tracking.</strong> Your data isn't sold, rented or shared for advertising.</span></li>
 </ul>
+</div>
 </section>
 
+<div class="wrap">
 <section class="split section" aria-labelledby="guide-title">
 <div class="card chat" role="group" aria-label="An example conversation with Ask Northwend">
 <span class="chip chip-start">Example conversation</span>
@@ -93,6 +147,7 @@
 </div>
 </div>
 <div class="stack">
+<p class="eyebrow">Ask Northwend</p>
 <h2 id="guide-title" class="title">A guide, not a salesperson</h2>
 <p class="muted measure">Ask Northwend explains investing in plain language, using your own goal and mix. It points the way and offers hints; it never tells you what to buy.</p>
 <ul class="checks checks-single">
@@ -104,28 +159,31 @@
 </section>
 
 <section id="advisors" class="panel" aria-labelledby="advisors-title">
-<div class="stack">
-<span class="label accent">For advisors</span>
+<div class="stack-lg">
+<p class="eyebrow">For advisors</p>
 <h2 id="advisors-title" class="title">Bring your clients along</h2>
-<p class="muted">Set up clients, see their portfolios and plans, and keep the advice yours. Questions about using Northwend in your practice: <a class="strong" href="mailto:support@northwend.app">support@northwend.app</a></p>
-<div class="btn-row"><a class="btn" href="{{ADVISOR_SIGNUP_URL}}">Request advisor access</a></div>
-<p class="small muted">Advisor tools are for licensed professionals: we check your firm and CRD or licence number first, usually within two working days.</p>
+<p class="muted">Set up clients, see their portfolios and plans in one place, and keep the advice yours.</p>
+<div class="btn-row"><a class="btn btn-primary" href="/advisors">See the advisor tools</a><a class="btn" href="{{ADVISOR_SIGNUP_URL}}">Request advisor access</a></div>
+<p class="small muted">For licensed professionals: we check your firm and CRD or licence number first, usually within two working days.</p>
 </div>
 <ul class="checks checks-single">
 <li>{{CHECK}}<span>A one-time setup link for each client, so you never share a password.</span></li>
-<li>{{CHECK}}<span>Notes to clients, and private notes only you see.</span></li>
-<li>{{CHECK}}<span>A weekly summary of who's due a review and who needs a look.</span></li>
-<li>{{CHECK}}<span>A plan PDF to share in meetings.</span></li>
+<li>{{CHECK}}<span>Every client on one page: value, alerts and who's due a review.</span></li>
+<li>{{CHECK}}<span>Proposals your client can accept, and talking points drafted before each meeting.</span></li>
+<li>{{CHECK}}<span>Progress reports and a plan PDF to share.</span></li>
 </ul>
 </section>
 </div>
 
 <section class="cta-band" aria-labelledby="cta-title">
 <div class="wrap cta-inner">
+<div class="cta-goal">
+<span class="sun" aria-hidden="true"></span>
 <div class="stack measure">
 <h2 id="cta-title" class="title">Start with an example, or your own numbers.</h2>
 <p>Free while in beta. You only need an email address.</p>
 </div>
-<a class="btn btn-primary" href="{{SIGNUP_URL}}">Create account</a>
+</div>
+<a class="btn btn-primary btn-lg" href="{{SIGNUP_URL}}">Create account</a>
 </div>
 </section>

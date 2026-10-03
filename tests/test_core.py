@@ -4280,9 +4280,54 @@ class WebsiteTests(unittest.TestCase):
         import build as site_build
         cls.site = site_build
         cls.pages = {}
-        for n in ("index.html", "about.html", "404.html"):
+        for n in site_build.PAGES:
             with open(os.path.join(cls.PUBLIC, n), encoding="utf-8") as fh:
                 cls.pages[n] = fh.read()
+
+    def test_pages_for_new_investors_and_advisors(self):
+        self.assertIn("new-to-investing.html", self.pages)
+        self.assertIn("advisors.html", self.pages)
+        new, adv = self.pages["new-to-investing.html"], self.pages["advisors.html"]
+        self.assertIn("not a prediction", new)                     # the tables are hypothetical
+        self.assertIn("don't rank them", new)                      # brokerages as equals
+        self.assertIn("not recommendations", new)
+        self.assertIn(f'href="{self.site.ADVISOR_SIGNUP_URL}"', adv)
+        self.assertIn("CRD", adv)
+        # every page links to both, and marks its own link in the header
+        for name, page in self.pages.items():
+            self.assertIn('href="/new-to-investing"', page, name)
+            self.assertIn('href="/advisors"', page, name)
+        self.assertIn('href="/advisors" aria-current="page"', adv)
+        self.assertNotIn('aria-current="page"', self.pages["about.html"])
+
+    def test_worked_out_tables(self):
+        site = self.site
+        # $100 a month for 10 years at 6% a year, compounded monthly
+        self.assertAlmostEqual(site.grown(100, 10, 0.06), 16387.93, places=1)
+        self.assertAlmostEqual(site.after_fees(10_000, 30, 0.01, 0.06), 43219.42, places=1)
+        self.assertEqual(site.money(16387.93), "$16,400")
+        new = self.pages["new-to-investing.html"]
+        self.assertIn(site.money(site.grown(100, 10)), new)
+        self.assertIn("you put in $12,000", new)
+        self.assertIn(f"assume it grows {site.RATE:.0%} every year", new)
+        self.assertIn('<th scope="row">1.00% a year</th>', new)
+
+    def test_phone_menu_contours_and_sitemap(self):
+        for name, page in self.pages.items():
+            self.assertIn('<details class="menu">', page, name)   # a menu with no script
+            self.assertIn('class="contours"', page, name)
+        # the contour lines are the app's own (static/topo-light.svg)
+        with open(os.path.join(REPO, "static", "topo-light.svg"), encoding="utf-8") as fh:
+            first = re.search(r'<path d="([^"]+)"', fh.read()).group(1)
+        self.assertIn(first, self.pages["index.html"])
+        with open(os.path.join(self.PUBLIC, "sitemap.xml"), encoding="utf-8") as fh:
+            sitemap = fh.read()
+        for _, _, _, path in self.site.PAGES.values():
+            if path != "/404":
+                self.assertIn(f"<loc>{self.site.SITE_URL}{path}</loc>", sitemap)
+        self.assertNotIn("/404", sitemap)
+        with open(os.path.join(self.PUBLIC, "robots.txt"), encoding="utf-8") as fh:
+            self.assertIn("Sitemap: https://northwend.app/sitemap.xml", fh.read())
 
     def test_says_we_dont_sell_investments(self):
         # P1: the positioning is on the home page and the About page (from disclosures)
