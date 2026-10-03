@@ -33,6 +33,17 @@ def advisor_of(conn, client_id: int) -> int | None:
     return row["advisor_id"] if row else None
 
 
+def waiting_for_client(conn, client_id: int) -> dict:
+    """What their advisor has left for a client to look at, in one query:
+    {"proposals": shared proposals waiting for their answer, "reports":
+    progress reports not opened yet} - Home's next step (route.advisor_step)."""
+    row = conn.execute(
+        "SELECT (SELECT COUNT(*) FROM proposals WHERE client_id = ? AND status = 'shared') "
+        "AS proposals, (SELECT COUNT(*) FROM progress_reports WHERE client_id = ? AND "
+        "read_at IS NULL) AS reports", (client_id, client_id)).fetchone()
+    return {"proposals": int(row["proposals"] or 0), "reports": int(row["reports"] or 0)}
+
+
 def client_can_import(conn, client_id: int) -> bool:
     """Whether a managed client may import their own statements - off unless
     their advisor turned it on (advisor_clients.client_can_import)."""

@@ -866,6 +866,17 @@ phone-only beginner). What they found, fixed in this order:
       questions) and /advisors (the tools as they are, the client side, how
       access works, questions). A phone menu with no script, a new footer,
       a sitemap.
+- [x] **Advisor basics, part 2: the client's side and the AI's errors** -
+      proposal emails (the client when one is shared, the advisor when it's
+      answered; no figures or titles, confirmed emails only). A client mode
+      for an advisor's clients (`CLIENT_MODE`): no example funds anywhere,
+      no beginner trail or practice money; Home's next step is the
+      advisor's ("Your advisor has a proposal waiting for you", a new
+      report, questions, bringing statements in); clients land on Home.
+      Friendly AI errors everywhere (busy, or not available - details to the
+      log only, `ai_usage.failure_text`), and the allowance counted only on
+      a successful answer. Fixed: chat and meeting prep on an empty account
+      raised a NameError.
 - [ ] **Next, from the walkthroughs:** website: an inflation table and the
       direction quiz before sign-up (needs the app, or a script the site
       doesn't allow); advisor basics (approval email, client names, a branded invite, a client

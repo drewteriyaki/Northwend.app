@@ -1206,6 +1206,12 @@ IS_MANAGED_CLIENT = MY_ADVISOR is not None
 CAN_MANAGE = not IS_MANAGED_CLIENT         # may edit this account's plan, limits, imports
 CAN_IMPORT = CAN_MANAGE or CLIENT_CAN_IMPORT  # may import statements into this account
 ON_CLIENT = IS_ADVISOR and USER_ID != LOGIN_ID   # an advisor working on a client's account
+# Client mode: an advisor's client - and their advisor in their account, who
+# sees what they see. Their plan and recommendations are the advisor's, so
+# the beginner's example funds, example mix and practice money stay out of
+# it, Learn is never required, and Home's next step speaks for the advisor
+# (route.advisor_step). Milestones and gear stay: learning and habits only.
+CLIENT_MODE = IS_MANAGED_CLIENT or ON_CLIENT
 # The investor experience: investors, clients, and an advisor looking at a
 # client's account (they see what the client sees). An advisor's own
 # portfolio is the advisor experience.
@@ -1241,10 +1247,13 @@ if IS_ADVISOR:
              "Watchlist", "Activity", "Income", "AI Assistant",
              *(_start if HAS_HOLDINGS else []), "Account", "About"]
 else:
-    PAGES = [*([] if HAS_REAL_HOLDINGS else ["Get started"]),
+    # an advisor's client lands on Home (their advisor's next step), never
+    # on Learn: it's there for them, not required
+    _learn_last = HAS_REAL_HOLDINGS or IS_MANAGED_CLIENT
+    PAGES = [*([] if _learn_last else ["Get started"]),
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
-             *(["Get started"] if HAS_REAL_HOLDINGS else []), "Account", "About"]
+             *(["Get started"] if _learn_last else []), "Account", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
 
@@ -1809,12 +1818,29 @@ def _ai_status(kind, *, full_run=False):
 
 
 def _ai_record(kind):
-    """Count one AI request against the signed-in account, just before sending it."""
+    """Count one AI request against the signed-in account - only once it has
+    succeeded, so a failed one doesn't use up the month's allowance."""
     c = connect(DB)
     try:
         ai_usage.record(c, LOGIN_ID, kind)
     finally:
         c.close()
+
+
+def _ai_failed(exc, kind, feature=""):
+    """An AI request (`kind`, ai_usage.LIMITS) failed: the details go to the
+    server log, a key or set-up problem is noted for the admin like any other
+    error (error_alerts.py: its type and place only), and what to show comes
+    back - one calm sentence per kind of failure, never the error's text."""
+    ai_usage.log_failure(exc, kind)
+    if ai_usage.failure_kind(exc) == ai_usage.UNAVAILABLE:
+        try:
+            import error_alerts
+            error_alerts.report(DB, exc, copy="Staging" if STAGING else "Live",
+                                send=pgcompat.is_postgres_dsn(DB))
+        except Exception:
+            pass
+    return ai_usage.failure_text(exc, GUIDE, feature)
 
 
 CHAT_MESSAGE_LIMIT = 40  # per conversation - keeps each one a sensible length
@@ -2208,6 +2234,10 @@ def save_plan_fields(fields: dict):
 # last full run's, so keep here only what changes by a full rerun - never what
 # a fragment itself saves (the Plan tabs read their own).
 _RUN = {}
+# each holding's asset-class split (asset_classes.py), worked out once the
+# holdings are loaded below; empty until then, so the pages drawn before
+# anything is brought in (Ask Northwend, meeting prep) can use it too
+CLASS_SPLITS = {}
 
 
 def _profile():
@@ -2466,7 +2496,9 @@ def _page_header(title, *, data=True):
     Money, with the tabs under it (_money_tabs)."""
     if PAGE in MONEY_PAGES:
         title = MONEY
-    if INVESTOR_VIEW and not IS_ADVISOR and PAGE in ("Dashboard", "Get started"):
+    # (an advisor's client's Home is their advisor's next step, not an expedition)
+    if INVESTOR_VIEW and not IS_ADVISOR and (PAGE == "Get started"
+                                             or PAGE == "Dashboard" and not CLIENT_MODE):
         st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.title(title, anchor=False, width="stretch")
@@ -2678,16 +2710,22 @@ if not positions and PAGE != "Watchlist":
         # an advisor: a client's (or their own) statements to bring in
         _page_header(_label(PAGE), data=False)
         _render_bring_in(ACTIVE_NAME if ON_CLIENT else None)
+        if ON_CLIENT and PAGE == "Dashboard":
+            _render_client_home(preview=True)   # what the client sees on their Home
+    elif IS_MANAGED_CLIENT and PAGE == "Dashboard":
+        # an advisor's client: their advisor's next step (client mode)
+        _page_header(_label(PAGE), data=False)
+        _render_client_home()
     elif not CAN_IMPORT:
         # a client whose advisor brings the statements in
         _page_header("Welcome", data=False)
         st.info(f"Welcome, **{ACTIVE_NAME}**. Your advisor, {_advisor_display_name()}, "
                 "brings your statements in - your portfolio shows up here once they have.")
         with st.container(horizontal=True):
-            st.button(_label("Get started"), key="onboard_get_started", type="primary",
+            st.button(f"Open {_label('Advisor notes')}", key="onboard_notes", type="primary",
+                      on_click=_go, args=("Advisor notes",))
+            st.button(f"Open {_label('Get started')}", key="onboard_get_started",
                       on_click=_go, args=("Get started",))
-            st.button(_label("Advisor notes"), key="onboard_notes", on_click=_go,
-                      args=("Advisor notes",))
     elif PAGE == "Dashboard":
         # someone not investing yet: Home is their route, not an import form
         _page_header(_label(PAGE), data=False)

@@ -74,7 +74,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   progress reports, `views/reports.py`), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
   sending - use it for local runs), `manage_users.py`
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
-  AI feature checks `_ai_status` and counts with `_ai_record`), `advising.py`,
+  AI feature checks `_ai_status`, counts with `_ai_record` only after a
+  successful answer, and shows failures via `_ai_failed` - never raw error text),
+  `advising.py`,
   `advisor.py` (the AI guide, Claude API with prompt caching), `prefs.py`, `accounts.py`.
 - Look: `.streamlit/config.toml` (the Northwend theme: colors per light/dark,
   Figtree text and Newsreader titles from `static/`, served at `app/static/`),
@@ -128,6 +130,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   account can open. A new page goes in `NAV`, under Money or in the name menu -
   keep the bar short. A label change (`PAGE_LABELS`; investors see
   Get started as "Learn") changes its `?page=` slug: add the old one to `OLD_SLUGS`.
+- An advisor's client (or an advisor in a client's account) is `CLIENT_MODE`:
+  no example funds, no beginner trail or practice money; Home's next step is
+  the advisor's (`route.advisor_step`).
 - Never name the folder `pages/`: Streamlit turns that into its own page menu.
 - Edit files with the Edit tool. Python patch scripts inside Bash heredocs have
   turned `\n` in strings into real newlines before.

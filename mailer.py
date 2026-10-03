@@ -124,6 +124,34 @@ def report_ready(to: str, link: str, advisor_name: str, period: str) -> bool:
                 _html(lines, ("Read my report", link)))
 
 
+def proposal_shared(to: str, link: str, advisor_name: str) -> bool:
+    """An advisor shared a proposal (proposals.py) - no figures in the email itself."""
+    lines = [f"{advisor_name} has shared a proposal with you: a suggested mix for your "
+             "investments, with a note on why.",
+             "Sign in to read it and let them know what you think - for your privacy, the "
+             "details stay in Northwend and aren't sent by email.",
+             "Nothing is bought or sold until you and your advisor decide together."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n\n{lines[2]}\n"
+    return send(to, "Your advisor has a proposal for you", text,
+                _html([html_escape(x) for x in lines], ("Read the proposal", link)))
+
+
+def proposal_answered(to: str, link: str, client_name: str, accepted: bool) -> bool:
+    """A client answered their advisor's proposal - no figures in the email."""
+    if accepted:
+        subject = f"{client_name} accepted your proposal"
+        first = (f"{client_name} said \"let's go ahead\" to your proposal. Nothing has been "
+                 "bought or sold in Northwend - it's over to you to take it from here with them.")
+    else:
+        subject = f"{client_name} answered your proposal"
+        first = (f"{client_name} said \"not right now\" to your proposal. You could talk it "
+                 "through at your next conversation, or make a new one.")
+    lines = [first, "The details are in Northwend - they aren't sent by email."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nOpen their plan: {link}\n"
+    return send(to, subject, text,
+                _html([html_escape(x) for x in lines], ("Open their plan", link)))
+
+
 def advisor_week(to: str, link: str, lines: list[str]) -> bool:
     """An advisor's Monday summary (weekly_email.py): counts only - no client
     names or figures in the email."""
