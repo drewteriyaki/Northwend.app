@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS advisor_clients (
     advisor_id INTEGER NOT NULL,
     client_id  INTEGER NOT NULL,
+    client_name TEXT,          -- what the advisor calls them ("Chen household"); auth.set_client_name
     PRIMARY KEY (advisor_id, client_id)
 );
 

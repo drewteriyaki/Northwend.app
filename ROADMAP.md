@@ -866,6 +866,20 @@ phone-only beginner). What they found, fixed in this order:
       questions) and /advisors (the tools as they are, the client side, how
       access works, questions). A phone menu with no script, a new footer,
       a sitemap.
+- [x] **Advisor basics, part 1: getting an advisor and their clients set up**
+      - approval and decline emails (`admin.approve_advisor` /
+      `decline_advisor`, from the Admin portal and manage_users.py; the
+      owner's request email links to the Admin portal). Client names and
+      households (`advisor_clients.client_name`, the advisor's own name for
+      the client, renamable), shown everywhere the advisor sees a client.
+      One "Add and send invite" step, the invite from the advisor's name and
+      firm (`mailer.sender`; asked for before the first invite). Reports to a
+      client who hasn't signed in yet carry a setup link. Your clients: no
+      Viewing bar, plain-text emails, each client once in This week, and
+      "N alerts" counts only real moves and losses (gains don't count).
+      Message clients: one message to all (or some) clients, saved as a note
+      they see, with a short "sent you a message" email (never the text);
+      the same message can't go twice within 10 minutes.
 - [x] **Advisor basics, part 2: the client's side and the AI's errors** -
       proposal emails (the client when one is shared, the advisor when it's
       answered; no figures or titles, confirmed emails only). A client mode
@@ -879,8 +893,8 @@ phone-only beginner). What they found, fixed in this order:
       raised a NameError.
 - [ ] **Next, from the walkthroughs:** website: an inflation table and the
       direction quiz before sign-up (needs the app, or a script the site
-      doesn't allow); advisor basics (approval email, client names, a branded invite, a client
-      mode, proposal emails, friendly AI errors); then an overlap view, a
+      doesn't allow); the public disclosures to mention advisor-sent emails
+      (needs a LAST_UPDATED bump - owner's call); then an overlap view, a
       retirement-income tab, total return with dividends, yield on cost.
 
 ## Later

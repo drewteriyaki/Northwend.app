@@ -829,7 +829,8 @@ def _signup() -> bool:
         mid.error(result["error"])
         return False
     if role == "advisor":  # a failure is logged by mailer; `advisor-requests` lists it anyway
-        mailer.advisor_request(result["username"], firm.strip(), licence.strip())
+        mailer.advisor_request(result["username"], firm.strip(), licence.strip(),
+                               _app_address())
     sent, note = _send_confirmation(result["user_id"])
     st.session_state.clear()  # whoever was signed in on this browser before
     st.session_state["user_id"] = result["user_id"]
@@ -1328,6 +1329,23 @@ def _advisor_display_name():
     return (card.get("name") or card.get("username") or "your advisor") +         (f", {card['firm']}" if card.get("firm") else "")
 
 
+def _md_name(name):
+    """A person's name or email inside st.markdown, shown as typed: markdown
+    characters escaped, and an email isn't turned into a mailto link (an
+    invisible word joiner before the @ stops the autolink)."""
+    text = re.sub(r"([\\`*_{}\[\]<>()#+!|~$])", r"\\\1", str(name or ""))
+    return text.replace("@", "\u2060@")
+
+
+def _advisor_names(card, username):
+    """An advisor's (name for an email's text, name for its From line) from
+    their card (How clients see you): "Dana Ruiz (Ruiz Wealth)" and
+    "Dana Ruiz, Ruiz Wealth" - the login when there's no name yet."""
+    name = card.get("name") or username
+    firm = card.get("firm")
+    return (f"{name} ({firm})" if firm else name), (f"{name}, {firm}" if firm else name)
+
+
 def _switch_to(account_id):
     for k in list(st.session_state.keys()):
         if k not in _KEEP_ON_SWITCH:
@@ -1352,25 +1370,81 @@ def _back_to_clients():
 
 
 def _add_client():
-    name = (st.session_state.get("new_client_name") or "").strip()
-    pw = st.session_state.get("new_client_pw") or None
+    """Add client (Your clients): their name or household and, with an email,
+    a setup link sent in the same step - from the advisor's name and firm,
+    asked for here before the first invite if How clients see you is empty."""
+    name = auth.clean_client_name(st.session_state.get("new_client_name"))
+    email = (st.session_state.get("new_client_email") or "").strip()
+    invite = bool(email) and st.session_state.get("new_client_invite", True)
+    viewer = st.session_state["user_id"]
+    if not name and not email:
+        st.session_state["client_msg"] = (
+            "error", "Enter their name, or a household name like Chen household.")
+        return
+    if email and "@" not in email:
+        st.session_state["client_msg"] = (
+            "error", "That doesn't look like an email address - check it, or leave it blank.")
+        return
     c = connect(DB)
     try:
-        client_id = auth.create_client(c, st.session_state["user_id"], name, pw)
-        name = auth.get_username(c, client_id) or name   # an email is stored lower-cased
+        p = prefs.load(c, viewer)
+        card = p.get("advisor_card") or {}
+        if invite and not card.get("name"):
+            # the first invite: who it's from (saved as How clients see you)
+            my_name = " ".join((st.session_state.get("new_adv_name") or "").split())[:60]
+            my_firm = " ".join((st.session_state.get("new_adv_firm") or "").split())[:80]
+            if not my_name:
+                st.session_state["client_msg"] = (
+                    "error", "Add your name first - the invite tells them who it's from.")
+                return
+            card = {**card, "name": my_name, **({"firm": my_firm} if my_firm else {})}
+            p["advisor_card"] = card
+            prefs.save(c, viewer, p)
+        client_id = auth.create_client(c, viewer, email, name=name)
+        shown = name or auth.get_username(c, client_id)   # an email is stored lower-cased
+        sent = _send_invite(c, viewer, client_id) if invite else None
     except ValueError as exc:
-        st.session_state["client_msg"] = ("error", str(exc))
+        st.session_state["client_msg"] = ("error", str(exc).capitalize() + ".")
         return
     except DBError:
-        st.session_state["client_msg"] = ("error", f"The username '{name}' is already taken.")
+        st.session_state["client_msg"] = ("error", "That login is already taken - try another.")
         return
     finally:
         c.close()
-    _switch_to(client_id)
-    st.session_state["client_msg"] = (
-        "success", f"Added client '{name}' - you're now viewing them."
-        + (" Open **Client login** at the top of their pages to email them a setup link."
-           if "@" in name else ""))
+    for k in ("new_client_name", "new_client_email"):
+        st.session_state[k] = ""
+    if sent is None:
+        msg = (f"Added {shown}. " + ("When you're ready, send them a setup link from "
+                                     "**Client login** in their account." if email else
+                                     "Without an email, they can't sign in yet - you can add "
+                                     "their statements and plan for them, or create a setup "
+                                     "link to send yourself from **Client login**."))
+        st.session_state["client_msg"] = ("success", msg, client_id)
+    elif sent[0]:
+        st.session_state["client_msg"] = ("success", f"Added {shown} and {sent[1][0].lower()}"
+                                                     f"{sent[1][1:]}", client_id)
+    else:
+        st.session_state["client_msg"] = ("warning", f"Added {shown}, but {sent[1][0].lower()}"
+                                                     f"{sent[1][1:]}", client_id)
+
+
+def _send_invite(c, viewer, client_id):
+    """Email one of this advisor's clients a fresh setup link, from the
+    advisor's name and firm (the From line and the text). (sent, message)."""
+    email = auth.email_status(c, client_id)["email"]
+    if not email:
+        return False, "This client has no email address yet."
+    card = prefs.load(c, viewer).get("advisor_card") or {}
+    if not card.get("name"):
+        return False, ("Add your name under **Your clients > How clients see you** first - "
+                       "the invite tells them who it's from.")
+    token = auth.create_invite(c, viewer, client_id)   # ValueError: not their client
+    body_name, from_name = _advisor_names(card, st.session_state["username"])
+    if mailer.client_invite(email, f"{_app_address()}?invite={token}", body_name,
+                            auth.INVITE_DAYS, from_name=from_name):
+        return True, f"Sent {email} a setup link. It works for {auth.INVITE_DAYS} days."
+    return False, ("the email couldn't be sent just now. Try again from **Client login** in "
+                   "their account, or create a link there and send it yourself.")
 
 
 def _set_client_password():
@@ -1413,28 +1487,14 @@ def _email_invite():
     viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
     c = connect(DB)
     try:
-        email = auth.email_status(c, target)["email"]
-        if not email:
-            st.session_state["login_msg"] = ("error", "Add an email address for this client "
-                                                       "first.")
-            return
-        token = auth.create_invite(c, viewer, target)
-        card = prefs.load(c, viewer).get("advisor_card") or {}
+        sent, msg = _send_invite(c, viewer, target)
     except ValueError:
-        st.session_state["login_msg"] = ("error", "You can only invite your own clients.")
-        return
+        sent, msg = False, "You can only invite your own clients."
     finally:
         c.close()
-    name = card.get("name") or st.session_state["username"]
-    if card.get("firm"):
-        name += f" ({card['firm']})"
-    sent = mailer.client_invite(email, f"{_app_address()}?invite={token}", name,
-                                auth.INVITE_DAYS)
-    st.session_state.pop(f"invite_link_{target}", None)
-    st.session_state["login_msg"] = (
-        ("success", f"Sent the setup link to {email}. It works for {auth.INVITE_DAYS} days.")
-        if sent else ("error", "The email couldn't be sent just now - create a link and send "
-                               "it yourself instead."))
+    if sent:
+        st.session_state.pop(f"invite_link_{target}", None)
+    st.session_state["login_msg"] = ("success" if sent else "error", msg[0].upper() + msg[1:])
 
 
 def _cancel_invite():
@@ -1553,7 +1613,7 @@ def _render_add_menu():
     """+ Add holdings: the ways to bring holdings in (a window each)."""
     with st.popover("Add holdings", icon=":material/add:", key="pt_add"):
         if ON_CLIENT:
-            st.caption(f"Into **{ACTIVE_NAME}**'s account")
+            st.caption(f"Into **{_md_name(ACTIVE_NAME)}**'s account")
         st.button(":material/content_paste: Paste or type holdings", key="add_manual",
                   width="stretch", type="tertiary", on_click=_open_holdings_dialog,
                   args=("manual",),
@@ -1575,7 +1635,7 @@ def _render_name_menu():
         if IS_ADVISOR or IS_ADMIN:
             st.html(" ".join(f"<span class='pt-chip pt-role'>{r}</span>"
                              for r, on in (("Advisor", IS_ADVISOR), ("Admin", IS_ADMIN)) if on))
-        _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
+        _viewing = f" · viewing **{_md_name(ACTIVE_NAME)}**" if USER_ID != LOGIN_ID else ""
         st.caption(f"Logged in as **{MY_NAME}**{_viewing}")
         if IS_MANAGED_CLIENT:
             st.caption(f"Your advisor: **{_advisor_display_name()}**")
@@ -1651,13 +1711,18 @@ def _render_client_login():
         try:
             pending = auth.pending_invite(c, USER_ID)
             client_email = auth.email_status(c, USER_ID)["email"]
+            has_name = bool((prefs.load(c, LOGIN_ID).get("advisor_card") or {}).get("name"))
         finally:
             c.close()
         if client_email:
             st.button(f"Email {client_email} a setup link", key="invite_email",
                       type="primary", on_click=_email_invite, width="stretch",
+                      disabled=not has_name,
                       help="They choose a password, then answer the goals and risk "
                            "questions - you'll see their answers.")
+            if not has_name:
+                st.caption("First add your name under **Your clients > How clients see "
+                           "you** - the invite tells them who it's from.")
         if pending:  # (_fmt_date is defined further down)
             d = datetime.strptime(pending[:10], "%Y-%m-%d")
             until = f"{d:%b} {d.day}"
@@ -1717,10 +1782,11 @@ def _disclosures_seen():
 # every page, with the way back - so nobody edits the wrong person's plan.
 # The client's own Get started and their login are here too: they belong to
 # this client, not to the advisor's menu.
-if ON_CLIENT:
+# (Not on Your clients itself: that page is about every client, not this one.)
+if ON_CLIENT and PAGE != "Clients":
     with st.container(border=True, horizontal=True, vertical_alignment="center",
                       key="pt_viewing"):
-        st.markdown(f":material/visibility: Viewing **{ACTIVE_NAME}**'s account",
+        st.markdown(f":material/visibility: Viewing **{_md_name(ACTIVE_NAME)}**'s account",
                     width="stretch")
         if "Get started" in PAGES:
             st.button(_label("Get started"), key="viewing_start", icon=":material/route:",

@@ -108,6 +108,47 @@ def notes_for(conn, client_ids, *, include_private: bool) -> dict:
     return out
 
 
+MESSAGE_MAX = 2000           # characters in one message to clients
+MESSAGE_REPEAT_MINUTES = 10  # the same message can't go out again this soon (a double click)
+
+
+def message_clients(conn, advisor_id: int, client_ids, body: str, *, now,
+                    today: date | None = None) -> dict:
+    """One message from an advisor to several clients (Your clients > Message
+    clients): saved as a Note each client sees on their Your advisor page,
+    like any other. Only the advisor's own clients (auth.can_view); the same
+    text from this advisor within MESSAGE_REPEAT_MINUTES is refused, so a
+    double click or a reload can't send it twice. `now` is a UTC datetime;
+    `today` the note's date (now's date if None).
+    Returns {"ok", "error", "sent_to": [client ids]}."""
+    import auth
+    from datetime import timedelta
+
+    body = (body or "").strip()
+    if not body:
+        return {"ok": False, "error": "Write a message first.", "sent_to": []}
+    if len(body) > MESSAGE_MAX:
+        return {"ok": False, "error": f"Keep the message under {MESSAGE_MAX} characters.",
+                "sent_to": []}
+    ids = [cid for cid in dict.fromkeys(client_ids)
+           if cid != advisor_id and auth.can_view(conn, advisor_id, cid)]
+    if not ids:
+        return {"ok": False, "error": "Pick at least one client.", "sent_to": []}
+    since = (now - timedelta(minutes=MESSAGE_REPEAT_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
+    if conn.execute("SELECT 1 FROM advisor_notes WHERE advisor_id = ? AND body = ? AND "
+                    "created_at >= ? LIMIT 1", (advisor_id, body, since)).fetchone():
+        return {"ok": False, "sent_to": [],
+                "error": "You sent this message a moment ago, so it wasn't sent again. "
+                         "Change it if you meant to send another."}
+    stamp, on = now.strftime("%Y-%m-%d %H:%M:%S"), (today or now.date()).isoformat()
+    for cid in ids:
+        conn.execute("INSERT INTO advisor_notes (client_id, advisor_id, kind, body, note_date, "
+                     "private, created_at) VALUES (?, ?, 'Note', ?, ?, 0, ?)",
+                     (cid, advisor_id, body, on, stamp))
+    conn.commit()
+    return {"ok": True, "error": None, "sent_to": ids}
+
+
 def open_next_steps(notes: list[dict]) -> list[dict]:
     return [n for n in notes if n["kind"] == "Next step" and not n["done"]]
 
@@ -168,7 +209,21 @@ def weekly_summary(rows: list[dict]) -> dict:
                   key=lambda r: r["in_days"])
     attention = [{**r, "other": other} for r in rows
                  if (other := [x for x in r["reasons"] if x not in _REVIEW_REASONS])]
-    return {"due": due, "soon": soon, "attention": attention,
+    # each client once, with every reason: reviews due, then coming due, then the rest
+    why = {}
+    for r in due:
+        why[r["user_id"]] = (r, ["never reviewed" if r["review"] == "never"
+                                 else f"last review {r['review_days']} days ago"])
+    for r in soon:
+        why[r["user_id"]] = (r, [f"review due in {r['in_days']} day"
+                                 f"{'s' if r['in_days'] != 1 else ''}"])
+    for r in attention:
+        why.setdefault(r["user_id"], (r, []))[1].extend(r["other"])
+    clients = [{**r, "why": reasons} for r, reasons in why.values()]
+    review_ids = {r["user_id"] for r in due} | {r["user_id"] for r in soon}
+    return {"due": due, "soon": soon, "attention": attention, "clients": clients,
+            # clients to look at for reasons other than a review
+            "others": [r for r in attention if r["user_id"] not in review_ids],
             "any": bool(due or soon or attention)}
 
 

@@ -114,6 +114,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Postgres differences: `REAL` becomes DOUBLE PRECISION; `interval` is a keyword
   (qualify it, `b.interval`); timestamps are ISO text `YYYY-MM-DDTHH:MM:SSZ`.
 - Every per-account query filters `user_id = ?`; advisors see clients only via `can_view`.
+  An advisor's name for a client is `advisor_clients.client_name` (not the client's
+  own Account name). Emails an advisor sends go out from their name via
+  `mailer.sender` (the address stays hello@); approving or declining an advisor
+  goes through `admin.approve_advisor` / `decline_advisor` (they send the email).
 - Account numbers are masked to the last 3 digits (`accounts.mask_number`);
   uploads are never stored (`portfolio.temp_upload`).
 - Never write tag-like text (`<html>`, `<div>`) in comments inside the app's
