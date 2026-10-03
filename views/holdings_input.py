@@ -7,6 +7,8 @@
 # review-and-save step, and the example portfolio.
 # ruff: noqa: F821
 
+import starter_funds
+import ticker_search
 import txn_import
 from portfolio import (PRETEND_SOURCES, current_holdings, prepare_save, remove_account,
                        save_prepared)
@@ -55,10 +57,19 @@ def _manual_rows_init(current_positions, current_cash, current_source=None):
         # keep the pretend total it was made with
         ss["me_vals"]["total"] = round(sum(p.get("market_value") or 0.0 for p in base)
                                + sum(v or 0.0 for v in cash.values()), 2)
+    names = {p.get("symbol"): p.get("description") for p in base}
     for r in holdings:
-        _manual_add_row({**r, "Percent": pct_by.get((r["Account"], r.get("Symbol")))})
+        _manual_add_row({**r, "Percent": pct_by.get((r["Account"], r.get("Symbol"))),
+                         "Name": names.get(r.get("Symbol"))})
     for r in cash_rows:
         _manual_add_cash(r)
+    # names this copy already knows, for the name-or-ticker box when Yahoo's
+    # search is out of reach (ticker_search.resolve's `extra`)
+    conn = connect(DB)
+    try:
+        ss["me_known"] = ticker_search.known(conn, USER_ID)
+    finally:
+        conn.close()
 
 
 def _manual_number(label, name, *, min_value=0.0, **kw):
@@ -78,16 +89,108 @@ def _manual_new_id():
     return st.session_state["me_next"]
 
 
-def _manual_add_row(r=None):
-    r = r or {"Account": _manual_last_account(), "Type": "Other"}
+def _manual_add_row(r=None, *, account=None, keep_review=False):
+    """A row in the form. `r` (prefill, paste, screenshots) gives its
+    symbol - a ticker already, taken as is - and numbers; with none it's an
+    empty row in `account` (else the last row's)."""
+    r = r or {"Account": account or _manual_last_account(), "Type": "Other"}
     i = _manual_new_id()
     st.session_state[f"me_acct_{i}"] = r.get("Account") or manual_entry.DEFAULT_ACCOUNT
     st.session_state[f"me_sym_{i}"] = r.get("Symbol") or ""
+    if r.get("Symbol"):   # from a list: a ticker, not a name to look up
+        st.session_state[f"me_name_{i}"] = {"symbol": str(r["Symbol"]).strip().upper(),
+                                            "name": r.get("Name")}
     st.session_state["me_vals"].update({f"qty_{i}": r.get("Shares"), f"cost_{i}": r.get("Total cost"),
                                         f"pct_{i}": r.get("Percent")})
     st.session_state[f"me_type_{i}"] = r.get("Type") or "Other"
     st.session_state["me_ids"].append(i)
-    st.session_state.pop("me_review", None)
+    if not keep_review:
+        st.session_state.pop("me_review", None)
+
+
+def _manual_add_account(existing):
+    """+ Add another account: a new card, named so no account has it yet."""
+    taken = list(existing) + [_manual_acct(i) for i in st.session_state["me_ids"]]
+    _manual_add_row(account=accounts.suggest_account(None, taken, ACCOUNT_LABELS))
+
+
+def _manual_acct(i, cash=False):
+    """Row (or cash row) i's account."""
+    return (st.session_state.get(f"me_{'c' if cash else ''}acct_{i}") or "").strip() or \
+        manual_entry.DEFAULT_ACCOUNT
+
+
+def _manual_groups():
+    """The accounts in the form, in the order first met - each drawn as its
+    own card. Rows are kept together by account, so "Row 3" in a message
+    is the third one down."""
+    ss = st.session_state
+    order = []
+    for i in ss["me_ids"]:
+        if _manual_acct(i) not in order:
+            order.append(_manual_acct(i))
+    for i in ss["me_cash_ids"]:
+        if ss["me_vals"].get(f"cash_{i}") is not None and _manual_acct(i, True) not in order:
+            order.append(_manual_acct(i, True))
+    ss["me_ids"] = sorted(ss["me_ids"], key=lambda i: order.index(_manual_acct(i)))
+    return order
+
+
+def _manual_rename(old, wkey):
+    """An account card's name changed: its rows and cash move with it."""
+    ss = st.session_state
+    new = (ss.get(wkey) or "").strip()
+    if not new or new == old:
+        return
+    for i in ss["me_ids"]:
+        if _manual_acct(i) == old:
+            ss[f"me_acct_{i}"] = new
+    for i in ss["me_cash_ids"]:
+        if _manual_acct(i, True) == old:
+            ss[f"me_cacct_{i}"] = new
+    ss.pop("me_review", None)
+
+
+def _manual_lookup(i):
+    """What row i's "Stock or fund" box holds (ticker_search.resolve): a
+    ticker taken as is, a name to confirm, or not found. A row filled from
+    a list, or a suggestion already picked, isn't looked up again."""
+    ss = st.session_state
+    text = (ss.get(f"me_sym_{i}") or "").strip()
+    picked = ss.get(f"me_name_{i}")
+    if text and picked and picked["symbol"] == text.upper():
+        return {"status": "ticker", "query": text, "symbol": picked["symbol"],
+                "name": picked.get("name"), "kind": None, "choices": [], "online": True}
+    return ticker_search.resolve(text, extra=ss.get("me_known") or ())
+
+
+def _manual_take(i, choice):
+    """Row i is `choice` ({symbol, name, kind}): the box shows its ticker."""
+    ss = st.session_state
+    ss[f"me_sym_{i}"] = choice["symbol"]
+    ss[f"me_name_{i}"] = {"symbol": choice["symbol"], "name": choice.get("name")}
+    if choice.get("kind") in manual_entry.TYPES:
+        ss[f"me_type_{i}"] = choice["kind"]
+    ss.pop("me_review", None)
+
+
+def _manual_typed(i):
+    """Something new typed in row i's box: an exact ticker is taken at once
+    (upper-cased, its kind noted); a name waits for a pick."""
+    ss = st.session_state
+    ss.pop(f"me_name_{i}", None)
+    ss.pop(f"me_alt_{i}", None)
+    ss.pop("me_review", None)
+    found = _manual_lookup(i)
+    if found["status"] == "ticker":
+        _manual_take(i, found)
+
+
+def _manual_alt(i, choices):
+    sym = st.session_state.get(f"me_alt_{i}")
+    pick = next((c for c in choices if c["symbol"] == sym), None)
+    if pick:
+        _manual_take(i, pick)
 
 
 def _manual_add_cash(r=None):
@@ -174,10 +277,12 @@ def _manual_from_paste(existing):
     ss["me_paste"] = ""  # the pasted text isn't kept, even in this session
     if not found["holdings"]:
         ss["me_paste_msg"] = ("warning", "Couldn't find any holdings in that text. Try copying "
-                              "just the positions table, or type lines like `VTI 10`.")
+                              "just the positions table from your brokerage's site - or add "
+                              "them one by one under **Type them in**.")
         return
-    ss["me_paste_msg"] = _manual_fill(found, acct)
+    ss["me_fill_msg"] = _manual_fill(found, acct)
     ss.pop("me_paste_acct_chosen", None)  # the next paste is asked about afresh
+    ss["me_way"] = WAY_TYPE   # show the rows it filled in
 
 
 def _manual_fill(found, acct):
@@ -240,8 +345,7 @@ def _render_screenshot_reader(existing=()):
     accounts already known)."""
     ss = st.session_state
     msg = ss.pop("me_shot_msg", None)
-    with st.expander(":material/photo_camera: Read from screenshots (uses AI)",
-                     expanded=bool(msg)):
+    with st.container():
         key = _anthropic_key()
         if not key:
             st.caption("Reading screenshots needs the AI, which isn't set up on this site.")
@@ -289,8 +393,9 @@ def _render_screenshot_reader(existing=()):
                 ss["me_shot_msg"] = ("warning", "No holdings could be read from those "
                                      "screenshots. Try cropping closer to the list.")
             else:
-                ss["me_shot_msg"] = _manual_fill(found, shot_acct)
+                ss["me_fill_msg"] = _manual_fill(found, shot_acct)
                 ss.pop("me_shot_acct_chosen", None)  # the next read is asked about afresh
+                ss["me_way_next"] = WAY_TYPE   # show the rows it filled in
             st.rerun(scope="fragment")
 
 
@@ -413,11 +518,117 @@ def _remove_account(account):
         _after_import()
 
 
+# the hand-entry window's ways in, as its tabs (key me_way)
+WAY_TYPE, WAY_PASTE, WAY_SHOTS, WAY_NEW = ("Type them in", "Paste a list from your brokerage",
+                                           "From screenshots", "Not sure yet")
+_MODE_LABELS = {"Shares": "Shares I own", "Percentages": "Just percentages"}
+
+
+def _manual_cash_ids(acct):
+    """The cash rows of an account card - one is made (empty) if it has none."""
+    ss = st.session_state
+    ids = [i for i in ss["me_cash_ids"] if _manual_acct(i, True) == acct]
+    if not ids:
+        i = _manual_new_id()
+        ss[f"me_cacct_{i}"] = acct
+        ss["me_vals"][f"cash_{i}"] = None
+        ss["me_cash_ids"].append(i)
+        ids = [i]
+    return ids
+
+
+def _manual_row(i, pct_mode):
+    """One holding in its own box (on a phone its fields stack, and the box
+    keeps them together): see _manual_row_fields."""
+    with st.container(border=True, key=f"pt_me_hold_{i}"):
+        return _manual_row_fields(i, pct_mode)
+
+
+def _manual_row_fields(i, pct_mode):
+    """One holding: what it is, how many (or its %), what was paid, remove -
+    then, under it, what the box was matched to."""
+    with st.container(horizontal=True, vertical_alignment="bottom", gap="small",
+                      key=f"pt_me_row_{i}"):
+        st.text_input("Stock or fund (name or ticker)", key=f"me_sym_{i}", width=270,
+                      placeholder="e.g. Apple or AAPL", on_change=_manual_typed, args=(i,),
+                      help="Type the company or fund's name, or its ticker - the short code "
+                           "like AAPL. We'll find it; a name is shown for you to confirm.")
+        if pct_mode:
+            _manual_number("% of portfolio", f"pct_{i}", max_value=100.0, step=5.0,
+                           format="%.1f", width=150, placeholder="e.g. 25")
+        else:
+            _manual_number("How many shares", f"qty_{i}", step=1.0, format="%g", width=140,
+                           placeholder="e.g. 10")
+            _manual_number("What you paid in total", f"cost_{i}", step=100.0, format="%.2f",
+                           width=180, placeholder="Optional",
+                           help="Optional: what you paid for all of these shares together, "
+                                "so gains and losses can be shown. Leave it empty if you're "
+                                "not sure.")
+        st.button(":material/close:", key=f"me_del_{i}", type="tertiary",
+                  on_click=_manual_remove, args=("me_ids", i), help="Remove this one")
+    found = _manual_lookup(i)
+    status = found["status"]
+    if status == "ticker" and found.get("name"):
+        st.caption(f":green[:material/check:] {found['name']} ({found['symbol']})"
+                   .replace("$", r"\$"))
+    elif status == "suggest":
+        best, others = found["choices"][0], found["choices"][1:]
+        with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                          key=f"pt_me_pick_{i}"):
+            st.markdown(f"Did you mean **{ticker_search.label(best)}**?".replace("$", r"\$"),
+                        width="content")
+            st.button("Yes", key=f"me_yes_{i}", on_click=_manual_take, args=(i, best),
+                      icon=":material/check:")
+            if others:
+                st.selectbox("Or pick another", [c["symbol"] for c in others], index=None,
+                             key=f"me_alt_{i}", label_visibility="collapsed",
+                             placeholder="Or pick another...", width=280,
+                             format_func=lambda s, o=others: ticker_search.label(
+                                 next(c for c in o if c["symbol"] == s)),
+                             on_change=_manual_alt, args=(i, others))
+    elif status == "unknown":
+        st.caption(":material/help: " + (
+            f"We couldn't find **{found['symbol']}** by name, so it's taken as a ticker - "
+            "its price is checked when you review." if found["online"] else
+            f"We'll check **{found['symbol']}** when you review. If it's a company's name "
+            "rather than its ticker, try the ticker - the short code, like AAPL for Apple."))
+    elif status == "none":
+        st.caption(f":orange[:material/search_off:] Couldn't find \"{found['query']}\". "
+                   "Check the spelling, or type its ticker - the short code, like AAPL for "
+                   "Apple.")
+    return found
+
+
+def _manual_name_errors(found_by_row):
+    """[(row number, message)] for boxes that still need a pick or weren't found."""
+    out = []
+    for n, f in found_by_row:
+        if f["status"] == "suggest":
+            out.append((n, f"Row {n}: choose which \"{f['query']}\" you mean - tap **Yes** "
+                           "under it, or pick another."))
+        elif f["status"] == "none":
+            out.append((n, f"Row {n}: couldn't find \"{f['query']}\" - check the spelling, "
+                           "or type its ticker."))
+    return out
+
+
+def _starter_horizon():
+    """Years to the goal date (the plan's), else None: the profile's time
+    horizon is used then (learn.starter_mix)."""
+    plan = load_plan()
+    today = datetime.now().date()
+    if plans.has_goal(plan) and plans.months_until(plan["target_date"], today) > 0:
+        return plans.months_until(plan["target_date"], today) / 12
+    return None
+
+
 @st.dialog("Add or update holdings", width="large", on_dismiss=_dialog_closed)
 def _manual_dialog(current_positions, current_cash, current_source=None):
     """Type in holdings (no file needed); saved as today's snapshot, like an import.
     Shares mode records real holdings; Percentages mode records only each
-    holding's share of a pretend total."""
+    holding's share of a pretend total. Tabs: type them in (one row per
+    holding), paste a list, read screenshots, or - nothing bought yet - the
+    example-funds card (starter_funds.py)."""
     st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
     _manual_rows_init(current_positions, current_cash, current_source)
     ss = st.session_state
@@ -425,54 +636,88 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     saved_accts = sorted({r["account"] for r in saved_rows} | set(saved_cash))
     existing = _manual_accounts(saved_accts)
     st.caption(":material/lock: " + TRUST_LINE)
-    _empty = not any((ss.get(f"me_sym_{i}") or "").strip() for i in ss["me_ids"])
-    with st.expander(":material/content_paste: Paste from your brokerage",
-                     expanded=_empty or bool(ss.get("me_paste_msg"))):
-        st.caption("On your brokerage's website, select your positions table, copy it, and "
-                   "paste it here. The app reads it itself - no AI - and keeps only symbols, "
-                   "share counts and cost. The pasted text isn't saved.")
-        st.text_area("Pasted positions", key="me_paste", height=120,
+    if ss.get("me_way_next"):   # a screenshot read just filled the rows: show them
+        ss["me_way"] = ss.pop("me_way_next")
+    t_type, t_paste, t_shots, t_new = st.tabs([WAY_TYPE, WAY_PASTE, WAY_SHOTS, WAY_NEW],
+                                              key="me_way", on_change="rerun")
+    with t_paste:
+        st.caption("Good for a long list. On your brokerage's website, select your positions "
+                   "table, copy it, and paste it here. The app reads it itself - no AI - and "
+                   "keeps only symbols, share counts and cost. The pasted text isn't saved.")
+        st.text_area("Pasted positions", key="me_paste", height=140,
                      label_visibility="collapsed",
-                     placeholder="VTI   10\nBND   25\n...or paste a whole table")
+                     placeholder="Paste the positions table copied from your brokerage's site")
         _account_choice("Which account are these from?", "me_paste_acct", existing,
                         _paste_account(ss.get("me_paste") or "", existing),
                         help="Choose one of your accounts to update it, or type a new name to "
                              "add one - one per brokerage account. Your other accounts stay as "
                              "they are.")
-        st.button("Fill in from pasted text", key="me_paste_btn", on_click=_manual_from_paste,
-                  args=(existing,))
+        st.button("Fill in from pasted text", key="me_paste_btn", type="primary",
+                  on_click=_manual_from_paste, args=(existing,))
         _pm = ss.pop("me_paste_msg", None)
         if _pm:
             getattr(st, _pm[0])(_pm[1])
-    _render_screenshot_reader(existing)
-    st.segmented_control("How to enter them", ["Shares", "Percentages"], key="me_mode",
-                         required=True, on_change=lambda: ss.pop("me_review", None))
+    with t_shots:
+        _render_screenshot_reader(existing)
+    with t_new:
+        starter_funds.render(_profile(), _starter_horizon(), db=DB, user_id=USER_ID,
+                             key="me_starter")
+        st.caption("When you do buy something, come back here and add it under "
+                   f"**{WAY_TYPE}**.")
+    with t_type:
+        _manual_type_tab(current_positions, current_source, saved_rows, saved_cash, existing)
+
+
+def _manual_type_tab(current_positions, current_source, saved_rows, saved_cash, existing):
+    """The rows - one card per account - then look up prices, review, save."""
+    ss = st.session_state
+    _fm = ss.pop("me_fill_msg", None)   # what a paste or screenshots just filled in
+    if _fm:
+        getattr(st, _fm[0])(_fm[1])
+    if not ss["me_ids"] and not any(ss["me_vals"].get(f"cash_{i}") is not None
+                                    for i in ss["me_cash_ids"]):
+        _manual_add_row(account=existing[0] if existing else None, keep_review=True)
+    st.segmented_control("How to enter them", list(_MODE_LABELS), key="me_mode",
+                         required=True, format_func=_MODE_LABELS.get,
+                         on_change=lambda: ss.pop("me_review", None))
     pct_mode = ss.get("me_mode") == "Percentages"
     if pct_mode:
         st.caption("No real amounts: give each holding's share of the portfolio, and the app "
                    "works with a pretend total. Allocation, the stock / bond mix, risk and "
                    "projections all work; gains are tracked from today.")
     else:
-        st.caption("For any brokerage, or no file at all. Add each holding - its value comes "
-                   "from today's price. Saving records today's snapshot; to update later, "
-                   "open this again and change what's different.")
-    types = list(manual_entry.TYPES)
-    for i in list(ss["me_ids"]):
-        with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
-            st.text_input("Account", key=f"me_acct_{i}", width=150)
-            st.text_input("Symbol", key=f"me_sym_{i}", width=100, placeholder="VTI")
-            if pct_mode:
-                _manual_number("% of portfolio", f"pct_{i}", max_value=100.0, step=5.0,
-                               format="%.1f", width=150)
-            else:
-                _manual_number("Shares", f"qty_{i}", step=1.0, format="%.4f", width=130)
-                _manual_number("Total cost", f"cost_{i}", step=100.0, format="%.2f", width=140,
-                               help="What you paid in total (optional) - for gain and loss.")
-            st.selectbox("Type", types, key=f"me_type_{i}", width=130)
-            st.button(":material/close:", key=f"me_del_{i}", type="tertiary",
-                      on_click=_manual_remove, args=("me_ids", i), help="Remove this row")
-    st.button(":material/add: Add another holding", key="me_add", type="tertiary",
-              on_click=_manual_add_row)
+        st.caption("Add each stock or fund you own: its name or ticker, and how many shares. "
+                   "Its value comes from today's price, and nothing is saved until you've "
+                   "checked it. To update later, open this again and change what's different.")
+    empty = not any((ss.get(f"me_sym_{i}") or "").strip() for i in ss["me_ids"])
+    if empty and not saved_rows and not saved_cash:
+        st.button("I haven't bought anything yet - not sure what to start with",
+                  key="me_go_new", type="tertiary", icon=":material/explore:",
+                  on_click=lambda: ss.__setitem__("me_way", WAY_NEW))
+    groups = _manual_groups()
+    found_by_row, n = [], 0
+    for g, acct in enumerate(groups):
+        ids = [i for i in ss["me_ids"] if _manual_acct(i) == acct]
+        cash_ids = [] if pct_mode else _manual_cash_ids(acct)
+        first = (ids or cash_ids or [g])[0]
+        with st.container(border=True, key=f"pt_me_acct_{first}"):
+            wkey = f"me_gname_{first}"
+            ss[wkey] = acct
+            st.text_input("Account", key=wkey, width=270, on_change=_manual_rename,
+                          args=(acct, wkey),
+                          help="Any name you like - the brokerage's, say. One card per "
+                               "account; your other saved accounts stay as they are.")
+            for i in ids:
+                n += 1
+                found_by_row.append((n, _manual_row(i, pct_mode)))
+            st.button(":material/add: Add another", key="me_add" if g == 0 else f"me_add_{g}",
+                      on_click=_manual_add_row, kwargs={"account": acct})
+            for i in cash_ids:
+                with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
+                    _manual_number("Cash in this account (optional)", f"cash_{i}", step=100.0,
+                                   format="%.2f", width=270, placeholder="Optional")
+    st.button(":material/add_card: Add another account", key="me_add_acct", type="tertiary",
+              on_click=_manual_add_account, args=(existing,))
     if pct_mode:
         with st.container(horizontal=True, gap="small"):
             _manual_number("Cash %", "cash_pct", max_value=100.0, step=5.0, format="%.1f",
@@ -480,16 +725,6 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
             _manual_number("Pretend total", "total", min_value=1.0, step=1000.0, format="%.0f",
                            width=180, help="Any amount - it only sets the scale of the numbers "
                                            "shown.")
-    else:
-        st.markdown("**Cash** (optional)")
-        for i in list(ss["me_cash_ids"]):
-            with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
-                st.text_input("Account", key=f"me_cacct_{i}", width=150)
-                _manual_number("Cash", f"cash_{i}", step=100.0, format="%.2f", width=160)
-                st.button(":material/close:", key=f"me_cdel_{i}", type="tertiary",
-                          on_click=_manual_remove, args=("me_cash_ids", i), help="Remove")
-        st.button(":material/add: Add cash for another account", key="me_add_cash",
-                  type="tertiary", on_click=_manual_add_cash)
 
     holdings, cash_rows = _manual_form_rows()
     if pct_mode:
@@ -497,6 +732,11 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
             holdings, ss["me_vals"].get("cash_pct"), ss["me_vals"].get("total"))
     else:
         clean, cash, errors = manual_entry.validate(holdings, cash_rows)
+    # a name still to confirm, or not found: say so instead of "not a ticker"
+    name_errors = _manual_name_errors(found_by_row)
+    pending = {k for k, _ in name_errors}
+    errors = [m for _, m in name_errors] + [
+        e for e in errors if not any(e.startswith((f"Row {k}:", f"Row {k} (")) for k in pending)]
     if st.button("Look up prices and review", type="primary", key="me_review_btn"):
         same = set()
         if not errors and not pct_mode and current_source not in PRETEND_SOURCES:
@@ -514,6 +754,10 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
                     "or paste or add another account, then review again.")
         else:
             known = {p["symbol"]: p.get("description") for p in current_positions}
+            for i in ss["me_ids"]:   # the names picked in the form
+                picked = ss.get(f"me_name_{i}") or {}
+                if picked.get("name"):
+                    known[picked["symbol"]] = picked["name"]
             with st.spinner("Looking up prices..."):
                 found = manual_entry.lookup(
                     [h["symbol"] for h in clean],

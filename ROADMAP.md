@@ -829,6 +829,15 @@ phone-only beginner). What they found, fixed in this order:
       (`learn.suggestions`), never called a recommendation. The kit says
       what each piece is for and exactly how it's earned. Fixed on the way:
       the assumed-return slider could save 2% while saying 6%.
+- [x] **Typing holdings in** - separate boxes per holding ("Stock or fund
+      (name or ticker)", "How many shares", "What you paid in total") with
+      "+ Add another"; a name is matched and confirmed ("Did you mean Apple
+      Inc. (AAPL)?") via Yahoo's search with a local fallback
+      (`ticker_search.py`), never silently guessed. Paste and screenshots are
+      their own tabs. "Not sure yet" shows the example-funds card
+      (`starter_funds.py`): their mix's parts, each with broad index funds
+      from three providers - "examples to learn from, not recommendations" -
+      to watch or try with practice money.
 - [ ] **Next, from the walkthroughs:** website hooks (a "New to investing?"
       line, an "Already investing?" section, a phone menu; growth, fee and
       inflation calculators; the direction quiz before sign-up); advisor
