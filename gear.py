@@ -41,7 +41,7 @@ GEAR = (
      ('<circle cx="12" cy="12" r="4"/>', '<circle cx="12" cy="12" r="8"/>',
       '<path d="M12 4V3"/>', '<path d="M12 21v-1"/>')),
     ("boots", "Boots", "On the trail: your own holdings are in",
-     "Bring in your holdings from your brokerage.", "The summit",
+     "Bring in your holdings from your brokerage.", "On the trail",
      ('<path d="M7 3h5v9l6 3a2 2 0 0 1 1 1.7V19H5V3z"/>', '<path d="M5 15h14"/>')),
     ("lantern", "Lantern", "A steady pace: money added three months running",
      "Log money you add on Plan - any amount, three months in a row.", None,

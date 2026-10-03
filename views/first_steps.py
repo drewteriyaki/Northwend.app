@@ -132,8 +132,11 @@ def _fs_finish(then=None):
         st.session_state["page"] = "Dashboard"   # straight to seeing it
     elif then in ("manual", "import"):
         _open_holdings_dialog(then)
-    elif then == "account":
-        st.session_state["gs_at"] = "account"   # Learn, open at "Open an account"
+    elif then == "route":
+        # Learn, open where their route starts: Learn for someone new,
+        # Start investing (Choose a brokerage) for someone with experience
+        st.session_state.pop("gs_at", None)
+        st.session_state.pop("gs_goal_part", None)
         st.session_state["page"] = "Get started"
 
 
@@ -223,14 +226,16 @@ def _fs_screen_direction(profile):
 
 
 def _fs_screen_bring(profile):
-    if (profile.get("experience") or "").lower() == "new":
+    if route.learn_first(profile.get("experience"), False):
         # new to investing: most people here don't have an account yet, so
-        # that's the first way on; bringing one in is still a tap away
+        # their route is the first way on - Learn, then Start investing;
+        # bringing one in is still a tap away
         st.markdown("Last step. Most people new to investing don't have an account yet - "
-                    f"{_label('Get started')} walks you through opening one, one tick at a "
-                    "time, and what a first buy looks like.")
+                    "that's fine. Your route starts with **Learn**: the basics, one short step "
+                    "at a time. Then **Start investing** walks you through choosing a "
+                    "brokerage, opening an account and what a first buy looks like.")
         st.button(":material/route: I don't have an account yet - show me how",
-                  key="fs_no_account", type="primary", on_click=_fs_finish, args=("account",))
+                  key="fs_no_account", type="primary", on_click=_fs_finish, args=("route",))
         st.caption("Already have one? Bring it in from **any brokerage** - or look around with "
                    "an example portfolio first.")
         with st.container(horizontal=True):
@@ -251,7 +256,9 @@ def _fs_screen_bring(profile):
         st.button(":material/science: Try an example", key="fs_example",
                   on_click=_fs_finish, args=("example",))
     st.button(":material/route: I don't have an account yet - show me how", key="fs_no_account",
-              type="tertiary", on_click=_fs_finish, args=("account",))
+              type="tertiary", on_click=_fs_finish, args=("route",),
+              help="Start investing walks you through choosing a brokerage, opening an account "
+                   "and a first buy. Learn's basics stay there if you'd like them.")
 
 
 def render_first_steps(has_holdings):

@@ -845,6 +845,15 @@ phone-only beginner). What they found, fixed in this order:
       its own address). Account, About, Admin and Log out are in the name
       menu at the right; Add holdings sits beside it. Advisors: Clients,
       Portfolio, Plan, Notes, Money, Ask.
+- [x] **Learn, then Start investing** - the route has two stages. Learn (the
+      six steps) is required only for the brand new; anyone with some
+      experience or their own holdings starts on Start investing, with Learn
+      marked optional. Start investing: Choose a brokerage (what to compare,
+      then well-known brokerages alphabetically, names and links only - "not
+      paid by any of them, doesn't rank them"), Open your account, Your first
+      investments (the example-funds card under "Not sure what to start
+      with?"), Bring it in. A managed client's Start investing is just Bring
+      it in, with their advisor. Old account-checklist ticks carry over.
 - [ ] **Next, from the walkthroughs:** website hooks (a "New to investing?"
       line, an "Already investing?" section, a phone menu; growth, fee and
       inflation calculators; the direction quiz before sign-up); advisor

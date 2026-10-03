@@ -40,7 +40,7 @@ northwend-weekly-email = "cli:weekly_email"
 [tool.setuptools]
 py-modules = [
     "accounts", "admin", "advising", "advisor", "ai_usage", "alerts", "allocation",
-    "asset_classes", "auth", "changes", "charts", "cli", "client_plan", "codefresh",
+    "asset_classes", "auth", "brokerages", "changes", "charts", "cli", "client_plan", "codefresh",
     "csv_import", "dashboard", "disclosures", "error_alerts", "export", "fees",
     "friendly_errors", "gear", "hosting", "income", "learn", "live_prices", "mailer",
     "manage_users", "manual_entry", "meeting", "metrics", "news", "overview",

@@ -142,7 +142,9 @@ class BeginnerPathTests(unittest.TestCase):
             # Your route and the next step, not an import form
             self.assertIn("route_go", keys)
             self.assertIn("Your route", self._html(at))
-            self.assertIn("Next: Waypoint", self._md(at))
+            # new to investing: the route starts in Learn, and says so
+            self.assertIn("You're in <b>Learn · step 2 of 6</b>", self._html(at))
+            self.assertIn("Next: Are you ready to invest?", self._md(at))
             # calm ways to look around, or bring in what they own
             for k in ("start_practice", "start_example", "start_bring"):
                 self.assertIn(k, keys)
@@ -179,20 +181,25 @@ class BeginnerPathTests(unittest.TestCase):
             self.assertNotIn("start_practice", self._keys(at))
 
     # ---- the example portfolio isn't an opened account ---------------------- #
-    def test_example_portfolio_does_not_reach_waypoint_7(self):
+    def test_example_portfolio_is_not_an_opened_account(self):
         with self._run(self.ezra, "ezra", "Get started", gs_at="account") as at:
-            keys = self._keys(at)
-            self.assertIn("gs_opened", keys)          # "I've opened an account"
-            self.assertNotIn("gs_open_dash", keys)    # (the reached state)
-            # ticking it turns the main button into "Bring it in" (the paste window)
-            at.button(key="gs_opened").click().run()
-            self.assertIn("gs_import", self._keys(at))
-            self.assertTrue(at.checkbox(key="gs_acct_opened").value)
+            # Open your account: its two ticks complete it, saved as they're ticked
+            self.assertTrue(at.button(key="gs_complete").disabled)
+            at.checkbox(key="gs_acct_opened").check().run()
+            at.checkbox(key="gs_acct_funded").check().run()
+            self.assertFalse(at.button(key="gs_complete").disabled)
+            at.button(key="gs_complete").click().run()
+            self.assertEqual(at.session_state["gs_at"], "first")
         c = portfolio.connect(self.db)
         try:
-            self.assertEqual(prefs.load(c, self.ezra)["account_steps"], ["chosen", "opened"])
+            self.assertEqual(prefs.load(c, self.ezra)["account_steps"], ["opened", "funded"])
         finally:
             c.close()
+        with self._run(self.ezra, "ezra", "Get started", gs_at="bring") as at:
+            keys = self._keys(at)
+            self.assertNotIn("gs_open_dash", keys)    # (the reached state)
+            self.assertIn("gs_import", keys)          # Bring it in: the paste window
+            self.assertIn("Start investing · step 4 of 4 · 2 complete", self._html(at))
 
     def test_learn_keeps_its_place_with_only_the_example(self):
         with self._run(self.ezra, "ezra", None) as at:
@@ -219,7 +226,7 @@ class BeginnerPathTests(unittest.TestCase):
         self.assertEqual(row["goal_type"], "Build long-term wealth")
         self.assertEqual(row["target_amount"], 20000.0)
 
-    def test_new_investor_is_led_to_opening_an_account(self):
+    def test_new_investor_is_led_into_learn(self):
         c = portfolio.connect(self.db)
         try:
             prefs.save(c, self.gina, {"first_steps": {"step": 7}})   # the last screen
@@ -229,9 +236,11 @@ class BeginnerPathTests(unittest.TestCase):
             self.assertEqual(at.button(key="fs_no_account").proto.type, "primary")
             self.assertNotEqual(at.button(key="fs_manual").proto.type, "primary")
             at.button(key="fs_no_account").click().run()
+            # their route starts in Learn, at its first step not complete
             self.assertEqual(at.session_state["page"], "Get started")
-            self.assertEqual(at.session_state["gs_at"], "account")
-            self.assertIn("gs_opened", self._keys(at))
+            self.assertEqual(at.session_state["gs_at"], "ready")
+            self.assertEqual(at.session_state["gs_stage"], "learn")
+            self.assertIn("Learn · step 2 of 6", self._html(at))
 
     # ---- Plan with nothing invested ------------------------------------------- #
     def test_plan_with_nothing_invested_is_starting_out(self):
@@ -297,7 +306,7 @@ class BeginnerPathTests(unittest.TestCase):
             self.assertEqual(at.button(key="gs_complete").proto.type, "primary")
             for gone in ("done_basics", "undone_basics", "gs_next"):
                 self.assertNotIn(gone, keys)
-            self.assertIn("Step 4 of 7", self._html(at))
+            self.assertIn("Learn · step 4 of 6", self._html(at))
             self.assertIn("progressbar", self._html(at))   # the bar, for screen readers too
             # Skip for now: on to An example mix, basics still open
             at.button(key="gs_skip").click().run()
@@ -307,7 +316,7 @@ class BeginnerPathTests(unittest.TestCase):
             at.button(key="gs_complete").click().run()
             self.assertEqual(self._prefs(self.olga)["get_started_done"], ["mix"])
             self.assertEqual(at.session_state["gs_at"], "practice")
-            self.assertIn("Step 6 of 7 · 4 complete", self._html(at))
+            self.assertIn("Learn · step 6 of 6 · 4 complete", self._html(at))
             # Back is there, small
             self.assertEqual(at.button(key="gs_prev").proto.type, "tertiary")
 
@@ -359,9 +368,9 @@ class BeginnerPathTests(unittest.TestCase):
         # olga's compass was shown: Set a goal stays complete. walt's wasn't:
         # its parts open at the monthly amount (the goal itself is there)
         with self._run(self.olga, "olga", "Get started", gs_at="goal") as at:
-            self.assertIn("Step 3 of 7 · 3 complete", self._html(at))
+            self.assertIn("Learn · step 3 of 6 · 3 complete", self._html(at))
         with self._run(self.walt, "walt", "Get started", gs_at="goal") as at:
-            self.assertIn("Step 3 of 7 · 2 complete", self._html(at))
+            self.assertIn("Learn · step 3 of 6 · 2 complete", self._html(at))
             self.assertIn("Part 2 of 4", " ".join(c.value for c in at.caption))
             self.assertIn("gs_goal_save", self._keys(at))
 
@@ -401,7 +410,7 @@ class BeginnerPathTests(unittest.TestCase):
         with self._run(self.carol, "carol", "Get started", active_user_id=self.dana,
                        two_step_ok=self.carol_ok) as at:
             self.assertIn("gs_complete", self._keys(at))
-            self.assertIn("Step 1 of 7", self._html(at))
+            self.assertIn("Learn · step 1 of 6", self._html(at))
         # the client herself: her advisor sets the goal - no goal form, no
         # Complete until it's set, and Skip for now to move on
         with self._run(self.dana, "dana", "Get started", gs_at="goal", fs_hide=True) as at:

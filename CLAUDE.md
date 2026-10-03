@@ -64,8 +64,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Admin portal: logins only, never holdings; admins made only from outside the app: `manage_users.py make-admin` or the
   `NORTHWEND_ADMINS` secret (a list of logins); its System panel shows the copy's
   version, database, email and keys (set or not, never values); a new table with account data must be added to
-  `admin.ACCOUNT_TABLES` - a test checks), `route.py` (the investor home's
-  next step), `proposals.py` (advisor proposals, `views/proposals.py`),
+  `admin.ACCOUNT_TABLES` - a test checks), `route.py` (the route's two stages, Learn - only
+  required for the brand new - and Start investing; the investor home's next step),
+  `brokerages.py` (Choose a brokerage: names and links only, alphabetical, never a fee
+  or a ranking), `proposals.py` (advisor proposals, `views/proposals.py`),
   `gear.py` + `views/kit.py` (milestones and gear: learning and habits only;
   storms.py, the storm note on Home, is drawn there too),
   `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client

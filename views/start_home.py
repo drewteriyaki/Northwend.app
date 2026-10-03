@@ -21,8 +21,11 @@ START_WAYPOINT_LINES = {
     "mix": "What a mix could look like for someone with your answers - an example, not a "
            "recommendation.",
     "practice": "See how a mix would have done with real past prices - no real money.",
-    "account": "When you're ready: picking a brokerage, opening the account and what a first "
-               "buy looks like.",
+    "brokerage": "What to compare, and some well-known brokerages side by side - none of "
+                 "them ranked.",
+    "account": "Opening it online, usually in one sitting, and moving some money in.",
+    "first": "What a first buy looks like, and the kinds of funds many people start with.",
+    "bring": "Bring in what you own from any brokerage, so your plan follows the real thing.",
 }
 START_ASK = "I'm new to investing. What should I do before I invest, and in what order?"
 
@@ -38,9 +41,12 @@ def _start_words(step):
     if k == "profile":
         return ("Tell us a little about you", START_WAYPOINT_LINES["profile"],
                 "Answer the questions", ("learn", "profile"))
-    if k == "learn":
-        return (f"Waypoint {step['number']}: {step['title']}",
-                START_WAYPOINT_LINES.get(step["step"], ""), "Continue", ("learn", step["step"]))
+    if k == "learn" and step["step"] == "bring" and CAN_IMPORT:   # straight to the window
+        return (step["title"], START_WAYPOINT_LINES["bring"], "Add holdings",
+                ("dialog", "manual"))
+    if k == "learn":   # the stage and step are in the line above ("You're in ...")
+        return (step["title"], START_WAYPOINT_LINES.get(step["step"], ""), "Continue",
+                ("learn", step["step"]))
     return ("Bring in what you own", "Paste it from any brokerage, type it in, or use "
             "percentages only.", "Add holdings", ("dialog", "manual"))
 
@@ -71,7 +77,7 @@ def _render_start_home():
     st.session_state["gs_has_holdings"] = False   # what Your direction's window reads
     state = _route_state(False)
     plan, profile = state["plan"], state["profile"]
-    waypoints = [(k, t, state["done"][k]) for k, t in GET_STARTED_STEPS]
+    waypoints = state["waypoints"]   # their route: Learn first only if they're new
     has_goal = plans.has_goal(plan)
     gp = _goal_progress(plan, 0.0) if has_goal else None
     monthly = float((plan or {}).get("monthly_contribution") or 0.0)
@@ -96,12 +102,10 @@ def _render_start_home():
                      f"{_fmt_month(plan['target_date'])}"
                      + (f" · about {fmt_money0(need)} a month gets you there"
                         if need and gp["status"] == "starting" else "") + "</div>")
-        here, nxt = route.region(waypoints)
         n_done = sum(1 for _, _, d in waypoints if d)
         head += route.trail_html(route.dots(waypoints, False),
                                  f"{n_done} of {len(waypoints)} waypoints reached, then your goal")
-        head += (f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
-                 + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
+        head += _where_html(state)   # "You're in Learn · step 3 of 6 · ..." (get_started.py)
         st.html(head)
         with st.container(horizontal=True, vertical_alignment="center"):
             # "$" escaped: a pair of them would be read as a math formula

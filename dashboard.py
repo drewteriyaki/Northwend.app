@@ -2439,7 +2439,7 @@ def _expedition_eyebrow():
     """The map plate above an investor's Home and Get started title: where
     they are on the route (route.region) - "Learner's ridge · your expedition"."""
     state = _route_state(HAS_HOLDINGS)
-    waypoints = [(k, t, state["done"][k]) for k, t in GET_STARTED_STEPS]
+    waypoints = state["waypoints"]   # their route (views/get_started.py)
     here, _next = route.region(waypoints)
     if PAGE == "Get started":
         n = sum(d for _, _, d in waypoints)

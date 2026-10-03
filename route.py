@@ -18,11 +18,13 @@ def next_step(*, has_goal: bool, can_manage: bool, profile_missing: bool,
               waypoints: list[tuple[str, str, bool]], starting: bool = False) -> dict:
     """The single next step, as {"key", ...details}. In order:
 
+    (`starting` with nothing brought in, someone who isn't investing yet:
+    their next waypoint - "learn" - straight away, since setting a goal and
+    bringing holdings in are waypoints of their own; "goal_wait" first for
+    an advisor-managed client with no goal yet)
     goal       - no goal yet (or "goal_wait": an advisor-managed client)
     profile    - the few questions about you are unanswered
-    holdings   - nothing brought in yet (`starting`, someone who isn't
-                 investing yet: their next Get started waypoint instead -
-                 the last one is opening an account and bringing it in)
+    holdings   - nothing brought in yet
     monthly    - a goal but no monthly amount
     gap        - behind (or only within reach): what monthly amount closes it
     drift      - the mix is past its drift limit from the target
@@ -32,17 +34,23 @@ def next_step(*, has_goal: bool, can_manage: bool, profile_missing: bool,
     steady     - on track; keep going
 
     `goal` is plans.progress() output; `drift` is [(class, actual %, target
-    %, delta pts)] past the limit, biggest first; `waypoints` is Get
-    started's [(key, title, done)] in order."""
+    %, delta pts)] past the limit, biggest first; `waypoints` is this
+    person's route, [(key, title, done)] in order (route_keys())."""
+    if starting and not has_holdings:
+        # not investing yet: the route itself is the next step - Set a goal
+        # is one of Learn's waypoints, and someone who skips Learn goes
+        # straight to Start investing (`waypoints` is their own route)
+        if not has_goal and not can_manage:
+            return {"key": "goal_wait"}
+        for i, (key, title, done) in enumerate(waypoints, start=1):
+            if not done:
+                return {"key": "learn", "number": i, "step": key, "title": title}
+        return {"key": "holdings"}
     if not has_goal:
         return {"key": "goal" if can_manage else "goal_wait"}
     if profile_missing and can_manage:
         return {"key": "profile"}
     if not has_holdings:
-        if starting:
-            for i, (key, title, done) in enumerate(waypoints, start=1):
-                if not done:
-                    return {"key": "learn", "number": i, "step": key, "title": title}
         return {"key": "holdings"}
     status = (goal or {}).get("status")
     if status == "reached":
@@ -93,16 +101,86 @@ def drifted(actual_pct: dict[str, float], targets: dict[str, float],
     return sorted(rows, key=lambda r: abs(r[3]), reverse=True)
 
 
+# ---- the two stages: Learn, then Start investing ---------------------------- #
+# Learn is for someone brand new (education first); Start investing gets
+# everyone onto their own investing path - a brokerage, the account, a first
+# buy and bringing it in. The waypoint keys are views/get_started.py's
+# GET_STARTED_STEPS.
+LEARN = "learn"
+INVEST = "invest"
+STAGE_NAMES = {LEARN: "Learn", INVEST: "Start investing"}
+STAGE_KEYS = {
+    LEARN: ("profile", "ready", "goal", "basics", "mix", "practice"),
+    INVEST: ("brokerage", "account", "first", "bring"),
+}
+# an advisor-managed client: choosing the brokerage, opening the account and
+# the first investments are their advisor's, so Start investing is the one
+# waypoint - their holdings brought in
+MANAGED_INVEST_KEYS = ("bring",)
+EXPERIENCED = ("some", "experienced")   # advisor.EXPERIENCE_LEVELS past "new"
+
+
+def stage_of(key: str) -> str:
+    """The stage a waypoint belongs to."""
+    return LEARN if key in STAGE_KEYS[LEARN] else INVEST
+
+
+def learn_first(experience: str | None, has_real_holdings: bool) -> bool:
+    """Learn is part of this person's route (not optional): someone new to
+    investing - "New", or not answered yet - who hasn't brought in holdings
+    of their own. Someone with experience, or already investing, starts at
+    Start investing (or Home); Learn stays open to them, marked optional."""
+    if has_real_holdings:
+        return False
+    return (experience or "").strip().lower() not in EXPERIENCED
+
+
+def stage_keys(stage: str, managed: bool = False) -> tuple[str, ...]:
+    """A stage's waypoints for this account, in order."""
+    if stage == INVEST and managed:
+        return MANAGED_INVEST_KEYS
+    return STAGE_KEYS[stage]
+
+
+def route_keys(learn_required: bool, managed: bool = False) -> tuple[str, ...]:
+    """The waypoints on this person's route, in order: Learn's (when it's
+    theirs - learn_first()) and then Start investing's."""
+    return (STAGE_KEYS[LEARN] if learn_required else ()) + stage_keys(INVEST, managed)
+
+
+def opening(route: list[str], shown: list[str], done: dict[str, bool]) -> str:
+    """Where the route opens: their first waypoint not complete; with their
+    route all walked, the first not complete of the rest shown (optional
+    Learn); else the last one."""
+    return next((k for k in route if not done[k]),
+                next((k for k in shown if not done[k]), (route or shown)[-1]))
+
+
+def stage_position(key: str, managed: bool = False) -> tuple[str, int, int]:
+    """(stage name, the waypoint's number in its stage, the stage's length):
+    ("Learn", 3, 6) - for "Learn · step 3 of 6"."""
+    stage = stage_of(key)
+    keys = stage_keys(stage, managed)
+    return STAGE_NAMES[stage], keys.index(key) + 1, len(keys)
+
+
+def stage_words(key: str, managed: bool = False) -> str:
+    """'Learn · step 3 of 6' / 'Start investing · step 1 of 4'."""
+    name, n, m = stage_position(key, managed)
+    return f"{name} · step {n} of {m}"
+
+
 # ---- the expedition (ROADMAP T1): regions and the trail ---------------------- #
-# Stretches of the Get started route, by waypoint key (the design system's
-# "The expedition"): where you are is the region of your first waypoint not
-# yet reached.
+# Stretches of the route, by waypoint key (the design system's "The
+# expedition"): where you are is the region of your first waypoint not yet
+# reached. Learn's four regions, then Start investing's two.
 REGIONS = (
     ("Base camp", ("profile",)),
     ("The foothills", ("ready", "goal")),
     ("Learner's ridge", ("basics", "mix")),
     ("The practice range", ("practice",)),
-    ("The summit", ("account",)),
+    ("The trailhead", ("brokerage", "account")),
+    ("On the trail", ("first", "bring")),
 )
 
 

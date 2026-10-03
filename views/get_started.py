@@ -14,6 +14,10 @@ _READY_ICON = {
     learn.STOP: (":red[:material/cancel:]", "Start here"),
     learn.UNKNOWN: (":gray[:material/help:]", "Not answered"),
 }
+# Every waypoint, in two stages (route.STAGE_KEYS): Learn - education first,
+# for someone brand new - then Start investing, onto their own investing
+# path. Who walks which is route.learn_first(); an advisor-managed client's
+# Start investing is the last one only (route.MANAGED_INVEST_KEYS).
 GET_STARTED_STEPS = (
     ("profile", "About you"),
     ("ready", "Are you ready to invest?"),
@@ -21,7 +25,10 @@ GET_STARTED_STEPS = (
     ("basics", "Learn the basics"),
     ("mix", "An example mix"),
     ("practice", "Try it with practice money"),
-    ("account", "Open an account and bring it in"),
+    ("brokerage", "Choose a brokerage"),
+    ("account", "Open your account"),
+    ("first", "Your first investments"),
+    ("bring", "Bring it in"),
 )
 # each waypoint opens with one plain line: why it matters, and what you'll do
 WAYPOINT_WHY = {
@@ -36,8 +43,14 @@ WAYPOINT_WHY = {
            "with your answers.",
     "practice": "So you can feel the ups and downs before using real money - try a mix on "
                 "real past prices.",
-    "account": "So your own investing can begin - open an account, then bring it in here to "
-               "follow it.",
+    "brokerage": "So your money has a good home - what to compare, and some well-known "
+                 "brokerages to look at side by side.",
+    "account": "So you're ready to invest - open the account online, usually in one sitting, "
+               "and move some money in.",
+    "first": "So your first buy feels simple, not scary - what it looks like, and the kinds "
+             "of funds many people start with.",
+    "bring": "So you can follow your own investments here - your plan and your goal then "
+             "track the real thing.",
 }
 # "Set a goal" in short parts, each with its own Complete button (key, title)
 GOAL_PARTS = (
@@ -55,8 +68,12 @@ COACH_PROMPTS = {
            "horizon and comfort with risk. Use examples, not recommendations.",
     "practice": "What should I expect emotionally when my investments drop 20% or more, and "
                 "what do long-term investors usually do?",
+    "brokerage": "What should I compare when choosing a brokerage, and which questions should "
+                 "I ask? Please don't recommend a specific one.",
     "account": "What's the difference between a regular brokerage account, a Roth IRA and a "
                "401(k), and which questions should I ask to pick one?",
+    "first": "What does a first investment usually look like for someone starting out, and "
+             "what mistakes do beginners often make? Use examples, not recommendations.",
 }
 PRACTICE_MIXES = ("Example mix", "All stocks", "Mostly bonds")
 # each basics topic -> where to read more (learn.LEARN_MORE)
@@ -86,6 +103,9 @@ def _complete(step):
     then), then on to the next waypoint not complete yet."""
     p = _read_prefs()
     p["get_started_done"] = sorted(set(p.get("get_started_done") or []) | {step})
+    if step == "brokerage":   # the account checklist's first tick (ACCOUNT_STEPS)
+        ticks = set(p.get("account_steps") or []) | {"chosen"}
+        p["account_steps"] = [k for k, _, _ in ACCOUNT_STEPS if k in ticks]
     _write_prefs(p)
     _skip(step)
 
@@ -374,7 +394,7 @@ def _step_goal(plan, value, profile, keys, titles, done, pressed):
         st.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="gs_goal_stocks")
         _two_part_bar(st.session_state["gs_goal_stocks"])
         _suggestion_line(f"{tip['stocks_pct']}% stocks, {100 - tip['stocks_pct']}% bonds - "
-                         "the example mix for your answers (waypoint 5 shows how it adds up)",
+                         "the example mix for your answers (An example mix shows how it adds up)",
                          key="gs_goal_stocks_use", values={"gs_goal_stocks": tip["stocks_pct"]})
         if set(saved) - {"Stocks", "Bonds"}:
             st.caption("Saving here sets stocks and bonds only; the Plan page can add cash and "
@@ -608,19 +628,23 @@ def _step_practice(mix, plan, profile, value):
     _coach_button("practice")
 
 
-# Waypoint 7 as a checklist they tick off (saved like the waypoint ticks):
-# (key, the step, a line about it). The waypoint itself is reached once their
-# own holdings are brought in.
+# ---- Start investing: a brokerage, the account, a first buy, bring it in ---- #
+# The account checklist they tick off (saved in prefs "account_steps", the
+# same keys as before the route had two stages, so old ticks carry over):
+# (key, the step, a line about it). "chosen" is ticked by completing Choose
+# a brokerage; Open your account shows "opened" and "funded"; Your first
+# investments "first_buy" and "monthly" (ACCOUNT_TICKS).
 ACCOUNT_STEPS = (
-    ("chosen", "Chosen a brokerage",
-     "Large low-cost ones include Schwab, Fidelity and Vanguard - look for no account minimum "
-     "and no trading commissions. Pick the account type too (*Account types* in waypoint 4)."),
-    ("opened", "Opened the account", "Usually online, in one sitting."),
-    ("funded", "Moved money in", "Link your bank and move in what you'd like to start with."),
-    ("first_buy", "Made a first buy", "What it looks like is just below."),
-    ("monthly", "Set up a monthly amount",
+    ("chosen", "Chosen a brokerage", "Choose a brokerage, the step before."),
+    ("opened", "Opened the account",
+     "Usually online, in one sitting - choose the account type as you go."),
+    ("funded", "Moved money in",
+     "Link your bank and move in what you'd like to start with - any amount is fine."),
+    ("first_buy", "Made a first buy", "What it looks like is just above."),
+    ("monthly", "Set up a monthly amount (any time)",
      "Automatic investing each month, so it happens without you having to remember."),
 )
+ACCOUNT_TICKS = {"account": ("opened", "funded"), "first": ("first_buy", "monthly")}
 
 
 def _account_ticks():
@@ -639,12 +663,27 @@ def _tick_account(*keys, done=None):
     _write_prefs(p)
 
 
+def _account_checklist(step, monthly):
+    """The ticks that belong to a waypoint (ACCOUNT_TICKS), saved as they're
+    ticked."""
+    ticks = _account_ticks()
+    lines = {k: (label, line) for k, label, line in ACCOUNT_STEPS}
+    for k in ACCOUNT_TICKS[step]:
+        label, line = lines[k]
+        if k == "monthly" and monthly:
+            line = (f"Automatic investing of {_usd0(monthly)} a month - the amount in your plan "
+                    "- so it happens without you having to remember.")
+        st.session_state.setdefault(f"gs_acct_{k}", k in ticks)
+        st.checkbox(f"**{label}** - {line}".replace("$", r"\$"), key=f"gs_acct_{k}",
+                    on_change=_tick_account, args=(k,))
+
+
 def _first_buy_steps():
     """What a first buy looks like, with an example ticker already shown in
-    waypoint 5 - the steps, not a recommendation."""
+    An example mix - the steps, not a recommendation."""
     t = learn.PRACTICE_TICKERS["us"]
     _md(f"Every brokerage's screens look a little different, but a first buy usually goes like "
-        f"this - here with **{t}**, one of the example funds from waypoint 5:\n\n"
+        f"this - here with **{t}**, one of the example funds from *An example mix*:\n\n"
         f"1. **Search the ticker.** Type {t} into the brokerage's search or Trade box.\n"
         "2. **Choose a dollar amount.** Many brokerages let you buy in dollars (fractional "
         "shares), so you can enter $100 rather than a number of whole shares.\n"
@@ -654,20 +693,31 @@ def _first_buy_steps():
     st.caption(f"An example of the steps, not a recommendation to buy {t} or any other fund.")
 
 
-def _step_account(monthly, real, has_holdings, items):
-    """`real`: their own holdings are in (the waypoint is reached);
-    `has_holdings` alone may be just the example portfolio."""
-    if not CAN_IMPORT and not real:
-        st.markdown(f"Your advisor, {_advisor_display_name()}, helps you open the account and "
-                    "brings your statements in - your portfolio shows up on Home once they have.")
-        _coach_button("account")
-        return
-    if real:
-        st.markdown("You've brought in your first statement - **Home** shows your real "
-                    "portfolio and the **Plan** tracks it against your goal.")
-        st.button("Open Home", key="gs_open_dash", type="tertiary", on_click=_go,
-                  args=("Dashboard",))
-        return
+def _advisor_start_line():
+    """A managed client's Start investing, in their advisor's voice (the
+    advisor viewing it sees whose it is)."""
+    if ON_CLIENT:
+        return (f"{ACTIVE_NAME}'s Start investing is yours: bring their statements in once the "
+                f"account is open - {ACTIVE_NAME} sees their portfolio as soon as it's saved.")
+    return (f"Your advisor, {_advisor_display_name()}, helps you open the account and brings "
+            "your statements in - your portfolio shows up on Home once they have.")
+
+
+def _step_brokerage():
+    import brokerages
+
+    st.markdown(brokerages.INTRO)
+    st.markdown(brokerages.compare_markdown())
+    learn_more("account_types")
+    st.markdown(f"**{brokerages.LIST_INTRO}**")
+    st.markdown(brokerages.list_markdown())
+    st.caption(brokerages.OTHERS)
+    st.markdown(f":material/balance: {brokerages.NOT_RANKED} {brokerages.CHECK_SITES}")
+    learn_more("brokerage_accounts")
+    _coach_button("brokerage")
+
+
+def _step_open_account(has_holdings, items, monthly):
     if any(i["key"] == "emergency_fund" and i["state"] in (learn.CAUTION, learn.STOP)
            for i in items):
         with st.container(horizontal=True, vertical_alignment="center"):
@@ -675,36 +725,74 @@ def _step_account(monthly, real, has_holdings, items):
                         "first - there's no rush to open an account.", width="stretch")
             st.button("See where you stand", key="gs_acct_ready", type="tertiary",
                       on_click=_gs_go, args=("ready",))
+    st.markdown("On the brokerage's website or app, look for **Open an account**. You'll "
+                "usually need your ID and your bank details, and you'll pick the kind of "
+                "account - a regular brokerage account, a Roth IRA, or both.")
+    learn_more("account_types")
     if has_holdings:
         st.caption(":material/science: You're exploring with the example portfolio. When you "
                    "bring in your own, it replaces the example.")
-    ticks = _account_ticks()
     st.markdown("**Your checklist**")
-    for k, label, line in ACCOUNT_STEPS:
-        if k == "monthly" and monthly:
-            line = (f"Automatic investing of {_usd0(monthly)} a month - the amount in your plan "
-                    "- so it happens without you having to remember.")
-        st.session_state.setdefault(f"gs_acct_{k}", k in ticks)
-        st.checkbox(f"**{label}** - {line}".replace("$", r"\$"), key=f"gs_acct_{k}",
-                    on_change=_tick_account, args=(k,))
-    with st.expander("What your first buy looks like"):
-        _first_buy_steps()
-    learn_more("brokerage_accounts")
-    with st.container(horizontal=True):
-        if "opened" not in ticks:
-            st.button("I've opened an account", key="gs_opened",
-                      on_click=_tick_account, args=("chosen", "opened"),
-                      kwargs={"done": True})
-        _coach_button("account")
-    st.caption("This step is complete once you bring in your holdings - paste them from any "
-               "brokerage, upload a CSV, read screenshots or type them in.")
+    _account_checklist("account", monthly)
+    _coach_button("account")
+
+
+def _step_first(profile, plan, mix, kind, horizon, monthly):
+    import starter_funds
+
+    target = (plan or {}).get("target_alloc") or {}
+    if target.get("Stocks") is not None:
+        st.markdown(":material/explore: **Your direction:** the target mix you set - "
+                    f"{target['Stocks']:g}% stocks, {target.get('Bonds', 0):g}% bonds"
+                    + (f" ({kind['name']})." if kind else "."))
+    elif mix:
+        st.markdown(":material/explore: **Your direction:** "
+                    + (f"{kind['name']} - " if kind else "")
+                    + f"an example mix of {mix['stocks_pct']}% stocks, "
+                    f"{mix['weights']['bonds']}% bonds, from your answers.")
+    st.markdown("#### What your first buy looks like")
+    _first_buy_steps()
+    with st.expander("Not sure what to start with?", icon=":material/help:"):
+        starter_funds.render(profile, horizon, db=DB, user_id=USER_ID, key="gs_starter")
+    st.markdown("**Your checklist**")
+    _account_checklist("first", monthly)
+    _coach_button("first")
+
+
+def _step_bring(real, has_holdings, managed):
+    if real:
+        st.markdown("You've brought in your holdings - **Home** shows your real portfolio and "
+                    "the **Plan** tracks it against your goal.")
+        st.button("Open Home", key="gs_open_dash", type="tertiary", on_click=_go,
+                  args=("Dashboard",))
+        return
+    if managed:
+        st.markdown(_advisor_start_line())
+        if not CAN_IMPORT:
+            _coach_button("account")
+            return
+    else:
+        st.markdown("Bring in what you own from **any brokerage**: paste your positions from "
+                    "its website, read screenshots, type them in, or upload a CSV. You'll check "
+                    "everything before it's saved.")
+    st.caption(":material/lock: " + TRUST_LINE)
+    if has_holdings:
+        st.caption(":material/science: You're exploring with the example portfolio. When you "
+                   "bring in your own, it replaces the example.")
+    st.button(":material/upload_file: Upload a CSV instead", key="gs_import_csv",
+              type="tertiary", on_click=_open_holdings_dialog, args=("import",))
 
 
 def _route_state(has_holdings):
     """Where this account is on Get started's route - shared with the Home
     page's "Your route" card (route.py). Returns a dict: profile, missing
     (unanswered profile questions), items (readiness), plan, horizon (years
-    to the goal date, or None), done ({waypoint key: bool})."""
+    to the goal date, or None), done ({waypoint key: bool}), pressed,
+    learn_required (Learn is on their route - route.learn_first), managed
+    (an advisor's client: Start investing is their advisor's), real (their
+    own holdings are in), route (their waypoint keys in order), shown (every
+    waypoint Learn shows them) and waypoints ([(key, title, done)] along
+    their route)."""
     import advisor
 
     today = datetime.now().date()
@@ -714,6 +802,7 @@ def _route_state(has_holdings):
     items = learn.readiness(profile)
     p = _read_prefs()
     manual = set(p.get("get_started_done") or [])
+    ticks = set(p.get("account_steps") or [])
     horizon = (plans.months_until(plan["target_date"], today) / 12
                if plans.has_goal(plan) and plans.months_until(plan["target_date"], today) > 0 else None)
     # Set a goal is walked in Learn (its last part completes it). Its gear,
@@ -722,6 +811,10 @@ def _route_state(has_holdings):
     # their advisor's to set.
     walked = ("goal" in manual or not CAN_MANAGE
               or "compass" in (p.get("gear_seen") or []))
+    # their own holdings brought in - the example portfolio is for looking
+    # around, not an account they've opened. Once they're in, every Start
+    # investing waypoint is behind them.
+    real = bool(has_holdings and HAS_REAL_HOLDINGS)
     done = {
         "profile": not missing,
         "ready": all(i["state"] != learn.UNKNOWN for i in items),
@@ -729,20 +822,48 @@ def _route_state(has_holdings):
         "basics": "basics" in manual,
         "mix": "mix" in manual,
         "practice": "practice" in manual,
-        # their own holdings brought in - the example portfolio is for looking
-        # around, not an account they've opened
-        "account": has_holdings and globals().get("SNAPSHOT_SOURCE") != SAMPLE_SOURCE,
+        # the account checklist's ticks - the same keys as the one-waypoint
+        # checklist before, so old ticks count here
+        "brokerage": real or "brokerage" in manual or bool(ticks & {"chosen", "opened"}),
+        "account": real or {"opened", "funded"} <= ticks,
+        "first": real or "first_buy" in ticks,
+        "bring": real,
     }
+    managed = IS_MANAGED_CLIENT or ON_CLIENT
+    learn_required = route.learn_first(profile.get("experience"), real)
+    keys = route.route_keys(learn_required, managed)
+    titles = dict(GET_STARTED_STEPS)
     return {"profile": profile, "missing": missing, "items": items, "plan": plan,
-            "horizon": horizon, "done": done, "pressed": manual}
+            "horizon": horizon, "done": done, "pressed": manual,
+            "learn_required": learn_required, "managed": managed, "real": real,
+            "route": list(keys),
+            "shown": list(route.stage_keys(route.LEARN) + route.stage_keys(route.INVEST, managed)),
+            "waypoints": [(k, titles[k], done[k]) for k in keys]}
 
 
 def _on_the_route():
-    """Someone still walking Learn's route (the investor experience, a
+    """Someone still walking their route (the investor experience, a
     waypoint not complete yet): Plan offers a clear way back to it."""
     if not INVESTOR_VIEW or "Get started" not in PAGES:
         return False
-    return not all(_route_state(HAS_HOLDINGS)["done"].values())
+    return not all(d for _, _, d in _route_state(HAS_HOLDINGS)["waypoints"])
+
+
+def _where_html(state):
+    """"You're in Learn · step 3 of 6 · The foothills": the stage and step of
+    their first waypoint not complete, and its region (route.REGIONS) - on
+    Learn and on Home's route card."""
+    waypoints = state["waypoints"]
+    here = next((k for k, _, d in waypoints if not d), None)
+    region, _nxt = route.region(waypoints)
+    if here is None:
+        return (f"<div class='pt-region'>Every step of your route is complete · "
+                f"<b>{html.escape(region)}</b></div>")
+    then = (f" · then {route.STAGE_NAMES[route.INVEST]}"
+            if route.stage_of(here) == route.LEARN else "")
+    return (f"<div class='pt-region'>You're in "
+            f"<b>{html.escape(route.stage_words(here, state['managed']))}</b> · "
+            f"{html.escape(region)}{then}</div>")
 
 
 def _ask_type(name):
@@ -795,20 +916,31 @@ def _direction_window(kind_key):
         st.rerun()
 
 
-def _progress_html(keys, titles, done, at):
-    """Learn's progress bar: "Step 3 of 7 · 2 complete" over one segment per
-    waypoint - complete ones filled, the open one outlined - like the trail."""
-    n, n_done = len(keys), sum(done.values())
-    words = (f"All {n} steps complete" if n_done == n else
-             f"Step {keys.index(at) + 1} of {n} · {n_done} complete")
+def _progress_html(stage, keys, titles, done, at, optional=False):
+    """The stage's progress bar: "Learn · step 3 of 6 · 2 complete" over one
+    segment per waypoint of the stage - complete ones filled, the open one
+    outlined - like the trail."""
+    n, n_done = len(keys), sum(done[k] for k in keys)
+    name = route.STAGE_NAMES[stage] + (" (optional for you)" if optional else "")
+    words = (f"{name} · all {n} steps complete" if n_done == n else
+             f"{name} · step {keys.index(at) + 1} of {n} · {n_done} complete")
     segs = "".join(f"<span class='pt-steps-seg{' pt-steps-done' if done[k] else ''}"
                    f"{' pt-steps-at' if k == at else ''}' "
                    f"title='{html.escape(titles[k], quote=True)}'></span>" for k in keys)
+    label = html.escape(route.STAGE_NAMES[stage], quote=True)
     return ("<div class='pt-steps'>"
-            f"<div class='pt-steps-top'><b>{words}</b><span>{round(100 * n_done / n)}%</span></div>"
-            f"<div class='pt-steps-bar' role='progressbar' aria-label='Your route' "
+            f"<div class='pt-steps-top'><b>{html.escape(words)}</b>"
+            f"<span>{round(100 * n_done / n)}%</span></div>"
+            f"<div class='pt-steps-bar' role='progressbar' aria-label='{label}' "
             f"aria-valuemin='0' aria-valuemax='{n}' aria-valuenow='{n_done}' "
             f"aria-valuetext='{n_done} of {n} steps complete'>{segs}</div></div>")
+
+
+def _gs_stage(first_of):
+    """The stage switch: open that stage at its first waypoint not complete."""
+    stage = st.session_state.get("gs_stage")
+    if stage in first_of:
+        _gs_go(first_of[stage])
 
 
 def _render_get_started(has_holdings, value):
@@ -823,56 +955,76 @@ def _render_get_started(has_holdings, value):
     profile, missing, items, plan = (state["profile"], state["missing"], state["items"],
                                      state["plan"])
     horizon, done, pressed = state["horizon"], state["done"], state["pressed"]
+    managed, real = state["managed"], state["real"]
     mix = learn.starter_mix(profile, horizon)
     monthly = float((plan or {}).get("monthly_contribution") or 0.0)
     years = horizon or float(profile.get("time_horizon_years") or 20)
-    n_done = sum(done.values())
     kind = learn.investor_type(profile, mix, items)
-    keys = [k for k, _ in GET_STARTED_STEPS]
     titles = dict(GET_STARTED_STEPS)
+    mine, shown = state["route"], state["shown"]   # their route; every waypoint here
+    by_stage = {s: list(route.stage_keys(s, managed)) for s in (route.LEARN, route.INVEST)}
+    optional = {route.LEARN: not state["learn_required"], route.INVEST: False}
 
-    # which waypoint is open: the first not complete, unless they picked one;
-    # Complete this step and Skip for now (_complete, _skip) move on to the
-    # next one not complete
+    def nav_keys(k):
+        """Where Complete / Skip / Back move: along their route, or within
+        optional Learn for someone whose route starts at Start investing."""
+        return mine if k in mine else by_stage[route.stage_of(k)]
+
+    # which waypoint is open: their first not complete, unless they picked
+    # one; Complete this step and Skip for now (_complete, _skip) move on to
+    # the next one not complete
     after = st.session_state.pop("gs_advance", None)
-    if after in keys:
-        st.session_state["gs_at"] = _next_open(after, keys, done) or after
-    first_open = next((k for k in keys if not done[k]), keys[-1])
+    if after in shown:
+        st.session_state["gs_at"] = _next_open(after, nav_keys(after), done) or after
     at = st.session_state.get("gs_at")
-    if at not in keys:
-        at = first_open
+    if at not in shown:
+        at = route.opening(mine, shown, done)
     # kept open until they move on: answering a waypoint's last question
     # completes it, but they stay to see it and press Complete this step
     st.session_state["gs_at"] = at
-    i = keys.index(at)
+    stage = route.stage_of(at)
+    keys = nav_keys(at)
+    stage_keys = by_stage[stage]
 
-    # ---- how far along: a bar, in step with the trail below (the same
-    # waypoints filled; the bar also outlines the one open here) ------------ #
-    st.html(_progress_html(keys, titles, done, at))
-    if n_done == len(keys):
+    # ---- the two stages, and how far along this one is ---------------------- #
+    first_of = {s: next((k for k in ks if not done[k]), ks[0]) for s, ks in by_stage.items()}
+    st.session_state["gs_stage"] = stage   # always the open one's
+    st.segmented_control(
+        "Stage", [route.LEARN, route.INVEST], key="gs_stage", label_visibility="collapsed",
+        on_change=_gs_stage, args=(first_of,), required=True,
+        format_func=lambda s: (("✓ " if all(done[k] for k in by_stage[s]) else "")
+                               + route.STAGE_NAMES[s]
+                               + (" (optional)" if optional[s] else "")))
+    st.html(_progress_html(stage, stage_keys, titles, done, at, optional[stage]))
+    if all(done[k] for k in mine):
         st.success("Every step of your route is complete. Home keeps track of your goal from "
                    "here, and these pages are here whenever you'd like a refresher.",
                    icon=":material/flag:")
+    elif optional[stage]:
+        st.caption(":material/info: Learn is optional for you - the basics are here whenever "
+                   "you'd like them. Your route starts at Start investing.")
 
-    # ---- the route: drawn as a trail, then every waypoint to tap -------- #
-    waypoints = [(k, titles[k], done[k]) for k in keys]
-    here, nxt = route.region(waypoints)
+    # ---- their route drawn as a trail, then this stage's waypoints to tap ---- #
+    waypoints = state["waypoints"]
+    n_done = sum(d for _, _, d in waypoints)
     st.html(route.trail_html(route.dots(waypoints, False),
-                             f"{n_done} of {len(keys)} waypoints reached")
-            + f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
-            + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
+                             f"{n_done} of {len(waypoints)} waypoints reached")
+            + _where_html(state))
     st.session_state["gs_pick"] = at   # always the open one
-    st.pills("Waypoints", keys, key="gs_pick", label_visibility="collapsed",
+    st.pills("Waypoints", stage_keys, key="gs_pick", label_visibility="collapsed",
              on_change=_gs_pick,
-             format_func=lambda k: ("✓ " if done[k] else f"{keys.index(k) + 1}. ") + titles[k])
+             format_func=lambda k: ("✓ " if done[k] else f"{stage_keys.index(k) + 1}. ")
+             + titles[k])
 
     # ---- the open waypoint: why, the step, then Complete this step -------- #
     with st.container(border=True, key=f"pt_slide_gs_{at}"):
-        st.caption(f"Step {i + 1} of {len(keys)}"
+        st.caption(route.stage_words(at, managed)
                    + (" · :material/check_circle: Complete" if done[at] else ""))
         st.markdown(f"### {titles[at]}")
         st.html(f"<div class='pt-why'>{html.escape(WAYPOINT_WHY[at])}</div>")
         footer = {}
+        ticks_why = ("Tick the steps above as you do them to complete this step - or skip it "
+                     "for now and come back later.")
         if at == "profile":
             _step_profile(advisor, profile, missing)
             footer = {"ready": not missing,
@@ -892,9 +1044,17 @@ def _render_get_started(has_holdings, value):
             _step_mix(mix, profile, plan)
         elif at == "practice":
             _step_practice(mix, plan, profile, value)
+        elif at == "brokerage":
+            _step_brokerage()
+        elif at == "account":
+            _step_open_account(has_holdings, items, monthly)
+            footer = {"ready": done["account"], "why_not": ticks_why}
+        elif at == "first":
+            _step_first(profile, plan, mix, kind, horizon, monthly)
+            footer = {"ready": done["first"], "why_not": ticks_why}
         else:
-            _step_account(monthly, done["account"], has_holdings, items)
-            if not done["account"]:
+            _step_bring(real, has_holdings, managed)
+            if not real:
                 # what completes it: straight to the paste / import window
                 footer = ({"action": ("Bring it in to complete this step",
                                       _open_holdings_dialog, ("manual",), "gs_import")}

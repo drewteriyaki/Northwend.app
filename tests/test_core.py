@@ -1718,13 +1718,16 @@ class ExpeditionTests(unittest.TestCase):
 
     W = [("profile", "About you", True), ("ready", "Ready?", True), ("goal", "Goal", True),
          ("basics", "Basics", False), ("mix", "Mix", False), ("practice", "Practice", False),
-         ("account", "Account", False)]
+         ("brokerage", "Brokerage", False), ("account", "Account", False),
+         ("first", "First", False), ("bring", "Bring", False)]
 
     def test_region_is_where_the_first_open_waypoint_is(self):
         import route
         self.assertEqual(route.region(self.W), ("Learner's ridge", "The practice range"))
         self.assertEqual(route.region([(k, t, True) for k, t, _ in self.W]),
-                         ("The summit", None))
+                         ("On the trail", None))
+        # someone whose route starts at Start investing
+        self.assertEqual(route.region(self.W[6:]), ("The trailhead", "On the trail"))
         every_key = {k for _, keys in route.REGIONS for k in keys}
         self.assertEqual(every_key, {k for k, _, _ in self.W})
 
@@ -1739,7 +1742,7 @@ class ExpeditionTests(unittest.TestCase):
         self.assertNotIn("<svg", html)              # st.html strips inline SVG
         data = html.split("base64,")[1].split("'")[0]
         svg = base64.b64decode(data).decode("utf-8")
-        self.assertEqual(svg.count("<circle"), 8)   # 7 waypoints and the goal
+        self.assertEqual(svg.count("<circle"), 11)   # 10 waypoints and the goal
 
     def test_contour_backgrounds_are_built_into_the_styles(self):
         for theme in ("light", "dark"):

@@ -65,8 +65,8 @@ def _route_words(step, gp, monthly, plan):
         return ("Update your holdings", f"You last brought them in {step['days']} days ago - "
                 "an update keeps your route and plan accurate.", "Update holdings",
                 ("dialog", "manual"))
-    if k == "learn":
-        return (f"Waypoint {step['number']}: {step['title']}", f"Next on your route in {_label('Get started')}.",
+    if k == "learn":   # the stage and step are in the line above ("You're in ...")
+        return (step["title"], f"Next on your route in {_label('Get started')}.",
                 "Continue", ("learn", step["step"]))
     if k == "reached":
         return ("You've reached your goal", "Well done. Set your next goal whenever you're "
@@ -101,7 +101,7 @@ def _render_route():
         days = (datetime.now().date() - date.fromisoformat(str(snapshot)[:10])).days
     except ValueError:
         days = None
-    waypoints = [(k, t, state["done"][k]) for k, t in GET_STARTED_STEPS]
+    waypoints = state["waypoints"]   # their route (Learn only while it's theirs)
     step = route.next_step(
         has_goal=has_goal, can_manage=CAN_MANAGE, profile_missing=bool(state["missing"]),
         has_holdings=bool(positions), monthly=monthly, goal=gp,
@@ -129,11 +129,9 @@ def _render_route():
                      f"{fmt_money0(gp['target'])} by {_fmt_month(plan['target_date'])}</div>")
         n_done = sum(1 for _, _, d in waypoints if d)
         # the route as a trail through the expedition's regions (route.py)
-        here, nxt = route.region(waypoints)
         head += route.trail_html(route.dots(waypoints, reached),
                                  f"{n_done} of {len(waypoints)} waypoints reached, then your goal")
-        head += (f"<div class='pt-region'>You're in <b>{html.escape(here)}</b>"
-                 + (f" · next, {html.escape(nxt)}" if nxt else "") + "</div>")
+        head += _where_html(state)   # "You're in Start investing · step 2 of 4 · ..."
         st.html(head)
         with st.container(horizontal=True, vertical_alignment="center"):
             # "$" escaped: a pair of them would be read as a math formula
