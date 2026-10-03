@@ -9,6 +9,9 @@ and said so.
 
 Months are ex-dividend months; the money usually arrives a few weeks later.
 An estimate from the past, not a promise: companies change dividends.
+
+Yield on cost (yield_on_cost) puts a year's dividends against what was paid
+for the shares rather than what they are worth today.
 """
 
 from __future__ import annotations
@@ -133,3 +136,25 @@ def received(conn, user_id: int, today: date) -> dict | None:
     return {"months": rows, "dividends": round(divs, 2), "interest": round(interest, 2),
             "total": round(divs + interest, 2),
             "since": first if first > months[0] + "-01" else None}
+
+
+def yield_on_cost(annual_income, cost_basis) -> float | None:
+    """A year's dividends as a share of what was paid for the shares, in
+    percent ("yield on cost"): 41 a year on 1,000 paid is 4.1. None when
+    the cost isn't known (or isn't above 0) - nothing is shown then."""
+    try:
+        income_, cost = float(annual_income), float(cost_basis)
+    except (TypeError, ValueError):
+        return None
+    if cost != cost or income_ != income_ or cost <= 0 or income_ < 0:
+        return None
+    return income_ / cost * 100
+
+
+def yield_on_cost_total(rows) -> float | None:
+    """yield_on_cost() across holdings [{"est_income", "cost"}], counting only
+    those whose cost is known; None if none is."""
+    known = [r for r in rows or [] if yield_on_cost(r.get("est_income"), r.get("cost")) is not None]
+    if not known:
+        return None
+    return yield_on_cost(sum(r["est_income"] for r in known), sum(r["cost"] for r in known))

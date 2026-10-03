@@ -157,6 +157,7 @@ if PAGE == "Dashboard":
         _render_route()
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
         render_fee_card()                     # fee check (views/fees.py)
+        render_overlap_card()                 # fund overlap (views/fund_overlap.py)
         check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #

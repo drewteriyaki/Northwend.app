@@ -55,7 +55,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
   snapshot differences), `plans.py`, `overview.py` (advisor clients), `fees.py` +
   `views/fees.py` (Fee check; `security_info.expense_ratio` is a fraction - Yahoo's
-  `netExpenseRatio` is a percent, the others fractions: `sync_history._expense_ratio`).
+  `netExpenseRatio` is a percent, the others fractions: `sync_history._expense_ratio`),
+  `fund_holdings.py` + `views/fund_overlap.py` (Fund overlap on Home: each fund's top 10
+  holdings from Yahoo, fetched only when the window opens, kept a week in the shared
+  `fund_top_holdings` table; yield on cost is `income.yield_on_cost`).
 - People: `auth.py` (logins, sessions, client setup links, self-serve sign-up,
   confirm / reset links, advisor requests), `two_step.py` + `views/two_step.py`
   (two-step sign-in: `_two_step_gate()` runs inside `_login()` after any way in;

@@ -31,6 +31,7 @@ import charts
 import csv_import
 import disclosures
 import friendly_errors
+import fund_holdings
 import hosting
 import learn
 import live_prices
@@ -1981,6 +1982,9 @@ _view("kit")
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)
 _view("fees")
 
+# Fund overlap: do the funds hold the same companies? (fund_holdings.py)
+_view("fund_overlap")
+
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")
 _view("get_started")
@@ -2815,6 +2819,10 @@ try:
     # Holdings with no Yahoo history yet (a first import, or a new position) -
     # filled in below, once per visit, so the charts fill in without a manual sync
     _covered, _missing = perf.holdings_coverage(_bars_conn, USER_ID, PERF_BASIS)
+    # the funds' top holdings kept from Yahoo, for Home's Fund overlap card
+    # (fund_holdings.py; nothing is fetched here - the window asks Yahoo)
+    fund_tops = (fund_holdings.cached(_bars_conn, fund_holdings.funds_in(positions, sec_info))
+                 if PAGE == "Dashboard" and INVESTOR_VIEW else {})
 finally:
     _bars_conn.close()
 # What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):

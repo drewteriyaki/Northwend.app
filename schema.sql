@@ -210,6 +210,21 @@ CREATE TABLE IF NOT EXISTS security_info (
     fetched_at     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- A fund's top holdings from Yahoo (fund_holdings.py, the Fund overlap window):
+-- shared market data like security_info, no user_id. Fetched on demand and
+-- asked again at most once a week. Slot 0 records when the fund was asked
+-- (no holding: Yahoo may list none); slots 1.. are its largest holdings.
+CREATE TABLE IF NOT EXISTS fund_top_holdings (
+    fund        TEXT    NOT NULL,                   -- the fund's ticker, as held
+    slot        INTEGER NOT NULL,                   -- 1 = its largest; 0 = when it was asked
+    symbol      TEXT,                               -- the holding's ticker ('' if none)
+    name        TEXT,
+    weight      REAL,                               -- a fraction of the fund (0.064 = 6.4%)
+    source      TEXT    NOT NULL DEFAULT 'yfinance',
+    fetched_at  TEXT    NOT NULL,                   -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    PRIMARY KEY (fund, slot)
+);
+
 -- AI Assistant investing profile, one row per account (see advisor.py).
 -- updated_at is always written explicitly, never left to a DEFAULT.
 CREATE TABLE IF NOT EXISTS investor_profiles (

@@ -894,8 +894,18 @@ phone-only beginner). What they found, fixed in this order:
 - [ ] **Next, from the walkthroughs:** website: an inflation table and the
       direction quiz before sign-up (needs the app, or a script the site
       doesn't allow); the public disclosures to mention advisor-sent emails
-      (needs a LAST_UPDATED bump - owner's call); then an overlap view, a
-      retirement-income tab, total return with dividends, yield on cost.
+      (needs a LAST_UPDATED bump - owner's call); then a
+      retirement-income tab and total return with dividends.
+- [x] **Fund overlap and yield on cost** - a Fund overlap card on Home (like
+      Fee check; detail in a window): which funds share their largest
+      holdings, and what you own most of with funds looked through ("Apple:
+      about 12% of your portfolio, through VTI, VOO and directly"), from each
+      fund's top 10 holdings on Yahoo (`fund_holdings.py`, fetched only when
+      the window opens, stored weekly in `fund_top_holdings` - shared market
+      data). Honest about being a floor; never a suggestion to buy or sell.
+      Income's by-holding table gets yield on cost (this year's dividends as
+      a share of what you paid; blank when the cost is unknown, none for a
+      percentages-only portfolio).
 
 ## Later
 
