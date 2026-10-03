@@ -894,8 +894,18 @@ phone-only beginner). What they found, fixed in this order:
 - [ ] **Next, from the walkthroughs:** website: an inflation table and the
       direction quiz before sign-up (needs the app, or a script the site
       doesn't allow); the public disclosures to mention advisor-sent emails
-      (needs a LAST_UPDATED bump - owner's call); then a
-      retirement-income tab and total return with dividends.
+      (needs a LAST_UPDATED bump - owner's call).
+- [x] **Total return with dividends, and retirement income** - Home's gain
+      is labelled Price change, with Total return, with dividends beside it
+      when dividends are known (`income.received_while_held`: the imported
+      activity history first, else Yahoo's per-share payments times the
+      shares held on each ex-date; the caption says which); a holding's
+      details and the holdings table too. A Retirement income tab on Plan:
+      what the portfolio pays today, steady withdrawals at 3/4/5% as rules
+      of thumb (not a promise; taxes, fees, inflation and Social Security
+      not included), and how long a yearly amount could last at one stated
+      rate. It leads for someone 65+, retired or drawing income, or with a
+      retirement / income goal within 10 years (`plans.retirement_first`).
 - [x] **Fund overlap and yield on cost** - a Fund overlap card on Home (like
       Fee check; detail in a window): which funds share their largest
       holdings, and what you own most of with funds looked through ("Apple:

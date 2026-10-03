@@ -205,14 +205,28 @@ if PAGE == "Dashboard":
         + (f"<div class='pt-hero-delta'>{_day_html}</div>" if _day_html else "")
         + (f"<div class='pt-hero-sub'>{_since_html}</div>" if _since_html else "")
         + "</div><div class='pt-stats' role='list' aria-label='Portfolio summary'>"
-        + _stat("Total gain/loss", _tone(tot_gl, _signed_money(tot_gl)),
+        # with dividends known: the price change, then the total return beside it
+        + _stat("Price change" if tot_return else "Total gain/loss",
+                _tone(tot_gl, _signed_money(tot_gl)),
                 _tone(tot_glp, fmt_pct(tot_glp)) if tot_glp is not None else "")
+        + (_stat("Total return, with dividends",
+                 _tone(tot_return["usd"], _signed_money(tot_return["usd"])),
+                 _tone(tot_return["usd"], fmt_pct(tot_return["pct"]))
+                 if tot_return["pct"] is not None else "") if tot_return else "")
         + _stat("Holdings", fmt_money(tot_mv), f"{len(positions)} positions")
         + _stat("Cash", fmt_money(cash),
                 "" if hide_amounts or not portfolio_value
                 else f"{cash / portfolio_value * 100:.1f}% of total")
         + "</div>"
     ))
+    if tot_return:
+        # "$" escaped: two amounts would be read as a math formula
+        st.caption((f"Total return adds the {fmt_money(tot_return['dividends'])} in dividends "
+                    "your holdings paid to their price change. "
+                    + income.source_words(DIVIDENDS[p["symbol"]]["source"]
+                                          for p, c in zip(positions, contexts)
+                                          if c["dividends"] and p["cost_basis"] is not None))
+                   .replace("$", r"\$"))
 
     # ---- goal: one line from the plan, or a nudge to set one ----------- #
     # (the advisor's own portfolio; the investor home has it in Your route)
@@ -590,6 +604,10 @@ if PAGE == "Dashboard":
 
     chosen = [M.BY_KEY[k] for k in st.session_state["col_keys"] if k in M.BY_KEY] \
         or [M.BY_KEY[k] for k in M.DEFAULT_KEYS]
+    # the total-return columns only when some holding has dividends to add:
+    # otherwise the price change alone, without empty columns beside it
+    chosen = [m for m in chosen if m.key not in M.SHOWN_WHEN_KNOWN
+              or any(M.value(m.key, ctx) is not None for ctx in contexts)]
 
     records = [{m.label: M.value(m.key, ctx) for m in chosen} for ctx in contexts]
 
@@ -618,6 +636,9 @@ if PAGE == "Dashboard":
             if hide_amounts else None),
     )
     st.caption("Green = gain, red = loss. Price / Market Value / Gain-Loss use the live price where "
-               "available, otherwise the CSV's figures. Edit the column set with **Columns**.")
+               "available, otherwise the CSV's figures. Edit the column set with **Columns**."
+               + (" Unrealized G/L is the price change; **Total return** adds the dividends "
+                  "each holding paid (blank where none are known)."
+                  if any(m.key in M.SHOWN_WHEN_KNOWN for m in chosen) else ""))
 
     st.divider()

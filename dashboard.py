@@ -33,6 +33,7 @@ import disclosures
 import friendly_errors
 import fund_holdings
 import hosting
+import income
 import learn
 import live_prices
 import mailer
@@ -490,6 +491,10 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-live { color: var(--pt-up); }
 .pt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .6rem; margin-top: 1rem; }
+/* exactly four boxes (Home with a total return beside the price change):
+   one row of four, two rows of two on a phone - never three and a lone one */
+.pt-stats:has(> .pt-stat:nth-child(4):last-child) {
+  grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .pt-stat { border: 1px solid var(--pt-line); border-radius: .5rem;
   padding: .55rem .7rem; min-width: 0; }
 .pt-stat-label { font-size: .75rem; opacity: .7; white-space: nowrap; overflow: hidden;
@@ -508,7 +513,9 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .pt-stat { padding: .5rem .5rem; container-type: inline-size; }
   .pt-stat-value { font-size: .9rem; font-size: clamp(.75rem, 14cqi, .9rem);
     white-space: normal; line-height: 1.3; }
-  .pt-stat-label, .pt-stat-sub { white-space: normal; overflow-wrap: break-word; } }
+  .pt-stat-label, .pt-stat-sub { white-space: normal; overflow-wrap: break-word; }
+  .pt-stats:has(> .pt-stat:nth-child(4):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* summary tiles that open a window (Learn the basics; Income, Activity,
    Watchlist and Ask Northwend in the calm view): lift a little on hover */
 [class*="st-key-pt_tile_"] { transition: border-color .2s ease, transform .2s ease; }
@@ -2823,6 +2830,13 @@ try:
     # (fund_holdings.py; nothing is fetched here - the window asks Yahoo)
     fund_tops = (fund_holdings.cached(_bars_conn, fund_holdings.funds_in(positions, sec_info))
                  if PAGE == "Dashboard" and INVESTOR_VIEW else {})
+    # The dividends each holding paid while held, for its total return (Home
+    # and a holding's details): the imported activity history, else estimated
+    # from Yahoo's payments. Not for a percentages portfolio (pretend shares).
+    DIVIDENDS = (income.received_while_held(
+        _bars_conn, USER_ID, _held_symbols, datetime.now().date(),
+        skip_sources=(SAMPLE_SOURCE, manual_entry.PCT_SOURCE))
+        if PAGE == "Dashboard" and SNAPSHOT_SOURCE != manual_entry.PCT_SOURCE else {})
 finally:
     _bars_conn.close()
 # What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):
@@ -2837,9 +2851,11 @@ watch_only = [t for t in watch_tickers if t not in _held_symbols]
 # in once the totals are known.
 contexts = [{"pos": p, "quote": quotes.get(p["symbol"], {}),
              "stats": bar_stats.get(p["symbol"], {}), "info": sec_info.get(p["symbol"], {}),
-             "port_value": None, "acct_value": None} for p in positions]
+             "port_value": None, "acct_value": None,
+             "dividends": d}
+            for p, d in zip(positions, income.split_by_holding(positions, DIVIDENDS))]
 
-tot_mv = tot_gl = tot_cost = 0.0
+tot_mv = tot_gl = tot_cost = tot_div = 0.0
 acct_value = {}
 for p, ctx in zip(positions, contexts):
     mv, cost = M.eff_mv(ctx), p["cost_basis"]
@@ -2849,12 +2865,15 @@ for p, ctx in zip(positions, contexts):
         if cost is not None:
             tot_gl += mv - cost
             tot_cost += cost
+            tot_div += ctx["dividends"] or 0.0   # only where there's a gain to add them to
 
 for acct, csh in cash_by_account.items():
     acct_value[acct] = acct_value.get(acct, 0.0) + (csh or 0.0)
 
 portfolio_value = tot_mv + cash
 tot_glp = (tot_gl / tot_cost * 100) if tot_cost else None
+# price change plus dividends (None: no dividends known - the price change alone)
+tot_return = income.total_return(tot_gl if tot_cost else None, tot_cost, round(tot_div, 2))
 for p, ctx in zip(positions, contexts):
     ctx["port_value"] = portfolio_value
     ctx["acct_value"] = acct_value.get(p["account"])
