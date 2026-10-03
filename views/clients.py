@@ -170,8 +170,8 @@ def _render_advisor_settings():
                 finally:
                     c.close()
                 st.toast("Saved - your clients see this on their Advisor notes page.")
-        st.caption("Shown to clients whose accounts you manage, on their Advisor notes page and "
-                   "in the sidebar.")
+        st.caption("Shown to clients whose accounts you manage: on their **Your advisor** page "
+                   "and in the menu under their name.")
         st.session_state["weekly_email_on"] = not p.get("weekly_email_off")  # what's saved
         st.toggle("Monday email", key="weekly_email_on", on_change=_set_weekly_email,
                   help="A short email on Monday mornings when reviews are due or a client "
@@ -316,10 +316,28 @@ def _client_rows(today):
     return rows
 
 
+def _render_add_client():
+    """Add client, at the top of Your clients: an email (for a setup link) or
+    a username, and an optional password. The new client opens straight away."""
+    msg = st.session_state.pop("client_msg", None)
+    if msg:
+        getattr(st, msg[0])(msg[1])
+    with st.expander(":material/person_add: Add client", expanded=not CLIENTS):
+        st.text_input("Email or username", key="new_client_name",
+                      help="With their email address you can email them a setup link: "
+                           "they choose a password and answer the goals and risk questions "
+                           "before your first meeting.")
+        st.text_input("Login password (optional)", type="password", key="new_client_pw",
+                      help="Best left blank: then send them a setup link (Client login) "
+                           "so they choose their own. Or leave them without a login.")
+        st.button("Add client", key="add_client", on_click=_add_client, type="primary")
+
+
 def _render_clients():
     today = datetime.now().date()
+    _render_add_client()
     if not CLIENTS:
-        st.info("No clients yet - add one with **Add client** in the sidebar.")
+        st.info("No clients yet - add your first one with **Add client** just above.")
     else:
         rows = _client_rows(today)
         _week_seen()  # the Clients page shows this week's summary itself

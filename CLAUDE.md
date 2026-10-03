@@ -30,7 +30,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 
 ## Where things live
 - `dashboard.py` (~1.7k lines) - the app's one Streamlit script: styles, sign-in,
-  sidebar, settings, formatting helpers, the header, live prices, loading holdings.
+  top bar, settings, formatting helpers, the header, live prices, loading holdings.
   Each page's code is in `views/` and runs inside it via `_view("name")` at the
   point it's listed (same names, no imports needed - read the header of any view):
   `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
@@ -112,12 +112,15 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `<style>` block or `ui_enhancements.js`: Streamlit drops the whole block
   (a test checks). Colors go through the `--pt-up` / `--pt-down` / `--pt-warn` variables.
 - `dashboard.py` runs top to bottom, views included at their `_view(...)` line: a
-  function used while the page is being drawn (sign-in, the sidebar) must be
+  function used while the page is being drawn (sign-in, the top bar) must be
   defined above that point. Button callbacks run later, so they can sit anywhere.
   A new view file needs its `_view("name")` line (a test checks they match).
-- The investor menu is `MENU` plus `MORE` (the sidebar's More popover `pt_more` and
-  the phone tab bar); advisors get all of `PAGES`. A new investor page goes in `MORE`
-  unless it belongs in `MAIN_PAGES`. A label change (`PAGE_LABELS`; investors see
+- The menu is `NAV` (the top bar `pt_topbar` and the phone bar `pt_tabbar`, no
+  sidebar, nothing behind a "More") plus `ACCOUNT_MENU` (the name menu `pt_me`:
+  Account, About, Admin, Log out). Money is one tab grouping `MONEY_PAGES` (Income,
+  Activity, Watchlist - still pages of their own). `PAGES` is every page the
+  account can open. A new page goes in `NAV`, under Money or in the name menu -
+  keep the bar short. A label change (`PAGE_LABELS`; investors see
   Get started as "Learn") changes its `?page=` slug: add the old one to `OLD_SLUGS`.
 - Never name the folder `pages/`: Streamlit turns that into its own page menu.
 - Edit files with the Edit tool. Python patch scripts inside Bash heredocs have

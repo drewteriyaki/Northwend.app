@@ -882,7 +882,7 @@ def _import_csv_file(src_path, source_name):
         return
     if found["mode"] == "Percentages":
         st.info("This file only has percentages, no share counts. Use **Paste or type holdings** "
-                "in the sidebar and its Percentages mode instead.")
+                "(under **Add holdings** at the top) and its Percentages mode instead.")
         return
 
     account_default = manual_entry.DEFAULT_ACCOUNT

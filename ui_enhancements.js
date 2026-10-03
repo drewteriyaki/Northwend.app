@@ -1,15 +1,16 @@
 // Small touch/desktop conveniences dashboard.py injects once per page load
 // (st.html with unsafe_allow_javascript, so this runs in the app's own page):
-//   - a sidebar handle at the middle of the sidebar's right edge, in place of
-//     Streamlit's small top-corner arrows
-//   - the sidebar closes when you click or tap outside it
-//   - the phone tab bar's background follows the light / dark theme
+//   - the top bar's and the phone tab bar's background follows the light /
+//     dark theme
+//   - the top bar's menus (+ Add holdings, the name menu) close after a
+//     choice, and the page showing is marked for screen readers
+//     (aria-current="page" on its tab; the bars are navigation landmarks)
 //   - pull down from the top of the page on a touch screen to refresh prices
 //     (it presses a button keyed "pt_refresh" when the page has one; prices
 //     now update on their own, so the dashboard doesn't show one)
-//   - the sidebar's theme button (key "pt_theme") flips light/dark by picking
-//     the other theme in Streamlit's own menu, so the choice is saved the same
-//     way as picking it there, and the page doesn't reload
+//   - the name menu's theme button (key "pt_theme") flips light/dark by
+//     picking the other theme in Streamlit's own menu, so the choice is saved
+//     the same way as picking it there, and the page doesn't reload
 // Everything drives Streamlit's own buttons, so if a Streamlit update renames
 // them this just stops doing anything; the app itself keeps working.
 (() => {
@@ -17,8 +18,6 @@
   window.__ptUi = true;
 
   const q = (sel) => document.querySelector(sel);
-  const sidebar = () => q('section[data-testid="stSidebar"]');
-  const isOpen = () => sidebar()?.getAttribute("aria-expanded") === "true";
 
   // Icons are built with DOM calls, not markup strings: Streamlit's sanitizer
   // drops a whole script whose text looks like it contains HTML tags.
@@ -38,28 +37,6 @@
 
   const style = document.createElement("style");
   style.textContent = `
-    [data-testid="stSidebarCollapseButton"], [data-testid="stExpandSidebarButton"] {
-      visibility: hidden !important;
-    }
-    #pt-sb-handle {
-      position: fixed; top: 50%; left: 0; z-index: 1000200;
-      width: 22px; height: 64px; margin-top: -32px; padding: 0;
-      display: flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(128, 128, 128, 0.35); border-left: none;
-      border-radius: 0 12px 12px 0; cursor: pointer;
-      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.15);
-      -webkit-tap-highlight-color: transparent;
-    }
-    #pt-sb-handle svg { width: 16px; height: 16px; transition: transform 0.2s; }
-    #pt-sb-handle.open svg { transform: rotate(180deg); }
-    /* hidden while a window (st.dialog) is open: it would sit on top of it */
-    body:has(section[role="dialog"]) #pt-sb-handle { visibility: hidden; }
-    /* phones: slimmer, and see-through while closed so it doesn't cover content */
-    @media (max-width: 640px) {
-      #pt-sb-handle { width: 16px; height: 56px; margin-top: -28px; }
-      #pt-sb-handle:not(.open) { opacity: 0.7; }
-      #pt-sb-handle svg { width: 13px; height: 13px; }
-    }
     #pt-ptr {
       position: fixed; top: 0; left: 50%; z-index: 1000300;
       width: 36px; height: 36px; margin-left: -18px; border-radius: 50%;
@@ -72,10 +49,11 @@
   `;
   document.head.appendChild(style);
 
-  // ---- phone tab bar background ------------------------------------------
-  // The bottom tab bar (dashboard.py, key "pt_tabbar") needs a solid
-  // background that follows light/dark; the theme can change without the page
-  // rerunning, so keep --pt-bg equal to the page's own background.
+  // ---- the bars' background ----------------------------------------------
+  // The top bar and the phone tab bar (dashboard.py, keys "pt_topbar" and
+  // "pt_tabbar") need a solid background that follows light/dark; the theme
+  // can change without the page rerunning, so keep --pt-bg equal to the
+  // page's own background.
   // The same check marks the theme on the page root (data-pt-theme), which picks the
   // up / down / warning colors in dashboard.py's styles.
   const syncBg = () => {
@@ -88,7 +66,7 @@
     if (root.dataset.ptTheme !== theme) root.dataset.ptTheme = theme;
   };
   syncBg();
-  setInterval(syncBg, 1000);
+  setInterval(syncBg, 250);   // a theme picked in Streamlit's own menu, too
 
   // ---- names for icon-only buttons ---------------------------------------
   // A button showing only an icon would be read out as the icon's name
@@ -100,6 +78,8 @@
     [/^st-key-me_cdel_/, () => "Remove this cash line"],
     [/^st-key-pt_hide$/, (m, btn) =>
       btn.textContent.includes("visibility_off") ? "Show amounts" : "Hide amounts"],
+    // the name at the top right (on a phone just its icon) opens a menu
+    [/^st-key-pt_me$/, (m, btn) => `Menu for ${wordsOf(btn)}`],
     // "Your investing profile (2/5)": the count said in words
     [/^st-key-assist_profile_open$/, (m, btn) =>
       wordsOf(btn).replace(/\s*\((\d+)\/(\d+)\)/, ", $1 of $2 questions answered")],
@@ -153,89 +133,58 @@
   labelIconButtons();
   setInterval(labelIconButtons, 1000);
 
-  // ---- sidebar handle ----------------------------------------------------
-  const handle = document.createElement("button");
-  handle.id = "pt-sb-handle";
-  handle.type = "button";
-  handle.appendChild(icon(["M9 6l6 6-6 6"]));
-  document.body.appendChild(handle);
+  // ---- the menu: where you are, and its two small menus ------------------
+  // The tabs are Streamlit buttons; the one for the page showing is drawn as
+  // "primary" (dashboard.py). Say so to screen readers too - aria-current -
+  // and make each bar a navigation landmark.
+  const CURRENT = ['.st-key-pt_topbar [class*="st-key-nav_"] button',
+                   '.st-key-pt_tabbar button', '.st-key-pt_money_tabs button',
+                   '[class*="st-key-menu_"] button', '.st-key-viewing_start button'].join(", ");
+  const LANDMARKS = [[".st-key-pt_topbar", "Main menu"], [".st-key-pt_tabbar", "Main menu"],
+                     [".st-key-pt_money_tabs", "Money"]];
+  const markCurrent = () => {
+    for (const [sel, name] of LANDMARKS) {
+      const bar = q(sel);
+      if (bar && bar.getAttribute("role") !== "navigation") {
+        bar.setAttribute("role", "navigation");
+        bar.setAttribute("aria-label", name);
+      }
+    }
+    document.querySelectorAll(CURRENT).forEach((btn) => {
+      const on = btn.getAttribute("kind") === "primary";
+      if (on && btn.getAttribute("aria-current") !== "page") btn.setAttribute("aria-current", "page");
+      if (!on && btn.hasAttribute("aria-current")) btn.removeAttribute("aria-current");
+    });
+  };
+  markCurrent();
+  let marking = false;
+  new MutationObserver(() => {
+    if (marking) return;
+    marking = true;
+    requestAnimationFrame(() => { marking = false; markCurrent(); });
+  }).observe(document.body, { subtree: true, childList: true, attributes: true,
+                              attributeFilter: ["kind"] });
 
+  // The top bar's menus (+ Add holdings, key "pt_add", and the name menu,
+  // "pt_me") are popovers, which stay open after a choice - close them, the
+  // same way their own button would. (The theme button closes its menu
+  // itself, below: Streamlit's own menu is opening just then.)
+  const OPEN_MENUS = ['.st-key-pt_add', '.st-key-pt_me']
+    .map((s) => s + ' [data-testid="stPopoverButton"][aria-expanded="true"]').join(", ");
+  const closeMenus = () => document.querySelectorAll(OPEN_MENUS).forEach((m) => m.click());
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element) || !t.closest('[data-testid="stPopoverBody"] button')) return;
+    if (t.closest(".st-key-pt_theme")) return;
+    setTimeout(closeMenus, 120);
+  }, true);
+
+  // the pull-to-refresh circle wears the page's own colors
   const paint = (el) => {
-    const sb = sidebar();
-    if (!sb) return;
-    const cs = getComputedStyle(sb);
+    const cs = getComputedStyle(q(".stApp") || document.body);
     el.style.background = cs.backgroundColor;
     el.style.color = cs.color;
   };
-
-  const place = () => {
-    const sb = sidebar();
-    if (!sb) { handle.style.display = "none"; return; }
-    handle.style.display = "flex";
-    const open = isOpen();
-    handle.classList.toggle("open", open);
-    handle.setAttribute("aria-label", open ? "Close sidebar" : "Open sidebar");
-    handle.title = open ? "Close sidebar" : "Open sidebar";
-    // the sidebar slides off to the left when closed, so its right edge is
-    // where the handle belongs either way
-    handle.style.left = Math.max(0, sb.getBoundingClientRect().right) + "px";
-    paint(handle);
-  };
-
-  // follow the sidebar while it slides
-  const track = (ms = 600) => {
-    const until = performance.now() + ms;
-    const step = () => { place(); if (performance.now() < until) requestAnimationFrame(step); };
-    requestAnimationFrame(step);
-  };
-
-  const setOpen = (open) => {
-    if (open === isOpen()) return;
-    const btn = open ? q('[data-testid="stExpandSidebarButton"]')
-                     : q('[data-testid="stSidebarCollapseButton"] button');
-    btn?.click();
-    track();
-  };
-
-  handle.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!isOpen()); });
-
-  // close on a click or tap outside the sidebar - but not on the floating
-  // parts of the sidebar's own widgets (dropdown menus, tooltips, dialogs)
-  document.addEventListener("pointerdown", (e) => {
-    if (!isOpen()) return;
-    const t = e.target;
-    if (!(t instanceof Element)) return;
-    if (sidebar()?.contains(t) || handle.contains(t)) return;
-    if (t.closest('[data-baseweb="popover"], [data-baseweb="tooltip"], [role="listbox"], ' +
-                  '[role="dialog"], [data-testid="stToast"]')) return;
-    setOpen(false);
-  }, true);
-
-  // on a phone the open sidebar covers the page, so picking a page closes it
-  document.addEventListener("click", (e) => {
-    if (window.innerWidth < 768 && e.target instanceof Element &&
-        e.target.closest('[class*="st-key-nav_"]')) setTimeout(() => setOpen(false), 150);
-  }, true);
-
-  // the More menus (the phone tab bar's, and the sidebar's for investors,
-  // key "pt_more") are popovers, which stay open after a choice - close
-  // them, the same way their own button would
-  const OPEN_MORE = ['.st-key-pt_tabbar', '.st-key-pt_more']
-    .map((s) => s + ' [data-testid="stPopoverButton"][aria-expanded="true"]').join(", ");
-  document.addEventListener("click", (e) => {
-    if (!(e.target instanceof Element) || !e.target.closest('[data-testid="stPopoverBody"] button'))
-      return;
-    setTimeout(() => {
-      document.querySelectorAll(OPEN_MORE).forEach((more) => more.click());
-    }, 120);
-  }, true);
-
-  window.addEventListener("resize", () => track(200));
-  new MutationObserver(() => track(600)).observe(document.body, {
-    subtree: true, attributes: true, attributeFilter: ["aria-expanded"],
-  });
-  place();
-  setInterval(place, 1000);  // catches reruns that rebuild the sidebar
 
   // ---- pull to refresh (touch screens) ----------------------------------
   const ptr = document.createElement("div");
@@ -266,7 +215,6 @@
     const sc = scroller();
     startY = null;
     if (e.touches.length !== 1 || !sc || sc.scrollTop > 0 || !refreshBtn()) return;
-    if (isOpen() && sidebar()?.contains(e.target)) return;
     startY = e.touches[0].clientY;
     pulled = 0;
     paint(ptr);
@@ -352,8 +300,12 @@
           return;
         }
         item.click();
-        // picking a theme leaves the menu open; close it again
-        setTimeout(() => { if (q('[data-testid="stMainMenuList"]')) menu.click(); }, 50);
+        // picking a theme leaves the menu open; close it again, then the
+        // name menu the switch was in, and repaint the bars straight away
+        setTimeout(() => {
+          if (q('[data-testid="stMainMenuList"]')) menu.click();
+          setTimeout(() => { closeMenus(); syncBg(); }, 60);
+        }, 50);
       };
       setTimeout(pick, 0);
     }, 60);

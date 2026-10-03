@@ -3067,9 +3067,17 @@ class PhoneAndDarkStyleTests(unittest.TestCase):
         self.assertIn("opacity: 1", rule.group(1))
         self.assertIn("color-mix(in srgb, currentColor 70%, transparent)", rule.group(1))
 
-    def test_sidebar_handle_hides_under_a_window(self):
-        with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
-            self.assertIn('body:has(section[role="dialog"]) #pt-sb-handle', fh.read())
+    def test_top_bar_is_pinned_and_slims_on_a_phone(self):
+        # the menu is a bar along the top (there's no sidebar): pinned, on the
+        # page's own background, the page starting below it; on a phone its
+        # tabs give way to the tab bar along the bottom
+        self.assertRegex(self.flat, r"\.st-key-pt_topbar \{ position: fixed; top: 0;[^}]*"
+                                    r"background: var\(--pt-bg")
+        self.assertRegex(self.flat, r'\[data-testid="stMainBlockContainer"\] \{ padding-top: 5\.75rem')
+        phone = self._phone_blocks()
+        self.assertIn('.st-key-pt_topbar [class*="st-key-nav_"] { display: none !important; }',
+                      phone)
+        self.assertRegex(phone, r"\.st-key-pt_tabbar \{ display: flex !important; position: fixed")
 
     def test_tabs_wrap_on_a_phone_only(self):
         # Plan's five or six tabs scrolled sideways behind an arrow at 390px

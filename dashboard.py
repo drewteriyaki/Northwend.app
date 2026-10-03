@@ -315,11 +315,18 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
     transition-duration: .01ms !important; } }
 [data-testid="stStatusWidget"], [data-testid="stAppDeployButton"], .stAppDeployButton {
   display: none !important; }
-[data-testid="stMainBlockContainer"] { padding-top: 3rem; }
+/* room for the top bar (pinned, 3.75rem) above the page */
+[data-testid="stMainBlockContainer"] { padding-top: 5.75rem; }
+/* the pinned bars, and a script with nothing to show (ui_enhancements.js,
+   the sign-in cookie), take no room in the page's own column */
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_topbar),
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_tabbar) { display: contents; }
+[data-testid="stElementContainer"]:has(> [data-testid="stHtml"] > script:only-child) {
+  display: none; }
 /* a slider's end label can poke past a phone's edge; never scroll sideways */
 [data-testid="stMain"] { overflow-x: hidden; }
 @media (max-width: 640px) {
-  [data-testid="stMainBlockContainer"] { padding: 3.75rem 1rem 6rem; }
+  [data-testid="stMainBlockContainer"] { padding: 4.75rem 1rem 6rem; }
   h1 { font-size: 1.6rem !important; }
   /* a ticker's stats (_stat_tiles): two per line, not one long column */
   .st-key-pt_stat_tiles [data-testid="stColumn"] { min-width: calc(50% - 8px) !important; }
@@ -330,16 +337,119 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   [data-testid="stTabs"] [role="tablist"] { flex-wrap: wrap; overflow-x: visible; row-gap: .25rem; }
   [data-testid="stTabsScrollLeft"], [data-testid="stTabsScrollRight"] { display: none !important; }
 }
+/* the top bar (_render_top_bar): pinned along the top of the window, on the
+   page's own background (--pt-bg, kept in step with light/dark by
+   ui_enhancements.js). Streamlit's header strip stays above it, see-through,
+   so its three-dot menu sits at the bar's right end. */
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stHeader"], [data-testid="stHeader"] * { pointer-events: none; }
+[data-testid="stHeader"] [data-testid="stMainMenu"],
+[data-testid="stHeader"] [data-testid="stMainMenu"] * { pointer-events: auto; }
+.st-key-pt_topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 999980;
+  height: 3.75rem; box-sizing: border-box; padding: 0 3.5rem 0 1rem;
+  flex-wrap: nowrap !important; gap: .25rem !important;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  background: var(--pt-bg, #f5f7f9); border-bottom: 1px solid var(--pt-line); }
+.st-key-pt_topbar > div { flex: none; width: auto; }
+/* lined up with the page's own column once it has its wide margins */
+@media (min-width: 864px) { .st-key-pt_topbar { padding: 0 5rem; } }
+.st-key-pt_topbar [data-testid="stPopoverButton"] > div { gap: .3rem; }
+.pt-brand { display: flex; align-items: center; gap: .35rem; margin-right: 1rem;
+  white-space: nowrap; font-family: Newsreader, Georgia, serif; font-size: 1.35rem;
+  font-weight: 500; line-height: 1; }
+.pt-brand-mark { font-family: "Material Symbols Rounded"; font-size: 1.5rem; font-weight: 400;
+  color: var(--pt-compass); font-feature-settings: "liga"; }
+/* + Add holdings and the name menu keep to the right end */
+.st-key-pt_topbar > .st-key-pt_add,
+.st-key-pt_topbar > :not(.st-key-pt_add) + .st-key-pt_me { margin-left: auto; }
+/* their words in full (Streamlit would cut a menu button's words short) */
+.st-key-pt_topbar [data-testid="stPopoverButton"] [data-testid="stMarkdownContainer"],
+.st-key-pt_client_login [data-testid="stMarkdownContainer"] { min-width: max-content; }
+/* the client's own Get started, in the viewing bar: marked as the tabs are */
+.st-key-viewing_start button[kind="primary"] { background: var(--pt-compass-soft) !important;
+  color: var(--pt-link) !important; border-color: var(--pt-compass) !important; }
+/* the tabs: plain words; the page showing reads in the link blue on a soft
+   compass tint, bold (and aria-current, ui_enhancements.js) */
+.st-key-pt_topbar [class*="st-key-nav_"] button { min-height: 2.25rem; padding: .3rem .75rem;
+  border: 0; border-radius: .5rem; font-weight: 500; }
+.st-key-pt_topbar [class*="st-key-nav_"] button:hover { background: var(--pt-sunken); }
+.st-key-pt_topbar [class*="st-key-nav_"] button[kind="primary"],
+.st-key-pt_tabbar button[kind="primary"] {
+  background: var(--pt-compass-soft) !important; color: var(--pt-link) !important;
+  border-color: transparent !important; }
+.st-key-pt_topbar [class*="st-key-nav_"] button[kind="primary"] p,
+.st-key-pt_tabbar button[kind="primary"] p { font-weight: 600; }
+/* an advisor's Viewing: says what it is, the account's name after it */
+.st-key-viewing_select [role="group"] { background: transparent; }
+.st-key-viewing_select [role="group"]::before { content: "Viewing"; align-self: center;
+  padding-left: .7rem; font-size: .8rem; color: var(--pt-ink-muted); white-space: nowrap; }
+.st-key-viewing_select [role="combobox"] { background: transparent; padding-left: .4rem;
+  font-weight: 600; }
+/* inside + Add holdings and the name menu: a list of rows, left-aligned and
+   close together; the page showing marked as in the bar */
+[data-testid="stPopoverBody"]:has(.st-key-menu_logout) [data-testid="stVerticalBlock"],
+[data-testid="stPopoverBody"]:has(.st-key-add_manual) [data-testid="stVerticalBlock"] {
+  gap: .3rem; }
+[data-testid="stPopoverBody"]:has(.st-key-menu_logout) button,
+[data-testid="stPopoverBody"]:has(.st-key-add_manual) button { padding: .45rem .6rem; }
+[data-testid="stPopoverBody"]:has(.st-key-menu_logout) button > div,
+[data-testid="stPopoverBody"]:has(.st-key-add_manual) button > div {
+  justify-content: flex-start; text-align: left; }
+[data-testid="stPopoverBody"]:has(.st-key-menu_logout) button:hover,
+[data-testid="stPopoverBody"]:has(.st-key-add_manual) button:hover {
+  background: var(--pt-sunken); }
+[class*="st-key-menu_"] button[kind="primary"] { background: var(--pt-compass-soft) !important;
+  color: var(--pt-link) !important; border-color: transparent !important; }
+[class*="st-key-menu_"] button[kind="primary"] p { font-weight: 600; }
+/* an open menu's button keeps readable words (Streamlit dims a plain one
+   to a dark blue, hard to read on the dark theme) */
+.st-key-pt_me [data-testid="stPopoverButton"][aria-expanded="true"],
+.st-key-pt_client_login [data-testid="stPopoverButton"][aria-expanded="true"] {
+  color: var(--pt-link); }
+/* the name menu: a long name or email shortens with "..." */
+.st-key-pt_me button { max-width: 15rem; }
+.st-key-pt_topbar .st-key-pt_me button [data-testid="stMarkdownContainer"] {
+  width: max-content; min-width: 0; max-width: 10rem; flex-shrink: 0; overflow: hidden; }
+.st-key-pt_me button p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Money's tabs (Income, Activity, Watchlist; _money_tabs): words on a
+   hairline, the one showing underlined in the compass blue */
+.st-key-pt_money_tabs { gap: 1.5rem !important; border-bottom: 1px solid var(--pt-line);
+  margin: -.5rem 0 .25rem; }
+.st-key-pt_money_tabs button { min-height: 2.5rem; padding: .25rem .1rem; border: 0;
+  border-bottom: 2px solid transparent; border-radius: 0; background: transparent !important;
+  margin-bottom: -1px; }
+.st-key-pt_money_tabs button:hover { color: var(--pt-link); }
+.st-key-pt_money_tabs button[kind="primary"] { color: var(--pt-link) !important;
+  border-bottom-color: var(--pt-compass) !important; }
+.st-key-pt_money_tabs button[kind="primary"] p { font-weight: 600; }
+/* a narrower window: the brand's name steps aside first (sooner for an
+   advisor, whose bar holds more), then the two menus' words; past that the
+   bar scrolls sideways rather than cut anything off */
+@media (min-width: 641px) and (max-width: 1000px) {
+  .pt-brand-name { display: none; }
+  .pt-brand { margin-right: .25rem; }
+}
+@media (min-width: 641px) and (max-width: 1250px) {
+  .pt-brand-compact .pt-brand-name { display: none; }
+  .pt-brand-compact { margin-right: .25rem; }
+}
+@media (min-width: 641px) and (max-width: 1100px) {
+  .st-key-pt_topbar:has(.pt-brand-compact) .st-key-pt_add button [data-testid="stMarkdownContainer"],
+  .st-key-pt_topbar:has(.pt-brand-compact) .st-key-pt_me button [data-testid="stMarkdownContainer"] {
+    display: none; }
+}
+@media (min-width: 641px) and (max-width: 760px) {
+  .st-key-pt_topbar:has(.pt-brand-compact) [class*="st-key-nav_"] button { padding: .3rem .4rem; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .st-key-pt_topbar .st-key-pt_add button [data-testid="stMarkdownContainer"],
+  .st-key-pt_topbar .st-key-pt_me button [data-testid="stMarkdownContainer"] { display: none; }
+  .st-key-pt_topbar [class*="st-key-nav_"] button { padding: .3rem .5rem; }
+  .st-key-pt_topbar [data-testid="stSelectbox"] { width: 9.5rem !important; }
+}
 /* phone tab bar (_render_tab_bar): pinned to the bottom on narrow screens,
-   hidden on wider ones where the sidebar is the menu. --pt-bg is the page's
-   own background, kept in step with light/dark by ui_enhancements.js. */
+   hidden on wider ones where the top bar holds the tabs. */
 .st-key-pt_tabbar { display: none !important; }
-/* the More menus (the investor's sidebar, the phone tab bar): while open, an
-   unselected More keeps its usual text color - Streamlit dims it to a dark
-   blue that's hard to read on the dark sidebar */
-.st-key-pt_more [data-testid="stPopoverButton"][kind="tertiary"][aria-expanded="true"],
-.st-key-pt_tabbar [data-testid="stPopoverButton"][kind="tertiary"][aria-expanded="true"] {
-  color: inherit; }
 /* the sign-up form's hidden field (_signup): people never see it, bots fill it in */
 .st-key-signup_website { display: none !important; }
 @media (max-width: 640px) {
@@ -358,8 +468,16 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .st-key-pt_tabbar button p span[role="img"] {
     display: block !important; font-size: 1.4rem; line-height: 1.2; margin: 0 auto;
   }
-  /* More opens a menu; its dropdown arrow would push it out of line */
-  .st-key-pt_tabbar [data-testid="stPopoverButton"] [aria-hidden="true"] { display: none; }
+  /* the top bar slims to the brand, + and the name's icon: the tabs are
+     along the bottom */
+  .st-key-pt_topbar { height: 3.25rem; padding: 0 3rem 0 1rem; }
+  .st-key-pt_topbar [class*="st-key-nav_"] { display: none !important; }
+  .st-key-pt_add button [data-testid="stMarkdownContainer"],
+  .st-key-pt_me button [data-testid="stMarkdownContainer"] { display: none; }
+  .st-key-pt_add button, .st-key-pt_me button { min-width: 2.75rem; padding: .3rem .55rem; }
+  .pt-brand-compact .pt-brand-name { display: none; }
+  .st-key-pt_topbar [data-testid="stSelectbox"] { width: 9.5rem !important; }
+  .st-key-viewing_select [role="group"]::before { content: none; }
 }
 .pt-status { font-size: .8rem; opacity: .75; margin-top: -.6rem; }
 .pt-hero-label { font-size: .85rem; opacity: .7; }
@@ -1052,7 +1170,7 @@ try:
     # what they asked to be called (the Account page), else their login
     MY_NAME = _me["display_name"] or st.session_state["username"]
     CLIENTS = auth.list_clients(_conn, LOGIN_ID) if IS_ADVISOR else []
-    # an investor account that asked for advisor access (shown in the sidebar)
+    # an investor account that asked for advisor access (shown in the name menu)
     ADVISOR_REQUEST = None if IS_ADVISOR else auth.advisor_request(_conn, LOGIN_ID)
     if "active_user_id" not in st.session_state:
         # a fresh session (reload, bookmark): start on the client in the address,
@@ -1100,6 +1218,9 @@ PAGE_LABELS["Dashboard"] = "Portfolio" if IS_ADVISOR else "Home"
 # copy, in a client's account too, keeps "Get started".
 if not IS_ADVISOR:
     PAGE_LABELS["Get started"] = "Learn"
+# a managed client's page from their advisor: notes, reports and proposals
+if IS_MANAGED_CLIENT:
+    PAGE_LABELS["Advisor notes"] = "Your advisor"
 st.session_state["active_user_id"] = USER_ID
 ACTIVE_NAME = (MY_NAME if USER_ID == LOGIN_ID
                else dict(CLIENTS).get(USER_ID, "client"))
@@ -1127,19 +1248,35 @@ else:
 if IS_ADMIN:
     PAGES.append("Admin")
 
-# The menu (ROADMAP S4). Investors get a short one - Home, Plan, Ask Northwend
-# and Learn - and More for the rest (Advisor notes, Watchlist, Activity,
-# Income, Account, About, Admin): one tap away, not gone. The sidebar and the
-# phone tab bar show the same split. Advisors keep the full list. PAGES stays
-# every page this account can open (the address, ?page=, checks against it).
-MAIN_PAGES = ("Dashboard", "Plan", "AI Assistant", "Get started")
+# The menu: a bar along the top (the phone tab bar below shows the same tabs),
+# everything on it at once - nothing hidden behind a "More". Investors get
+# Home, Plan, Learn, Ask Northwend and Money (+ Your advisor for a managed
+# client); advisors Clients, Portfolio, Plan, Notes (in a client's account),
+# Money and Ask. Money is one page with a tab each for Income, Activity and
+# Watchlist (MONEY_PAGES): those stay pages of their own inside (their
+# ?page= names, _go("Income") and the views' `if PAGE == ...`), the menu
+# just groups them. Account, About, Admin and Log out are in the name menu
+# at the right (ACCOUNT_MENU). PAGES stays every page this account can open
+# (the address, ?page=, checks against it). Always in this order, before
+# holdings and after (where they land is PAGES[0]): a tab never moves under
+# someone's thumb.
+MONEY = "Money"
+MONEY_PAGES = ("Income", "Activity", "Watchlist")
 if IS_ADVISOR:
-    MENU, MORE = list(PAGES), []
+    NAV = ["Clients", "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
+           MONEY, "AI Assistant"]
 else:
-    # always in this order, before holdings and after (where they land is
-    # PAGES[0]): a tab never moves under someone's thumb
-    MENU = [p for p in MAIN_PAGES if p in PAGES]
-    MORE = [p for p in PAGES if p not in MAIN_PAGES]
+    NAV = ["Dashboard", "Plan", "Get started", "AI Assistant", MONEY,
+           *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
+ACCOUNT_MENU = [p for p in ("Account", "About", "Admin") if p in PAGES]
+# the top bar's words where they're shorter than the page's own name (an
+# advisor's bar holds more); the button's tooltip gives the full name
+NAV_SHORT = ({"Clients": "Clients", "Advisor notes": "Notes", "AI Assistant": "Ask"}
+             if IS_ADVISOR else {})
+
+
+def _nav_label(item):
+    return NAV_SHORT.get(item, item if item == MONEY else _label(item))
 
 
 def _slug(page):
@@ -1151,7 +1288,13 @@ def _slug(page):
 # the other experience (Home / Portfolio, Learn / Get started)
 OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients", "dashboard": "Dashboard",
              "home": "Dashboard", "portfolio": "Dashboard",
-             "get-started": "Get started", "learn": "Get started"}
+             "get-started": "Get started", "learn": "Get started",
+             # Money opens on its first tab; each tab keeps its own name
+             # (?page=income, activity, watchlist)
+             "money": "Income",
+             # a managed client's "Your advisor" is the advisor's "Advisor notes"
+             # (the report emails link to ?page=advisor-notes)
+             "advisor-notes": "Advisor notes", "your-advisor": "Advisor notes"}
 
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
@@ -1217,26 +1360,27 @@ def _add_client():
     _switch_to(client_id)
     st.session_state["client_msg"] = (
         "success", f"Added client '{name}' - you're now viewing them."
-        + (" Open Client login to email them a setup link." if "@" in name else ""))
+        + (" Open **Client login** at the top of their pages to email them a setup link."
+           if "@" in name else ""))
 
 
 def _set_client_password():
     pw = st.session_state.get("client_login_pw") or ""
     if len(pw) < auth.MIN_PASSWORD_LENGTH:
-        st.session_state["client_msg"] = (
+        st.session_state["login_msg"] = (
             "error", f"Use a password of at least {auth.MIN_PASSWORD_LENGTH} characters.")
         return
     viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
     c = connect(DB)
     try:
         if viewer == target or not auth.can_view(c, viewer, target):
-            st.session_state["client_msg"] = ("error", "You can only set passwords for your clients.")
+            st.session_state["login_msg"] = ("error", "You can only set passwords for your clients.")
             return
         auth.set_password(c, auth.get_username(c, target), pw)
     finally:
         c.close()
     st.session_state["client_login_pw"] = ""
-    st.session_state["client_msg"] = ("success", "Login password set - the client can log in now.")
+    st.session_state["login_msg"] = ("success", "Login password set - the client can log in now.")
 
 
 def _create_invite():
@@ -1247,7 +1391,7 @@ def _create_invite():
     try:
         token = auth.create_invite(c, viewer, target)
     except ValueError:
-        st.session_state["client_msg"] = ("error", "You can only invite your own clients.")
+        st.session_state["login_msg"] = ("error", "You can only invite your own clients.")
         return
     finally:
         c.close()
@@ -1262,13 +1406,13 @@ def _email_invite():
     try:
         email = auth.email_status(c, target)["email"]
         if not email:
-            st.session_state["client_msg"] = ("error", "Add an email address for this client "
+            st.session_state["login_msg"] = ("error", "Add an email address for this client "
                                                        "first.")
             return
         token = auth.create_invite(c, viewer, target)
         card = prefs.load(c, viewer).get("advisor_card") or {}
     except ValueError:
-        st.session_state["client_msg"] = ("error", "You can only invite your own clients.")
+        st.session_state["login_msg"] = ("error", "You can only invite your own clients.")
         return
     finally:
         c.close()
@@ -1278,7 +1422,7 @@ def _email_invite():
     sent = mailer.client_invite(email, f"{_app_address()}?invite={token}", name,
                                 auth.INVITE_DAYS)
     st.session_state.pop(f"invite_link_{target}", None)
-    st.session_state["client_msg"] = (
+    st.session_state["login_msg"] = (
         ("success", f"Sent the setup link to {email}. It works for {auth.INVITE_DAYS} days.")
         if sent else ("error", "The email couldn't be sent just now - create a link and send "
                                "it yourself instead."))
@@ -1293,7 +1437,7 @@ def _cancel_invite():
     finally:
         c.close()
     st.session_state.pop(f"invite_link_{target}", None)
-    st.session_state["client_msg"] = ("success", "Setup link cancelled - it no longer works.")
+    st.session_state["login_msg"] = ("success", "Setup link cancelled - it no longer works.")
 
 
 def _prepare_export():
@@ -1346,172 +1490,196 @@ def _change_password():
 
 
 def _open_holdings_dialog(kind):
-    """A sidebar Holdings button: the sidebar is drawn before this account's
-    holdings are loaded, so it leaves a note and the dialog opens just after
-    they are (see open_dialog below load())."""
+    """Add holdings (the top bar's menu, and the pages' own buttons): the bar
+    is drawn before this account's holdings are loaded, so it leaves a note
+    and the dialog opens just after they are (see open_dialog below load())."""
     if kind == "manual":
         _manual_clear()  # start from the latest snapshot
     st.session_state["open_dialog"] = kind
 
 
-with st.sidebar:
-    st.markdown(f"### {APP_ICON} {APP_NAME}")
-    if IS_ADVISOR or IS_ADMIN:
-        st.html(" ".join(f"<span class='pt-chip pt-role'>{r}</span>"
-                         for r, on in (("Advisor", IS_ADVISOR), ("Admin", IS_ADMIN)) if on))
-    else:
-        st.caption(TAGLINE)
-    for _p in MENU:
-        st.button(_label(_p), key=f"nav_{_p}", on_click=_go, args=(_p,), width="stretch",
-                  type="primary" if st.session_state["page"] == _p else "tertiary")
-    if MORE:
-        # the rest of the investor's pages in a small window; More looks
-        # selected while one of them is open (ui_enhancements.js closes the
-        # window after a choice)
-        with st.popover("More", key="pt_more", width="stretch",
-                        type="primary" if st.session_state["page"] in MORE else "tertiary"):
-            for _p in MORE:
-                st.button(_label(_p), key=f"nav_{_p}", on_click=_go, args=(_p,),
-                          width="stretch",
-                          type="primary" if st.session_state["page"] == _p else "tertiary")
-    st.divider()
-
-    if IS_ADVISOR:
-        _accounts = {LOGIN_ID: f"My portfolio ({st.session_state['username']})", **dict(CLIENTS)}
-        st.session_state["viewing_select"] = USER_ID
-        st.selectbox("Viewing", list(_accounts), format_func=_accounts.get,
-                     key="viewing_select", on_change=_on_viewing_change)
-        _msg = st.session_state.pop("client_msg", None)
-        if _msg:
-            getattr(st, _msg[0])(_msg[1])
-        with st.expander("Add client"):
-            st.text_input("Email or username", key="new_client_name",
-                          help="With their email address you can email them a setup link: "
-                               "they choose a password and answer the goals and risk questions "
-                               "before your first meeting.")
-            st.text_input("Login password (optional)", type="password", key="new_client_pw",
-                          help="Best left blank: then send them a setup link (Client login) "
-                               "so they choose their own. Or leave them without a login.")
-            st.button("Add client", on_click=_add_client, width="stretch")
-        if USER_ID != LOGIN_ID:
-            _link = st.session_state.get(f"invite_link_{USER_ID}")
-            with st.expander("Client login", expanded=bool(_link)):
-                _c = connect(DB)
-                try:
-                    _pending = auth.pending_invite(_c, USER_ID)
-                    _client_email = auth.email_status(_c, USER_ID)["email"]
-                finally:
-                    _c.close()
-                if _client_email:
-                    st.button(f"Email {_client_email} a setup link", key="invite_email",
-                              type="primary", on_click=_email_invite, width="stretch",
-                              help="They choose a password, then answer the goals and risk "
-                                   "questions - you'll see their answers.")
-                if _pending:  # (_fmt_date is defined further down)
-                    _d = datetime.strptime(_pending[:10], "%Y-%m-%d")
-                    _until = f"{_d:%b} {_d.day}"
-                st.caption(f"Send **{ACTIVE_NAME}** a setup link to choose their own password "
-                           "and see their portfolio - you never need to know it.")
-                if _link and _pending:
-                    st.code(_link, language=None, wrap_lines=True)
-                    st.caption(f"Copy it and send it privately - it works once, until "
-                               f"{_until}. Anyone with the link can set "
-                               "the password, so don't post it anywhere public.")
-                elif _pending:
-                    st.caption(f"A setup link is waiting to be used, until "
-                               f"{_until}. A new link replaces it.")
-                st.button("Create a new setup link" if _pending else "Create setup link",
-                          key="invite_create", on_click=_create_invite, width="stretch",
-                          type="secondary" if _client_email else "primary",
-                          help="A link to copy and send yourself.")
-                if _pending:
-                    st.button("Cancel the link", key="invite_cancel", on_click=_cancel_invite,
-                              width="stretch", type="tertiary")
-                st.markdown("**Or set a password yourself**")
-                st.text_input("New password", type="password", key="client_login_pw")
-                st.button("Set login password", on_click=_set_client_password,
-                          width="stretch")
-        st.divider()
-
-    if CAN_IMPORT:
-        st.markdown("**Holdings**" + (f" · {ACTIVE_NAME}" if USER_ID != LOGIN_ID else ""))
-        st.button(":material/content_paste: Paste or type holdings", key="sb_manual",
-                  width="stretch", on_click=_open_holdings_dialog, args=("manual",),
-                  help="Paste your positions from any brokerage's website, read them from "
-                       "screenshots, type them in, or use percentages only.")
-        st.button(":material/upload_file: Upload a CSV", key="sb_import", width="stretch",
-                  on_click=_open_holdings_dialog, args=("import",),
-                  help="A Positions export file from your brokerage.")
-        if not HAS_HOLDINGS:
-            st.button(":material/science: Try example data", key="sb_sample", width="stretch",
-                      on_click=lambda: _load_sample(),  # defined further down
-                      help="A made-up portfolio to explore with. Removed when you add your own.")
-        st.divider()
-
-    # flips light/dark in the browser (ui_enhancements.js); nothing runs here
-    st.button(":material/contrast: Light / dark", key="pt_theme", type="tertiary",
-              width="stretch", help="Switch between the light and dark theme. System, Light and "
-                                    "Dark are also in the ⋮ menu at the top right.")
-    if IS_MANAGED_CLIENT:
-        st.caption(f"Your advisor: **{_advisor_display_name()}**")
-    if ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None:
-        st.caption(f":material/hourglass_top: **Advisor access requested** for "
-                   f"{ADVISOR_REQUEST['firm']}. We're checking your details - usually within "
-                   "two working days. Advisor tools appear here once it's approved.")
-    elif ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] == "declined":
-        st.caption("Your request for advisor access wasn't approved. Questions: "
-                   f"{disclosures.CONTACT}")
-    _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
-    st.caption(f"Logged in as **{MY_NAME}**{_viewing}")
-    st.button("Log out", on_click=_logout, width="stretch")
-    # sidebar handle, click-away to close, pull to refresh (see the file)
-    with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:
-        st.html(f"<script>{_fh.read()}</script>", unsafe_allow_javascript=True)
-
-# Phones: the main pages as a tab bar along the bottom, plus More for the rest
-# (CSS above shows it only on narrow screens; the sidebar stays the menu on
-# wider ones). Four tabs: the pages people open most, for this kind of account -
-# for an investor, the same short menu as the sidebar (MENU; More is MORE).
-TAB_ICONS = {"Get started": ((":material/route:", "Start") if IS_ADVISOR
-                             else (":material/school:", "Learn")),
-             "Dashboard": ((":material/pie_chart:", "Portfolio") if IS_ADVISOR
-                           else (":material/home:", "Home")),
-             "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", GUIDE),
-             "Watchlist": (":material/visibility:", "Watch"),
-             "Clients": (":material/groups:", "Clients")}
-TABS = ([p for p in ("Clients", "Dashboard", "Plan", "AI Assistant") if p in PAGES] if IS_ADVISOR
-        else MENU)[:4]
-
-
-def _render_tab_bar():
-    with st.container(horizontal=True, key="pt_tabbar"):
-        for p in TABS:
-            icon, short = TAB_ICONS[p]
-            st.button(f"{icon} {short}", key=f"tab_{p}", on_click=_go, args=(p,),
-                      type="primary" if PAGE == p else "tertiary", help=_label(p))
-        more = [p for p in PAGES if p not in TABS]
-        with st.popover(":material/menu: More", type="primary" if PAGE in more else "tertiary"):
-            for p in more:
-                st.button(_label(p), key=f"more_{p}", on_click=_go, args=(p,), width="stretch",
-                          type="primary" if PAGE == p else "secondary")
-            if CAN_IMPORT:
-                st.divider()
-                st.button(":material/content_paste: Paste or type holdings", key="more_manual",
-                          on_click=_open_holdings_dialog, args=("manual",), width="stretch")
-                st.button(":material/upload_file: Upload a CSV", key="more_import",
-                          on_click=_open_holdings_dialog, args=("import",), width="stretch")
-            st.divider()
-            st.caption(f"Logged in as **{MY_NAME}**"
-                       + (f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else "")
-                       + ". The full menu is in the side panel (the arrow at the left edge).")
-            st.button("Log out", key="more_logout", on_click=_logout, width="stretch")
-
 PAGE = st.session_state["page"]
+# the Money tab last open: the menu's Money goes back to it
+if PAGE in MONEY_PAGES:
+    st.session_state["money_tab"] = PAGE
 # Keep where you are in the address, so a reload or a bookmark comes back here
 # (read above, for a fresh session). The client is re-checked on every load.
 _want_qp = {"page": _slug(PAGE), **({"client": str(USER_ID)} if USER_ID != LOGIN_ID else {})}
 if dict(st.query_params) != _want_qp:
     st.query_params.from_dict(_want_qp)
+
+
+def _nav_target(item):
+    """The page a menu tab opens: Money its tab last open (Income at first)."""
+    if item == MONEY:
+        tab = st.session_state.get("money_tab")
+        return tab if tab in MONEY_PAGES else MONEY_PAGES[0]
+    return item
+
+
+def _nav_current(item):
+    """Whether this menu tab is the page showing (Money: any of its tabs)."""
+    return PAGE in MONEY_PAGES if item == MONEY else PAGE == item
+
+
+# The brand at the left of the top bar: the flag (Streamlit's own icon font,
+# like the app's other icons), then the name; an advisor's phone shows the
+# flag alone, to make room for Viewing.
+_BRAND = (f"<div class='pt-brand{' pt-brand-compact' if IS_ADVISOR else ''}'>"
+          "<span class='pt-brand-mark' aria-hidden='true' translate='no'>flag</span>"
+          f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
+ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
+                 "Admin": ":material/admin_panel_settings:"}
+
+
+def _render_viewing_pick():
+    """An advisor's Viewing: their own portfolio or a client's, in the bar."""
+    accounts_ = {LOGIN_ID: f"My portfolio ({st.session_state['username']})", **dict(CLIENTS)}
+    st.session_state["viewing_select"] = USER_ID
+    st.selectbox("Viewing", list(accounts_), format_func=accounts_.get, key="viewing_select",
+                 on_change=_on_viewing_change, label_visibility="collapsed", width=210)
+
+
+def _render_add_menu():
+    """+ Add holdings: the ways to bring holdings in (a window each)."""
+    with st.popover("Add holdings", icon=":material/add:", key="pt_add"):
+        if ON_CLIENT:
+            st.caption(f"Into **{ACTIVE_NAME}**'s account")
+        st.button(":material/content_paste: Paste or type holdings", key="add_manual",
+                  width="stretch", type="tertiary", on_click=_open_holdings_dialog,
+                  args=("manual",),
+                  help="Paste your positions from any brokerage's website, read them from "
+                       "screenshots, type them in, or use percentages only.")
+        st.button(":material/upload_file: Upload a CSV", key="add_import", width="stretch",
+                  type="tertiary", on_click=_open_holdings_dialog, args=("import",),
+                  help="A Positions export file from your brokerage.")
+        if not HAS_HOLDINGS:
+            st.button(":material/science: Try example data", key="add_sample", width="stretch",
+                      type="tertiary", on_click=lambda: _load_sample(),  # defined further down
+                      help="A made-up portfolio to explore with. Removed when you add your own.")
+
+
+def _render_name_menu():
+    """The name at the right: who's signed in, Account, About, Admin, the
+    light / dark switch and Log out."""
+    with st.popover(MY_NAME, icon=":material/account_circle:", type="tertiary", key="pt_me"):
+        if IS_ADVISOR or IS_ADMIN:
+            st.html(" ".join(f"<span class='pt-chip pt-role'>{r}</span>"
+                             for r, on in (("Advisor", IS_ADVISOR), ("Admin", IS_ADMIN)) if on))
+        _viewing = f" · viewing **{ACTIVE_NAME}**" if USER_ID != LOGIN_ID else ""
+        st.caption(f"Logged in as **{MY_NAME}**{_viewing}")
+        if IS_MANAGED_CLIENT:
+            st.caption(f"Your advisor: **{_advisor_display_name()}**")
+        if ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None:
+            st.caption(f":material/hourglass_top: **Advisor access requested** for "
+                       f"{ADVISOR_REQUEST['firm']}. We're checking your details - usually "
+                       "within two working days. Advisor tools appear once it's approved.")
+        elif ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] == "declined":
+            st.caption("Your request for advisor access wasn't approved. Questions: "
+                       f"{disclosures.CONTACT}")
+        for p in ACCOUNT_MENU:
+            st.button(f"{ACCOUNT_ICONS[p]} {_label(p)}", key=f"menu_{p}", on_click=_go, args=(p,),
+                      width="stretch", type="primary" if PAGE == p else "tertiary")
+        # flips light/dark in the browser (ui_enhancements.js); nothing runs here
+        st.button(":material/contrast: Light / dark", key="pt_theme", type="tertiary",
+                  width="stretch", help="Switch between the light and dark theme. System, Light "
+                                        "and Dark are also in the ⋮ menu at the top right.")
+        st.button(":material/logout: Log out", key="menu_logout", on_click=_logout,
+                  width="stretch", type="tertiary")
+
+
+def _render_top_bar():
+    """The menu along the top: the brand, every tab, + Add holdings and the
+    name menu. Pinned to the top of the window (the styles); on a phone the
+    tabs step aside for the tab bar at the bottom (_render_tab_bar), and the
+    two menus show as icons."""
+    with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                      key="pt_topbar"):
+        st.html(_BRAND, width="content")
+        for item in NAV:
+            if IS_ADVISOR and item == "Dashboard":
+                _render_viewing_pick()   # Clients, then whose account, then its pages
+            st.button(_nav_label(item), key=f"nav_{item}", on_click=_go,
+                      args=(_nav_target(item),),
+                      type="primary" if _nav_current(item) else "tertiary",
+                      help=_label(item) if item in NAV_SHORT else None)
+        if CAN_IMPORT:
+            _render_add_menu()
+        _render_name_menu()
+
+
+# Phones: the same tabs along the bottom (the styles show it only on narrow
+# screens), each with its icon above a short label.
+TAB_ICONS = {"Get started": (":material/school:", "Learn"),
+             "Dashboard": ((":material/pie_chart:", "Portfolio") if IS_ADVISOR
+                           else (":material/home:", "Home")),
+             "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", "Ask"),
+             MONEY: (":material/payments:", "Money"),
+             "Advisor notes": ((":material/sticky_note_2:", "Notes") if IS_ADVISOR
+                               else (":material/support_agent:", "Advisor")),
+             "Clients": (":material/groups:", "Clients")}
+
+
+def _render_tab_bar():
+    with st.container(horizontal=True, key="pt_tabbar"):
+        for item in NAV:
+            icon, short = TAB_ICONS[item]
+            st.button(f"{icon} {short}", key=f"tab_{item}", on_click=_go,
+                      args=(_nav_target(item),),
+                      type="primary" if _nav_current(item) else "tertiary")
+
+
+def _render_client_login():
+    """An advisor in a client's account: the client's own login - a setup
+    link to email or copy, or a password set for them."""
+    link = st.session_state.get(f"invite_link_{USER_ID}")
+    with st.popover("Client login", icon=":material/key:", type="tertiary",
+                    key="pt_client_login"):
+        msg = st.session_state.pop("login_msg", None)
+        if msg:
+            getattr(st, msg[0])(msg[1])
+        c = connect(DB)
+        try:
+            pending = auth.pending_invite(c, USER_ID)
+            client_email = auth.email_status(c, USER_ID)["email"]
+        finally:
+            c.close()
+        if client_email:
+            st.button(f"Email {client_email} a setup link", key="invite_email",
+                      type="primary", on_click=_email_invite, width="stretch",
+                      help="They choose a password, then answer the goals and risk "
+                           "questions - you'll see their answers.")
+        if pending:  # (_fmt_date is defined further down)
+            d = datetime.strptime(pending[:10], "%Y-%m-%d")
+            until = f"{d:%b} {d.day}"
+        st.caption(f"Send **{ACTIVE_NAME}** a setup link to choose their own password "
+                   "and see their portfolio - you never need to know it.")
+        if link and pending:
+            st.code(link, language=None, wrap_lines=True)
+            st.caption(f"Copy it and send it privately - it works once, until "
+                       f"{until}. Anyone with the link can set "
+                       "the password, so don't post it anywhere public.")
+        elif pending:
+            st.caption(f"A setup link is waiting to be used, until "
+                       f"{until}. A new link replaces it.")
+        st.button("Create a new setup link" if pending else "Create setup link",
+                  key="invite_create", on_click=_create_invite, width="stretch",
+                  type="secondary" if client_email else "primary",
+                  help="A link to copy and send yourself.")
+        if pending:
+            st.button("Cancel the link", key="invite_cancel", on_click=_cancel_invite,
+                      width="stretch", type="tertiary")
+        st.markdown("**Or set a password yourself**")
+        st.text_input("New password", type="password", key="client_login_pw")
+        st.button("Set login password", on_click=_set_client_password, width="stretch")
+
+
+_render_top_bar()
+_render_tab_bar()  # phones only (see the styles); fixed to the bottom
+# the menus' click-away and the theme switch, names for icon buttons, the
+# current tab marked for screen readers, pull to refresh (see the file)
+with open(os.path.join(HERE, "ui_enhancements.js"), encoding="utf-8") as _fh:
+    st.html(f"<script>{_fh.read()}</script>", unsafe_allow_javascript=True)
 
 
 def _save_login_pref(key, value):
@@ -1536,15 +1704,20 @@ def _disclosures_seen():
     st.session_state["disclosures_seen"] = disclosures.LAST_UPDATED
 
 
-_render_tab_bar()  # phones only (see the CSS); fixed to the bottom, so its place here doesn't matter
-
 # An advisor inside a client's account always sees whose it is, at the top of
 # every page, with the way back - so nobody edits the wrong person's plan.
+# The client's own Get started and their login are here too: they belong to
+# this client, not to the advisor's menu.
 if ON_CLIENT:
     with st.container(border=True, horizontal=True, vertical_alignment="center",
                       key="pt_viewing"):
         st.markdown(f":material/visibility: Viewing **{ACTIVE_NAME}**'s account",
                     width="stretch")
+        if "Get started" in PAGES:
+            st.button(_label("Get started"), key="viewing_start", icon=":material/route:",
+                      type="primary" if PAGE == "Get started" else "tertiary",
+                      on_click=_go, args=("Get started",))
+        _render_client_login()
         st.button("Back to your clients", key="viewing_back", type="tertiary",
                   on_click=_back_to_clients)
 
@@ -2274,12 +2447,25 @@ def _expedition_eyebrow():
     return f"{here} · your expedition"
 
 
+def _money_tabs():
+    """Money's tabs: Income, Activity and Watchlist, a page each (?page=income
+    and so on), so links to any of them keep working."""
+    with st.container(horizontal=True, gap="small", key="pt_money_tabs"):
+        for p in MONEY_PAGES:
+            st.button(_label(p), key=f"money_{p}", on_click=_go, args=(p,),
+                      type="primary" if PAGE == p else "tertiary")
+
+
 def _page_header(title, *, data=True):
     """The page's title with the hide-amounts toggle and, on `data` pages
     (this account's portfolio), a status line that keeps prices current by
     itself (_live_status) - there's no Refresh button. Adding or updating
-    holdings lives in the sidebar's Holdings section. An investor's Home and
-    Get started carry the map plate above the title (_expedition_eyebrow)."""
+    holdings is the top bar's + Add holdings. An investor's Home and
+    Get started carry the map plate above the title (_expedition_eyebrow).
+    Income, Activity and Watchlist are the Money page's tabs: their title is
+    Money, with the tabs under it (_money_tabs)."""
+    if PAGE in MONEY_PAGES:
+        title = MONEY
     if INVESTOR_VIEW and not IS_ADVISOR and PAGE in ("Dashboard", "Get started"):
         st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
@@ -2291,6 +2477,8 @@ def _page_header(title, *, data=True):
                       key="pt_hide", type="tertiary", on_click=_toggle_hide,
                       help="Show amounts" if _hidden() else "Hide amounts - mask every dollar "
                                                              "and percent with " + MASK)
+    if PAGE in MONEY_PAGES:
+        _money_tabs()
     if data:
         _live_status()
         if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
@@ -2302,8 +2490,8 @@ def _page_header(title, *, data=True):
                     st.button("Remove example", key="pt_clear_sample", on_click=_clear_sample)
         elif SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE:
             st.caption(":material/percent: A percentages portfolio - dollar amounts are pretend, "
-                       "scaled to the total you chose. Change it with **Paste or type holdings** "
-                       "in the sidebar.")
+                       "scaled to the total you chose. Change it with **Add holdings** at the top: "
+                       "**Paste or type holdings**.")
 
     # the result of a refresh / sync / import that happened just before the rerun
     _msg = st.session_state.pop("refresh_msg", None)
@@ -2421,7 +2609,7 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
-# a Holdings button in the sidebar was pressed (_open_holdings_dialog)
+# Add holdings (the top bar) or a page's own button was pressed (_open_holdings_dialog)
 _open = st.session_state.pop("open_dialog", None)
 if PAGE in ("Clients", "Admin", "Account", "About") and not _open:
     # these pages are about the login, its clients or the app - not the viewed
@@ -2496,9 +2684,10 @@ if not positions and PAGE != "Watchlist":
         st.info(f"Welcome, **{ACTIVE_NAME}**. Your advisor, {_advisor_display_name()}, "
                 "brings your statements in - your portfolio shows up here once they have.")
         with st.container(horizontal=True):
-            st.button("Get started", key="onboard_get_started", type="primary", on_click=_go,
-                      args=("Get started",))
-            st.button("Advisor notes", key="onboard_notes", on_click=_go, args=("Advisor notes",))
+            st.button(_label("Get started"), key="onboard_get_started", type="primary",
+                      on_click=_go, args=("Get started",))
+            st.button(_label("Advisor notes"), key="onboard_notes", on_click=_go,
+                      args=("Advisor notes",))
     elif PAGE == "Dashboard":
         # someone not investing yet: Home is their route, not an import form
         _page_header(_label(PAGE), data=False)

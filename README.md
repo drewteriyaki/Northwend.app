@@ -70,11 +70,13 @@ to `price_history`, and rewrites each position's live market value. It also
 runs on its own when an account is opened and its prices are more than 15
 minutes old.
 
-**Sidebar:** open and close it with the tab at the middle of its right edge,
-or click anywhere outside it to close it. **Light / dark** at the bottom flips
-the theme (System, Light and Dark are also in the ⋮ menu); the browser
-remembers the choice. Both come from `ui_enhancements.js`,
-which also handles pull-to-refresh.
+**The menu** is a bar along the top: Home, Plan, Learn, Ask Northwend and
+Money (Income, Activity and Watchlist as its tabs), **+ Add holdings**, and
+the name menu at the right (Account, About, Admin, **Light / dark**, Log
+out). On a phone the same tabs sit along the bottom. Light / dark flips the
+theme (System, Light and Dark are also in the ⋮ menu); the browser
+remembers the choice. The menus' small behaviours come from
+`ui_enhancements.js`, which also handles pull-to-refresh.
 
 **Sync history** (the clock icon next to refresh) pulls the deepest history Yahoo allows at *every* resolution
 it offers into `daily_bars` / `intraday_bars` / `security_info`: ~2 years daily,
@@ -149,7 +151,7 @@ the AI Assistant, and each is checked off automatically where the app can tell
 ## Advisors and their clients
 
 An advisor (`manage_users.py make-advisor`) manages client accounts
-(`advisor_clients`) from the sidebar's **Viewing** switcher (`advising.py`).
+(`advisor_clients`) from the top bar's **Viewing** switcher (`advising.py`).
 
 - **Clients page:** one card per client, sorted by what needs a look - goal
   behind or past its date, no goal, a review due (90 days after the last one)
@@ -165,7 +167,7 @@ An advisor (`manage_users.py make-advisor`) manages client accounts
   applied to a client from their Plan page's Target mix. Asset types are how
   holdings are grouped, so an ETF counts as ETF / CEF whatever it holds.
 - **How clients see you:** name, firm, email, phone and a short message
-  (Clients page), shown on the client's Advisor notes page and sidebar.
+  (Clients page), shown on the client's Your advisor page and name menu.
 - **Plans:** the advisor sets each client's goal and target mix; the Plan
   shows "Set by your advisor ...".
 
@@ -265,7 +267,7 @@ database keeps working after an update.
   can't be matched by name, the column check offers "Let AI guess the
   columns". Only the column names and the kind of each cell ("text",
   "number", "money") are sent - never holdings, amounts or account numbers.
-- **AI Assistant (sidebar):** an educational investing chatbot on Claude
+- **AI Assistant (Ask Northwend in the menu):** an educational investing chatbot on Claude
   Sonnet 5, using the same `ANTHROPIC_API_KEY` - see `advisor.py`. It
   works from a per-account investing profile (`investor_profiles` table):
   goals, time horizon, target return, risk tolerance, how they'd react to
@@ -292,9 +294,9 @@ database keeps working after an update.
   password (`manage_users.py` or an advisor's **Client login**) signs it out
   everywhere. Leave the box unchecked on a shared computer.
 - **Advisor mode:** an account marked as an advisor (`manage_users.py
-  make-advisor`) gets a "Viewing" dropdown in the sidebar to switch
+  make-advisor`) gets a "Viewing" dropdown in the top bar to switch
   between its own portfolio and its clients' (`advisor_clients` table),
-  with full access to each, plus an "Add client" form. Whose data is
+  with full access to each, plus an "Add client" form on Your clients. Whose data is
   shown is re-checked against the database on every page load
   (`auth.can_view`), not trusted from the session. Clients can be
   advisor-managed only (random password) or given a login. A "Clients"
