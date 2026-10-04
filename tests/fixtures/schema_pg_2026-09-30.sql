@@ -1,3 +1,6 @@
+-- schema_pg.sql as of commit 7a43922 (Sep 30, 2026), kept as it was: tests/test_postgres.py
+-- loads it into an empty schema and checks that today's code upgrades such a database.
+--
 -- Portfolio tracker schema - Postgres.
 --
 -- Line-for-line the same tables/columns/indexes as schema.sql (SQLite),
@@ -11,12 +14,7 @@
 --     literal expression must stay byte-for-byte identical to)
 --   REAL                              -> DOUBLE PRECISION
 --     (SQLite's REAL is 8-byte; Postgres REAL is 4-byte and would lose
---     cents on large amounts). TEXT and INTEGER are the same in both,
---     except where a value can pass 2,147,483,647 (Postgres INTEGER is
---     4-byte, SQLite's 8-byte):
---   INTEGER                           -> BIGINT for trading volumes
---     (Yahoo gives a crypto pair's volume in dollars - tens of billions a
---     day; portfolio._widen_big_columns() converts an older database)
+--     cents on large amounts). TEXT and INTEGER are the same in both.
 -- Executed statement-by-statement by pgcompat.ConnWrapper.executescript(),
 -- not as one script, so every statement needs to already be independently
 -- valid (Postgres has no CREATE TABLE IF NOT EXISTS quirks here - it's
@@ -34,7 +32,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS advisor_clients (
     advisor_id INTEGER NOT NULL,
     client_id  INTEGER NOT NULL,
-    client_name TEXT,          -- what the advisor calls them ("Chen household"); auth.set_client_name
     PRIMARY KEY (advisor_id, client_id)
 );
 
@@ -122,8 +119,6 @@ CREATE TABLE IF NOT EXISTS transactions (
     fees          DOUBLE PRECISION,
     realized_gain DOUBLE PRECISION,
     source_file   TEXT,
-    origin        TEXT,                             -- 'imported' (txn_import.py); NULL = worked out from updates
-    row_key       TEXT,                             -- an imported row's fingerprint, so re-imports add only what's new
     imported_at   TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
 );
 
@@ -153,12 +148,12 @@ CREATE TABLE IF NOT EXISTS daily_bars (
     low        DOUBLE PRECISION,
     close      DOUBLE PRECISION,
     adj_close  DOUBLE PRECISION,
-    volume     BIGINT,                          -- see the header: BIGINT
+    volume     INTEGER,
     source     TEXT    NOT NULL DEFAULT 'yfinance',
     fetched_at TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
     PRIMARY KEY (ticker, date)
 );
--- (the primary key already indexes (ticker, date); an old copy is dropped in portfolio._ensure_schema)
+CREATE INDEX IF NOT EXISTS idx_daily_bars_ticker ON daily_bars (ticker, date);
 
 CREATE TABLE IF NOT EXISTS intraday_bars (
     ticker     TEXT    NOT NULL,
@@ -168,12 +163,12 @@ CREATE TABLE IF NOT EXISTS intraday_bars (
     high       DOUBLE PRECISION,
     low        DOUBLE PRECISION,
     close      DOUBLE PRECISION,
-    volume     BIGINT,
+    volume     INTEGER,
     source     TEXT    NOT NULL DEFAULT 'yfinance',
     fetched_at TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
     PRIMARY KEY (ticker, interval, ts)
 );
--- (the primary key already indexes (ticker, interval, ts))
+CREATE INDEX IF NOT EXISTS idx_intraday_bars_lookup ON intraday_bars (ticker, interval, ts);
 
 CREATE TABLE IF NOT EXISTS security_info (
     ticker         TEXT    PRIMARY KEY,
@@ -188,25 +183,10 @@ CREATE TABLE IF NOT EXISTS security_info (
     dividend_yield DOUBLE PRECISION,
     week52_high    DOUBLE PRECISION,
     week52_low     DOUBLE PRECISION,
-    avg_volume     BIGINT,
-    avg_volume_10d BIGINT,
+    avg_volume     INTEGER,
+    avg_volume_10d INTEGER,
     source         TEXT    NOT NULL DEFAULT 'yfinance',
     fetched_at     TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
-);
-
--- A fund's top holdings from Yahoo (fund_holdings.py, the Fund overlap window):
--- shared market data like security_info, no user_id. Fetched on demand and
--- asked again at most once a week. Slot 0 records when the fund was asked
--- (no holding: Yahoo may list none); slots 1.. are its largest holdings.
-CREATE TABLE IF NOT EXISTS fund_top_holdings (
-    fund        TEXT    NOT NULL,                   -- the fund's ticker, as held
-    slot        INTEGER NOT NULL,                   -- 1 = its largest; 0 = when it was asked
-    symbol      TEXT,                               -- the holding's ticker ('' if none)
-    name        TEXT,
-    weight      DOUBLE PRECISION,                   -- a fraction of the fund (0.064 = 6.4%)
-    source      TEXT    NOT NULL DEFAULT 'yfinance',
-    fetched_at  TEXT    NOT NULL,                   -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
-    PRIMARY KEY (fund, slot)
 );
 
 CREATE TABLE IF NOT EXISTS investor_profiles (
@@ -260,38 +240,7 @@ CREATE TABLE IF NOT EXISTS login_sessions (
     token_hash  TEXT    PRIMARY KEY,
     user_id     INTEGER NOT NULL,
     created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
-    expires_at  TEXT    NOT NULL,
-    two_step_until TEXT
-);
-
--- Two-step sign-in - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS two_step (
-    user_id           INTEGER PRIMARY KEY,
-    totp_secret       TEXT    NOT NULL,
-    backup_codes_hash TEXT    NOT NULL DEFAULT '',
-    enabled_at        TEXT    NOT NULL,
-    last_token_step   INTEGER NOT NULL DEFAULT 0
-);
-
--- One-time setup links an advisor sends a client (auth.create_invite): the
--- client opens it and chooses their own password, so none is ever shared.
--- Only the token's hash is kept; a link works once, until expires_at.
-CREATE TABLE IF NOT EXISTS invites (
-    token_hash  TEXT    PRIMARY KEY,
-    user_id     INTEGER NOT NULL,                    -- the client account it sets up
-    created_by  INTEGER NOT NULL,                    -- the advisor
-    created_at  TEXT    NOT NULL,                    -- 'YYYY-MM-DD HH:MM:SS' UTC
     expires_at  TEXT    NOT NULL
-);
-
--- How many AI requests each account made per month, per feature (ai_usage.py
--- enforces the monthly allowances). Counts only - never what was asked.
-CREATE TABLE IF NOT EXISTS ai_usage (
-    user_id  INTEGER NOT NULL,
-    month    TEXT    NOT NULL,                       -- 'YYYY-MM' (UTC)
-    kind     TEXT    NOT NULL,                       -- chat / screenshot / csv / plan
-    used     INTEGER NOT NULL,
-    PRIMARY KEY (user_id, month, kind)
 );
 
 -- Every decimal column in this file is DOUBLE PRECISION: Postgres REAL is
@@ -327,9 +276,7 @@ CREATE INDEX IF NOT EXISTS idx_contributions_user ON contributions (user_id, dat
 
 -- Advisor notes on a client's account (advising.py): a Review (meeting), a
 -- Note, or a Next step (done when the advisor ticks it). Private notes are
--- never shown to the client. Nothing is deleted from the app: Archive hides a
--- note (archived_at) and an edit keeps the earlier text (history), so the
--- advisor keeps a record they can export (export.client_record_zip).
+-- never shown to the client.
 CREATE TABLE IF NOT EXISTS advisor_notes (
     id          SERIAL  PRIMARY KEY,
     client_id   INTEGER NOT NULL,
@@ -339,11 +286,7 @@ CREATE TABLE IF NOT EXISTS advisor_notes (
     note_date   TEXT    NOT NULL,                -- YYYY-MM-DD
     private     INTEGER NOT NULL DEFAULT 0,
     done        INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
-    archived_at TEXT,                            -- 'YYYY-MM-DD HH:MM:SS' UTC; NULL = showing
-    edited_at   TEXT,                            -- the last edit, UTC
-    history     TEXT,                            -- JSON list of earlier versions (advising.edit_note)
-    is_message  INTEGER                          -- 1: sent with Message clients
+    created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
 );
 CREATE INDEX IF NOT EXISTS idx_advisor_notes_client ON advisor_notes (client_id, note_date);
 
@@ -366,92 +309,6 @@ CREATE TABLE IF NOT EXISTS login_failures (
     failures      INTEGER NOT NULL,
     window_start  TEXT    NOT NULL,              -- 'YYYY-MM-DD HH:MM:SS' UTC
     locked_until  TEXT
-);
-
--- Sign-up tries - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS signups (
-    address_key  TEXT    NOT NULL,
-    created_at   TEXT    NOT NULL,               -- 'YYYY-MM-DD HH:MM:SS' UTC
-    ok           INTEGER NOT NULL                -- 1 = an account was made
-);
-
--- Emailed one-time links - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS email_tokens (
-    token_hash  TEXT    PRIMARY KEY,
-    user_id     INTEGER NOT NULL,
-    purpose     TEXT    NOT NULL,                -- 'confirm', 'reset' or 'change' (email = the new one)
-    email       TEXT    NOT NULL,
-    created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
-    expires_at  TEXT    NOT NULL
-);
-
--- An advisor's proposed mix for a client - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS proposals (
-    id            SERIAL  PRIMARY KEY,
-    advisor_id    INTEGER NOT NULL,
-    client_id     INTEGER NOT NULL,
-    title         TEXT    NOT NULL,
-    mix_json      TEXT    NOT NULL,              -- JSON {asset class: %} (asset_classes.py)
-    note          TEXT,                          -- the advisor's reasoning, for the client
-    status        TEXT    NOT NULL,              -- draft / shared / accepted / declined
-    created_at    TEXT    NOT NULL,
-    updated_at    TEXT    NOT NULL,
-    shared_at     TEXT,
-    responded_at  TEXT
-);
-
--- Progress reports - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS progress_reports (
-    id            SERIAL  PRIMARY KEY,
-    advisor_id    INTEGER NOT NULL,
-    client_id     INTEGER NOT NULL,
-    period_label  TEXT    NOT NULL,              -- e.g. "Q3 2026"
-    period_start  TEXT    NOT NULL,              -- YYYY-MM-DD
-    period_end    TEXT    NOT NULL,
-    facts_json    TEXT    NOT NULL,              -- reports.build()
-    message       TEXT,
-    created_at    TEXT    NOT NULL,
-    read_at       TEXT
-);
-
--- Asking for advisor access - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS advisor_requests (
-    user_id       INTEGER PRIMARY KEY,
-    firm          TEXT    NOT NULL,
-    licence       TEXT    NOT NULL,
-    requested_at  TEXT    NOT NULL,              -- 'YYYY-MM-DD HH:MM:SS' UTC
-    decision      TEXT,                          -- NULL while waiting, 'approved', 'declined'
-    decided_at    TEXT
-);
-
--- Emails asked for - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS email_sends (
-    email_key    TEXT NOT NULL,
-    address_key  TEXT NOT NULL,                  -- '' if unknown
-    purpose      TEXT NOT NULL,
-    sent_at      TEXT NOT NULL                   -- 'YYYY-MM-DD HH:MM:SS' UTC
-);
-
--- Column layouts of brokerage CSVs seen before (csv_import.py): a fingerprint
--- of the column NAMES -> which column holds which field. No holdings or
--- personal data - so the next file with the same columns needs no questions.
-CREATE TABLE IF NOT EXISTS csv_layouts (
-    signature   TEXT PRIMARY KEY,
-    mapping     TEXT NOT NULL,                   -- JSON {field: column index}
-    updated_at  TEXT NOT NULL
-);
-
--- Errors and failed jobs, one row per kind - see the matching comment in schema.sql.
-CREATE TABLE IF NOT EXISTS error_events (
-    kind        TEXT PRIMARY KEY,
-    source      TEXT    NOT NULL,                -- 'app' or 'job'
-    error_type  TEXT    NOT NULL,
-    place       TEXT    NOT NULL,
-    line        INTEGER,
-    first_seen  TEXT    NOT NULL,                -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
-    last_seen   TEXT    NOT NULL,
-    times       INTEGER NOT NULL DEFAULT 1,
-    emailed_at  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);

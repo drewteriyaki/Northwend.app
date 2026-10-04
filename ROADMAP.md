@@ -936,10 +936,16 @@ release to main when green, new features wait on staging for the owner.
       in `docs/legal/` (unpublished, for a lawyer). Checked on a real Postgres,
       upgrading a database built with the day before's schema.
       Left for the owner: proposals can still be deleted once shared.
-- [ ] **1. Postgres check** - the live app runs on Postgres but every test
-      runs on SQLite: a GitHub check against a real Postgres (pages and the
-      write paths), and fixes for anything it finds. (A first page sweep on
-      a local Postgres 16, Oct 4: all 27 page/user combinations draw.)
+- [x] **1. Postgres check** - the live app runs on Postgres but every test
+      ran on SQLite: `tests/test_postgres.py` (25 tests, skipped unless
+      NORTHWEND_TEST_PG is set) runs the write paths of every feature, the
+      27-page sweep and an upgrade from the Sep 30 schema on a real Postgres;
+      the `postgres-tests` CI job runs it on every push. Fixed what it found:
+      the column back-fill looked at every schema (a missing column could be
+      skipped); a taken username left the connection unusable (bulk create
+      stopped); trading volumes over 2.1 billion (crypto) crashed the nightly
+      history sync - now BIGINT, widened once on old databases; quoted text
+      with `?`/`:` or a literal `%` broke the SQL translation.
 - [ ] **2. Fresh-eyes bug and security pass** over this week's merges, and a
       re-walk on phone and desktop: three banners after sign-up; "link
       expired" right after confirming an email; the slideshow's Next below

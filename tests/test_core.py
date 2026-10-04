@@ -2804,6 +2804,21 @@ class PgCompatTests(unittest.TestCase):
             f"VALUES (%(id)s, %(ticker)s, {pgcompat.PG_NOW_EXPR}) "
             "ON CONFLICT DO UPDATE SET x = %s")
 
+    def test_translate_leaves_quoted_text_casts_and_comments_alone(self):
+        # a time or a question mark inside quotes is text, not a placeholder
+        # (it once made psycopg refuse "positional and named placeholders")
+        self.assertEqual(
+            pgcompat.translate_sql("UPDATE u SET t = '2026-10-01 10:00:00', q = 'why?' "
+                                   "WHERE id = ?"),
+            "UPDATE u SET t = '2026-10-01 10:00:00', q = 'why?' WHERE id = %s")
+        self.assertEqual(pgcompat.translate_sql('SELECT "a?b", x::text FROM t WHERE y = :y'),
+                         'SELECT "a?b", x::text FROM t WHERE y = %(y)s')
+        self.assertEqual(pgcompat.translate_sql("SELECT 1 -- what's this? :x\nFROM t WHERE a = ?"),
+                         "SELECT 1 -- what's this? :x\nFROM t WHERE a = %s")
+        # psycopg reads % as a placeholder anywhere, quotes or not
+        self.assertEqual(pgcompat.translate_sql("SELECT 5 % 2 WHERE a LIKE 'x%' AND b = ?"),
+                         "SELECT 5 %% 2 WHERE a LIKE 'x%%' AND b = %s")
+
     def test_row_supports_positional_and_string_access(self):
         row = pgcompat.Row((1, "AAPL", 150.0), ("id", "symbol", "price"))
         # positional unpacking (perf.py's `for t, ticker, close in ...`)

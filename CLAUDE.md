@@ -22,6 +22,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Copy for new users should be reassuring, not technical: privacy first, nothing scary.
 
 ## Commands
+- Postgres tests: `NORTHWEND_TEST_PG=postgresql://... python -m unittest tests.test_postgres`
+  (skipped without it; CI's `postgres-tests` job runs them on a real Postgres 16).
 - Tests (all must pass): `python -m unittest discover -s tests` (~30s). Quiet:
   `... 2>&1 | grep -E "^(Ran|OK|FAILED|FAIL:|ERROR:)"`
 - Run locally: `python -m streamlit run dashboard.py`. In the desktop app use the

@@ -35,12 +35,18 @@ def _hash_password(password: str, salt: bytes) -> str:
 def create_user(conn: sqlite3.Connection, username: str, password: str) -> int:
     """Create a new account. Raises the backend's own integrity error
     (sqlite3.IntegrityError / psycopg's equivalent, both covered by
-    portfolio.DBError) if `username` is already taken."""
+    portfolio.DBError) if `username` is already taken - after rolling back,
+    so the connection can still be used (Postgres refuses every later query
+    in a failed transaction: manage_users.py's bulk create carries on)."""
     salt = os.urandom(16)
     pw_hash = _hash_password(password, salt)
-    conn.execute(
-        "INSERT INTO users (username, password_hash, password_salt) VALUES (?, ?, ?)",
-        (username, pw_hash, salt.hex()))
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, password_salt) VALUES (?, ?, ?)",
+            (username, pw_hash, salt.hex()))
+    except Exception:
+        conn.rollback()
+        raise
     conn.commit()
     row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
     return row["id"]

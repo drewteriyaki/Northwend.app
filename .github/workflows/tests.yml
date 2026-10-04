@@ -3,7 +3,8 @@ name: Tests
 # Runs the unit tests on every push and pull request, so a broken commit
 # shows a red check on GitHub instead of only surfacing on the live app.
 # The tests use temporary SQLite files and mocks only - no secrets, no
-# network, and never the live Neon database.
+# network, and never the live Neon database. postgres-tests runs the
+# Postgres ones on a throwaway Postgres container on the runner.
 
 on:
   push:
@@ -23,3 +24,37 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run tests
         run: python -m unittest discover -s tests
+
+  # The same app on Postgres, as the live app runs it (Neon): every way it
+  # writes, every page, and an older database's upgrade - tests/test_postgres.py,
+  # skipped in the job above. The database is a throwaway container on the
+  # runner (trust sign-in, nothing to keep secret) - never Neon.
+  postgres-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: northwend_test
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d northwend_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run the Postgres tests
+        env:
+          NORTHWEND_TEST_PG: postgresql://postgres@localhost:5432/northwend_test
+          NORTHWEND_TEST_PG_REQUIRED: "1"   # a skip here is a failure, not a pass
+        run: python -m unittest tests.test_postgres -v

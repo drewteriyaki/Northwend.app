@@ -20,8 +20,13 @@ from __future__ import annotations
 import re
 
 _DATETIME_NOW_RE = re.compile(r"datetime\(\s*'now'\s*\)")
-_NAMED_RE = re.compile(r":(\w+)")
-_QMARK_RE = re.compile(r"\?")
+# One pass over the query: a quoted string or identifier, or a `--` comment,
+# is kept as it is ('10:30', 'a?b' are text, not placeholders), a Postgres
+# `::` cast is kept, and elsewhere `?` and `:name` are placeholders. A literal
+# `%` anywhere is doubled: psycopg reads `%` as the start of a placeholder
+# even inside quotes, so `LIKE 'a%'` would otherwise fail.
+_TOKEN_RE = re.compile(
+    r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"|--[^\n]*|::|\?|(?<![\w:]):(\w+)|%")
 
 # SQLite's datetime('now') returns 'YYYY-MM-DD HH:MM:SS' - a fixed-width,
 # space-separated, always-UTC string with no fractional seconds or offset.
@@ -39,17 +44,26 @@ def is_postgres_dsn(db_path: str) -> bool:
     return db_path.startswith("postgres://") or db_path.startswith("postgresql://")
 
 
+def _token(m: re.Match) -> str:
+    text = m.group(0)
+    if text == "?":
+        return "%s"
+    if m.group(1):
+        return f"%({m.group(1)})s"
+    return text.replace("%", "%%")   # quoted text, a comment, `::` or a lone `%`
+
+
 def translate_sql(sql: str) -> str:
-    """SQLite -> Postgres query text translation. Safe because the
-    codebase never uses a literal `?` or `:word` inside a SQL string
-    *value* - verified by grep; every occurrence is a real placeholder.
+    """SQLite -> Postgres query text translation, for a query sent with
+    parameters (ConnWrapper always sends some, if only an empty tuple):
+    `?` and `:name` outside quotes become psycopg placeholders, literal `%`
+    signs are doubled, and text inside quotes is otherwise left alone.
 
     Placeholder substitution runs BEFORE the datetime('now') substitution,
     not after: PG_NOW_EXPR itself contains literal `:MI:SS` (a to_char
-    format string), which the named-placeholder regex would otherwise
+    format string), which the named-placeholder rule would otherwise
     misparse as `:MI`/`:SS` placeholders on a second pass."""
-    sql = _NAMED_RE.sub(r"%(\1)s", sql)
-    sql = _QMARK_RE.sub("%s", sql)
+    sql = _TOKEN_RE.sub(_token, sql)
     sql = _DATETIME_NOW_RE.sub(PG_NOW_EXPR, sql)
     return sql
 
@@ -143,7 +157,9 @@ class ConnWrapper:
 
     def execute(self, sql, params=()):
         cur = self._conn.cursor()
-        cur.execute(translate_sql(sql), params)
+        # always with parameters (an empty tuple at least): translate_sql's
+        # doubled `%` signs are read back as one only then
+        cur.execute(translate_sql(sql), params if params is not None else ())
         return _CursorWrapper(cur)
 
     def executemany(self, sql, seq_of_params):

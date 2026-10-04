@@ -216,10 +216,13 @@ def _ensure_schema(conn) -> None:
     have: dict[str, set] = {t: set() for t in tables}
     if is_pg:
         # every table's columns in one query: on Postgres each query is a
-        # round trip, and this runs at every process start
+        # round trip, and this runs at every process start. Only this
+        # database's own schema: a same-named table in another schema (a
+        # copy, a test run) must not count as having the column.
         for r in conn.execute(
                 "SELECT table_name, column_name FROM information_schema.columns "
-                f"WHERE table_name IN ({', '.join('?' for _ in tables)})", tables):
+                f"WHERE table_name IN ({', '.join('?' for _ in tables)}) "
+                "AND table_schema = current_schema()", tables):
             have[r["table_name"]].add(r["column_name"])
     else:
         for table in tables:
@@ -262,6 +265,10 @@ def _ensure_schema(conn) -> None:
         if widened:
             print(f"schema: {len(widened)} REAL column(s) changed to DOUBLE PRECISION: "
                   + ", ".join(widened), file=sys.stderr)
+        big = _widen_big_columns(conn)
+        if big:
+            print(f"schema: {len(big)} INTEGER column(s) changed to BIGINT: " + ", ".join(big),
+                  file=sys.stderr)
     conn.commit()
 
 
@@ -326,6 +333,32 @@ def _widen_real_columns(conn, schema_text: str) -> list[str]:
     for table, cols in by_table.items():
         conn.execute(f'ALTER TABLE "{table}" ' + ", ".join(
             f'ALTER COLUMN "{c}" TYPE DOUBLE PRECISION' for c in cols))
+    return [f"{t}.{c}" for t, cols in by_table.items() for c in cols]
+
+
+# Counts that can pass 2,147,483,647, Postgres INTEGER's limit (SQLite's
+# INTEGER is 8-byte): Yahoo gives a crypto pair's volume in dollars, tens of
+# billions a day, and one such bar failed the whole nightly history sync.
+# schema_pg.sql makes them BIGINT; _widen_big_columns() converts older ones.
+BIG_COLUMNS = {"daily_bars": ("volume",), "intraday_bars": ("volume",),
+               "security_info": ("avg_volume", "avg_volume_10d")}
+
+
+def _widen_big_columns(conn) -> list[str]:
+    """Postgres only: change any BIG_COLUMNS column still INTEGER to BIGINT,
+    one ALTER per table. Once converted there's nothing left to do. Returns
+    the "table.column" names it changed."""
+    by_table: dict[str, list[str]] = {}
+    for r in conn.execute(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND data_type = 'integer' "
+            f"AND table_name IN ({', '.join('?' for _ in BIG_COLUMNS)}) "
+            "ORDER BY table_name, ordinal_position", tuple(BIG_COLUMNS)).fetchall():
+        if r["column_name"] in BIG_COLUMNS[r["table_name"]]:
+            by_table.setdefault(r["table_name"], []).append(r["column_name"])
+    for table, cols in by_table.items():
+        conn.execute(f'ALTER TABLE "{table}" ' + ", ".join(
+            f'ALTER COLUMN "{c}" TYPE BIGINT' for c in cols))
     return [f"{t}.{c}" for t, cols in by_table.items() for c in cols]
 
 
