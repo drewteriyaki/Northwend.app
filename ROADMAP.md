@@ -919,6 +919,47 @@ phone-only beginner). What they found, fixed in this order:
       a share of what you paid; blank when the cost is unknown, none for a
       percentages-only portfolio).
 
+### Legal fixes, and the overnight plan (Oct 4) - approved by the owner
+Northwend stays free (no compensation from anyone), which keeps it clear of
+investment-adviser registration; these keep it educational and give advisors
+what their record-keeping needs. Batches of at most two agents; bug fixes
+release to main when green, new features wait on staging for the owner.
+- [ ] **0. Legal fixes** - advisor side: clients agree to the disclosures at
+      the setup link; notes archived, not deleted, with history; export a
+      client's record. Investor side: fund types (not tickers) wherever it's
+      tailored to the person; explicit AI rules in every prompt; "may be
+      delayed" price-source labels; Terms / Privacy / Security drafts in
+      `docs/legal/` (unpublished, for a lawyer).
+- [ ] **1. Postgres check** - the live app runs on Postgres but every test
+      runs on SQLite: a GitHub check against a real Postgres (pages and the
+      write paths), and fixes for anything it finds. (A first page sweep on
+      a local Postgres 16, Oct 4: all 27 page/user combinations draw.)
+- [ ] **2. Fresh-eyes bug and security pass** over this week's merges, and a
+      re-walk on phone and desktop: three banners after sign-up; "link
+      expired" right after confirming an email; the slideshow's Next below
+      the fold on phones; the paste window long and prefilled; retirement
+      goals defaulting to 3 years out; tiny chart toolbars on phones.
+- [ ] **3. Stress test your mix** (Plan) - 2008, 2020, 2022, hypothetical.
+- [ ] **4. Contribution helper** - where the next deposit could go, by asset
+      class (never a ticker), to move toward the target mix without selling.
+- [ ] **5. Cash check** - how much sits in cash; a sweep account vs a money
+      market fund, explained (no fund named).
+- [ ] **6. Free money check** - an employer 401(k) match calculator.
+- [ ] **7. Advisors** - add clients from a CSV with invites; a demo book
+      while approval is pending; "End relationship" (the client keeps a
+      self-directed account and is told).
+- [ ] **8. Notes to future you** - a private note on a holding or the plan,
+      shown back on Home when markets drop.
+- [ ] **9. Year in review** - a private yearly recap, and a version to share
+      with no dollar figures.
+- [ ] **10. Account map** - an "if something happens to me" binder: every
+      account (brokerage, type, last 3 digits, rough value, who to call),
+      notes for family, a PDF only you download, and a guide to finding old
+      401(k)s and unclaimed accounts.
+- [ ] **11. Monthly check-in** - a 3-minute routine that counts toward a
+      habit milestone; an optional reminder email (off unless turned on, no
+      figures).
+
 ## Later
 
 - [x] **Real transactions** - import a brokerage's activity export (any
