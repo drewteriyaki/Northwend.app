@@ -136,7 +136,7 @@ def _stamp_of(password_hash) -> str:
 # rest of that run doesn't read the row again: login_facts_of, email_status_of,
 # ai_usage.status(user=...) and the Account page.
 LOGIN_COLUMNS = ("username", "password_hash", "is_advisor", "is_admin", "terms_version",
-                 "email", "email_verified_at", "display_name", "ai_unlimited",
+                 "terms_via", "email", "email_verified_at", "display_name", "ai_unlimited",
                  "created_at", "last_login_at")
 
 
@@ -144,7 +144,8 @@ def login_facts(conn, user_id: int) -> dict:
     """What the app checks about the signed-in login on every run, from one
     read of its users row: {"stamp": password_stamp(), "is_advisor":
     is_advisor(), "is_admin": admin.is_admin(), "display_name":
-    display_name()} - the same answers as those four, in one query."""
+    display_name(), "agreed": has_agreed()} - the same answers as those
+    five, in one query."""
     row = conn.execute(f"SELECT {', '.join(LOGIN_COLUMNS)} FROM users WHERE id = ?",
                        (user_id,)).fetchone()
     return login_facts_of(row)
@@ -155,10 +156,63 @@ def login_facts_of(row) -> dict:
     a login that no longer exists)."""
     import admin  # admin imports auth; not at the top
     if row is None:
-        return {"stamp": None, "is_advisor": False, "is_admin": False, "display_name": None}
+        return {"stamp": None, "is_advisor": False, "is_admin": False, "display_name": None,
+                "agreed": False}
     return {"stamp": _stamp_of(row["password_hash"]), "is_advisor": bool(row["is_advisor"]),
             "is_admin": bool(admin._admin_row(row, admin.listed_admins())),
-            "display_name": row["display_name"] or None}
+            "display_name": row["display_name"] or None,
+            "agreed": bool(row["terms_version"])}
+
+
+# --------------------------------------------------------------------------- #
+# agreeing to the About and disclosures
+# --------------------------------------------------------------------------- #
+# Everyone agrees once, and the version agreed to is kept with the time
+# (users.terms_version, terms_accepted_at): at sign-up (sign_up), at a client's
+# setup link (accept_invite), or - for an account an advisor or admin made
+# that got in some other way - once at their next sign-in (record_agreement).
+# terms_via says where when it wasn't sign-up. NULL means sign-up, so an
+# account that made itself is still told apart from one an admin or advisor
+# made (made_by_themselves: admin.py, proposals.who_to_tell, weekly_email).
+TERMS_VIA_SETUP_LINK = "setup link"
+TERMS_VIA_SIGN_IN = "sign-in"
+
+
+def made_by_themselves(row) -> bool:
+    """Whether a users row (with terms_version and terms_via) came from
+    self-serve sign-up, rather than from an admin or an advisor."""
+    return bool(row["terms_version"]) and not row["terms_via"]
+
+
+def has_agreed(conn, user_id: int) -> bool:
+    """Whether this login has agreed to the About and disclosures (any version)."""
+    row = conn.execute("SELECT terms_version FROM users WHERE id = ?", (user_id,)).fetchone()
+    return bool(row and row["terms_version"])
+
+
+def agreement_error(*, agreed: bool, adult: bool) -> str | None:
+    """What's missing from the two checkboxes (as at sign-up), or None."""
+    if not adult:
+        return "Accounts are for people 18 and over - tick the box to confirm."
+    if not agreed:
+        return "Tick the box to agree to the About and disclosures."
+    return None
+
+
+def record_agreement(conn, user_id: int, terms_version: str, *, via: str,
+                     now: datetime | None = None, commit: bool = True) -> None:
+    """Keep that this login agreed to `terms_version` of the disclosures, and
+    when - for an account that didn't come through sign-up (`via`:
+    TERMS_VIA_SETUP_LINK or TERMS_VIA_SIGN_IN). An account that had already
+    agreed keeps where it first did."""
+    if not terms_version:
+        raise ValueError("which version of the disclosures was agreed to?")
+    stamp = _utc(now or datetime.now(timezone.utc))
+    conn.execute("UPDATE users SET terms_via = CASE WHEN terms_version IS NULL THEN ? "
+                 "ELSE terms_via END, terms_version = ?, terms_accepted_at = ? WHERE id = ?",
+                 (via, terms_version, stamp, user_id))
+    if commit:
+        conn.commit()
 
 
 # --------------------------------------------------------------------------- #
@@ -317,10 +371,15 @@ def cancel_invite(conn, client_id: int) -> None:
     conn.commit()
 
 
-def accept_invite(conn, token: str, password: str, *, now: datetime | None = None) -> dict:
-    """The client sets their password from a setup link. The link is used up
-    (it can't set the password again), and any other sign-ins of that account
-    end. Returns {"ok", "error", "user_id", "username"}."""
+def accept_invite(conn, token: str, password: str, *, agreed: bool = False,
+                  adult: bool = False, terms_version: str | None = None,
+                  now: datetime | None = None) -> dict:
+    """The client sets their password from a setup link and agrees to the
+    About and disclosures, as at sign-up: `agreed` / `adult` are the form's
+    two checkboxes and `terms_version` the version agreed to (kept with the
+    time - record_agreement), all required. The link is used up (it can't
+    set the password again), and any other sign-ins of that account end.
+    Returns {"ok", "error", "user_id", "username"}."""
     info = invite_info(conn, token, now=now)
     if info is None:
         return {"ok": False, "error": "This setup link has expired or was already used. "
@@ -328,6 +387,11 @@ def accept_invite(conn, token: str, password: str, *, now: datetime | None = Non
     if len(password) < MIN_PASSWORD_LENGTH:
         return {"ok": False, "error": f"Use a password of at least {MIN_PASSWORD_LENGTH} "
                 "characters.", "user_id": None, "username": None}
+    missing = agreement_error(agreed=agreed and bool(terms_version), adult=adult)
+    if missing:
+        return {"ok": False, "error": missing, "user_id": None, "username": None}
+    record_agreement(conn, info["user_id"], terms_version, via=TERMS_VIA_SETUP_LINK,
+                     now=now, commit=False)   # set_password below commits it all
     conn.execute("DELETE FROM invites WHERE user_id = ?", (info["user_id"],))
     stamp = _utc(now or datetime.now(timezone.utc))
     # an email the advisor gave counts as confirmed once the client is in
@@ -335,7 +399,7 @@ def accept_invite(conn, token: str, password: str, *, now: datetime | None = Non
                  "WHERE id = ? AND email IS NOT NULL", (stamp, info["user_id"]))
     # they're signed in straight away, so this counts as their first sign-in
     conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (stamp, info["user_id"]))
-    set_password(conn, info["username"], password)  # commits all four
+    set_password(conn, info["username"], password)  # commits all of it
     return {"ok": True, "error": None, "user_id": info["user_id"], "username": info["username"]}
 
 
@@ -391,10 +455,8 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
         return fail("Enter your email address, like name@example.com.")
     if len(password or "") < MIN_PASSWORD_LENGTH:
         return fail(f"Use a password of at least {MIN_PASSWORD_LENGTH} characters.")
-    if not adult:
-        return fail("Accounts are for people 18 and over - tick the box to confirm.")
-    if not agreed:
-        return fail("Tick the box to agree to the About and disclosures.")
+    if agreement_error(agreed=agreed, adult=adult):
+        return fail(agreement_error(agreed=agreed, adult=adult))
 
     hour_ago, day_ago = _utc(now - timedelta(hours=1)), _utc(now - timedelta(days=1))
     if key:

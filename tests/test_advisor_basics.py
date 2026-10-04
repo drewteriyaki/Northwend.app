@@ -237,7 +237,8 @@ class LogicTests(_DB, unittest.TestCase):
         cid = auth.create_client(self.conn, carol, "pat@example.com", name="Pat")
         self.assertFalse(auth.has_signed_in(self.conn, cid))
         token = auth.create_invite(self.conn, carol, cid)
-        self.assertTrue(auth.accept_invite(self.conn, token, "clientpass1")["ok"])
+        self.assertTrue(auth.accept_invite(self.conn, token, "clientpass1", agreed=True,
+                                           adult=True, terms_version="v")["ok"])
         self.assertTrue(auth.has_signed_in(self.conn, cid))
 
     def test_report_email_says_sign_in_and_carries_no_figures(self):

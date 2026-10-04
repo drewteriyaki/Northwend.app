@@ -69,10 +69,12 @@ def lines(c: dict) -> list[str]:
 
 
 def recipients(conn) -> list[dict]:
-    """Advisors with an email that's confirmed, or set up by an admin."""
+    """Advisors with an email that's confirmed, or set up by an admin (not
+    made by themselves at sign-up - auth.made_by_themselves)."""
     return [dict(r) for r in conn.execute(
         "SELECT id, email FROM users WHERE is_advisor = 1 AND email IS NOT NULL AND email != '' "
-        "AND (email_verified_at IS NOT NULL OR terms_version IS NULL) ORDER BY id")]
+        "AND (email_verified_at IS NOT NULL OR terms_version IS NULL OR terms_via IS NOT NULL) "
+        "ORDER BY id")]
 
 
 def run(conn, app_url: str, today: date, *, send=mailer.advisor_week) -> dict:

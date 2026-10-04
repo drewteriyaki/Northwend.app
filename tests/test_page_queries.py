@@ -145,17 +145,20 @@ class OneReadHelperTests(unittest.TestCase):
         self.c.close()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_login_facts_match_the_four_reads(self):
+    def test_login_facts_match_the_five_reads(self):
         import admin
         c = self.c
         uid = auth.create_user(c, "ann", "pw-123456789")
         auth.set_display_name(c, uid, "Ann")
         for adv in (False, True):
             auth.set_advisor(c, "ann", adv)
+            if adv:
+                auth.record_agreement(c, uid, "v", via=auth.TERMS_VIA_SIGN_IN)
             with unittest.mock.patch.dict(os.environ, {"NORTHWEND_ADMINS": "ann" if adv else ""}):
                 self.assertEqual(auth.login_facts(c, uid), {
                     "stamp": auth.password_stamp(c, uid), "is_advisor": auth.is_advisor(c, uid),
-                    "is_admin": admin.is_admin(c, uid), "display_name": auth.display_name(c, uid)})
+                    "is_admin": admin.is_admin(c, uid), "display_name": auth.display_name(c, uid),
+                    "agreed": auth.has_agreed(c, uid)})
         self.assertIsNone(auth.login_facts(c, 9999)["stamp"])
 
     def test_the_gates_row_gives_the_same_answers(self):

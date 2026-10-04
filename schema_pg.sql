@@ -322,7 +322,9 @@ CREATE INDEX IF NOT EXISTS idx_contributions_user ON contributions (user_id, dat
 
 -- Advisor notes on a client's account (advising.py): a Review (meeting), a
 -- Note, or a Next step (done when the advisor ticks it). Private notes are
--- never shown to the client.
+-- never shown to the client. Nothing is deleted from the app: Archive hides a
+-- note (archived_at) and an edit keeps the earlier text (history), so the
+-- advisor keeps a record they can export (export.client_record_zip).
 CREATE TABLE IF NOT EXISTS advisor_notes (
     id          SERIAL  PRIMARY KEY,
     client_id   INTEGER NOT NULL,
@@ -332,7 +334,11 @@ CREATE TABLE IF NOT EXISTS advisor_notes (
     note_date   TEXT    NOT NULL,                -- YYYY-MM-DD
     private     INTEGER NOT NULL DEFAULT 0,
     done        INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    created_at  TEXT    NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+    archived_at TEXT,                            -- 'YYYY-MM-DD HH:MM:SS' UTC; NULL = showing
+    edited_at   TEXT,                            -- the last edit, UTC
+    history     TEXT,                            -- JSON list of earlier versions (advising.edit_note)
+    is_message  INTEGER                          -- 1: sent with Message clients
 );
 CREATE INDEX IF NOT EXISTS idx_advisor_notes_client ON advisor_notes (client_id, note_date);
 

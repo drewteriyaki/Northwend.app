@@ -15,6 +15,7 @@ import json
 from datetime import datetime, timezone
 
 import asset_classes
+import auth
 import plans
 
 STATUSES = ("draft", "shared", "accepted", "declined")
@@ -113,12 +114,12 @@ def who_to_tell(conn, user_id: int) -> dict:
     up their login), or an advisor's an admin set up (as weekly_email.py) -
     so a client who hasn't set up their login isn't sent to a dead end."""
     row = conn.execute("SELECT username, display_name, email, email_verified_at, "
-                       "terms_version, is_advisor, last_login_at FROM users WHERE id = ?",
-                       (user_id,)).fetchone()
+                       "terms_version, terms_via, is_advisor, last_login_at FROM users "
+                       "WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         return {"email": None, "name": "", "signed_in": False}
     ok = bool(row["email"]) and bool(row["email_verified_at"] or (
-        row["is_advisor"] and not row["terms_version"]))
+        row["is_advisor"] and not auth.made_by_themselves(row)))
     return {"email": row["email"] if ok else None,
             "name": row["display_name"] or row["username"],
             "signed_in": bool(row["last_login_at"])}

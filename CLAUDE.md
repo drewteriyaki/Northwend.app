@@ -121,6 +121,11 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   own Account name). Emails an advisor sends go out from their name via
   `mailer.sender` (the address stays hello@); approving or declining an advisor
   goes through `admin.approve_advisor` / `decline_advisor` (they send the email).
+  Advisor notes are never deleted: `advising.archive_note` / `restore_note`, edits
+  keep earlier text in the note's `history`; a client's record exports with
+  `export.client_record_zip`. Agreeing to the disclosures is `users.terms_version`;
+  `terms_via` says how (empty = their own sign-up) - "made the account themselves"
+  is `auth.made_by_themselves(row)`, not "has a terms_version".
 - Account numbers are masked to the last 3 digits (`accounts.mask_number`);
   uploads are never stored (`portfolio.temp_upload`).
 - Never write tag-like text (`<html>`, `<div>`) in comments inside the app's

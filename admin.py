@@ -49,11 +49,11 @@ def _admin_row(row, listed: set[str]) -> bool:
         return True
     if (row["username"] or "").lower() not in listed:
         return False
-    return not row["terms_version"] or bool(row["email_verified_at"])
+    return not auth.made_by_themselves(row) or bool(row["email_verified_at"])
 
 
 def is_admin(conn, user_id: int) -> bool:
-    row = conn.execute("SELECT username, is_admin, terms_version, email_verified_at "
+    row = conn.execute("SELECT username, is_admin, terms_version, terms_via, email_verified_at "
                        "FROM users WHERE id = ?", (user_id,)).fetchone()
     return bool(row and _admin_row(row, listed_admins()))
 
@@ -120,7 +120,9 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
     """Every login with what the portal shows: id, username, email,
     confirmed, role ('admin' / 'advisor' / 'client' / 'investor'), advisor
     (a client's advisor's username), clients (an advisor's count),
-    ai_unlimited, signed_up (made it themselves), created_at, last_login_at,
+    ai_unlimited, signed_up (made it themselves), terms_version and
+    terms_accepted_at (agreeing to the disclosures), licence_checked (when an
+    advisor request was approved, else None), created_at, last_login_at,
     locked (a wrong-password lock is running), request (an advisor request
     waiting), two_step (two-step sign-in is on - never its key)."""
     now = now or datetime.now(timezone.utc)
@@ -133,13 +135,19 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
         n_clients[r["advisor_id"]] = n_clients.get(r["advisor_id"], 0) + 1
     locked = {r["username_key"] for r in conn.execute(
         "SELECT username_key FROM login_failures WHERE locked_until > ?", (stamp,))}
-    waiting = {r["user_id"] for r in conn.execute(
-        "SELECT user_id FROM advisor_requests WHERE decision IS NULL")}
+    waiting, checked = set(), {}
+    for r in conn.execute("SELECT user_id, decision, decided_at FROM advisor_requests "
+                          "WHERE decision IS NULL OR decision = 'approved'"):
+        if r["decision"] is None:
+            waiting.add(r["user_id"])
+        else:   # approved: their firm and licence number were checked then
+            checked[r["user_id"]] = r["decided_at"]
     two_step_on = {r["user_id"] for r in conn.execute("SELECT user_id FROM two_step")}
     listed = listed_admins()
     out = []
     for r in conn.execute("SELECT id, username, email, email_verified_at, is_advisor, is_admin, "
-                          "ai_unlimited, terms_version, created_at, last_login_at FROM users "
+                          "ai_unlimited, terms_version, terms_via, terms_accepted_at, "
+                          "created_at, last_login_at FROM users "
                           "ORDER BY id"):
         r_admin = _admin_row(r, listed)
         role = ("admin" if r_admin else "advisor" if r["is_advisor"]
@@ -149,7 +157,10 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
             "confirmed": bool(r["email_verified_at"]) if r["email"] else None,
             "role": role, "is_advisor": bool(r["is_advisor"]), "is_admin": r_admin,
             "advisor": advisor_of.get(r["id"]), "clients": n_clients.get(r["id"], 0),
-            "ai_unlimited": bool(r["ai_unlimited"]), "signed_up": bool(r["terms_version"]),
+            "ai_unlimited": bool(r["ai_unlimited"]), "signed_up": auth.made_by_themselves(r),
+            # when they agreed to the About and disclosures, and which version
+            "terms_version": r["terms_version"], "terms_accepted_at": r["terms_accepted_at"],
+            "licence_checked": checked.get(r["id"]),
             "created_at": r["created_at"], "last_login_at": r["last_login_at"],
             # wrong passwords, or wrong two-step codes (two_step.py)
             "locked": bool({auth._login_key(r["username"]), two_step._fail_key(r["id"])}

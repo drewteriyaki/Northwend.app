@@ -702,12 +702,24 @@ def _invite_setup(token: str) -> bool:
             pw = st.text_input("Choose a password", type="password", key="invite_pw",
                                help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
             again = st.text_input("Type it again", type="password", key="invite_pw_again")
+            # the same two boxes as Create account: a client agrees here, once
+            adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="invite_adult")
+            agreed = st.checkbox("I've read and agree to the About and disclosures",
+                                 key="invite_agree",
+                                 help="What the app is, what's stored and what's sent to the "
+                                      "AI - open it below.")
             remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
                                    value=True, key="invite_remember",
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Create my login", type="primary",
                                               width="stretch")
         st.caption(disclosures.SUMMARY)
+        st.button("Hide about and disclosures" if st.session_state.get("show_about")
+                  else "About and disclosures", key="invite_about", type="tertiary",
+                  on_click=_toggle_about)
+    if st.session_state.get("show_about"):
+        with mid.container(border=True):
+            _render_disclosures(summary=False)
     if not submitted:
         return False
     if pw != again:
@@ -715,7 +727,14 @@ def _invite_setup(token: str) -> bool:
         return False
     conn = connect(DB)
     try:
-        result = auth.accept_invite(conn, token, pw)
+        result = auth.accept_invite(conn, token, pw, agreed=agreed, adult=adult,
+                                    terms_version=disclosures.LAST_UPDATED)
+        if result["ok"]:
+            # they just agreed to this version, so no "worth a quick read"
+            # banner; their advisor may have set other settings already
+            saved = prefs.load(conn, result["user_id"])
+            saved["disclosures_seen"] = disclosures.LAST_UPDATED
+            prefs.save(conn, result["user_id"], saved)
         session = (auth.create_session(conn, result["user_id"])
                    if result["ok"] and remember else None)
     finally:
@@ -1815,7 +1834,41 @@ if "disclosures_seen" not in st.session_state:
         _dc.close()
 if PAGE == "About" and st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
     _disclosures_seen()
-if st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
+
+
+def _agree_now():
+    """The one-time ask below: keep that this login agreed, and to which version."""
+    if not (st.session_state.get("terms_adult") and st.session_state.get("terms_agree")):
+        return
+    c = connect(DB)
+    try:
+        auth.record_agreement(c, LOGIN_ID, disclosures.LAST_UPDATED, via=auth.TERMS_VIA_SIGN_IN)
+    finally:
+        c.close()
+    _disclosures_seen()
+    st.toast("Thank you - you won't be asked again.", icon=":material/check:")
+
+
+# Everyone agrees to the About and disclosures once. Sign-up and a client's
+# setup link ask on the way in; an account an advisor or admin made that got
+# in another way (a temporary password, a reset link, or before the setup link
+# asked) is asked here, once, on any page - calmly, without blocking anything.
+# Admins run the app, so they aren't asked.
+if not _me["agreed"] and not IS_ADMIN:
+    with st.container(border=True, key="pt_agree"):
+        st.markdown(f":material/handshake: **One quick thing.** Please read {APP_NAME}'s About "
+                    "and disclosures - what it is, how your data is used and what's sent to "
+                    "the AI - and agree to them. You only need to do this once.")
+        st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="terms_adult")
+        st.checkbox("I've read and agree to the About and disclosures", key="terms_agree")
+        with st.container(horizontal=True):
+            st.button("Agree", key="terms_ok", type="primary", on_click=_agree_now,
+                      disabled=not (st.session_state.get("terms_adult")
+                                    and st.session_state.get("terms_agree")))
+            if PAGE != "About":
+                st.button("Read it", key="terms_read", type="tertiary", on_click=_go,
+                          args=("About",))
+elif st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
     with st.container(border=True, horizontal=True, vertical_alignment="center"):
         st.markdown(f":material/info: **About and disclosures** - what {APP_NAME} is, how your "
                     "data is used and what's sent to the AI - "

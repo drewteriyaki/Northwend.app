@@ -1145,12 +1145,13 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(auth.invite_info(self.conn, token, now=now)["username"], "jsmith")
         self.assertEqual(auth.pending_invite(self.conn, cid, now=now), "2026-10-07 12:00:00")
 
-        short = auth.accept_invite(self.conn, token, "short", now=now)
+        agree = dict(agreed=True, adult=True, terms_version="October 1, 2026")
+        short = auth.accept_invite(self.conn, token, "short", now=now, **agree)
         self.assertFalse(short["ok"])                               # still usable after this
-        ok = auth.accept_invite(self.conn, token, "clientpass1", now=now)
+        ok = auth.accept_invite(self.conn, token, "clientpass1", now=now, **agree)
         self.assertEqual((ok["ok"], ok["user_id"]), (True, cid))
         self.assertEqual(auth.verify_login(self.conn, "jsmith", "clientpass1"), cid)
-        again = auth.accept_invite(self.conn, token, "takeover99", now=now)
+        again = auth.accept_invite(self.conn, token, "takeover99", now=now, **agree)
         self.assertFalse(again["ok"])                               # used up
         self.assertIsNone(auth.verify_login(self.conn, "jsmith", "takeover99"))
         self.assertIsNone(auth.pending_invite(self.conn, cid, now=now))
@@ -1588,7 +1589,8 @@ class ClientOnboardingTests(TempDBMixin, unittest.TestCase):
         self.assertIn("Sam Advisor (Acme) invited you", sent["subject"])
         self.assertEqual(sent["from_name"], "Sam Advisor, Acme")
         self.assertIn(f"?invite={token}", sent["text"])
-        self.assertTrue(auth.accept_invite(conn, token, "clientpass1")["ok"])
+        self.assertTrue(auth.accept_invite(conn, token, "clientpass1", agreed=True, adult=True,
+                                           terms_version="v")["ok"])
         self.assertTrue(auth.email_status(conn, cid)["confirmed"])   # the advisor vouched
         self.assertEqual(auth.verify_login(conn, "Pat.Client@example.com", "clientpass1"), cid)
         conn.close()

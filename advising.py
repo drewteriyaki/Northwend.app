@@ -6,6 +6,8 @@ Notes (`advisor_notes`) are written by the advisor on a client's account:
 a *Review* (a meeting - the latest one is the client's last review), a
 *Note*, or a *Next step* (an action item the advisor marks done). Anything
 marked private is for the advisor only and never shown to the client.
+Notes are archived, never deleted, and an edit keeps the earlier text (see
+"a record that stays" below).
 
 Model portfolios (`model_portfolios`) are an advisor's saved target mixes
 by asset class (Stocks / Bonds / Cash / Other), applied to a client's plan
@@ -15,7 +17,7 @@ in one step.
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 
 from asset_classes import CLASSES
 
@@ -86,9 +88,13 @@ def add_note(conn, client_id: int, advisor_id: int, kind: str, body: str, on: st
     conn.commit()
 
 
-def list_notes(conn, client_id: int, *, include_private: bool) -> list[dict]:
-    """Newest first. `include_private` only for the advisor's own view."""
-    sql = "SELECT * FROM advisor_notes WHERE client_id = ?"
+def list_notes(conn, client_id: int, *, include_private: bool,
+               archived: bool = False) -> list[dict]:
+    """Newest first. `include_private` only for the advisor's own view.
+    Archived notes are left out; `archived=True` lists only those (the
+    advisor's Show archived)."""
+    sql = ("SELECT * FROM advisor_notes WHERE client_id = ? AND archived_at IS "
+           + ("NOT NULL" if archived else "NULL"))
     if not include_private:
         sql += " AND private = 0"
     return [dict(r) for r in conn.execute(sql + " ORDER BY note_date DESC, id DESC", (client_id,))]
@@ -99,7 +105,8 @@ def notes_for(conn, client_ids, *, include_private: bool) -> dict:
     ids = tuple(dict.fromkeys(client_ids))
     if not ids:
         return {}
-    sql = f"SELECT * FROM advisor_notes WHERE client_id IN ({', '.join('?' for _ in ids)})"
+    sql = (f"SELECT * FROM advisor_notes WHERE client_id IN ({', '.join('?' for _ in ids)}) "
+           "AND archived_at IS NULL")
     if not include_private:
         sql += " AND private = 0"
     out = {i: [] for i in ids}
@@ -143,7 +150,7 @@ def message_clients(conn, advisor_id: int, client_ids, body: str, *, now,
     stamp, on = now.strftime("%Y-%m-%d %H:%M:%S"), (today or now.date()).isoformat()
     for cid in ids:
         conn.execute("INSERT INTO advisor_notes (client_id, advisor_id, kind, body, note_date, "
-                     "private, created_at) VALUES (?, ?, 'Note', ?, ?, 0, ?)",
+                     "private, created_at, is_message) VALUES (?, ?, 'Note', ?, ?, 0, ?, 1)",
                      (cid, advisor_id, body, on, stamp))
     conn.commit()
     return {"ok": True, "error": None, "sent_to": ids}
@@ -159,14 +166,71 @@ def set_done(conn, client_id: int, note_id: int, done: bool) -> None:
     conn.commit()
 
 
-def delete_note(conn, client_id: int, note_id: int) -> None:
-    conn.execute("DELETE FROM advisor_notes WHERE id = ? AND client_id = ?", (note_id, client_id))
+# ---- a record that stays: archive, restore, edit ------------------------------ #
+# Advisers keep client records for years (SEC Rule 204-2), so nothing an
+# advisor writes is deleted from the app: Archive hides a note from both
+# sides (and from the counts - last review, open next steps) but keeps it,
+# Restore brings it back, and an edit keeps each earlier text in the note's
+# own `history` (a JSON list, oldest first). All of it is in the advisor's
+# export of the client's record (export.client_record_zip). Deleting the
+# client's whole account (the Admin portal) still removes them.
+def _stamp(now: datetime | None = None) -> str:
+    return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def archive_note(conn, client_id: int, note_id: int, *, now: datetime | None = None) -> bool:
+    """Hide a note but keep it. False if it isn't this client's (or is
+    already archived)."""
+    cur = conn.execute("UPDATE advisor_notes SET archived_at = ? WHERE id = ? AND client_id = ? "
+                       "AND archived_at IS NULL", (_stamp(now), note_id, client_id))
     conn.commit()
+    return cur.rowcount > 0
+
+
+def restore_note(conn, client_id: int, note_id: int) -> bool:
+    """Bring an archived note back. False if it isn't this client's."""
+    cur = conn.execute("UPDATE advisor_notes SET archived_at = NULL WHERE id = ? AND "
+                       "client_id = ? AND archived_at IS NOT NULL", (note_id, client_id))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def note_history(note: dict) -> list[dict]:
+    """A note's earlier versions, oldest first: [{"body", "written_at",
+    "replaced_at"}] (UTC). Empty for a note never edited."""
+    try:
+        out = json.loads(note.get("history") or "[]")
+    except ValueError:
+        return []
+    return out if isinstance(out, list) else []
+
+
+def edit_note(conn, client_id: int, note_id: int, body: str, *,
+              now: datetime | None = None) -> bool:
+    """Change a note's text, keeping the text it had (note_history). False
+    if it isn't this client's, or nothing changed. Raises ValueError for
+    empty text."""
+    body = (body or "").strip()
+    if not body:
+        raise ValueError("a note needs some text")
+    row = conn.execute("SELECT body, created_at, edited_at, history FROM advisor_notes "
+                       "WHERE id = ? AND client_id = ?", (note_id, client_id)).fetchone()
+    if row is None or row["body"] == body:
+        return False
+    stamp = _stamp(now)
+    history = note_history(dict(row)) + [{"body": row["body"],
+                                          "written_at": row["edited_at"] or row["created_at"],
+                                          "replaced_at": stamp}]
+    conn.execute("UPDATE advisor_notes SET body = ?, edited_at = ?, history = ? "
+                 "WHERE id = ? AND client_id = ?",
+                 (body, stamp, json.dumps(history), note_id, client_id))
+    conn.commit()
+    return True
 
 
 def last_review(conn, client_id: int) -> str | None:
-    row = conn.execute("SELECT MAX(note_date) AS d FROM advisor_notes "
-                       "WHERE client_id = ? AND kind = 'Review'", (client_id,)).fetchone()
+    row = conn.execute("SELECT MAX(note_date) AS d FROM advisor_notes WHERE client_id = ? "
+                       "AND kind = 'Review' AND archived_at IS NULL", (client_id,)).fetchone()
     return row["d"] if row else None
 
 

@@ -70,7 +70,8 @@ def build(conn, client_id: int, start: date, end: date, *, value_now: float | No
                 "goal_name": plan.get("goal_name") or plan.get("goal_type")}
     steps = [r["body"].splitlines()[0][:120] for r in conn.execute(
         "SELECT body FROM advisor_notes WHERE client_id = ? AND kind = 'Next step' AND "
-        "COALESCE(done, 0) = 0 AND COALESCE(private, 0) = 0 ORDER BY note_date DESC LIMIT 5",
+        "COALESCE(done, 0) = 0 AND COALESCE(private, 0) = 0 AND archived_at IS NULL "
+        "ORDER BY note_date DESC LIMIT 5",
         (client_id,))]
     return {"value_start": v_start, "value_end": v_end, "money_in": money_in, "growth": growth,
             "goal": goal, "next_steps": steps}

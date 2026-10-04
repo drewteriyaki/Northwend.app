@@ -71,10 +71,25 @@ def _render_notes():
         finally:
             c.close()
 
-    def _delete(note_id):
+    def _archive(note_id, archive):
         c = connect(DB)
         try:
-            advising.delete_note(c, USER_ID, note_id)
+            if archive:
+                advising.archive_note(c, USER_ID, note_id)
+            else:
+                advising.restore_note(c, USER_ID, note_id)
+        finally:
+            c.close()
+        st.toast("Archived - it's kept, and Show archived brings it back." if archive
+                 else "Restored.")
+
+    def _edit(note_id):
+        body = st.session_state.get(f"note_edit_{note_id}")
+        c = connect(DB)
+        try:
+            advising.edit_note(c, USER_ID, note_id, body)
+        except ValueError:
+            st.toast("A note needs some text - nothing was changed.")
         finally:
             c.close()
 
@@ -97,20 +112,138 @@ def _render_notes():
     if not notes:
         st.caption("No notes yet." if ON_CLIENT else "Notes from your advisor show up here.")
     for n in notes:
-        label = n["kind"] + (" (done)" if n["kind"] == "Next step" and n["done"] else "")
-        with st.container(border=True):
-            st.caption(f"{_NOTE_ICON.get(n['kind'], '')} **{label}** · {_fmt_date(n['note_date'])}"
-                       + (" · :orange[Private]" if n["private"] else ""))
-            _md(n["body"])
-            if ON_CLIENT:
-                with st.container(horizontal=True):
-                    if n["kind"] == "Next step" and n["done"]:
-                        st.button("Reopen", key=f"note_undo_{n['id']}", type="tertiary",
-                                  on_click=_set_done, args=(n["id"], False))
-                    st.button("Delete", key=f"note_del_{n['id']}", type="tertiary",
-                              on_click=_delete, args=(n["id"],))
+        _render_note(n, _set_done, _archive, _edit)
     if ON_CLIENT:
-        st.caption("The client sees everything here except private notes.")
+        st.caption("The client sees everything here except private and archived notes. "
+                   "Nothing is deleted: Archive hides a note and keeps it, and an edit keeps "
+                   "the earlier text.")
+        _render_archived_notes(_archive)
+        _render_client_record()
+
+
+def _render_note(n, set_done, archive, edit):
+    """One note in the timeline. The advisor (ON_CLIENT) can edit it, archive
+    it and see its earlier text; the client sees it as it is now."""
+    label = n["kind"] + (" (done)" if n["kind"] == "Next step" and n["done"] else "")
+    archived = bool(n.get("archived_at"))
+    with st.container(border=True):
+        st.caption(f"{_NOTE_ICON.get(n['kind'], '')} **{label}** · {_fmt_date(n['note_date'])}"
+                   + (" · Message" if n.get("is_message") else "")
+                   + (" · :orange[Private]" if n["private"] else "")
+                   + (f" · edited {_fmt_date(n['edited_at'][:10])}" if n.get("edited_at") else "")
+                   + (f" · archived {_fmt_date(n['archived_at'][:10])}" if archived else ""))
+        _md(n["body"])
+        if not ON_CLIENT:
+            return
+        earlier = advising.note_history(n)
+        if earlier:
+            with st.expander(f"Earlier text ({len(earlier)})"):
+                for h in reversed(earlier):
+                    st.caption(f"Until {_fmt_date(h['replaced_at'][:10])}")
+                    _md(h["body"])
+        with st.container(horizontal=True):
+            if archived:
+                st.button("Restore", key=f"note_restore_{n['id']}", type="tertiary",
+                          icon=":material/unarchive:", on_click=archive, args=(n["id"], False))
+                return
+            if n["kind"] == "Next step" and n["done"]:
+                st.button("Reopen", key=f"note_undo_{n['id']}", type="tertiary",
+                          on_click=set_done, args=(n["id"], False))
+            with st.popover("Edit", type="tertiary", width=90):
+                st.text_area("Note", value=n["body"], key=f"note_edit_{n['id']}")
+                st.caption("The earlier text is kept with the note.")
+                st.button("Save", key=f"note_save_{n['id']}", type="primary",
+                          on_click=edit, args=(n["id"],))
+            st.button("Archive", key=f"note_archive_{n['id']}", type="tertiary",
+                      on_click=archive, args=(n["id"], True),
+                      help="Hide it from this page and the client's. It's kept, and Show "
+                           "archived brings it back.")
+
+
+def _render_archived_notes(archive):
+    """The advisor's Show archived: notes they archived, with Restore."""
+    if not st.toggle("Show archived", key="notes_show_archived"):
+        return
+    conn = connect(DB)
+    try:
+        gone = advising.list_notes(conn, USER_ID, include_private=True, archived=True)
+    finally:
+        conn.close()
+    st.markdown("#### Archived")
+    if not gone:
+        st.caption("Nothing archived.")
+    for n in gone:
+        _render_note(n, None, archive, None)
+
+
+def _prepare_client_record():
+    """Export this client's record: the advisor's own notes (archived and
+    earlier text too), proposals, reports and the client's answers, as a ZIP
+    kept for the download button."""
+    import export
+    c = connect(DB)
+    try:
+        data = export.client_record_zip(c, LOGIN_ID, USER_ID)
+    except PermissionError:
+        data = None
+    finally:
+        c.close()
+    if data is not None:
+        st.session_state["client_record"] = (USER_ID, export.record_file_name(ACTIVE_NAME), data,
+                                             datetime.now(timezone.utc).strftime("%H:%M UTC"))
+
+
+def _prepare_all_records():
+    """Your clients: every client's record in one ZIP (a folder each)."""
+    import export
+    c = connect(DB)
+    try:
+        data = export.all_client_records_zip(c, LOGIN_ID)
+    finally:
+        c.close()
+    st.session_state["all_records"] = (export.record_file_name(None), data,
+                                       datetime.now(timezone.utc).strftime("%H:%M UTC"))
+
+
+def _render_all_records():
+    """Your clients: Export all client records."""
+    with st.expander(":material/folder_zip: Export all client records"):
+        st.caption("One ZIP with a folder for each of your clients: your notes, reviews, next "
+                   "steps and messages (archived ones and earlier text too), proposals and "
+                   "their answers, progress reports sent, and their profile answers. Keep it "
+                   "with your firm's records. Only your own clients and your own records.")
+        ready = st.session_state.get("all_records")
+        if ready:
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.download_button("Download all records", ready[1], file_name=ready[0],
+                                   mime="application/zip", key="all_records_download",
+                                   type="primary", on_click="ignore", icon=":material/download:")
+                st.button(f"Prepared at {ready[2]} - prepare again", key="all_records_again",
+                          type="tertiary", on_click=_prepare_all_records)
+        else:
+            st.button("Prepare all records", key="all_records_prepare",
+                      on_click=_prepare_all_records, icon=":material/folder_zip:")
+
+
+def _render_client_record():
+    """Advisor notes page (advisor side): Export this client's record."""
+    with st.expander(":material/folder_zip: Export this client's record"):
+        st.caption("Everything you've recorded for this client, as spreadsheet (CSV) files in "
+                   "one ZIP: notes, reviews, next steps and messages (archived ones and earlier "
+                   "text too), proposals and their answers, progress reports sent, and their "
+                   "profile answers. Only your own records - never their password or sign-in "
+                   "details.")
+        ready = st.session_state.get("client_record")
+        if ready and ready[0] == USER_ID:
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.download_button("Download the record", ready[2], file_name=ready[1],
+                                   mime="application/zip", key="client_record_download",
+                                   type="primary", on_click="ignore", icon=":material/download:")
+                st.button(f"Prepared at {ready[3]} - prepare again", key="client_record_again",
+                          type="tertiary", on_click=_prepare_client_record)
+        else:
+            st.button("Prepare the record", key="client_record_prepare",
+                      on_click=_prepare_client_record, icon=":material/folder_zip:")
 
 
 def _advisor_notes_card():
@@ -580,6 +713,7 @@ def _render_clients():
                    "don't count); a "
                    f"client who used to sign in is flagged after {advising.INACTIVE_DAYS} days "
                    "away.")
+        _render_all_records()
     st.divider()
     _render_models()
     st.divider()

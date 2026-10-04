@@ -190,10 +190,15 @@ def _ensure_schema(conn) -> None:
                            # self-serve sign-up (auth.sign_up)
                            ("email", "TEXT"), ("email_verified_at", "TEXT"),
                            ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT"),
+                           # agreed somewhere other than sign-up (auth.record_agreement)
+                           ("terms_via", "TEXT"),
                            # the admin portal (admin.py)
                            ("is_admin", "INTEGER"), ("last_login_at", "TEXT"),
                            # the Account page (auth.set_display_name)
                            ("display_name", "TEXT")]),
+                # archived, not deleted; edits keep the earlier text (advising.py)
+                ("advisor_notes", [("archived_at", "TEXT"), ("edited_at", "TEXT"),
+                                   ("history", "TEXT"), ("is_message", "INTEGER")]),
                 ("advisor_clients", [("client_can_import", "INTEGER"),
                                      # the advisor's name for them (auth.set_client_name)
                                      ("client_name", "TEXT")]),

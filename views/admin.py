@@ -354,6 +354,14 @@ def _render_admin():
                      f"last sign-in {_admin_when(a['last_login_at'])}"]
             if a["email"]:
                 facts.append("email confirmed" if a["confirmed"] else "email not confirmed yet")
+            if a["is_advisor"]:
+                # what Northwend did: checked a licence number - not an endorsement
+                facts.append(f"licence checked {_admin_when(a['licence_checked'])[:10]}"
+                             if a["licence_checked"] else
+                             "advisor without a request - no licence check on record")
+            facts.append(f"agreed to the disclosures ({a['terms_version']} version) on "
+                         f"{_admin_when(a['terms_accepted_at'])[:10]}" if a["terms_version"]
+                         else "hasn't agreed to the disclosures yet")
             if a["advisor"]:
                 facts.append(f"client of **{a['advisor']}**")
             if a["clients"]:
@@ -407,7 +415,11 @@ def _render_admin():
                     st.caption("Deletes the login and everything it holds - holdings, plan, "
                                "profile, notes, settings. This can't be undone."
                                + (f" Its {a['clients']} client(s) keep their accounts but no "
-                                  "longer have an advisor." if a["clients"] else ""))
+                                  "longer have an advisor." if a["clients"] else "")
+                               + (f" {a['advisor']}'s notes, proposals and reports for this "
+                                  "client go too - ask them to export the client's record "
+                                  "first (Advisor notes > Export this client's record)."
+                                  if a["advisor"] else ""))
                     st.text_input(f"Type {a['username']} to confirm",
                                   key=f"admin_del_confirm_{pick}")
                     st.button("Delete account", key="admin_delete", type="primary",

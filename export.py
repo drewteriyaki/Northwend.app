@@ -9,14 +9,21 @@ not marked private, proposals that were shared, progress reports); for an
 advisor, their model portfolios. Never a password, a sign-in or email-link
 token, or a hash of an internet address; never another person's data (an
 advisor's notes and reports about their clients stay with the clients).
+
+Also an advisor's record of one client, or of all of them (client_record_zip,
+all_client_records_zip): the Advisor notes page and Your clients.
 """
 
 from __future__ import annotations
 
 import csv
 import io
+import re
 import zipfile
 from datetime import datetime, timezone
+
+import advising
+import auth
 
 # (file name, table, the column that is this account, extra WHERE)
 OWN = [
@@ -33,7 +40,9 @@ OWN = [
     ("settings", "user_prefs", "user_id", ""),
     ("ai_use", "ai_usage", "user_id", ""),
     ("advisor_request", "advisor_requests", "user_id", ""),
-    ("from_your_advisor_notes", "advisor_notes", "client_id", " AND private = 0"),
+    # as the client sees them: not private, not archived (advising.archive_note)
+    ("from_your_advisor_notes", "advisor_notes", "client_id",
+     " AND private = 0 AND archived_at IS NULL"),
     ("from_your_advisor_proposals", "proposals", "client_id", " AND status != 'draft'"),
     ("from_your_advisor_reports", "progress_reports", "client_id", ""),
     ("your_model_portfolios", "model_portfolios", "advisor_id", ""),
@@ -43,7 +52,9 @@ OWN = [
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
 ACCOUNT_COLUMNS = ("username", "email", "email_verified_at", "created_at", "last_login_at",
-                   "terms_version", "terms_accepted_at", "is_advisor")
+                   "terms_version", "terms_accepted_at", "terms_via", "is_advisor")
+# the advisor's working record, not part of what the client was shown
+LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -87,7 +98,8 @@ def collect(conn, user_id: int) -> dict[str, list[dict]]:
         row = dict(row)
         found["account"] = [{c: row.get(c) for c in ACCOUNT_COLUMNS if c in row}]
     for name, table, col, extra in OWN:
-        rows = [dict(r) for r in conn.execute(
+        drop = LEFT_OUT_COLUMNS.get(name, set())
+        rows = [{k: v for k, v in dict(r).items() if k not in drop} for r in conn.execute(
             f"SELECT * FROM {table} WHERE {col} = ?{extra}", (user_id,))]
         if rows:
             found[name] = rows
@@ -108,3 +120,120 @@ def export_zip(conn, user_id: int, *, now: datetime | None = None) -> bytes:
 def file_name(now: datetime | None = None) -> str:
     now = now or datetime.now(timezone.utc)
     return f"northwend-export-{now.strftime('%Y-%m-%d')}.zip"
+
+
+# ---- an advisor's record of a client (Advisor notes / Your clients) -------- #
+# Advisers keep records of their clients and what they told them for years
+# (SEC Rule 204-2). This is the advisor's own copy of what they recorded in
+# Northwend for a client: only their own clients (auth.can_view), only their
+# own notes, proposals and reports (never another advisor's), and never a
+# password, a sign-in or email-link token, or the AI guide's private memory.
+RECORD_README = """{who} - client record from Northwend, exported {when} UTC by {advisor}.
+
+One CSV file per kind of record; a file is left out when there's nothing in it.
+Open them in any spreadsheet. Times are UTC.
+
+- client.csv: who the client is, and when they agreed to Northwend's About and
+  disclosures (terms_version, terms_accepted_at; terms_via says where, when it
+  wasn't at sign-up)
+- notes.csv: your reviews, notes, next steps and messages - archived ones too
+  (archived_at), private ones marked (private = 1), messages sent with Message
+  clients marked (is_message = 1)
+- note_history.csv: the earlier text of notes you edited, oldest first
+- proposals.csv: your proposals, with the client's answer (status, responded_at)
+- reports.csv: progress reports you sent, and when they were opened (read_at)
+- profile.csv: the client's answers about their goals and risk
+
+Only what you recorded for this client in Northwend. Keep it with your firm's
+own records: Northwend isn't a record-keeping system for advisers.
+"""
+CLIENT_COLUMNS = ("username", "display_name", "email", "email_verified_at", "created_at",
+                  "last_login_at", "terms_version", "terms_accepted_at", "terms_via")
+NOTE_COLUMNS = ("id", "kind", "note_date", "body", "private", "done", "is_message",
+                "created_at", "edited_at", "archived_at")
+PROPOSAL_COLUMNS = ("id", "title", "mix_json", "note", "status", "created_at", "updated_at",
+                    "shared_at", "responded_at")
+REPORT_COLUMNS = ("id", "period_label", "period_start", "period_end", "created_at", "read_at",
+                  "message", "facts_json")
+PROFILE_LEFT_OUT = {"ai_memory"}   # the AI guide's own notes, never shown in the app
+
+
+def client_record(conn, advisor_id: int, client_id: int) -> dict[str, list[dict]]:
+    """{file name: rows} of what `advisor_id` recorded for one of their
+    clients. Raises PermissionError for anyone but this client's advisor."""
+    if (advisor_id == client_id or not auth.is_advisor(conn, advisor_id)
+            or not auth.can_view(conn, advisor_id, client_id)):
+        raise PermissionError("only this client's advisor can export their record")
+    link = conn.execute("SELECT client_name, client_can_import FROM advisor_clients "
+                        "WHERE advisor_id = ? AND client_id = ?",
+                        (advisor_id, client_id)).fetchone()
+    user = conn.execute(f"SELECT {', '.join(CLIENT_COLUMNS)} FROM users WHERE id = ?",
+                        (client_id,)).fetchone()
+    found = {"client": [{"your_name_for_them": link["client_name"],
+                         **{c: user[c] for c in CLIENT_COLUMNS},
+                         "can_import": int(bool(link["client_can_import"]))}]}
+    notes = [dict(r) for r in conn.execute(
+        "SELECT * FROM advisor_notes WHERE client_id = ? AND advisor_id = ? "
+        "ORDER BY note_date, id", (client_id, advisor_id))]
+    found["notes"] = [{c: n.get(c) for c in NOTE_COLUMNS} for n in notes]
+    found["note_history"] = [
+        {"note_id": n["id"], "kind": n["kind"], "note_date": n["note_date"], "version": i,
+         "body": h.get("body"), "written_at": h.get("written_at"),
+         "replaced_at": h.get("replaced_at")}
+        for n in notes for i, h in enumerate(advising.note_history(n), start=1)]
+    for file, table, cols in (("proposals", "proposals", PROPOSAL_COLUMNS),
+                              ("reports", "progress_reports", REPORT_COLUMNS)):
+        found[file] = [dict(r) for r in conn.execute(
+            f"SELECT {', '.join(cols)} FROM {table} WHERE client_id = ? AND advisor_id = ? "
+            "ORDER BY id", (client_id, advisor_id))]
+    found["profile"] = [{k: v for k, v in dict(r).items() if k not in PROFILE_LEFT_OUT}
+                        for r in conn.execute("SELECT * FROM investor_profiles WHERE user_id = ?",
+                                              (client_id,))]
+    return {k: v for k, v in found.items() if v}
+
+
+def _write_record(z, conn, advisor_id: int, client_id: int, name: str, when: str,
+                  folder: str = "") -> None:
+    found = client_record(conn, advisor_id, client_id)   # the check, before anything's written
+    advisor = auth.display_name(conn, advisor_id) or auth.get_username(conn, advisor_id) or ""
+    z.writestr(f"{folder}README.txt", RECORD_README.format(who=name, when=when, advisor=advisor))
+    for file, rows in found.items():
+        z.writestr(f"{folder}{file}.csv", _csv(rows))
+
+
+def client_record_zip(conn, advisor_id: int, client_id: int, *,
+                      now: datetime | None = None) -> bytes:
+    """One client's record as a ZIP: README.txt plus one CSV per kind of
+    record. PermissionError if `advisor_id` isn't this client's advisor."""
+    now = now or datetime.now(timezone.utc)
+    name = dict(auth.list_clients(conn, advisor_id)).get(client_id) or f"Client {client_id}"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        _write_record(z, conn, advisor_id, client_id, name, now.strftime("%Y-%m-%d %H:%M"))
+    return buf.getvalue()
+
+
+def all_client_records_zip(conn, advisor_id: int, *, now: datetime | None = None) -> bytes:
+    """Every client of this advisor (auth.list_clients) in one ZIP, a folder
+    each. Empty for anyone who isn't an advisor."""
+    now = now or datetime.now(timezone.utc)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        if auth.is_advisor(conn, advisor_id):
+            for client_id, name in auth.list_clients(conn, advisor_id):
+                _write_record(z, conn, advisor_id, client_id, name,
+                              now.strftime("%Y-%m-%d %H:%M"),
+                              folder=f"{_slug(name)}-{client_id}/")
+    return buf.getvalue()
+
+
+def _slug(name: str | None) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (name or "").casefold()).strip("-")[:40] or "client"
+
+
+def record_file_name(client_name: str | None, now: datetime | None = None) -> str:
+    """One client's record's file name - or, given None, the all-clients one."""
+    day = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+    if client_name is None:
+        return f"northwend-client-records-{day}.zip"
+    return f"northwend-client-record-{_slug(client_name)}-{day}.zip"
