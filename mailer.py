@@ -129,21 +129,10 @@ def email_changed(to: str, new_email: str, link: str) -> bool:
 
 
 def report_ready(to: str, link: str, advisor_name: str, period: str, *,
-                 setup_link: str | None = None, days: int = 7,
                  from_name: str | None = None) -> bool:
-    """A progress report is waiting - no figures in the email itself. For a
-    client who hasn't set up their login yet, `setup_link` (auth.create_invite)
-    comes with it: "sign in" would be a dead end for them."""
-    if setup_link:
-        lines = [f"{advisor_name} has shared your progress report for {period}.",
-                 "To read it, first choose your password - only you will know it. Then open "
-                 "Your advisor. For your privacy, the figures stay in Northwend and aren't sent "
-                 "by email.",
-                 f"The link works once, for {days} days."]
-        text = f"{lines[0]}\n\n{lines[1]}\n\nSet up your account: {setup_link}\n\n{lines[2]}\n"
-        return send(to, f"Your progress report for {period}", text,
-                    _html([html_escape(x) for x in lines], ("Set up my account", setup_link)),
-                    from_name=from_name)
+    """A progress report is waiting - no figures in the email itself. Only
+    sent to a confirmed email (proposals.who_to_tell), so the client can
+    sign in to read it."""
     lines = [f"{advisor_name} has shared your progress report for {period}.",
              "Sign in to read it - for your privacy, the figures stay in Northwend and aren't "
              "sent by email."]

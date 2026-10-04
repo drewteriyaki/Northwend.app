@@ -873,8 +873,10 @@ phone-only beginner). What they found, fixed in this order:
       households (`advisor_clients.client_name`, the advisor's own name for
       the client, renamable), shown everywhere the advisor sees a client.
       One "Add and send invite" step, the invite from the advisor's name and
-      firm (`mailer.sender`; asked for before the first invite). Reports to a
-      client who hasn't signed in yet carry a setup link. Your clients: no
+      firm (`mailer.sender`; asked for before the first invite). Report
+      emails go only to confirmed emails, like proposals (Oct 4; a client
+      who hasn't set up their login isn't emailed - the advisor is told to
+      send a setup link). Your clients: no
       Viewing bar, plain-text emails, each client once in This week, and
       "N alerts" counts only real moves and losses (gains don't count).
       Message clients: one message to all (or some) clients, saved as a note

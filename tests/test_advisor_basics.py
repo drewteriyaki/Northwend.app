@@ -28,6 +28,7 @@ import manage_users  # noqa: E402
 import overview  # noqa: E402
 import portfolio  # noqa: E402
 import prefs  # noqa: E402
+import reports  # noqa: E402
 import sample_data  # noqa: E402
 import two_step  # noqa: E402
 
@@ -239,15 +240,13 @@ class LogicTests(_DB, unittest.TestCase):
         self.assertTrue(auth.accept_invite(self.conn, token, "clientpass1")["ok"])
         self.assertTrue(auth.has_signed_in(self.conn, cid))
 
-    def test_report_email_for_a_client_without_a_login_has_a_setup_link(self):
-        mailer.report_ready("pat@example.com", "https://x/?page=advisor-notes", "Dana", "Q3 2026",
-                            setup_link="https://x/?invite=abc", days=7, from_name="Dana")
-        mailer.report_ready("lee@example.com", "https://x/?page=advisor-notes", "Dana", "Q3 2026")
-        pat, lee = self.outbox.to("pat@example.com")[0], self.outbox.to("lee@example.com")[0]
-        self.assertIn("?invite=abc", pat["text"])
-        self.assertIn("choose your password", pat["text"])
-        self.assertNotIn("?invite=", lee["text"])
+    def test_report_email_says_sign_in_and_carries_no_figures(self):
+        mailer.report_ready("lee@example.com", "https://x/?page=advisor-notes", "Dana", "Q3 2026",
+                            from_name="Dana")
+        (lee,) = self.outbox.to("lee@example.com")
         self.assertIn("Sign in to read it", lee["text"])
+        self.assertNotIn("?invite=", lee["text"])
+        self.assertNotIn("$", lee["text"])
 
     def test_only_meaningful_alerts_make_a_client_need_a_look(self):
         def alert(key, sym, value, acct="IRA"):
@@ -412,21 +411,27 @@ class YourClientsPageTests(_DB, unittest.TestCase):
         # the example portfolio's +20% gains aren't "alerts" to look at
         self.assertNotIn("alert", line)
 
-    def test_report_to_a_client_without_a_login_brings_a_setup_link(self):
-        new = self._client("new@example.com", "New Client")
+    def test_reports_are_emailed_only_to_confirmed_emails(self):
+        new = self._client("new@example.com", "New Client")            # no login, unconfirmed
         old = self._client("old@example.com", "Old Client", signed_in=True)
+        lapsed = self._client("lapsed@example.com", "Lapsed Client", signed_in=True)
+        self.conn.execute("UPDATE users SET email_verified_at = NULL WHERE id = ?", (lapsed,))
+        self.conn.commit()
         at = self._run()
-        self.assertEqual(sorted(at.multiselect(key="rep_all_clients").value), sorted([new, old]))
+        self.assertEqual(sorted(at.multiselect(key="rep_all_clients").value),
+                         sorted([new, old, lapsed]))
         at.button(key="rep_all_send").click()
         at = self._run(at=at)
-        (to_new,) = self.outbox.to("new@example.com")
-        (to_old,) = self.outbox.to("old@example.com")
-        self.assertIn("?invite=", to_new["text"])
-        self.assertIsNotNone(auth.pending_invite(self.conn, new))
-        self.assertNotIn("?invite=", to_old["text"])
-        self.assertIn("Sign in to read it", to_old["text"])
-        self.assertTrue(any("1 hadn't set up their login yet" in s.value for s in at.success),
-                        [s.value for s in at.success])
+        self.assertEqual([m["to"] for m in self.outbox.sent], ["old@example.com"])
+        self.assertIn("Sign in to read it", self.outbox.sent[0]["text"])
+        self.assertIsNone(auth.pending_invite(self.conn, new))    # no setup link sent with it
+        msg = " ".join(s.value for s in at.success)
+        self.assertIn("Sent 3 reports", msg)
+        self.assertIn("1 hadn't set up their login yet, so weren't emailed", msg)
+        self.assertIn("1 without a confirmed email will see it next time they sign in", msg)
+        # each report is still saved for the client to read
+        for cid in (new, old, lapsed):
+            self.assertEqual(len(reports.for_client(self.conn, cid)), 1)
 
     def test_message_all_clients(self):
         a = self._client("a@example.com", "Ann", signed_in=True)
