@@ -199,6 +199,8 @@ def _ensure_schema(conn) -> None:
                 # archived, not deleted; edits keep the earlier text (advising.py)
                 ("advisor_notes", [("archived_at", "TEXT"), ("edited_at", "TEXT"),
                                    ("history", "TEXT"), ("is_message", "INTEGER")]),
+                # a shared proposal is archived, never deleted (proposals.py)
+                ("proposals", [("archived_at", "TEXT")]),
                 ("advisor_clients", [("client_can_import", "INTEGER"),
                                      # the advisor's name for them (auth.set_client_name)
                                      ("client_name", "TEXT")]),

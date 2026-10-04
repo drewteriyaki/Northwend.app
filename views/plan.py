@@ -107,6 +107,13 @@ def _suggestion_line(text, key=None, values=None):
                       on_click=_set_state, kwargs=values)
 
 
+def _goal_why(tip):
+    """Where a suggested goal date came from (learn.suggestions' goal_why)."""
+    return {"age": f"around {plans.RETIRE_AGE}, from your age",
+            "timeline": "from your timeline"}.get(tip.get("goal_why"),
+                                                  "a usual timeline for this kind of goal")
+
+
 def _years_text(n):
     return f"{n} year{'s' if n != 1 else ''}"
 
@@ -121,16 +128,18 @@ def _render_plan_form(plan, today, value=None):
     finally:
         conn.close()
     first_goal = (advisor.split_multi(profile.get("goal")) or [None])[0]
-    tip = learn.suggestions(profile, plan, today=today)
-    when_default = (datetime.strptime(plan["target_date"], "%Y-%m-%d").date()
-                    if plan.get("target_date") else tip["goal_date"])
     if not plans.has_goal(plan):
         st.markdown("#### Set a goal")
         st.caption("What you're saving for, how much you'd like to have, and by when. The plan "
                    "then shows whether you're on track and what it would take to get there.")
+    # outside the form, so the suggested date follows what it's for (a
+    # retirement from their age, a home in about 5 years - plans.goal_years_default)
+    goal_type = st.pills("What are you saving for?", plans.GOAL_TYPES, key="plan_goal_type",
+                         default=plan.get("goal_type") or _GOAL_FROM_PROFILE.get(first_goal))
+    tip = learn.suggestions(profile, plan, today=today, goal_type=goal_type)
+    when_default = (datetime.strptime(plan["target_date"], "%Y-%m-%d").date()
+                    if plan.get("target_date") else tip["goal_date"])
     with st.form("plan_form"):
-        goal_type = st.pills("What are you saving for?", plans.GOAL_TYPES,
-                             default=plan.get("goal_type") or _GOAL_FROM_PROFILE.get(first_goal))
         goal_name = st.text_input("Name it (optional)", value=plan.get("goal_name") or "",
                                   placeholder="e.g. Retire at 60", max_chars=60)
         c1, c2 = st.columns(2)
@@ -141,7 +150,7 @@ def _render_plan_form(plan, today, value=None):
                              max_value=date(today.year + 80, 12, 31))
         if not plan.get("target_date"):
             _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
-                             f"{_years_text(tip['goal_years'])} from now, from your timeline")
+                             f"{_years_text(tip['goal_years'])} from now, {_goal_why(tip)}")
         monthly = c1.number_input("I'll invest each month ($)", min_value=0.0, step=50.0,
                                   format="%.0f",
                                   value=float(plan.get("monthly_contribution") or 0.0))
@@ -490,8 +499,9 @@ def _render_what_if(plan, value, alloc_rows, today):
         st.caption("Try different amounts, years and mixes to see how the range moves. "
                    "Nothing is saved unless you choose to.")
         c1, c2 = st.columns(2)
+        # starts at the plan's monthly amount: hidden with the other amounts
         c1.slider("How much you'll invest each month ($)", 0.0, 50 * -(-top // 50), step=1.0,
-                  key="wi_monthly", format="$%d")
+                  key="wi_monthly", format=MASK if _hidden() else "$%d")
         c2.slider("How many years you'll keep investing", 1, 40, key="wi_years")
         c3, c4 = st.columns(2)
         c3.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="wi_stocks")

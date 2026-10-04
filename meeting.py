@@ -48,7 +48,7 @@ def _value_at(conn, user_id: int, day: str) -> float | None:
 
 def prep(conn, client_id: int, *, today: date, value: float | None, latest_snapshot: str | None,
          actual_pct: dict, targets: dict, drift_threshold: float,
-         return_pct: float = plans.DEFAULT_RETURN_PCT) -> dict:
+         return_pct: float = plans.DEFAULT_RETURN_PCT, advisor_id: int | None = None) -> dict:
     """Everything the prep view shows. `value` is today's portfolio value;
     `actual_pct` the mix by asset class now. Keys: last_review (date or
     None), days_since, value_then, value_now, value_change, value_change_pct,
@@ -86,7 +86,7 @@ def prep(conn, client_id: int, *, today: date, value: float | None, latest_snaps
          for k, t in targets.items() if abs((actual_pct.get(k, 0.0) or 0.0) - t) > drift_threshold],
         key=lambda r: -abs(r[3]))
     out["next_steps"] = advising.open_next_steps(
-        advising.list_notes(conn, client_id, include_private=True))
+        advising.list_notes(conn, client_id, include_private=True, advisor_id=advisor_id))
     out["proposals"] = [p for p in proposals.for_client(conn, client_id, include_drafts=False)
                         if p["status"] in ("shared", "accepted")]
     return out

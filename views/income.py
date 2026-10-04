@@ -190,7 +190,7 @@ def _render_income_table(income_rows):
     } for r in income_rows])
     st.dataframe(idf, width="stretch", hide_index=True)
     st.download_button(
-        "Download CSV", idf_raw.to_csv(index=False).encode("utf-8"),
+        "Download CSV", export.csv_bytes(idf_raw),
         file_name="income.csv", mime="text/csv", key="income_dl", on_click="ignore",
         disabled=hide_amounts, help=(
             "Disabled while amounts are hidden — turn off Hide amounts to export real figures."

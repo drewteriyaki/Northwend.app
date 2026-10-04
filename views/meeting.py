@@ -60,7 +60,8 @@ def _render_meeting_prep(value, alloc_rows, contexts, cash):
     try:
         p = meeting.prep(c, USER_ID, today=today, value=value,
                          latest_snapshot=latest_snapshot(c, USER_ID), actual_pct=actual,
-                         targets=load_alloc_targets(), drift_threshold=load_drift_threshold())
+                         targets=load_alloc_targets(), drift_threshold=load_drift_threshold(),
+                         advisor_id=LOGIN_ID)
         profile = advisor.get_profile(c, USER_ID)
     finally:
         c.close()

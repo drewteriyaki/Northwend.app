@@ -258,6 +258,16 @@ def _goal_part_done(part, then=None):
     st.session_state["gs_goal_part"] = then
 
 
+def _goal_type_picked(has_saved_date):
+    """A new pick of what the goal is for: its date moves to that kind of
+    goal's suggestion - unless they chose a date themselves, or the goal
+    already has one saved."""
+    if has_saved_date or st.session_state.get("gs_goal_date_set"):
+        return
+    years, _why = plans.goal_years_default(st.session_state.get("gs_goal_type"), _profile())
+    st.session_state["gs_goal_date"] = plans.add_months(datetime.now().date(), 12 * years)
+
+
 def _save_goal_what():
     """Part 1's button: the goal into the plan (Plan's own fields), then part 2."""
     target = float(st.session_state.get("gs_goal_target") or 0)
@@ -344,20 +354,28 @@ def _step_goal(plan, value, profile, keys, titles, done, pressed):
         p = plan or {}
         if not st.session_state.get("gs_goal_type"):
             st.session_state["gs_goal_type"] = p.get("goal_type") or _fs_goal_fallback()
+        # the suggested date follows what it's for (plans.goal_years_default:
+        # a retirement from their age, a home in about 5 years)
+        tip = {**tip, **{k: v for k, v in learn.suggestions(
+            _profile(), plan, today=today,
+            goal_type=st.session_state["gs_goal_type"]).items()
+            if k in ("goal_years", "goal_date", "goal_why")}}
         st.session_state.setdefault("gs_goal_target", float(p.get("target_amount") or 0.0))
         st.session_state.setdefault(
             "gs_goal_date", date.fromisoformat(p["target_date"][:10]) if p.get("target_date")
             else tip["goal_date"])
-        st.pills("What are you saving for?", plans.GOAL_TYPES, key="gs_goal_type", required=True)
+        st.pills("What are you saving for?", plans.GOAL_TYPES, key="gs_goal_type", required=True,
+                 on_change=_goal_type_picked, args=(bool(p.get("target_date")),))
         c1, c2 = st.columns(2)
         c1.number_input("I want to have ($)", min_value=0.0, step=1000.0, format="%.0f",
                         key="gs_goal_target",
                         help="A rough number is fine - you can change it any time.")
         c2.date_input("by (date)", key="gs_goal_date",
                       min_value=min(st.session_state["gs_goal_date"], plans.add_months(today, 1)),
-                      max_value=date(today.year + 80, 12, 31), format="MM/DD/YYYY")
+                      max_value=date(today.year + 80, 12, 31), format="MM/DD/YYYY",
+                      on_change=lambda: st.session_state.update(gs_goal_date_set=True))
         _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
-                         f"{_years_text(tip['goal_years'])} from now, from your timeline",
+                         f"{_years_text(tip['goal_years'])} from now, {_goal_why(tip)}",
                          key="gs_goal_date_use", values={"gs_goal_date": tip["goal_date"]})
         err = st.session_state.pop("gs_goal_err", None)
         if err:

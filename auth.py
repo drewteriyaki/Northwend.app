@@ -546,6 +546,66 @@ def _email_limit(conn, purpose: str, email: str, ip: str | None, now: datetime) 
     return reason
 
 
+# Emails an advisor's clicks send (setup links, "there's a message / report /
+# proposal for you"): limits so no amount of clicking - a double click, a
+# reload, or someone using an advisor's login - can send without end.
+INVITE_GAP_MINUTES = 2            # a setup link to the same address again
+INVITES_PER_ADDRESS_PER_DAY = 5   # setup links to one address a day
+INVITES_PER_ADVISOR_PER_DAY = 50  # setup links one advisor sends a day, to anyone
+NOTICE_GAP_MINUTES = 60           # one "something's waiting" email of a kind an hour
+
+
+def _sends(conn, now: datetime, **where) -> list:
+    """email_sends rows (newest first) matching `where` (column = value),
+    after tidying away those older than a day."""
+    conn.execute("DELETE FROM email_sends WHERE sent_at < ?", (_utc(now - timedelta(days=1)),))
+    cols = " AND ".join(f"{k} = ?" for k in where)
+    return conn.execute(f"SELECT sent_at FROM email_sends WHERE {cols} ORDER BY sent_at DESC",
+                        tuple(where.values())).fetchall()
+
+
+def invite_email_limit(conn, advisor_id: int, email: str, *,
+                       now: datetime | None = None) -> str | None:
+    """Why another setup link can't be emailed to `email` now, or None (and
+    it's counted). The advisor is counted under their own key, so the
+    whole day's invites are capped too."""
+    now = now or datetime.now(timezone.utc)
+    ekey, akey = _email_key(email), _address_key(f"advisor:{advisor_id}")
+    to_them = _sends(conn, now, email_key=ekey, purpose="invite")
+    by_advisor = _sends(conn, now, address_key=akey, purpose="invite")
+    reason = None
+    if to_them and to_them[0]["sent_at"] > _utc(now - timedelta(minutes=INVITE_GAP_MINUTES)):
+        reason = ("A setup link went to this address a moment ago - give it a couple of "
+                  "minutes to arrive (it can land in spam).")
+    elif len(to_them) >= INVITES_PER_ADDRESS_PER_DAY:
+        reason = "That's a lot of setup links to one address for one day. Try again tomorrow."
+    elif len(by_advisor) >= INVITES_PER_ADVISOR_PER_DAY:
+        reason = (f"You've sent {INVITES_PER_ADVISOR_PER_DAY} setup links today - that's the "
+                  "daily limit. Try again tomorrow, or create a link to send yourself.")
+    if reason is None:
+        conn.execute("INSERT INTO email_sends (email_key, address_key, purpose, sent_at) "
+                     "VALUES (?, ?, 'invite', ?)", (ekey, akey, _utc(now)))
+    conn.commit()
+    return reason
+
+
+def notice_ok(conn, purpose: str, email: str, *, now: datetime | None = None) -> bool:
+    """Whether a "something's waiting for you" email (`purpose`: 'message',
+    'report', 'proposal', 'answer') may go to `email` now: at most one of a
+    kind every NOTICE_GAP_MINUTES. True counts it. What it's about is still
+    saved and shown in the app either way - only the email waits."""
+    now = now or datetime.now(timezone.utc)
+    ekey = _email_key(email)
+    rows = _sends(conn, now, email_key=ekey, purpose=purpose)
+    if rows and rows[0]["sent_at"] > _utc(now - timedelta(minutes=NOTICE_GAP_MINUTES)):
+        conn.commit()
+        return False
+    conn.execute("INSERT INTO email_sends (email_key, address_key, purpose, sent_at) "
+                 "VALUES (?, '', ?, ?)", (ekey, purpose, _utc(now)))
+    conn.commit()
+    return True
+
+
 def _create_email_token(conn, user_id: int, purpose: str, email: str, now: datetime,
                         life: timedelta | None = None) -> str:
     """A one-time link token; replaces this account's earlier one for the same
@@ -604,20 +664,36 @@ def start_confirmation(conn, user_id: int, *, ip: str | None = None,
             "token": _create_email_token(conn, user_id, "confirm", st_["email"], now)}
 
 
+CONFIRMED_LINK = "confirmed"   # email_tokens.purpose of a confirm link already used
+
+
 def confirm_email(conn, token: str, *, now: datetime | None = None) -> dict:
     """Open a confirm link: the email is marked confirmed and the link used
-    up. Returns {"ok", "error", "user_id", "email"}."""
+    up. The same link opened again within a day (a reload, or an address that
+    kept it) answers ok with "already": True - not "expired". Returns {"ok",
+    "error", "user_id", "email", "already"}."""
     now = now or datetime.now(timezone.utc)
     info = _email_token(conn, token, "confirm", now)
     if info is None:
+        # the same link opened again - a reload, an address that kept
+        # ?confirm=, signing in after opening it: it did its job, so say so
+        # rather than "expired" (kept as 'confirmed' for a day, below)
+        done = _email_token(conn, token, CONFIRMED_LINK, now)
+        if done is not None and email_status(conn, done["user_id"])["confirmed"]:
+            return {"ok": True, "error": None, "user_id": done["user_id"],
+                    "email": done["email"], "already": True}
         return {"ok": False, "user_id": None, "email": None,
                 "error": "This link has expired or was already used."}
     conn.execute("UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) "
                  "WHERE id = ?", (_utc(now), info["user_id"]))
-    conn.execute("DELETE FROM email_tokens WHERE user_id = ? AND purpose = 'confirm'",
-                 (info["user_id"],))
+    conn.execute("DELETE FROM email_tokens WHERE user_id = ? AND purpose IN ('confirm', ?) "
+                 "AND token_hash != ?", (info["user_id"], CONFIRMED_LINK, _token_hash(token)))
+    # used up: it can't confirm anything again, but opening it again is recognised
+    conn.execute("UPDATE email_tokens SET purpose = ?, expires_at = ? WHERE token_hash = ?",
+                 (CONFIRMED_LINK, _utc(now + timedelta(days=1)), _token_hash(token)))
     conn.commit()
-    return {"ok": True, "error": None, "user_id": info["user_id"], "email": info["email"]}
+    return {"ok": True, "error": None, "user_id": info["user_id"], "email": info["email"],
+            "already": False}
 
 
 # ---- the Account page: name, email, sessions -------------------------------- #

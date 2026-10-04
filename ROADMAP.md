@@ -946,11 +946,23 @@ release to main when green, new features wait on staging for the owner.
       stopped); trading volumes over 2.1 billion (crypto) crashed the nightly
       history sync - now BIGINT, widened once on old databases; quoted text
       with `?`/`:` or a literal `%` broke the SQL translation.
-- [ ] **2. Fresh-eyes bug and security pass** over this week's merges, and a
-      re-walk on phone and desktop: three banners after sign-up; "link
-      expired" right after confirming an email; the slideshow's Next below
-      the fold on phones; the paste window long and prefilled; retirement
-      goals defaulting to 3 years out; tiny chart toolbars on phones.
+- [x] **2. Fresh-eyes bug and security pass** - 14 fixes, each with a test
+      (`tests/test_bug_pass.py`): CSV formula injection in every export (and
+      Streamlit's own table "Download as CSV" hidden - it doesn't escape);
+      advisor notes tied to the advisor who wrote them (a new advisor can't
+      read or change the old one's private notes); limits on invite and
+      "something's waiting" emails, and on sending the same report twice;
+      shared proposals archive instead of delete and share only once; names
+      cleaned of line breaks in email From names and subjects; text flowing
+      into AI prompts flattened and marked as data; admin-page markdown
+      escaped; the What-if slider masked with hidden amounts. Re-walk: one
+      small banner after an advisor's sign-up; a used confirm link says
+      "already confirmed"; the paste/type window starts empty and shorter;
+      goal dates default by goal type (`plans.goal_years_default`); chart
+      toolbars hidden on phones. Not fixed, listed: "Add client" reveals
+      whether an email has an account; a double click on Save and share makes
+      two proposals; markdown links in advisor notes; an odd "since the last
+      report" label on the same day.
 - [ ] **3. Stress test your mix** (Plan) - 2008, 2020, 2022, hypothetical.
 - [ ] **4. Contribution helper** - where the next deposit could go, by asset
       class (never a ticker), to move toward the target mix without selling.

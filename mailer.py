@@ -42,12 +42,23 @@ def status() -> str:
     return "sending" if _setting("RESEND_API_KEY") else "off"
 
 
+def _one_line(text: str | None, limit: int, drop: str = "") -> str:
+    """Text for an email header: control characters and line breaks of any
+    kind (CR, LF, NEL, the Unicode line and paragraph separators) - and the
+    characters in `drop` - become spaces, runs of spaces become one, and it's
+    cut to `limit` characters. A name typed into the app can't start a new
+    header line this way."""
+    import unicodedata
+    out = "".join(" " if ch in drop or unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp")
+                  else ch for ch in (text or ""))
+    return " ".join(out.split())[:limit].strip()
+
+
 def sender(from_name: str | None = None) -> str:
     """The From line: SENDER, or `"<from_name> via Northwend" <hello@...>` for
     an email sent on an advisor's behalf. Quotes, angle brackets, backslashes
     and line breaks are taken out of the name, so it can't change the address."""
-    name = " ".join("".join(" " if ch in '"<>\\' or ord(ch) < 32 or ord(ch) == 127 else ch
-                            for ch in (from_name or "")).split())[:70].strip(" ,")
+    name = _one_line(from_name, 70, drop='"<>\\').strip(" ,")
     return f'"{name} via Northwend" <{SENDER_ADDRESS}>' if name else SENDER
 
 
@@ -56,7 +67,9 @@ def send(to: str, subject: str, text: str, html: str | None = None, *,
     """Send one email. True if Resend accepted it (or it was logged in dry-run
     mode); False on any failure - the reason goes to the server log, never
     to the person, and the caller shows a calm "try again" instead.
-    `from_name` puts an advisor's name in the From line (sender())."""
+    `from_name` puts an advisor's name in the From line (sender()). The
+    subject is made one line (_one_line): some carry a name someone typed."""
+    subject = _one_line(subject, 150)
     if dry_run():
         print(f"[mailer dry run] from={sender(from_name)} to={to} subject={subject!r}\n{text}",
               file=sys.stderr)

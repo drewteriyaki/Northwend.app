@@ -44,9 +44,9 @@ def counts(conn, advisor_id: int, today: date) -> dict:
             out["soon"] += 1
         out["accepted"] += conn.execute(
             "SELECT COUNT(*) AS n FROM proposals WHERE client_id = ? AND advisor_id = ? AND "
-            "status = 'accepted'", (cid, advisor_id)).fetchone()["n"]
+            "status = 'accepted' AND archived_at IS NULL", (cid, advisor_id)).fetchone()["n"]
         out["steps"] += len(advising.open_next_steps(
-            advising.list_notes(conn, cid, include_private=True)))
+            advising.list_notes(conn, cid, include_private=True, advisor_id=advisor_id)))
     return out
 
 

@@ -222,14 +222,18 @@ class SignInTests(_PG):
         self.assertTrue(auth.confirm_email(c, sent["token"])["ok"])
         self.assertIsNotNone(self.one("SELECT email_verified_at FROM users WHERE id = ?",
                                       (uid,))["email_verified_at"])
-        self.assertFalse(auth.confirm_email(c, sent["token"])["ok"])   # used up
+        again = auth.confirm_email(c, sent["token"])   # used: says it's already confirmed
+        self.assertEqual((again["ok"], again["already"]), (True, True))
 
         reset = auth.request_password_reset(c, "SAM@example.com", ip="203.0.113.5")
         self.assertEqual(reset["to"], "sam@example.com")
         self.assertEqual(auth.reset_info(c, reset["token"])["user_id"], uid)
         self.assertTrue(auth.reset_password(c, reset["token"], "new-pass-12345")["ok"])
         self.assertEqual(auth.verify_login(c, "sam@example.com", "new-pass-12345"), uid)
-        self.assertEqual(self.seen("SELECT * FROM email_tokens WHERE user_id = ?", (uid,)), [])
+        # no usable link is left (a used confirm link is remembered a day as
+        # 'confirmed', only to answer "already confirmed")
+        self.assertEqual(self.seen("SELECT * FROM email_tokens WHERE user_id = ? "
+                                   "AND purpose <> 'confirmed'", (uid,)), [])
 
         change = auth.start_email_change(c, uid, "sam.new@example.com", "new-pass-12345")
         self.assertTrue(change["ok"], change)

@@ -178,6 +178,14 @@ def _fs_question(field, profile, on_change=None, args=None):
                  format_func=lambda v: v[:1].upper() + v[1:])
 
 
+def _fs_goal_type_picked(profile):
+    """A new pick of what it's for: the years follow it (plans.goal_years_default),
+    unless they set the years themselves."""
+    if not st.session_state.get("fs_goal_years_set"):
+        st.session_state["fs_goal_years"] = plans.goal_years_default(
+            st.session_state.get("fs_goal_type"), profile)[0]
+
+
 def _fs_screen_goal(profile):
     import advisor
     plan = load_plan() or {}
@@ -185,19 +193,27 @@ def _fs_screen_goal(profile):
     st.session_state.setdefault("fs_goal_type", plan.get("goal_type")
                                 or _GOAL_FROM_PROFILE.get(first))
     st.session_state.setdefault("fs_goal_target", float(plan.get("target_amount") or 0.0))
-    st.session_state.setdefault("fs_goal_years", int(profile.get("time_horizon_years") or 10))
     st.session_state.setdefault("fs_goal_monthly", float(plan.get("monthly_contribution") or 0))
     st.markdown("A rough goal is plenty - you can change it any time on the Plan page.")
     if not st.session_state.get("fs_goal_type"):
         st.session_state["fs_goal_type"] = _fs_goal_fallback()
+    # how many years follows what it's for (a retirement from their age, a
+    # home in about 5 years) until they set it themselves
+    _saved_months = (plans.months_until(plan["target_date"], datetime.now().date())
+                     if plan.get("target_date") else 0)
+    st.session_state.setdefault("fs_goal_years", max(1, round(_saved_months / 12))
+                                if _saved_months > 0 else plans.goal_years_default(
+                                    st.session_state["fs_goal_type"], profile)[0])
     # required: tapping the chosen one keeps it chosen (a second tap used to
     # un-pick it, and the goal was then quietly not saved)
-    st.pills("What are you saving for?", plans.GOAL_TYPES, key="fs_goal_type", required=True)
+    st.pills("What are you saving for?", plans.GOAL_TYPES, key="fs_goal_type", required=True,
+             on_change=_fs_goal_type_picked, args=(profile,))
     c1, c2 = st.columns(2)
     c1.number_input("I want to have ($)", min_value=0.0, step=1000.0,
                     format="%.0f", key="fs_goal_target")
     c2.number_input("in how many years", min_value=1, max_value=60, step=1,
-                    key="fs_goal_years")
+                    key="fs_goal_years",
+                    on_change=lambda: st.session_state.update(fs_goal_years_set=True))
     c1.number_input("I'll invest each month ($)", min_value=0.0, step=50.0,
                     format="%.0f", key="fs_goal_monthly")
     target = float(st.session_state.get("fs_goal_target") or 0)

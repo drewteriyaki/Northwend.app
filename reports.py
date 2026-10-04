@@ -90,6 +90,19 @@ def save(conn, advisor_id: int, client_id: int, *, label: str, start: date, end:
                         (client_id,)).fetchone()["id"]
 
 
+REPEAT_MINUTES = 10   # the same period's report again this soon is a double click
+
+
+def sent_just_now(conn, client_id: int, label: str, *, now: datetime | None = None) -> bool:
+    """Whether this client got this period's report in the last
+    REPEAT_MINUTES - a double click or a reload, not a report to send twice."""
+    since = ((now or datetime.now(timezone.utc)) - timedelta(minutes=REPEAT_MINUTES)
+             ).strftime("%Y-%m-%d %H:%M:%S")
+    return conn.execute("SELECT 1 FROM progress_reports WHERE client_id = ? AND period_label = ? "
+                        "AND created_at >= ? LIMIT 1", (client_id, label[:60], since)
+                        ).fetchone() is not None
+
+
 def for_client(conn, client_id: int) -> list[dict]:
     out = []
     for r in conn.execute("SELECT * FROM progress_reports WHERE client_id = ? ORDER BY id DESC",

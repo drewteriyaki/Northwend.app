@@ -30,6 +30,7 @@ import auth
 import charts
 import csv_import
 import disclosures
+import export
 import friendly_errors
 import fund_holdings
 import hosting
@@ -327,6 +328,15 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   display: none; }
 /* a slider's end label can poke past a phone's edge; never scroll sideways */
 [data-testid="stMain"] { overflow-x: hidden; }
+/* a table's own "Download as CSV" writes each cell as it is, so a name typed
+   like a formula would run in a spreadsheet: the app's Download CSV buttons
+   (export.csv_bytes) are the safe way, and this one is left out */
+[data-testid="stElementToolbarButton"]:has(button[aria-label="Download as CSV"]) {
+  display: none !important; }
+/* phones and touch screens: the charts' and tables' small (22px) toolbars are
+   too small to tap and get in the way of scrolling, so they're left out */
+@media (max-width: 640px), (pointer: coarse) {
+  [data-testid="stElementToolbar"] { display: none !important; } }
 @media (max-width: 640px) {
   [data-testid="stMainBlockContainer"] { padding: 4.75rem 1rem 6rem; }
   h1 { font-size: 1.6rem !important; }
@@ -338,6 +348,20 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
      behind Streamlit's arrow */
   [data-testid="stTabs"] [role="tablist"] { flex-wrap: wrap; overflow-x: visible; row-gap: .25rem; }
   [data-testid="stTabsScrollLeft"], [data-testid="stTabsScrollRight"] { display: none !important; }
+  /* the paste / type window (holdings_input.py): shorter on a phone - a
+     holding is a plain group inside its account's card (no box of its own),
+     its number of shares and what was paid share one line, without the
+     +/- steppers (the phone's own number keys do that) */
+  [class*="st-key-pt_me_hold_"] { border: 0 !important; padding: 0 !important;
+    border-top: 1px solid var(--pt-line) !important; border-radius: 0 !important;
+    padding-top: .6rem !important; }
+  [class*="st-key-pt_me_row_"] { row-gap: .4rem !important; }
+  [class*="st-key-pt_me_row_"] > [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) {
+    flex: 1 1 calc(100% - 3rem) !important; width: auto !important; }
+  [class*="st-key-pt_me_row_"] > [data-testid="stElementContainer"]:has([data-testid="stNumberInput"]) {
+    flex: 1 1 calc(50% - .5rem) !important; width: auto !important; min-width: 0 !important; }
+  [class*="st-key-pt_me_row_"] [data-testid="stNumberInputStepDown"],
+  [class*="st-key-pt_me_row_"] [data-testid="stNumberInputStepUp"] { display: none !important; }
 }
 /* the top bar (_render_top_bar): pinned along the top of the window, on the
    page's own background (--pt-bg, kept in step with light/dark by
@@ -863,18 +887,19 @@ def _signup() -> bool:
     st.session_state["user_id"] = result["user_id"]
     st.session_state["username"] = result["username"]
     st.session_state["session_token"] = session
-    if role == "advisor":
-        st.session_state["import_flash"] = (
-            f"Your account is ready. Welcome to {APP_NAME}! We're checking your advisor "
-            "details; advisor tools appear once they're approved. Until then, have a look "
-            "around as an investor.")
     if sent:
-        # just signed up: one short line about the link, so the welcome screen
-        # stays in view (a phone has room for little else); the fuller card with
-        # "Send it again" comes back in later sessions
-        st.session_state["email_brief"] = True
+        # just signed up: one short line about the link (and, for an advisor,
+        # their request), so the welcome screen stays in view - a phone has
+        # room for little else; the fuller card with "Send it again" comes back
+        # in later sessions, and the name menu shows the request
+        st.session_state["email_brief"] = "advisor" if role == "advisor" else True
     else:
         st.session_state["email_flash"] = (False, note)
+        if role == "advisor":
+            st.session_state["import_flash"] = (
+                f"Your account is ready. Welcome to {APP_NAME}! We're checking your advisor "
+                "details; advisor tools appear once they're approved. Until then, have a look "
+                "around as an investor.")
     if "signup" in st.query_params:
         del st.query_params["signup"]
     st.rerun()
@@ -990,12 +1015,18 @@ def _take_confirm_link():
     token = st.query_params.get("confirm")
     if not token:
         return
+    del st.query_params["confirm"]
+    # already handled in this session (the address kept it, or signing in
+    # reran the page with it): nothing more to say
+    done = st.session_state.setdefault("links_done", [])
+    if token in done:
+        return
     conn = connect(DB)
     try:
         res = auth.confirm_email(conn, str(token))
     finally:
         conn.close()
-    del st.query_params["confirm"]
+    done.append(token)
     if res["ok"]:
         msg = f"Your email is confirmed - thank you! The AI guide, Ask {GUIDE}, is ready."
     else:
@@ -1465,6 +1496,13 @@ def _send_invite(c, viewer, client_id):
     if not card.get("name"):
         return False, ("Add your name under **Your clients > How clients see you** first - "
                        "the invite tells them who it's from.")
+    if viewer == client_id or not auth.can_view(c, viewer, client_id):
+        raise ValueError("you can only invite your own clients")
+    # limits on setup-link emails (to this address, and this advisor's day);
+    # checked before a new link replaces the one they may already have
+    too_many = auth.invite_email_limit(c, viewer, email)
+    if too_many:
+        return False, too_many
     token = auth.create_invite(c, viewer, client_id)   # ValueError: not their client
     body_name, from_name = _advisor_names(card, st.session_state["username"])
     if mailer.client_invite(email, f"{_app_address()}?invite={token}", body_name,
@@ -1907,7 +1945,9 @@ if _email_flash:
 if _waiting_email and st.session_state.get("email_brief"):
     with st.container(horizontal=True, vertical_alignment="center", gap="small",
                       key="pt_email_brief"):
-        st.caption(f":material/mail: We've sent a link to {_waiting_email} - confirm any time.",
+        st.caption(f":material/mail: We've sent a link to {_waiting_email} - confirm any time."
+                   + (" Advisor tools appear once we've checked your details."
+                      if st.session_state.get("email_brief") == "advisor" else ""),
                    width="content")
         st.button("Send it again", key="email_resend", type="tertiary",
                   on_click=_resend_confirmation)

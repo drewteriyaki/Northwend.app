@@ -43,7 +43,8 @@ OWN = [
     # as the client sees them: not private, not archived (advising.archive_note)
     ("from_your_advisor_notes", "advisor_notes", "client_id",
      " AND private = 0 AND archived_at IS NULL"),
-    ("from_your_advisor_proposals", "proposals", "client_id", " AND status != 'draft'"),
+    ("from_your_advisor_proposals", "proposals", "client_id",
+     " AND status != 'draft' AND archived_at IS NULL"),
     ("from_your_advisor_reports", "progress_reports", "client_id", ""),
     ("your_model_portfolios", "model_portfolios", "advisor_id", ""),
     # when two-step sign-in was turned on - its key and backup codes never
@@ -80,13 +81,41 @@ def _safe(col: str) -> bool:
     return not SECRET_PARTS & set(col.lower().split("_"))
 
 
+# A spreadsheet runs a cell that starts with one of these as a formula
+# (=HYPERLINK(...), +cmd|...): text someone typed - a holding's name, an
+# account name, a note, a client's answer - could then do something on the
+# computer of whoever opens the file (an advisor opening a client's, say).
+# Text cells that start with one get an apostrophe in front, the usual way
+# to keep a cell as plain text; numbers are left as they are.
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n", "＝", "＋", "－", "＠")
+
+
+def csv_cell(value):
+    """One cell for a CSV file, never read as a formula (FORMULA_START)."""
+    if isinstance(value, str) and value.startswith(FORMULA_START):
+        return "'" + value
+    return value
+
+
+def csv_bytes(frame) -> bytes:
+    """A pandas DataFrame as CSV bytes for a download button, with every text
+    cell made safe (csv_cell) - the Holdings, Accounts, Activity and Income
+    downloads."""
+    safe = frame.copy()
+    for col in safe.columns:
+        if safe[col].dtype == object:
+            safe[col] = safe[col].map(csv_cell)
+    safe.columns = [csv_cell(c) for c in safe.columns]
+    return safe.to_csv(index=False).encode("utf-8")
+
+
 def _csv(rows: list[dict]) -> str:
     cols = [c for c in rows[0].keys() if _safe(c)]
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(cols)
     for r in rows:
-        w.writerow(["" if r[c] is None else r[c] for c in cols])
+        w.writerow(["" if r[c] is None else csv_cell(r[c]) for c in cols])
     return out.getvalue()
 
 
@@ -140,7 +169,8 @@ Open them in any spreadsheet. Times are UTC.
   (archived_at), private ones marked (private = 1), messages sent with Message
   clients marked (is_message = 1)
 - note_history.csv: the earlier text of notes you edited, oldest first
-- proposals.csv: your proposals, with the client's answer (status, responded_at)
+- proposals.csv: your proposals, with the client's answer (status, responded_at) -
+  archived ones too (archived_at)
 - reports.csv: progress reports you sent, and when they were opened (read_at)
 - profile.csv: the client's answers about their goals and risk
 
@@ -152,7 +182,7 @@ CLIENT_COLUMNS = ("username", "display_name", "email", "email_verified_at", "cre
 NOTE_COLUMNS = ("id", "kind", "note_date", "body", "private", "done", "is_message",
                 "created_at", "edited_at", "archived_at")
 PROPOSAL_COLUMNS = ("id", "title", "mix_json", "note", "status", "created_at", "updated_at",
-                    "shared_at", "responded_at")
+                    "shared_at", "responded_at", "archived_at")
 REPORT_COLUMNS = ("id", "period_label", "period_start", "period_end", "created_at", "read_at",
                   "message", "facts_json")
 PROFILE_LEFT_OUT = {"ai_memory"}   # the AI guide's own notes, never shown in the app

@@ -315,8 +315,11 @@ def _render_admin():
                    "Approved advisors are asked to set up two-step sign-in, then add a client.")
     for r in requests:
         with st.container(border=True, horizontal=True, vertical_alignment="center"):
-            st.markdown(f"**{r['username']}** · {r['firm']} · CRD/licence **{r['licence']}** · "
-                        f"asked {_admin_when(r['requested_at'])}", width="stretch")
+            # firm and licence are as typed at sign-up: shown as text, never as a
+            # link or an image (_md_name escapes markdown)
+            st.markdown(f"**{_md_name(r['username'])}** · {_md_name(r['firm'])} · CRD/licence "
+                        f"**{_md_name(r['licence'])}** · asked {_admin_when(r['requested_at'])}",
+                        width="stretch")
             st.link_button("Check on BrokerCheck", "https://brokercheck.finra.org/",
                            type="tertiary")
             st.button("Approve", key=f"admin_ok_{r['username']}", type="primary",

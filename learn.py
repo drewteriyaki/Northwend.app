@@ -285,11 +285,14 @@ DEFAULT_STOCKS_PCT = 60      # no timeline answered yet: a middle-of-the-road mi
 
 
 def suggestions(profile: dict | None, plan: dict | None, *, today: date, present: float = 0.0,
-                return_pct: float | None = None) -> dict:
+                return_pct: float | None = None, goal_type: str | None = None) -> dict:
     """Suggested starting points from the profile's answers and the plan:
 
     goal_years / goal_date - a goal date from the timeline answer (years from
-                 `today`; DEFAULT_YEARS when it isn't answered)
+                 `today`; DEFAULT_YEARS when it isn't answered) - or, given a
+                 `goal_type`, by what it's for (plans.goal_years_default: a
+                 retirement from their age, never "3 years"); goal_why says
+                 where it came from ("timeline", "age" or "typical")
     years      - years to the plan's goal date, else goal_years (1 to 40)
     stocks_pct - the example mix's share in stocks (starter_mix, with the plan's
                  horizon), else DEFAULT_STOCKS_PCT
@@ -308,6 +311,9 @@ def suggestions(profile: dict | None, plan: dict | None, *, today: date, present
     except (TypeError, ValueError):
         answered = 0
     goal_years = max(1, min(40, answered or DEFAULT_YEARS))
+    goal_why = "timeline" if answered else "typical"
+    if goal_type:
+        goal_years, goal_why = plans.goal_years_default(goal_type, p)
     months = plans.months_until(plan["target_date"], today) if plans.has_goal(plan) else None
     horizon = months / 12 if months and months > 0 else None
     years = max(1, min(40, round(horizon))) if horizon else goal_years
@@ -320,7 +326,7 @@ def suggestions(profile: dict | None, plan: dict | None, *, today: date, present
                                       months)
         monthly = None if need is None else float(round(need))
     return {"goal_years": goal_years, "goal_date": plans.add_months(today, 12 * goal_years),
-            "years": years, "stocks_pct": stocks,
+            "goal_why": goal_why, "years": years, "stocks_pct": stocks,
             "target_mix": {"Stocks": float(stocks), "Bonds": float(100 - stocks)},
             "return_pct": SUGGESTED_RETURN_PCT, "monthly": monthly}
 

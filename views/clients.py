@@ -17,7 +17,9 @@ def _render_advisor_card(card):
     name = card.get("name") or card.get("username") or "Your advisor"
     contact = " · ".join(v for v in (card.get("email"), card.get("phone")) if v)
     with st.container(border=True):
-        _md(f"**Your advisor: {name}**" + (f" · {card['firm']}" if card.get("firm") else ""))
+        # (_md_name escapes "$" itself, so plain st.markdown)
+        st.markdown(f"**Your advisor: {_md_name(name)}**"
+                    + (f" · {_md_name(card['firm'])}" if card.get("firm") else ""))
         if contact:
             st.caption(contact)
         if card.get("message"):
@@ -26,8 +28,9 @@ def _render_advisor_card(card):
 
 def _notes_for_view(conn):
     """This account's advisor notes as the viewer may see them: an advisor on a
-    client's account sees private ones too; the client never does."""
-    return advising.list_notes(conn, USER_ID, include_private=ON_CLIENT)
+    client's account sees their own private ones too; the client never does."""
+    return advising.list_notes(conn, USER_ID, include_private=ON_CLIENT,
+                               advisor_id=LOGIN_ID if ON_CLIENT else None)
 
 
 def _render_notes():
@@ -64,30 +67,32 @@ def _render_notes():
                     finally:
                         c.close()
 
+    # only the note's own advisor changes it (advisor_id): never the client,
+    # never another advisor
     def _set_done(note_id, done):
         c = connect(DB)
         try:
-            advising.set_done(c, USER_ID, note_id, done)
+            advising.set_done(c, USER_ID, note_id, done, advisor_id=st.session_state["user_id"])
         finally:
             c.close()
 
     def _archive(note_id, archive):
         c = connect(DB)
         try:
-            if archive:
-                advising.archive_note(c, USER_ID, note_id)
-            else:
-                advising.restore_note(c, USER_ID, note_id)
+            me = st.session_state["user_id"]
+            ok = (advising.archive_note(c, USER_ID, note_id, advisor_id=me) if archive
+                  else advising.restore_note(c, USER_ID, note_id, advisor_id=me))
         finally:
             c.close()
-        st.toast("Archived - it's kept, and Show archived brings it back." if archive
-                 else "Restored.")
+        if ok:
+            st.toast("Archived - it's kept, and Show archived brings it back." if archive
+                     else "Restored.")
 
     def _edit(note_id):
         body = st.session_state.get(f"note_edit_{note_id}")
         c = connect(DB)
         try:
-            advising.edit_note(c, USER_ID, note_id, body)
+            advising.edit_note(c, USER_ID, note_id, body, advisor_id=st.session_state["user_id"])
         except ValueError:
             st.toast("A note needs some text - nothing was changed.")
         finally:
@@ -104,7 +109,7 @@ def _render_notes():
             with st.container(horizontal=True, vertical_alignment="center"):
                 st.caption(f"From {_fmt_date(n['note_date'])}"
                            + (" · Private" if n["private"] else ""))
-                if ON_CLIENT:
+                if ON_CLIENT and n["advisor_id"] == LOGIN_ID:
                     st.button("Mark done", key=f"note_done_{n['id']}", type="tertiary",
                               on_click=_set_done, args=(n["id"], True))
 
@@ -133,7 +138,7 @@ def _render_note(n, set_done, archive, edit):
                    + (f" · edited {_fmt_date(n['edited_at'][:10])}" if n.get("edited_at") else "")
                    + (f" · archived {_fmt_date(n['archived_at'][:10])}" if archived else ""))
         _md(n["body"])
-        if not ON_CLIENT:
+        if not ON_CLIENT or n.get("advisor_id") != LOGIN_ID:   # only the note's own advisor
             return
         earlier = advising.note_history(n)
         if earlier:
@@ -166,7 +171,9 @@ def _render_archived_notes(archive):
         return
     conn = connect(DB)
     try:
-        gone = advising.list_notes(conn, USER_ID, include_private=True, archived=True)
+        gone = advising.list_notes(conn, USER_ID, include_private=True, archived=True,
+                                   advisor_id=LOGIN_ID)
+        gone = [n for n in gone if n["advisor_id"] == LOGIN_ID]   # only their own to restore
     finally:
         conn.close()
     st.markdown("#### Archived")
@@ -402,7 +409,7 @@ def _client_rows(today):
             logins[r["id"]], emails[r["id"]] = r["last_login_at"], r["email"]
         all_props = {}
         for r in conn.execute("SELECT client_id, status, COUNT(*) AS n FROM proposals WHERE "
-                              f"client_id IN ({_in}) AND status IN ('shared', 'accepted') "
+                              f"client_id IN ({_in}) AND status IN ('shared', 'accepted') AND archived_at IS NULL "
                               "GROUP BY client_id, status", _ids):
             all_props.setdefault(r["client_id"], {})[r["status"]] = r["n"]
         last_reports = {r["client_id"]: r["period_label"] for r in conn.execute(
@@ -417,7 +424,7 @@ def _client_rows(today):
             conn, _ids, quotes, {cid: _rules_from(saved[cid]) for cid in _ids},
             overrides={cid: asset_classes.overrides_in(saved[cid]) for cid in _ids})
         all_plans = plans.get_plans(conn, _ids)
-        all_notes = advising.notes_for(conn, _ids, include_private=True)
+        all_notes = advising.notes_for(conn, _ids, include_private=True, advisor_id=LOGIN_ID)
         rows = []
         for cid, name in CLIENTS:
             summ = summaries[cid]
@@ -532,13 +539,17 @@ def _send_message():
         res = advising.message_clients(c, viewer, picked, body,
                                        now=datetime.now(timezone.utc),
                                        today=datetime.now().date())
-        to_email = []
+        to_email, waited = [], 0
         if res["ok"]:
             ids = tuple(res["sent_to"])
-            to_email = [r["email"] for r in c.execute(
+            confirmed = [r["email"] for r in c.execute(
                 "SELECT email FROM users WHERE id IN (" + ", ".join("?" for _ in ids) + ") "
                 "AND email IS NOT NULL AND email_verified_at IS NOT NULL "
                 "AND last_login_at IS NOT NULL ORDER BY id", ids)]
+            # at most one "you have a message" email an hour per client: more
+            # messages are still on their page, only the email waits
+            to_email = [e for e in confirmed if auth.notice_ok(c, "message", e)]
+            waited = len(confirmed) - len(to_email)
         card = prefs.load(c, viewer).get("advisor_card") or {}
     finally:
         c.close()
@@ -552,9 +563,11 @@ def _send_message():
             time.sleep(0.6)   # the email service takes a couple a second
         emailed += bool(mailer.advisor_message(email, f"{_app_address()}?page=your-advisor",
                                                body_name, from_name=from_name))
-    n, in_app = len(res["sent_to"]), len(res["sent_to"]) - emailed
+    n, in_app = len(res["sent_to"]), len(res["sent_to"]) - emailed - waited
     text = (f"Sent to {n} client{'s' if n != 1 else ''} - it's on their Advisor notes page. "
             + (f"Emailed {emailed} that it's there. " if emailed else "")
+            + (f"{waited} had an email about a message in the last hour, so no new one "
+               "went. " if waited else "")
             + (f"{in_app} will see it next time they sign in "
                "(no confirmed email or login yet" + (", or the email couldn't be sent"
                                                     if len(to_email) > emailed else "") + ")."

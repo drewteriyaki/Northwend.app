@@ -2017,7 +2017,10 @@ class EmailLinkTests(TempDBMixin, unittest.TestCase):
         self.assertTrue(done["ok"])
         self.assertTrue(auth.email_status(self.conn, self.uid)["confirmed"])
         self.assertTrue(ai_usage.status(self.conn, self.uid, "chat", now=self.NOW)["ok"])
-        self.assertFalse(auth.confirm_email(self.conn, link["token"], now=self.NOW)["ok"])  # used
+        # used: opened again it does nothing more, and says it's already
+        # confirmed rather than "expired" (the address can keep ?confirm=)
+        again = auth.confirm_email(self.conn, link["token"], now=self.NOW)
+        self.assertEqual((again["ok"], again["already"]), (True, True))
         self.assertFalse(auth.start_confirmation(self.conn, self.uid, now=self.NOW)["ok"])
 
     def test_confirm_links_expire_are_replaced_and_limited(self):

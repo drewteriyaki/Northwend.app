@@ -422,14 +422,16 @@ CREATE TABLE IF NOT EXISTS signups (
 CREATE TABLE IF NOT EXISTS email_tokens (
     token_hash  TEXT    PRIMARY KEY,
     user_id     INTEGER NOT NULL,
-    purpose     TEXT    NOT NULL,                -- 'confirm', 'reset' or 'change' (email = the new one)
+    purpose     TEXT    NOT NULL,                -- 'confirm', 'reset' or 'change' (email = the new one); 'confirmed' = a used confirm link, kept a day
     email       TEXT    NOT NULL,
     created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
     expires_at  TEXT    NOT NULL
 );
 
 -- An advisor's proposed mix for a client (proposals.py): a draft only the
--- advisor sees, then shared, then the client's answer.
+-- advisor sees, then shared, then the client's answer. Only a draft can be
+-- deleted; once shared it's part of the advisor's record: Archive hides it
+-- (archived_at) and keeps it, like advisor notes (proposals.archive).
 CREATE TABLE IF NOT EXISTS proposals (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     advisor_id    INTEGER NOT NULL,
@@ -441,7 +443,8 @@ CREATE TABLE IF NOT EXISTS proposals (
     created_at    TEXT    NOT NULL,
     updated_at    TEXT    NOT NULL,
     shared_at     TEXT,
-    responded_at  TEXT
+    responded_at  TEXT,
+    archived_at   TEXT                           -- 'YYYY-MM-DD HH:MM:SS' UTC; shared ones are archived, never deleted
 );
 
 -- Progress reports an advisor sends a client (reports.py): the figures as

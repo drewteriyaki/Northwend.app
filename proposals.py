@@ -86,15 +86,46 @@ def save(conn, advisor_id: int, client_id: int, *, title: str, mix: dict, note: 
 
 
 def share(conn, advisor_id: int, proposal_id: int) -> bool:
+    """Share a draft. False if it isn't this advisor's or isn't a draft - so a
+    double click can't email the client twice, and an answered proposal
+    can't be put back to waiting (its answer is the record)."""
     cur = conn.execute("UPDATE proposals SET status = 'shared', shared_at = ?, updated_at = ? "
-                       "WHERE id = ? AND advisor_id = ?", (_now(), _now(), proposal_id, advisor_id))
+                       "WHERE id = ? AND advisor_id = ? AND status = 'draft'",
+                       (_now(), _now(), proposal_id, advisor_id))
     conn.commit()
     return cur.rowcount > 0
 
 
-def delete(conn, advisor_id: int, proposal_id: int) -> None:
-    conn.execute("DELETE FROM proposals WHERE id = ? AND advisor_id = ?", (proposal_id, advisor_id))
+def delete(conn, advisor_id: int, proposal_id: int) -> bool:
+    """Delete a draft - only a draft: once shared, a proposal and the
+    client's answer are part of the advisor's record (archive() instead).
+    False if it isn't this advisor's draft."""
+    cur = conn.execute("DELETE FROM proposals WHERE id = ? AND advisor_id = ? AND "
+                       "status = 'draft'", (proposal_id, advisor_id))
     conn.commit()
+    return cur.rowcount > 0
+
+
+# A shared proposal is kept, like advisor notes (advising.archive_note):
+# Archive hides it from both sides and Restore brings it back; it stays in
+# the advisor's export of the client's record (export.client_record_zip).
+def archive(conn, advisor_id: int, proposal_id: int, *, now: datetime | None = None) -> bool:
+    """Hide a shared (or answered) proposal but keep it. False if it isn't
+    this advisor's, is a draft (delete it instead) or is archived already."""
+    stamp = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.execute("UPDATE proposals SET archived_at = ? WHERE id = ? AND advisor_id = ? "
+                       "AND status != 'draft' AND archived_at IS NULL",
+                       (stamp, proposal_id, advisor_id))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def restore(conn, advisor_id: int, proposal_id: int) -> bool:
+    """Bring an archived proposal back. False if it isn't this advisor's."""
+    cur = conn.execute("UPDATE proposals SET archived_at = NULL WHERE id = ? AND advisor_id = ? "
+                       "AND archived_at IS NOT NULL", (proposal_id, advisor_id))
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def respond(conn, client_id: int, proposal_id: int, accept: bool) -> bool:
@@ -130,9 +161,13 @@ def get(conn, proposal_id: int) -> dict | None:
     return _row(row) if row else None
 
 
-def for_client(conn, client_id: int, *, include_drafts: bool) -> list[dict]:
-    """Newest first. A client sees only what was shared with them."""
-    sql = "SELECT * FROM proposals WHERE client_id = ?"
+def for_client(conn, client_id: int, *, include_drafts: bool,
+               archived: bool = False) -> list[dict]:
+    """Newest first. A client sees only what was shared with them. Archived
+    proposals are left out; `archived=True` lists only those (the advisor's
+    Show archived)."""
+    sql = ("SELECT * FROM proposals WHERE client_id = ? AND archived_at IS "
+           + ("NOT NULL" if archived else "NULL"))
     if not include_drafts:
         sql += " AND status != 'draft'"
     return [_row(r) for r in conn.execute(sql + " ORDER BY id DESC", (client_id,))]

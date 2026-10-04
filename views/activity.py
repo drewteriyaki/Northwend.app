@@ -134,7 +134,7 @@ def _render_activity_table(all_txns):
         "From": "brokerage" if t.get("origin") else "worked out",
     } for t in filtered])
     st.download_button(
-        "Download CSV", tdf_raw.to_csv(index=False).encode("utf-8"),
+        "Download CSV", export.csv_bytes(tdf_raw),
         file_name="activity.csv", mime="text/csv", key="activity_dl", on_click="ignore",
         disabled=hide_amounts, help=(
             "Disabled while amounts are hidden — turn off Hide amounts to export real figures."

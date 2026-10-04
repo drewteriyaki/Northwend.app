@@ -17,15 +17,24 @@ def _rep_save_one(c, viewer, target, kind, message, value, today):
     (proposals.who_to_tell, as for proposals) - a client's is confirmed once
     they set up their login."""
     start, end, label = reports.period_bounds(kind, today, reports.last_end(c, target))
+    if reports.sent_just_now(c, target, label):
+        return label, None, "just now"   # a double click: not saved or emailed again
     facts = reports.build(c, target, start, end, value_now=value, today=today)
     reports.save(c, viewer, target, label=label, start=start, end=end, facts=facts,
                  message=message)
     who = proposals.who_to_tell(c, target)
+    # at most one "your report is ready" email an hour (auth.notice_ok): a
+    # second send in that time is still on their page, only the email waits
+    if who["email"] and not auth.notice_ok(c, "report", who["email"]):
+        return label, None, "recent"
     return label, who["email"], who["signed_in"]
 
 
 def _rep_untold(signed_in):
     """Why a client wasn't emailed about their report, for the advisor."""
+    if signed_in == "recent":
+        return ("They had an email about a report in the last hour, so no new one went - "
+                "it's waiting on their page.")
     return ("They'll see it next time they sign in." if signed_in else
             "They haven't set up their login yet - send them a setup link from Client login, "
             "and it'll be waiting when they do.")
@@ -54,6 +63,10 @@ def _rep_send(value):
         card = prefs.load(c, viewer).get("advisor_card") or {}
     finally:
         c.close()
+    if signed_in == "just now":
+        st.session_state["rep_msg"] = ("warning", f"You sent the {label} report a moment ago, so "
+                                                  "it wasn't sent again.")
+        return
     st.session_state["rep_message"] = ""
     if email:
         note = (f" We emailed {email} that it's waiting." if _rep_tell(email, label, card)
@@ -76,7 +89,7 @@ def _rep_send_all(values):
     today = datetime.now().date()
     message = st.session_state.get("rep_all_message") or ""
     done, to_tell = [], []
-    no_login = no_email = 0
+    no_login = no_email = recent = 0
     c = connect(DB)
     try:
         for cid in picked:
@@ -84,9 +97,13 @@ def _rep_send_all(values):
                 continue
             label, email, signed_in = _rep_save_one(c, viewer, cid, kind, message,
                                                     values.get(cid), today)
+            if signed_in == "just now":   # sent a moment ago: not twice
+                continue
             done.append(label)
             if email:
                 to_tell.append((email, label))
+            elif signed_in == "recent":
+                recent += 1
             elif signed_in:
                 no_email += 1
             else:
@@ -110,6 +127,8 @@ def _rep_send_all(values):
            "link from Client login." if no_login else "")
         + (f" {no_email} without a confirmed email will see it next time they sign in."
            if no_email else "")
+        + (f" {recent} had an email about a report in the last hour, so no new one went."
+           if recent else "")
         + (f" {failed} email(s) couldn't be sent." if failed else ""))
 
 
@@ -168,7 +187,10 @@ def _rep_pdf_button(rep, client_name, advisor_name):
         st.download_button("Download PDF", st.session_state[key], mime="application/pdf",
                            file_name=f"progress-{rep['period_label'].replace(' ', '-')}.pdf",
                            key=f"rep_dl_{rep['id']}")
-    elif st.button("PDF", key=f"rep_mk_{rep['id']}", type="tertiary"):
+    elif st.button("PDF", key=f"rep_mk_{rep['id']}", type="tertiary",
+                   # a report is its figures: the file has them, hidden here or not
+                   help=("The PDF shows the report's real amounts, even while amounts are "
+                         "hidden here." if _hidden() else None)):
         st.session_state[key] = reports.render_pdf(rep, client_name=client_name,
                                                    advisor_name=advisor_name)
         st.rerun()

@@ -40,7 +40,8 @@ def waiting_for_client(conn, client_id: int) -> dict:
     {"proposals": shared proposals waiting for their answer, "reports":
     progress reports not opened yet} - Home's next step (route.advisor_step)."""
     row = conn.execute(
-        "SELECT (SELECT COUNT(*) FROM proposals WHERE client_id = ? AND status = 'shared') "
+        "SELECT (SELECT COUNT(*) FROM proposals WHERE client_id = ? AND status = 'shared' "
+        "AND archived_at IS NULL) "
         "AS proposals, (SELECT COUNT(*) FROM progress_reports WHERE client_id = ? AND "
         "read_at IS NULL) AS reports", (client_id, client_id)).fetchone()
     return {"proposals": int(row["proposals"] or 0), "reports": int(row["reports"] or 0)}
@@ -88,29 +89,42 @@ def add_note(conn, client_id: int, advisor_id: int, kind: str, body: str, on: st
     conn.commit()
 
 
+def _private_sql(include_private: bool, advisor_id: int | None) -> tuple[str, tuple]:
+    """Which private notes a reader sees: none for the client; with
+    `advisor_id`, only that advisor's own (a client who moved to a new
+    advisor doesn't hand the old one's private notes to the new one)."""
+    if not include_private:
+        return " AND private = 0", ()
+    if advisor_id is not None:
+        return " AND (private = 0 OR advisor_id = ?)", (advisor_id,)
+    return "", ()
+
+
 def list_notes(conn, client_id: int, *, include_private: bool,
-               archived: bool = False) -> list[dict]:
-    """Newest first. `include_private` only for the advisor's own view.
+               archived: bool = False, advisor_id: int | None = None) -> list[dict]:
+    """Newest first. `include_private` only for the advisor's own view, and
+    with `advisor_id` only their own private notes (_private_sql).
     Archived notes are left out; `archived=True` lists only those (the
     advisor's Show archived)."""
     sql = ("SELECT * FROM advisor_notes WHERE client_id = ? AND archived_at IS "
            + ("NOT NULL" if archived else "NULL"))
-    if not include_private:
-        sql += " AND private = 0"
-    return [dict(r) for r in conn.execute(sql + " ORDER BY note_date DESC, id DESC", (client_id,))]
+    extra, args = _private_sql(include_private, advisor_id)
+    return [dict(r) for r in conn.execute(sql + extra + " ORDER BY note_date DESC, id DESC",
+                                          (client_id, *args))]
 
 
-def notes_for(conn, client_ids, *, include_private: bool) -> dict:
+def notes_for(conn, client_ids, *, include_private: bool,
+              advisor_id: int | None = None) -> dict:
     """list_notes() for several clients in one query: {client_id: notes}."""
     ids = tuple(dict.fromkeys(client_ids))
     if not ids:
         return {}
     sql = (f"SELECT * FROM advisor_notes WHERE client_id IN ({', '.join('?' for _ in ids)}) "
            "AND archived_at IS NULL")
-    if not include_private:
-        sql += " AND private = 0"
+    extra, args = _private_sql(include_private, advisor_id)
     out = {i: [] for i in ids}
-    for r in conn.execute(sql + " ORDER BY client_id, note_date DESC, id DESC", ids):
+    for r in conn.execute(sql + extra + " ORDER BY client_id, note_date DESC, id DESC",
+                          (*ids, *args)):
         out[r["client_id"]].append(dict(r))
     return out
 
@@ -160,10 +174,19 @@ def open_next_steps(notes: list[dict]) -> list[dict]:
     return [n for n in notes if n["kind"] == "Next step" and not n["done"]]
 
 
-def set_done(conn, client_id: int, note_id: int, done: bool) -> None:
-    conn.execute("UPDATE advisor_notes SET done = ? WHERE id = ? AND client_id = ?",
-                 (1 if done else 0, note_id, client_id))
+def _mine(advisor_id: int | None) -> tuple[str, tuple]:
+    """Only the note's own advisor changes it: given `advisor_id`, the
+    WHERE clause also needs it (the app always passes the signed-in login)."""
+    return (" AND advisor_id = ?", (advisor_id,)) if advisor_id is not None else ("", ())
+
+
+def set_done(conn, client_id: int, note_id: int, done: bool, *,
+             advisor_id: int | None = None) -> bool:
+    mine, args = _mine(advisor_id)
+    cur = conn.execute("UPDATE advisor_notes SET done = ? WHERE id = ? AND client_id = ?" + mine,
+                       (1 if done else 0, note_id, client_id, *args))
     conn.commit()
+    return cur.rowcount > 0
 
 
 # ---- a record that stays: archive, restore, edit ------------------------------ #
@@ -178,19 +201,24 @@ def _stamp(now: datetime | None = None) -> str:
     return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def archive_note(conn, client_id: int, note_id: int, *, now: datetime | None = None) -> bool:
-    """Hide a note but keep it. False if it isn't this client's (or is
-    already archived)."""
+def archive_note(conn, client_id: int, note_id: int, *, now: datetime | None = None,
+                 advisor_id: int | None = None) -> bool:
+    """Hide a note but keep it. False if it isn't this client's - or, with
+    `advisor_id`, that advisor's own - or is already archived."""
+    mine, args = _mine(advisor_id)
     cur = conn.execute("UPDATE advisor_notes SET archived_at = ? WHERE id = ? AND client_id = ? "
-                       "AND archived_at IS NULL", (_stamp(now), note_id, client_id))
+                       "AND archived_at IS NULL" + mine, (_stamp(now), note_id, client_id, *args))
     conn.commit()
     return cur.rowcount > 0
 
 
-def restore_note(conn, client_id: int, note_id: int) -> bool:
-    """Bring an archived note back. False if it isn't this client's."""
+def restore_note(conn, client_id: int, note_id: int, *, advisor_id: int | None = None) -> bool:
+    """Bring an archived note back. False if it isn't this client's (or,
+    with `advisor_id`, that advisor's own)."""
+    mine, args = _mine(advisor_id)
     cur = conn.execute("UPDATE advisor_notes SET archived_at = NULL WHERE id = ? AND "
-                       "client_id = ? AND archived_at IS NOT NULL", (note_id, client_id))
+                       "client_id = ? AND archived_at IS NOT NULL" + mine,
+                       (note_id, client_id, *args))
     conn.commit()
     return cur.rowcount > 0
 
@@ -206,15 +234,17 @@ def note_history(note: dict) -> list[dict]:
 
 
 def edit_note(conn, client_id: int, note_id: int, body: str, *,
-              now: datetime | None = None) -> bool:
+              now: datetime | None = None, advisor_id: int | None = None) -> bool:
     """Change a note's text, keeping the text it had (note_history). False
-    if it isn't this client's, or nothing changed. Raises ValueError for
-    empty text."""
+    if it isn't this client's (or, with `advisor_id`, that advisor's own), or
+    nothing changed. Raises ValueError for empty text."""
     body = (body or "").strip()
     if not body:
         raise ValueError("a note needs some text")
+    mine, args = _mine(advisor_id)
     row = conn.execute("SELECT body, created_at, edited_at, history FROM advisor_notes "
-                       "WHERE id = ? AND client_id = ?", (note_id, client_id)).fetchone()
+                       "WHERE id = ? AND client_id = ?" + mine,
+                       (note_id, client_id, *args)).fetchone()
     if row is None or row["body"] == body:
         return False
     stamp = _stamp(now)

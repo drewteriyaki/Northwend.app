@@ -21,6 +21,37 @@ GOAL_TYPES = ("Retirement", "Buy a home", "Pay for education", "Build long-term 
 DEFAULT_RETURN_PCT = 6.0
 SPREAD_PCT = 2.0
 
+# A goal's first suggested date, by what it's for (goal_years_default): a
+# retirement from the person's age (about 65), else RETIRE_DEFAULT_YEARS;
+# the others from their own timeline answer, else a typical one.
+RETIRE_AGE = 65
+RETIRE_DEFAULT_YEARS = 25
+_AGE_MIDDLE = {"Under 25": 22, "25-34": 30, "35-44": 40, "45-54": 50, "55-64": 60,
+               "65 or older": 66}
+GOAL_TYPICAL_YEARS = {"Buy a home": 5, "Pay for education": 10, "Build long-term wealth": 20,
+                      "Big purchase": 3, "Other": 10}
+
+
+def goal_years_default(goal_type: str | None, profile: dict | None) -> tuple[int, str]:
+    """(years from now, why) for a new goal's date: why is "age" (a
+    retirement, from the age answer), "timeline" (their time-horizon answer)
+    or "typical" (nothing to go on: a usual timeline for that kind of goal).
+    A retirement never takes the time-horizon answer - "3 years" there is
+    when they need some money, not when they stop working."""
+    p = profile or {}
+    if goal_type == "Retirement":
+        age = _AGE_MIDDLE.get(p.get("age_range"))
+        if age is not None:
+            return max(2, min(45, RETIRE_AGE - age)), "age"
+        return RETIRE_DEFAULT_YEARS, "typical"
+    try:
+        answered = int(float(p.get("time_horizon_years") or 0))
+    except (TypeError, ValueError):
+        answered = 0
+    if answered > 0:
+        return max(1, min(40, answered)), "timeline"
+    return GOAL_TYPICAL_YEARS.get(goal_type, 10), "typical"
+
 _FIELDS = ("goal_type", "goal_name", "target_amount", "target_date", "monthly_contribution",
            "target_alloc", "notes")
 

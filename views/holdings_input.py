@@ -623,6 +623,10 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     holding), paste a list, read screenshots, or - nothing bought yet - the
     example-funds card (starter_funds.py)."""
     st.session_state["dialog_open"] = True  # live prices wait (see _live_status)
+    if current_source == SAMPLE_SOURCE:
+        # the example portfolio isn't theirs to update: start empty (saving
+        # replaces it - portfolio.prepare_save), not with its made-up funds
+        current_positions, current_cash = [], {}
     _manual_rows_init(current_positions, current_cash, current_source)
     ss = st.session_state
     saved_rows, saved_cash = _manual_saved(current_positions, current_cash)
@@ -684,9 +688,9 @@ def _manual_type_tab(current_positions, current_source, saved_rows, saved_cash, 
                    "works with a pretend total. Allocation, the stock / bond mix, risk and "
                    "projections all work; gains are tracked from today.")
     else:
-        st.caption("Add each stock or fund you own: its name or ticker, and how many shares. "
-                   "Its value comes from today's price, and nothing is saved until you've "
-                   "checked it. To update later, open this again and change what's different.")
+        # short: on a phone every line here pushes the boxes further down
+        st.caption("Each stock or fund you own: its name or ticker, and how many shares. "
+                   "Nothing is saved until you've checked it.")
     empty = not any((ss.get(f"me_sym_{i}") or "").strip() for i in ss["me_ids"])
     if empty and not saved_rows and not saved_cash:
         st.button("I haven't bought anything yet - not sure what to start with",

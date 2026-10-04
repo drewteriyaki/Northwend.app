@@ -537,7 +537,7 @@ if PAGE == "Dashboard":
         )
         st.dataframe(_acct_styler, width="stretch", hide_index=True)
         st.download_button(
-            "Download CSV", _adf_raw.to_csv(index=False).encode("utf-8"),
+            "Download CSV", export.csv_bytes(_adf_raw),
             file_name="accounts.csv", mime="text/csv", key="accounts_dl",
             disabled=hide_amounts, help=(
                 "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
@@ -629,7 +629,7 @@ if PAGE == "Dashboard":
         styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)
     st.dataframe(styler, width="stretch", hide_index=True, column_config=as_text or None)
     st.download_button(
-        "Download CSV", df.to_csv(index=False).encode("utf-8"),
+        "Download CSV", export.csv_bytes(df),
         file_name="holdings.csv", mime="text/csv", key="holdings_dl",
         disabled=hide_amounts, help=(
             "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
