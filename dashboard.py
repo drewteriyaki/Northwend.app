@@ -1973,7 +1973,8 @@ def _ai_failed(exc, kind, feature=""):
 CHAT_MESSAGE_LIMIT = 40  # per conversation - keeps each one a sensible length
 QUICK_STARTS = {
     "Help me get started": "I'm new to investing. Help me figure out how to get started.",
-    "Review my portfolio": "Review my current portfolio against my goals and suggest improvements.",
+    "Review my portfolio": "Walk me through how my current portfolio compares with my goals, "
+                           "and what people usually look at in a mix like mine.",
     "Check for overlap and concentration": "Check my holdings for overlap between funds and "
                                            "for anything I'm too concentrated in.",
 }
@@ -2552,6 +2553,13 @@ def _toggle_hide():
     save_hide(st.session_state["hide_amounts"])
 
 
+# Where prices come from, said once per page on the status line (and beside a
+# single ticker's price): Finnhub for stocks, Yahoo Finance (unofficial,
+# through yfinance) for funds, crypto and price history - see live_prices.py,
+# update_prices.py, sync_history.py. Either can lag the market.
+PRICE_SOURCE = "Prices from Finnhub and Yahoo Finance, may be delayed 15 minutes or more"
+
+
 @st.fragment(run_every=LIVE_EVERY_SEC)
 def _live_status():
     """Keeps prices current without a Refresh button: every minute (only this
@@ -2592,7 +2600,8 @@ def _live_status():
              SAMPLE_SOURCE: "Example portfolio"}.get(SNAPSHOT_SOURCE, "Statement")
     st.html(f"<div class='pt-status'>{prices}"
             # the watchlist before anything is brought in: no holdings to date
-            + (f" · {_what} from {_fmt_date(snapshot)}" if snapshot else "") + "</div>")
+            + (f" · {_what} from {_fmt_date(snapshot)}" if snapshot else "")
+            + f"<br>{PRICE_SOURCE}.</div>")
 
 
 def _expedition_eyebrow():

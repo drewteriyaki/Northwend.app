@@ -277,8 +277,9 @@ def _render_income_calm(income_rows, plan, unsynced, got):
                          if yoc is not None else ""),
                       "See all holdings", _income_table_window, (income_rows,)))
     _detail_tiles(tiles)
-    st.caption("Estimates repeat each holding's last year of payments at today's share count - "
-               "dividends can change.")
+    st.caption("Estimates repeat each holding's last year of payments (dividend history from "
+               "Yahoo Finance) at today's share count - dividends can change, so these are "
+               "estimates, not promises.")
     learn_more("dividends")
     _calm_footer()
 

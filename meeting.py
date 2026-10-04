@@ -19,9 +19,10 @@ TALKING_POINTS_REQUEST = (
     "You are helping a financial advisor prepare for a review meeting with their client. "
     "From the client's profile, holdings summary and the facts below, draft 4 to 6 short "
     "talking points for the advisor: what to celebrate, what to check in about, and questions "
-    "to ask the client. The advisor makes any recommendation themselves - don't recommend "
-    "specific securities. Output only the points, one per line, each starting with \"- \", "
-    "plain text, no headings."
+    "to ask the client. The advisor makes any recommendation themselves: follow your rules - "
+    "don't recommend buying, selling or holding a specific security, or a specific mix; "
+    "describe the facts and the considerations instead. Output only the points, one per "
+    "line, each starting with \"- \", plain text, no headings."
 )
 
 

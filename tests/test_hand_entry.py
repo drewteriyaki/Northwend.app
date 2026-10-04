@@ -184,18 +184,22 @@ class StarterFundsTests(unittest.TestCase):
     PROFILE = {"time_horizon_years": 20, "risk_tolerance": "moderate",
                "drawdown_reaction": "Hold and wait"}
 
-    def test_the_percentages_follow_the_example_mix(self):
-        for profile, horizon in ((self.PROFILE, None), ({"risk_tolerance": "conservative"}, 6),
-                                 ({"time_horizon_years": 30, "risk_tolerance": "aggressive"},
-                                  None)):
-            mix = learn.starter_mix(profile, horizon)
-            c = starter_funds.card(profile, horizon)
-            self.assertEqual({p["key"]: p["pct"] for p in c["parts"]}, mix["weights"])
-            self.assertEqual(sum(p["pct"] for p in c["parts"]), 100)
+    def test_the_card_is_the_same_for_everyone(self):
+        # general education: never weighted by, or tied to, anyone's answers
+        # (named funds beside "your mix" would read as a recommendation)
+        import inspect
+        self.assertEqual(list(inspect.signature(starter_funds.card).parameters),
+                         ["info", "not_sure"])                  # no profile, no mix
+        c = starter_funds.card()
+        self.assertNotIn("pct", c["parts"][0])
+        self.assertEqual([p["kind"] for p in c["parts"]],
+                         ["a broad US stock index fund", "a broad international stock index fund",
+                          "a broad US bond index fund"])
 
     def test_each_part_lists_funds_from_several_providers_and_no_single_stocks(self):
-        c = starter_funds.card(self.PROFILE)
-        self.assertEqual([p["label"] for p in c["parts"]], ["US stocks", "International", "Bonds"])
+        c = starter_funds.card()
+        self.assertEqual([p["label"] for p in c["parts"]],
+                         ["US stocks", "International stocks", "Bonds"])
         providers = None
         for p in c["parts"]:
             names = {f["provider"] for f in p["funds"]}
@@ -210,28 +214,23 @@ class StarterFundsTests(unittest.TestCase):
             self.assertEqual(common.get(t), "ETF", t)
 
     def test_the_wording(self):
-        c = starter_funds.card(self.PROFILE)
-        self.assertEqual(c["intro"], "You're not sure yet - that's normal. Your example mix has "
-                                     "three parts:")
-        self.assertEqual(c["footer"], "Broad, low-cost index funds like these are a common place "
-                                      "to start. These are examples to learn from, not "
-                                      "recommendations.")
-        self.assertIsNone(c["note"])
-        none = starter_funds.card({})        # no answers yet: the parts, no percentages
-        self.assertEqual(none["intro"], "You're not sure yet - that's normal. A simple example "
-                                        "mix has three parts:")
-        self.assertEqual([p["pct"] for p in none["parts"]], [None, None, None])
-        self.assertEqual(none["note"], starter_funds.NO_MIX)
-        soon = starter_funds.card({"time_horizon_years": 2})   # money needed soon: said so
-        self.assertEqual(soon["note"], learn.INVESTOR_TYPES["short_term"]["about"])
-        for text in (c["intro"], c["footer"], none["note"]):
-            for word in ("buy", "should", "recommend you"):
+        c = starter_funds.card()
+        self.assertEqual(c["intro"], "Most simple portfolios are built from three kinds of funds. "
+                                     "Here are a few well-known examples of each kind, from "
+                                     "several providers:")
+        self.assertEqual(c["footer"], "These are examples of each kind, from several providers, "
+                                      "to learn from - not recommendations. Many similar funds "
+                                      "exist.")
+        self.assertEqual(c["note"], starter_funds.MIX_NOTE)
+        self.assertTrue(starter_funds.card(not_sure=True)["intro"].startswith(
+            "You're not sure yet - that's normal. Most simple portfolios"))
+        for text in (c["intro"], c["footer"], c["note"]):
+            for word in ("buy", "should", "recommend you", "your mix"):
                 self.assertNotIn(word, text.lower())
 
     def test_names_and_fees_from_market_data(self):
-        c = starter_funds.card(self.PROFILE, info={"VTI": {"name": "Vanguard Total Stock "
-                                                           "Market Index Fund ETF",
-                                                           "expense_ratio": 0.0003}})
+        c = starter_funds.card(info={"VTI": {"name": "Vanguard Total Stock Market Index Fund ETF",
+                                             "expense_ratio": 0.0003}})
         vti = c["parts"][0]["funds"][0]
         self.assertEqual((vti["symbol"], vti["fee"]), ("VTI", 0.0003))
         self.assertEqual(starter_funds.fee_text(vti["fee"]), "0.03% a year")
@@ -387,12 +386,14 @@ class HandEntryAppTests(_App):
         at = self.run_open(self.app())
         self.assertIn("me_go_new", [b.key for b in at.button])     # offered to a new account
         shown = self.text(at)
-        self.assertIn("**You're not sure yet - that's normal. Your example mix has three "
-                      "parts:**", shown)
+        self.assertIn("**You're not sure yet - that's normal. Most simple portfolios are built "
+                      "from three kinds of funds.", shown)
+        # the same for everyone: kinds of funds with examples, never their mix's percentages
         mix = learn.starter_mix(StarterFundsTests.PROFILE)
-        self.assertIn(f"**US stocks** ({mix['weights']['us']}%)", shown)
-        self.assertIn("e.g. VTI, ITOT, SCHB", shown)
-        self.assertIn("These are examples to learn from, not recommendations.", shown)
+        self.assertIn("**US stocks**", shown)
+        self.assertNotIn(f"**US stocks** ({mix['weights']['us']}%)", shown)
+        self.assertIn("A broad US stock index fund - e.g. VTI, ITOT, SCHB", shown)
+        self.assertIn("to learn from - not recommendations.", shown)
         at.button(key="me_starter_watch").click()
         self.run_open(at)
         c = portfolio.connect(self.db)

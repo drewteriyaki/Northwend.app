@@ -1,0 +1,327 @@
+"""Staying on the education side of the line (not an investment adviser):
+
+- nothing worked out from a person's own answers names a fund - Learn's
+  example mix, practice money, first investments, their direction, Home and
+  Plan speak in kinds of funds and percentages; named example funds appear
+  only in the general read, the same for everyone (starter_funds.py)
+- every AI entry point's system prompt carries the rules (advisor.GUARDRAILS)
+- where prices are shown, the page says where they come from and that they
+  may be delayed (dashboard.PRICE_SOURCE)
+
+Runs dashboard.py with streamlit's AppTest on a scratch database in a temp dir.
+
+    python -m unittest tests.test_legal_guardrails        (from the repo root)
+"""
+
+import contextlib
+import glob
+import os
+import re
+import shutil
+import sys
+import tempfile
+import unittest
+import unittest.mock
+from datetime import date, timedelta
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+
+import advisor  # noqa: E402
+import auth  # noqa: E402
+import client_plan  # noqa: E402
+import learn  # noqa: E402
+import meeting  # noqa: E402
+import plans  # noqa: E402
+import portfolio  # noqa: E402
+import prefs  # noqa: E402
+import sample_data  # noqa: E402
+import starter_funds  # noqa: E402
+
+# every fund the app names anywhere as an example, plus the ones it used to
+# suggest by preference (ESG, dividends)
+TICKERS = sorted(set(starter_funds.ALL_FUNDS)
+                 | {t for b in learn.BLOCKS for t in b["examples"]}
+                 | {"ESGV", "SCHD", "VYM", "VOO"})
+TICKER_RE = re.compile(r"\b(" + "|".join(TICKERS) + r")\b")
+PRICE_SOURCE = "Prices from Finnhub and Yahoo Finance, may be delayed"
+
+PROFILE = {"goal": "Retirement", "time_horizon_years": 25, "risk_tolerance": "moderate",
+           "drawdown_reaction": "Hold and wait", "experience": "new", "age_range": "25-34",
+           "income_stability": "Very stable", "emergency_fund": "3-6 months",
+           "high_interest_debt": "None", "employer_match": "No match or no plan",
+           # each of these used to add a named fund to the example mix
+           "preferences": "Hands-off / set and forget; Dividend income; "
+                          "Sustainable (ESG) investing"}
+GOAL = {"goal_type": "Retirement", "target_amount": 500000.0, "target_date": "2056-10-01",
+        "monthly_contribution": 300.0, "target_alloc": {"Stocks": 80.0, "Bonds": 20.0}}
+DONE = {"first_steps": {"done": True}}
+
+
+def _texts(node):
+    """Every piece of text a person can read under `node` (the app or a block)."""
+    out = [m.value for m in node.markdown] + [c.value for c in node.caption]
+    out += [h.proto.body for h in node.get("html")]
+    for kind in ("info", "success", "warning"):
+        out += [a.value for a in getattr(node, kind)]
+    out += [b.label for b in node.button] + [b.help or "" for b in node.button]
+    out += [m.label for m in node.metric] + [str(m.value) for m in node.metric]
+    return out
+
+
+def _block(node, key):
+    """The container made with key=`key` under `node` (its proto id ends
+    with the key), or None."""
+    for child in getattr(node, "children", {}).values():
+        if hasattr(child, "children"):
+            if str(getattr(getattr(child, "proto", None), "id", "")).endswith(f"-{key}"):
+                return child
+            found = _block(child, key)
+            if found is not None:
+                return found
+    return None
+
+
+class _Base(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # the app's first run reloads the repo's modules (codefresh.py): put
+        # back the ones other test files imported, so their mocks still reach
+        cls.modules = {n: m for n, m in sys.modules.items()
+                       if os.path.dirname(os.path.abspath(getattr(m, "__file__", None) or ""))
+                       == REPO}
+        cls.dir = tempfile.mkdtemp(prefix="pt_legal_")
+        cls.db = os.path.join(cls.dir, "app.db")
+        portfolio._SCHEMA_READY.discard(os.path.abspath(cls.db))
+        c = portfolio.connect(cls.db)
+        try:
+            cls.setup_db(c)
+        finally:
+            c.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.update(cls.modules)
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    @contextlib.contextmanager
+    def _run(self, uid, name, page, **state):
+        import yfinance
+        from streamlit.testing.v1 import AppTest
+
+        def offline(*a, **k):
+            raise RuntimeError("offline in tests")
+        at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
+        for k, v in {"user_id": uid, "username": name, "page": page, **state}.items():
+            at.session_state[k] = v
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
+        with unittest.mock.patch.dict(os.environ, env, clear=True), \
+                unittest.mock.patch.object(yfinance, "Ticker", offline), \
+                unittest.mock.patch("socket.socket.connect", offline):
+            at.run()
+            self.assertEqual([e.message for e in at.exception], [])
+            yield at
+            self.assertEqual([e.message for e in at.exception], [])
+
+    def assertNoTickers(self, texts, where):
+        named = sorted({m for t in texts for m in TICKER_RE.findall(t or "")})
+        self.assertEqual(named, [], f"{where}: a fund named next to the person's own answers")
+
+
+class PersonalizedViewsTests(_Base):
+    """Someone with answers, a goal and a target mix, nothing invested."""
+
+    @classmethod
+    def setup_db(cls, c):
+        cls.ivy = auth.create_user(c, "ivy", "pw-123456789")
+        advisor.save_profile(c, cls.ivy, PROFILE)
+        prefs.save(c, cls.ivy, DONE)
+        plans.save_plan(c, cls.ivy, GOAL, set_by=cls.ivy)
+        # on the first steps' direction screen
+        cls.fay = auth.create_user(c, "fay", "pw-123456789")
+        advisor.save_profile(c, cls.fay, PROFILE)
+        prefs.save(c, cls.fay, {"first_steps": {"step": 6}})
+        # ten years of weekly prices for the practice funds, up to today
+        today = date.today()
+        for t, p0 in learn.PRACTICE_TICKERS.items():
+            rows = [(p0, (today - timedelta(days=7 * i)).isoformat(), 100.0 + i % 9)
+                    for i in range(0, 530)]
+            c.executemany("INSERT INTO daily_bars (ticker, date, close, adj_close) "
+                          "VALUES (?, ?, ?, ?)", [(t, d, px, px) for t, d, px in rows])
+        c.commit()
+
+    def test_the_example_mix_speaks_in_kinds_of_funds(self):
+        with self._run(self.ivy, "ivy", "Get started", gs_at="mix") as at:
+            texts = _texts(at)
+            self.assertNoTickers(texts, "An example mix")
+            body = " ".join(texts)
+            self.assertIn("An example for someone with your answers", body)
+            for kind in learn.KINDS.values():
+                self.assertIn(kind, body)                  # each part's kind of fund
+            self.assertIn("target-date fund", body)        # the preferences, as kinds
+            self.assertIn("ESG versions of broad index funds", body)
+            self.assertIn("dividend-focused funds", body)
+            self.assertNotIn("gs_watch", [b.key for b in at.button])
+
+    def test_practice_money_names_kinds_not_funds(self):
+        with self._run(self.ivy, "ivy", "Get started", gs_at="practice") as at:
+            texts = _texts(at)
+            self.assertIn("Worst drop", " ".join(texts))   # the practice run is shown
+            self.assertNoTickers(texts, "Try it with practice money")
+            self.assertIn("international stocks", " ".join(texts))
+
+    def test_first_investments_name_funds_only_in_the_general_card(self):
+        with self._run(self.ivy, "ivy", "Get started", gs_at="first") as at:
+            card = _block(at._tree, "gs_starter_card")   # the general card
+            general = _texts(card)
+            outside = [t for t in _texts(at) if t not in general]
+            self.assertNoTickers(outside, "Your first investments")
+            self.assertIn("Your direction:", " ".join(outside))
+            # the card: examples of each kind, never this person's percentages
+            self.assertTrue(TICKER_RE.search(" ".join(general)))
+            self.assertIn(starter_funds.FOOTER, general)
+            self.assertFalse([t for t in general if re.search(r"\(\d+%\)", t)])
+            self.assertIn("gs_starter_watch", [b.key for b in at.button])
+            self.assertIn("gs_starter_practice", [b.key for b in at.button])
+
+    def test_the_general_read_in_learn_the_basics(self):
+        # practice money's stand-ins are the first example of each kind there,
+        # as its caption says
+        for p in starter_funds.PARTS:
+            self.assertEqual(p["funds"][0], learn.PRACTICE_TICKERS[p["key"]])
+        with self._run(self.ivy, "ivy", "Get started", gs_at="basics") as at:
+            general = " ".join(_texts(_block(at._tree, "gs_kinds_card")))
+            for t in starter_funds.ALL_FUNDS:
+                self.assertIn(t, general)
+            self.assertIn(starter_funds.FOOTER, general)
+            at.button(key="gs_kinds_watch").click().run()
+            self.assertIn("Nothing is bought.", " ".join(s.value for s in at.success))
+
+    def test_their_direction_home_and_plan_name_no_fund(self):
+        with self._run(self.ivy, "ivy", "Dashboard") as at:
+            self.assertNoTickers(_texts(at), "Home")
+            at.button(key="start_direction").click().run()
+            body = " ".join(_texts(at))
+            self.assertIn("Kinds of funds that usually fill it", body)   # the window opened
+            self.assertNoTickers(_texts(at), "Your direction")
+        with self._run(self.ivy, "ivy", "Plan") as at:
+            self.assertNoTickers(_texts(at), "Plan")
+        with self._run(self.fay, "fay", "Get started") as at:
+            body = " ".join(_texts(at))
+            self.assertIn("Usually held through a broad US stock index fund", body)
+            self.assertNoTickers(_texts(at), "First steps: Your direction")
+
+
+class PriceSourceTests(_Base):
+    """Where prices are shown, the page says where they come from."""
+
+    @classmethod
+    def setup_db(cls, c):
+        cls.hal = auth.create_user(c, "hal", "pw-123456789")
+        advisor.save_profile(c, cls.hal, PROFILE)
+        prefs.save(c, cls.hal, DONE)
+        sample_data.load(c, cls.hal)
+        c.execute("INSERT INTO price_history (ticker, price, prev_close, change, pct_change, "
+                  "fetched_at) VALUES ('VTI', 300.0, 299.0, 1.0, 0.33, '2026-10-02T18:41:00Z')")
+        c.execute("INSERT INTO watchlist (user_id, ticker) VALUES (?, 'AAPL')", (cls.hal,))
+        c.commit()
+
+    def test_home_ticker_detail_and_watchlist_say_where_prices_come_from(self):
+        for page, state in (("Dashboard", {}), ("Dashboard", {"holdings_pill": "VTI"}),
+                            ("Watchlist", {}), ("Income", {})):
+            with self._run(self.hal, "hal", page, **state) as at:
+                status = [h.proto.body for h in at.get("html")
+                          if "class='pt-status'" in h.proto.body]
+                self.assertEqual(len(status), 1, page)                  # once per page
+                self.assertIn(PRICE_SOURCE, status[0], page)
+                if state:   # one ticker: its price's time, and that it may lag
+                    self.assertTrue(any(c.value.startswith("As of ")
+                                        and c.value.endswith("· may be delayed")
+                                        for c in at.caption))
+
+
+class _FakeClient:
+    """Records each messages.create call's arguments."""
+
+    def __init__(self, text="- One point"):
+        self.calls = []
+        outer = self
+
+        class _Messages:
+            def create(self, **kw):
+                outer.calls.append(kw)
+                return unittest.mock.Mock(
+                    stop_reason="end_turn",
+                    content=[unittest.mock.Mock(type="text", text=text)])
+        self.messages = _Messages()
+
+
+class AIGuardrailTests(unittest.TestCase):
+    FULL = {**{f: None for f in advisor.PROFILE_FIELDS}, **PROFILE}
+    EMPTY = {f: None for f in advisor.PROFILE_FIELDS}
+
+    def assertRules(self, system, where):
+        for key, rule in advisor.GUARDRAILS:
+            self.assertIn(rule, system, f"{where} is missing the {key} rule")
+
+    def test_the_rules_cover_what_they_must(self):
+        rules = " ".join(r for _k, r in advisor.GUARDRAILS).lower()
+        for must in ("education only", "never recommend buying, selling or holding a specific "
+                     "security", "specific allocation", "licensed professional",
+                     "you're an ai", "no guarantees", "hypothetical",
+                     "explain what kinds of investments are", "describe the person's own figures"):
+            self.assertIn(must, rules)
+
+    def test_ask_northwend(self):
+        for profile in (self.EMPTY, self.FULL):
+            prompt = advisor.system_prompt(profile, "No holdings yet", "- notes")
+            self.assertRules(prompt, "Ask Northwend")
+            self.assertNotIn("You may name specific funds or tickers", prompt)
+            self.assertNotIn("recommendations", prompt.split("## Their profile")[0]
+                             .replace("nothing you say is a recommendation", "")
+                             .replace("not a recommendation", ""))
+        # the chat page builds its prompt with it
+        with open(os.path.join(REPO, "views", "assistant.py"), encoding="utf-8") as fh:
+            self.assertIn("system = advisor.system_prompt(", fh.read())
+
+    def test_meeting_prep(self):
+        client = _FakeClient()
+        self.assertEqual(meeting.talking_points(client, self.FULL, "No holdings yet", "facts"),
+                         ["One point"])
+        call, = client.calls
+        self.assertRules(call["system"], "Meeting prep")
+        self.assertIn("don't recommend buying, selling or holding a specific security",
+                      call["messages"][0]["content"])
+
+    def test_plan_pdf_next_steps(self):
+        client = _FakeClient()
+        self.assertEqual(client_plan.next_steps(client, self.FULL, "No holdings yet"),
+                         ["One point"])
+        call, = client.calls
+        self.assertRules(call["system"], "The plan PDF's next steps")
+        self.assertIn("no step may recommend buying, selling or holding a specific security",
+                      call["messages"][0]["content"])
+        self.assertIn("not a recommendation", client_plan.AI_STEPS_NOTE)
+
+    def test_every_ai_call_is_known(self):
+        # a new AI feature that writes for people must use advisor.system_prompt
+        # (and so the rules); the others only read files into rows
+        advice = {"advisor.py", "meeting.py", "client_plan.py"}
+        reading = {"csv_import.py", "txn_import.py", "screenshot_read.py"}
+        found = set()
+        for path in glob.glob(os.path.join(REPO, "*.py")) + glob.glob(
+                os.path.join(REPO, "views", "*.py")):
+            with open(path, encoding="utf-8") as fh:
+                src = fh.read()
+            if re.search(r"\.messages\.(create|stream|parse)\(", src):
+                found.add(os.path.basename(path))
+        self.assertEqual(found, advice | reading)
+        for name in advice - {"advisor.py"}:
+            with open(os.path.join(REPO, name), encoding="utf-8") as fh:
+                self.assertIn("system=advisor.system_prompt(", fh.read(), name)
+
+
+if __name__ == "__main__":
+    unittest.main()

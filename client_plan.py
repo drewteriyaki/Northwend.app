@@ -34,10 +34,18 @@ DISCLAIMER = ("Educational information only - not financial advice. The assistan
 _NEXT_STEPS_REQUEST = (
     "Write the \"Suggested next steps\" section of a short written plan for this person, "
     "based on their profile, their holdings, and the conversation so far (if any). Give 3 to 6 "
-    "concrete, educational steps tied to their goals and risk tolerance. If profile answers "
-    "are missing, one step can be to settle them. Output only the steps, one per line, each "
-    "starting with \"- \", in plain text: no headings, no bold, no intro or closing line."
+    "concrete, educational steps tied to their goals and risk tolerance: things to learn, "
+    "check, decide for themselves or ask a professional about. Follow your rules - no step "
+    "may recommend buying, selling or holding a specific security, or a specific mix for "
+    "them. If profile answers are missing, one step can be to settle them. Output only the "
+    "steps, one per line, each starting with \"- \", in plain text: no headings, no bold, no "
+    "intro or closing line."
 )
+
+# printed under the AI-written steps
+AI_STEPS_NOTE = ("Written by AI for education - not a recommendation to buy, sell or hold "
+                 "anything. Any figure about the future is hypothetical. Talk to a licensed "
+                 "professional before acting on it.")
 
 
 # --------------------------------------------------------------------------- #
@@ -290,6 +298,7 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
     if steps:
         for i, st in enumerate(steps, 1):
             para(f"{i}. {st}")
+        para(AI_STEPS_NOTE)
     else:
         para("The AI-written suggestions weren't available when this plan was created.")
 

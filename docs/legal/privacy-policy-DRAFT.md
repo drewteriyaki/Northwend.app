@@ -1,0 +1,233 @@
+# Northwend Privacy Policy
+
+> **DRAFT - not legal advice; for review by a qualified lawyer before use.**
+> Not published and not linked from the app or the website. Every statement
+> about data is based on the code as of October 2026 and reuses the
+> developer header in `disclosures.py`, which lists the code each statement
+> depends on - change both together. Assumptions and blanks are marked
+> **[OWNER: ...]** or **[LAWYER: ...]**.
+
+**Effective date:** [OWNER: date]
+**Who we are:** Northwend is run by Andrew Zhang, an individual developer
+("we", "us"). [LAWYER: company name, if one is formed.]
+**Contact:** support@northwend.app
+
+This policy explains what Northwend collects, why, who it's shared with, how long
+it's kept, and your choices. It is written to meet the California Online Privacy
+Protection Act (CalOPPA). [LAWYER: check whether CCPA/CPRA or other state privacy
+laws apply at Northwend's size, and whether advisors' client data brings in
+Gramm-Leach-Bliley / Regulation S-P duties for advisors.]
+
+**The short version:** Northwend keeps what you give it to run your account, and
+less than you share where it can. It never asks for your brokerage login. It
+doesn't sell your data, share it for advertising, show ads, or track you across
+other sites.
+
+---
+
+## 1. Who Northwend is for
+
+Northwend is for people **18 and over in the United States**. We don't knowingly
+collect information from anyone under 18. If you believe a child has made an
+account, contact us and we will delete it.
+
+## 2. What we collect
+
+**Account and sign-in**
+- Your username, and - if you signed up yourself or added one - your email address.
+- A one-way hash of your password (never the password itself).
+- The name you'd like to be called, if you give one.
+- When the account was made and when you last signed in; which version of the
+  terms you agreed to, and when.
+- If you turn on two-step sign-in: the key your authenticator app uses (stored so
+  codes can be checked) and your backup codes as hashes.
+- "Stay signed in": a random token in a cookie on your device; we store only a hash.
+- For advisors asking for access: your firm's name and your CRD or licence number.
+
+**Your investments and plans** (what you or your advisor add)
+- Holdings: symbols, share counts, cost, value and account names. Account numbers
+  in account names are cut to their last 3 digits before saving.
+- Activity history you import: date, kind, symbol, shares, price, amount, fees and
+  description, with account and bank numbers cut to the last 3 digits.
+- Your portfolio's value over time, any contributions you record, and nicknames
+  you give your accounts.
+- Your plan and goal, target mix, watchlist, settings and progress through Learn.
+- Your investing-profile answers (goals, timeline, comfort with risk, age range,
+  emergency savings, debt, employer match and similar).
+- Short notes the AI guide saves between conversations (not shown in the app).
+- For advisors and their clients: advisor notes, proposals, progress reports,
+  model portfolios, and the advisor's own name for each client.
+
+You don't have to use real numbers: an example portfolio and a "percentages only"
+mode work without any.
+
+**What we don't keep**
+- Uploaded files are read from a temporary copy that is deleted; the file is never
+  stored.
+- Pasted text is read by the app itself (not by AI) and isn't saved; only symbols,
+  share counts and cost are taken from it.
+- Screenshots you choose to have read are not saved.
+- Your AI chat messages are kept only for your current visit (in the app's
+  memory) and are not saved to the database. Only the guide's own short notes
+  are saved (see above).
+
+**Technical information**
+- To stop automated sign-ups, a SHA-256 hash of your internet (IP) address - not
+  the address itself - is kept for one day when you sign up. Email-sending limits
+  likewise keep only hashes, for one day.
+- Repeated wrong passwords are counted per username (as a hash) for 15 minutes.
+- How many AI requests your account made each month, per feature, so the monthly
+  allowance can be applied (counts only, not what was asked).
+- When something breaks, the admin is emailed the kind of error and where in the
+  code it happened - never your data, the error message, or your user ID. The full
+  error details stay in the hosting provider's server log. [OWNER: log retention
+  at the host.]
+- Our hosting providers receive your IP address and browser details as part of
+  serving the site and may keep them in their logs. [OWNER: confirm each host's log
+  retention.]
+- Northwend does not use analytics: Streamlit's usage statistics are turned off,
+  and the website (northwend.app) runs no scripts.
+
+## 3. How we use it
+
+Only to run Northwend for you: to sign you in, store and show your portfolio,
+work out values and plans, answer your AI questions, let your advisor work with
+you (if you have one), send account emails, keep the service secure, and fix
+problems. We don't use your data for advertising, and we don't sell it.
+
+## 4. Who it's shared with
+
+**We don't sell, rent or share your personal information for advertising or
+marketing.** Northwend is free and isn't paid by anyone for what it shows.
+
+It is shared only as needed to run the service, with:
+
+| Service | What it does | What it receives |
+|---|---|---|
+| **Neon** | The database (United States) | Everything stored for your account |
+| **Streamlit Community Cloud** and/or **Render** | Hosts the app | Requests to the app, your IP address, server logs [OWNER: which host is live; Render serves app.northwend.app] |
+| **Anthropic** (Claude) | The AI guide, plan next steps, advisor talking points; screenshot reading and the column guess only when you choose | See section 5 |
+| **Finnhub** | Live prices, company details, news | Ticker symbols only |
+| **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
+| **GitHub Actions** | Runs the scheduled price updates and the advisors' Monday email | Access to the database to do those jobs |
+| **Resend** | Sends account emails | Your email address and that message |
+| **Cloudflare** (Pages) | Serves the website northwend.app | Visitors' IP address and browser details |
+
+Your advisor, if you have one, sees everything in your account; you see your own
+portfolio, plan and the notes your advisor shares with you (not ones they mark
+private).
+
+The person who runs Northwend can see, on an admin page, only login details:
+username, email, role, when the account was made and last signed in, and locks -
+not your holdings, plans or answers.
+
+We may also disclose information if the law requires it, to protect someone's
+safety, or as part of a transfer of the service (we'd tell you first).
+[LAWYER: wording.]
+
+## 5. What's sent to the AI
+
+When you use the AI guide or a plan's suggested next steps, Northwend sends
+Anthropic:
+
+- your investing-profile answers;
+- your holdings as tickers, fund names, types and sectors, each one's share of the
+  portfolio, its gain or loss as a percentage, and figures like dividend yield,
+  beta and P/E - **never dollar amounts, share counts, account names or numbers**;
+- what you type in the chat, and the guide's short notes from earlier
+  conversations.
+
+An advisor's meeting talking points send the same profile and holdings summary,
+plus facts in percentages (how the portfolio and goal moved since the last review,
+which holdings were added or reduced, drift from target) - never dollar amounts or
+note text.
+
+Screenshots are sent only if you choose to have them read. A file's **column names
+and kinds of cell** ("text", "number") are sent only if you press "Let AI guess the
+columns" - never the values. Your email address is never sent to the AI.
+
+[OWNER/LAWYER: state Anthropic's data handling for API use - retention period and
+that API data isn't used to train models - from the current Anthropic commercial
+terms, and link them.]
+
+## 6. Cookies and Do Not Track
+
+- Northwend sets **one cookie of its own**, only if you tick "Stay signed in", to
+  keep you signed in on that device. The hosting service may set cookies it needs
+  to run the site.
+- There are **no advertising or tracking cookies** and no third-party analytics.
+- **No cross-site tracking by others:** we don't allow third parties to collect
+  personal information about your online activities over time and across other
+  websites through Northwend. [OWNER/LAWYER: confirm the hosting providers' own
+  cookies (Streamlit Community Cloud / Render, Cloudflare) don't do this.]
+- **Do Not Track:** Northwend does not track you across other websites or let
+  others do so through it, so it treats every visitor the same whether or not
+  their browser sends a Do Not Track signal. [LAWYER: also mention Global Privacy
+  Control if a state law requires it.]
+
+## 7. How long we keep it
+
+- **Your account and its data:** until you delete it (or we close the account, see
+  the Terms).
+- **Database backups:** the database provider keeps a short rolling backup
+  (currently about 6 hours) so data can be recovered after an outage; deleted data
+  is gone from it after that. [OWNER: confirm the Neon plan's history window.]
+- **Sign-in sessions:** up to 30 days ("stay signed in"); ended by logging out or
+  changing your password.
+- **Email links:** confirm links last 3 days, password-reset links 60 minutes; both
+  are stored only as hashes and work once.
+- **Setup links** from an advisor: 7 days, if not used first.
+- **Sign-up and email-limit hashes:** one day.
+- **Error records:** the kind of error and where it happened, no personal data.
+  [OWNER: decide a retention period; today they are kept until cleared.]
+- **Server logs at the host:** [OWNER: per host].
+- [OWNER: advisor notes - another change in progress adds archiving; describe how
+  long archived notes are kept and who can see them.]
+
+## 8. Your choices: see, correct, download, delete
+
+- **See and correct:** your holdings, plan, profile answers, name, email and
+  settings are all shown in the app, and you can change them there (Account,
+  Profile, Plan and the holdings window). An advisor-managed client can ask their
+  advisor, or us.
+- **Download:** the Account page's "Export everything" downloads everything held for
+  your account as spreadsheet (CSV) files. Passwords, sign-in tokens, internet
+  address hashes, advisors' private notes and other accounts' data aren't included.
+- **Delete holdings:** the Account page deletes all your holdings, cash, activity
+  and value history (your goals, answers, notes and settings stay).
+- **Delete your account:** the Account page deletes your account and everything in
+  it. If an advisor manages your account, ask them or contact us, and we'll delete
+  it; an advisor with clients contacts us so their clients aren't left without
+  notice.
+- **Anything else,** or if you can't sign in: email support@northwend.app. We'll
+  answer within [OWNER: number] days.
+- **Emails:** Northwend sends no newsletters or marketing. Advisors can turn off
+  the Monday summary on the Clients page.
+
+## 9. Security
+
+Passwords are stored as salted PBKDF2-SHA256 hashes; after 5 wrong passwords a
+username is locked for 15 minutes. Two-step sign-in is required for advisors and
+admins and available to everyone. The site is served over HTTPS. Uploads are
+deleted after reading and account numbers are cut to 3 digits. No system is
+perfectly secure; if we learn of a breach affecting your information we will tell
+you as the law requires. See "Security for advisors" for more detail.
+[LAWYER: state breach-notification wording.]
+
+## 10. Where data is kept
+
+Northwend is offered in the United States and its data is stored in the United
+States (Neon). [OWNER: confirm the database and app host regions.] Some service
+providers may process data elsewhere under their own terms.
+
+## 11. Changes to this policy
+
+When this policy changes in a way that matters - what's stored, who it's shared
+with, what's sent to the AI - we update the effective date above and the app tells
+you the next time you sign in, before the change applies to information we already
+hold. [OWNER: notice period; whether to also email confirmed addresses.]
+
+## 12. Contact
+
+Questions or requests: **support@northwend.app**. [LAWYER: a postal address may be
+required.]

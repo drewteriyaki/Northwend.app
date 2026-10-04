@@ -1,36 +1,46 @@
-""""Not sure what to start with": the example-funds card, for someone who
-hasn't bought anything yet.
+""""What these kinds of funds look like": the example-funds card - general
+education, the same for everyone.
 
-The card is education, not advice: it shows the person's own example mix
-(learn.starter_mix - their time horizon and comfort with risk) split into
-its three parts, and for each part a few widely used, low-cost index funds
-from different providers, so no one provider is favoured and no single
-company's stock is named. It always says the funds are examples to learn
-from, not recommendations - the line that keeps it on the education side.
+Most simple portfolios are built from three kinds of funds (learn.BLOCKS):
+a broad US stock index fund, a broad international stock index fund and a
+broad US bond index fund. The card shows, for each kind, a few widely used,
+low-cost index funds from different providers, so no one provider is
+favoured and no single company's stock is named. It is never weighted by,
+or tied to, the person's own answers or mix: named funds next to "your mix"
+would read as a recommendation for them, which is advice, not education. It
+always says the funds are examples of each kind to learn from, not
+recommendations. How much goes in each kind is Learn's "An example mix",
+which speaks in kinds of funds and percentages only.
 
 card() is the pure part (tested); render() draws it with Streamlit on any
-page: the hand-entry window's "Not sure yet" tab today. Its two buttons add
-the funds to the Watchlist and open Learn's practice-money waypoint.
+page: Learn the basics, Start investing's "Your first investments" and the
+hand-entry window's "Not sure yet" tab. Never for an advisor's client
+(CLIENT_MODE): their advisor recommends what to buy. Its two buttons add the
+funds to the Watchlist and open Learn's practice-money waypoint.
 """
 
 from __future__ import annotations
 
 import learn
 
-INTRO = "You're not sure yet - that's normal."
-FOOTER = ("Broad, low-cost index funds like these are a common place to start. "
-          "These are examples to learn from, not recommendations.")
-NO_MIX = ("Answer a few questions on Learn (how long until you need the money, and how you "
-          "feel about ups and downs) to see the split for you.")
+TITLE = "What these kinds of funds look like"
+NOT_SURE = "You're not sure yet - that's normal."
+INTRO = ("Most simple portfolios are built from three kinds of funds. Here are a few "
+         "well-known examples of each kind, from several providers:")
+FOOTER = ("These are examples of each kind, from several providers, to learn from - not "
+          "recommendations. Many similar funds exist.")
+MIX_NOTE = ("How much goes in each kind depends on your timeline and how you feel about ups "
+            "and downs - Learn's *An example mix* shows a split in percentages.")
 
-# The parts of the example mix (learn.starter_mix's weights) and, for each,
-# one broad index fund from each of three providers. Names as the providers
-# give them; the yearly fee comes from the market data the app keeps.
+# The three kinds (learn.BLOCKS) and, for each, one broad index fund from each
+# of three providers. Names as the providers give them; the yearly fee comes
+# from the market data the app keeps.
 PARTS = (
     {"key": "us", "label": "US stocks", "funds": ("VTI", "ITOT", "SCHB")},
-    {"key": "intl", "label": "International", "funds": ("VXUS", "IXUS", "SCHF")},
+    {"key": "intl", "label": "International stocks", "funds": ("VXUS", "IXUS", "SCHF")},
     {"key": "bonds", "label": "Bonds", "funds": ("BND", "AGG", "SCHZ")},
 )
+KIND = learn.KINDS   # {part key: "a broad US stock index fund", ...}
 FUNDS = {
     "VTI": ("Vanguard", "Vanguard Total Stock Market ETF"),
     "ITOT": ("iShares", "iShares Core S&P Total U.S. Stock Market ETF"),
@@ -43,7 +53,6 @@ FUNDS = {
     "SCHZ": ("Schwab", "Schwab U.S. Aggregate Bond ETF"),
 }
 ALL_FUNDS = tuple(t for p in PARTS for t in p["funds"])
-_COUNT = {1: "one", 2: "two", 3: "three"}
 PRACTICE_WAYPOINT = "practice"   # views/get_started.py's GET_STARTED_STEPS key
 
 
@@ -55,37 +64,25 @@ def fee_text(ratio) -> str | None:
     return f"{pct}% a year"
 
 
-def card(profile: dict | None, horizon_years: float | None = None,
-         info: dict | None = None) -> dict:
-    """The card's content: {"intro", "mix" (learn.starter_mix or None),
-    "kind" (learn.investor_type or None), "parts": [{key, label, pct,
-    funds: [{symbol, provider, name, fee}]}], "note", "footer"}. `info` is
-    {ticker: {"name", "expense_ratio"}} from security_info."""
-    profile = profile or {}
+def card(info: dict | None = None, *, not_sure: bool = False) -> dict:
+    """The card's content: {"intro", "parts": [{key, label, kind, funds:
+    [{symbol, provider, name, fee}]}], "note", "footer"}. The same for
+    everyone - it takes no profile and no mix. `info` is {ticker: {"name",
+    "expense_ratio"}} from security_info; `not_sure` opens with "You're not
+    sure yet - that's normal." (the hand-entry window's tab)."""
     info = info or {}
-    mix = learn.starter_mix(profile, horizon_years)
-    kind = learn.investor_type(profile, mix, learn.readiness(profile)) if mix else None
     parts = []
     for p in PARTS:
-        pct = mix["weights"][p["key"]] if mix else None
-        if mix and not pct:
-            continue
         funds = []
         for t in p["funds"]:
             provider, name = FUNDS[t]
             got = info.get(t) or {}
             funds.append({"symbol": t, "provider": provider, "name": got.get("name") or name,
                           "fee": got.get("expense_ratio")})
-        parts.append({"key": p["key"], "label": p["label"], "pct": pct, "funds": funds})
-    n = _COUNT.get(len(parts), str(len(parts)))
-    intro = f"{INTRO} {'Your' if mix else 'A simple'} example mix has {n} parts:"
-    note = None
-    if not mix:
-        note = NO_MIX
-    elif kind and kind["key"] in ("foundation", "short_term"):
-        note = kind["about"]   # money needed soon, or a base to build first
-    return {"intro": intro, "mix": mix, "kind": kind, "parts": parts, "note": note,
-            "footer": FOOTER}
+        parts.append({"key": p["key"], "label": p["label"], "kind": KIND[p["key"]],
+                      "funds": funds})
+    return {"intro": f"{NOT_SURE} {INTRO}" if not_sure else INTRO, "parts": parts,
+            "note": MIX_NOTE, "footer": FOOTER}
 
 
 def fund_info(conn) -> dict:
@@ -108,9 +105,10 @@ def open_practice(state) -> None:
     state["dialog_open"] = False   # leaving a window, if the card was in one
 
 
-def render(profile, horizon_years, *, db, user_id, key="starter") -> None:
-    """Draw the card with Streamlit: the parts, then "Add to my watchlist"
-    and "Try them with practice money". Keys start with `key`."""
+def render(*, db, user_id, key="starter", not_sure=False) -> None:
+    """Draw the card with Streamlit: the three kinds with their examples,
+    then "Add to my watchlist" and "Try them with practice money". Keys
+    start with `key`."""
     import streamlit as st
 
     import watchlist
@@ -118,7 +116,7 @@ def render(profile, horizon_years, *, db, user_id, key="starter") -> None:
 
     conn = connect(db)
     try:
-        c = card(profile, horizon_years, fund_info(conn))
+        c = card(fund_info(conn), not_sure=not_sure)
     finally:
         conn.close()
     ss = st.session_state
@@ -126,16 +124,14 @@ def render(profile, horizon_years, *, db, user_id, key="starter") -> None:
         st.markdown(f"**{c['intro']}**")
         for p in c["parts"]:
             with st.container(horizontal=True, gap="small", key=f"{key}_part_{p['key']}"):
-                st.markdown(f"**{p['label']}**" + (f" ({p['pct']}%)" if p["pct"] is not None
-                                                   else ""), width=190)
-                st.markdown("e.g. " + ", ".join(f["symbol"] for f in p["funds"]),
-                            width="stretch")
+                st.markdown(f"**{p['label']}**", width=190)
+                st.markdown(f"{p['kind'][0].upper()}{p['kind'][1:]} - e.g. "
+                            + ", ".join(f["symbol"] for f in p["funds"]), width="stretch")
             st.caption("  \n".join(
                 f"{f['symbol']}: {f['name']}" + (f" - {fee_text(f['fee'])}" if f["fee"] is not None
                                                  else "")
                 for f in p["funds"]).replace("$", r"\$"))
-        if c["note"]:
-            st.info(c["note"], icon=":material/lightbulb:")
+        st.caption(f":material/lightbulb: {c['note']}")
         st.markdown(c["footer"])
         with st.container(horizontal=True, gap="small"):
             watch = st.button("Add to my watchlist", key=f"{key}_watch",

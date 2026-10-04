@@ -10,28 +10,38 @@ Streamlit, no network.
 - simulate(): a practice portfolio - a monthly amount invested in a mix
   over real past prices - and max_drawdown() for its worst drop.
 
-Everything here is general education. Example funds are well-known,
-low-cost index funds, named so the lessons are concrete.
+Everything here is general education. Anything worked out from a person's
+own answers (the example mix, the investor type) speaks in kinds of funds
+("a broad US stock index fund") and percentages, never a named fund: named
+funds would read as a recommendation for them. Named examples appear only in
+reads that are the same for everyone (starter_funds.py, "What these kinds of
+funds look like").
 """
 
 from __future__ import annotations
 
 from datetime import date
 
-# The building blocks of a simple portfolio, each with example funds. The
-# first example of each is what the practice portfolio buys.
+# The building blocks of a simple portfolio: each with the kind of fund that
+# fills it (what a person's own mix names) and example funds of that kind
+# (shown only in the general read, the same for everyone). The first example
+# of each stands in for its kind in the practice portfolio's past prices.
 BLOCKS = (
-    {"key": "us", "label": "US stocks", "examples": ("VTI", "ITOT", "SCHB"),
+    {"key": "us", "label": "US stocks", "kind": "a broad US stock index fund",
+     "examples": ("VTI", "ITOT", "SCHB"),
      "about": "A total US stock market fund: thousands of US companies, large and small, "
               "in one fund."},
-    {"key": "intl", "label": "International stocks", "examples": ("VXUS", "IXUS"),
+    {"key": "intl", "label": "International stocks",
+     "kind": "a broad international stock index fund", "examples": ("VXUS", "IXUS"),
      "about": "Companies outside the US - Europe, Asia, emerging markets - so you're not tied "
               "to one country's economy."},
-    {"key": "bonds", "label": "Bonds", "examples": ("BND", "AGG", "SCHZ"),
+    {"key": "bonds", "label": "Bonds", "kind": "a broad US bond index fund",
+     "examples": ("BND", "AGG", "SCHZ"),
      "about": "Loans to the US government and companies that pay interest. They usually move "
               "less than stocks, which steadies the whole portfolio."},
 )
 PRACTICE_TICKERS = {b["key"]: b["examples"][0] for b in BLOCKS}
+KINDS = {b["key"]: b["kind"] for b in BLOCKS}   # what a person's own mix is made of
 US_SHARE_OF_STOCKS = 0.7  # the rest of the stock portion goes international
 
 # ---- readiness ------------------------------------------------------------ #

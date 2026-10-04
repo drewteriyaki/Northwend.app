@@ -12,9 +12,10 @@
 ASSIST_PROFILE_NOTE = (f"{GUIDE} also fills this in from what you tell it in the chat, and "
                        "keeps short notes of its own so the next conversation picks up where "
                        "this one left off.")
-ASSIST_DISCLAIMER = (f"Educational information only - not financial advice. {GUIDE} is not a "
-                     "licensed financial advisor; do your own research before making any "
-                     "investment decision.")
+ASSIST_DISCLAIMER = (f"Educational information only - not financial advice. {GUIDE} is an AI, "
+                     "not a licensed financial advisor, and can be wrong; it won't recommend "
+                     "what to buy or sell. Any projection is hypothetical. Do your own research "
+                     "or talk to a licensed professional before making any investment decision.")
 
 
 def _assist_profile():
@@ -82,10 +83,11 @@ def _render_assistant(contexts, cash_by_account):
     with chat_box:
         if not display:
             with st.chat_message("assistant", avatar=SAGE_AVATAR):
-                st.markdown(f"Hi, I'm **{GUIDE}**, your guide. Ask me anything "
-                            "about investing or your portfolio - what a fund is, whether your mix "
-                            "fits your goal, what to look at next. I'll explain in plain "
-                            "language, and I won't tell you what to buy.")
+                st.markdown(f"Hi, I'm **{GUIDE}**, your AI guide. Ask me anything "
+                            "about investing or your portfolio - what a fund is, how your mix "
+                            "compares with your goal, what people usually look at next. I'll "
+                            "explain in plain language, and I won't tell you what to buy or "
+                            "sell.")
         for msg in display:
             with st.chat_message(msg["role"], avatar=_avatar(msg["role"])):
                 st.markdown(msg["text"])

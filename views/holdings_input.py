@@ -615,16 +615,6 @@ def _manual_name_errors(found_by_row):
     return out
 
 
-def _starter_horizon():
-    """Years to the goal date (the plan's), else None: the profile's time
-    horizon is used then (learn.starter_mix)."""
-    plan = load_plan()
-    today = datetime.now().date()
-    if plans.has_goal(plan) and plans.months_until(plan["target_date"], today) > 0:
-        return plans.months_until(plan["target_date"], today) / 12
-    return None
-
-
 @st.dialog("Add or update holdings", width="large", on_dismiss=_dialog_closed)
 def _manual_dialog(current_positions, current_cash, current_source=None):
     """Type in holdings (no file needed); saved as today's snapshot, like an import.
@@ -668,8 +658,8 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
         _render_screenshot_reader(existing)
     for tab in t_new:
         with tab:
-            starter_funds.render(_profile(), _starter_horizon(), db=DB, user_id=USER_ID,
-                                 key="me_starter")
+            # the same for everyone: kinds of funds, with examples to learn from
+            starter_funds.render(db=DB, user_id=USER_ID, key="me_starter", not_sure=True)
             st.caption("When you do buy something, come back here and add it under "
                        f"**{WAY_TYPE}**.")
     with t_type:

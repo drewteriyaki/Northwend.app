@@ -33,6 +33,7 @@ import plans  # noqa: E402
 import portfolio  # noqa: E402
 import prefs  # noqa: E402
 import route  # noqa: E402
+import starter_funds  # noqa: E402
 
 READY = {"goal": "Build long-term wealth", "time_horizon_years": 10,
          "risk_tolerance": "moderate", "drawdown_reaction": "Hold and wait",
@@ -368,7 +369,7 @@ class InvestPathAppTests(unittest.TestCase):
         with self._run(self.abe, "abe", "Get started", gs_at="first") as at:
             md = self._md(at)
             self.assertIn("What your first buy looks like", md)
-            self.assertIn("examples to learn from, not recommendations", md)  # starter_funds
+            self.assertIn(starter_funds.FOOTER, md)   # the general card, the same for everyone
             self.assertIn("gs_starter_watch", self._keys(at))
             self.assertIn("Your direction:", md)
             self.assertTrue(at.checkbox(key="gs_acct_first_buy").value)

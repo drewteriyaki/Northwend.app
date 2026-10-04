@@ -65,7 +65,7 @@ COACH_PROMPTS = {
              "and in what order?",
     "basics": "Explain stocks, bonds, index funds and ETFs to me like I'm brand new to investing.",
     "mix": "Explain why a mix of US stocks, international stocks and bonds might fit my time "
-           "horizon and comfort with risk. Use examples, not recommendations.",
+           "horizon and comfort with risk. Talk about kinds of funds, not specific ones.",
     "practice": "What should I expect emotionally when my investments drop 20% or more, and "
                 "what do long-term investors usually do?",
     "brokerage": "What should I compare when choosing a brokerage, and which questions should "
@@ -73,7 +73,8 @@ COACH_PROMPTS = {
     "account": "What's the difference between a regular brokerage account, a Roth IRA and a "
                "401(k), and which questions should I ask to pick one?",
     "first": "What does a first investment usually look like for someone starting out, and "
-             "what mistakes do beginners often make? Use examples, not recommendations.",
+             "what mistakes do beginners often make? Talk about kinds of funds, not specific "
+             "ones.",
 }
 PRACTICE_MIXES = ("Example mix", "All stocks", "Mostly bonds")
 # each basics topic -> where to read more (learn.LEARN_MORE)
@@ -176,6 +177,10 @@ def _practice_prices(conn):
 
 
 def _render_mix_bar(weights):
+    """A person's example mix as a bar: each part with the KIND of fund that
+    fills it, never a named fund - named funds beside their own mix would read
+    as a recommendation (the named examples are in the general read,
+    starter_funds.py)."""
     palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
     segs = legend = ""
     for i, b in enumerate(learn.BLOCKS):
@@ -187,8 +192,8 @@ def _render_mix_bar(weights):
                    f"<span class='pt-swatch' style='background:{palette[i]}'></span>"
                    f"<span class='pt-legend-label'><b>{b['label']}</b> - {b['about']}</span>"
                    f"<span class='pt-legend-pct'>{pct}%</span></div>"
-                   f"<div class='pt-goal-sub' style='margin:0 0 .5rem 1.1rem'>Examples: "
-                   f"{', '.join(b['examples'])}</div>")
+                   f"<div class='pt-goal-sub' style='margin:0 0 .5rem 1.1rem'>Usually held "
+                   f"through {html.escape(b['kind'])}</div>")
     st.html(f"<div class='pt-alloc-bar' aria-hidden='true'>{segs}</div>"
             f"<div class='pt-legend'>{legend}</div>")
 
@@ -472,6 +477,13 @@ def _step_basics(monthly, years):
             if st.button("Read", key=f"basics_{k}", type="tertiary",
                          icon=":material/open_in_new:"):
                 _basics_window(k, monthly, years)
+    if not CLIENT_MODE:   # never beside an advisor's recommendations
+        import starter_funds
+
+        # general education, the same for everyone: named example funds live
+        # here, not in anything worked out from their answers
+        with st.expander(starter_funds.TITLE, icon=":material/category:"):
+            starter_funds.render(db=DB, user_id=USER_ID, key="gs_kinds")
     render_fee_step()   # your own funds' fees, once there are holdings (views/fees.py)
 
 
@@ -491,39 +503,26 @@ def _step_mix(mix, profile, plan):
     extra = []
     year = learn.target_date_year(plan, profile.get("age_range"), datetime.now().date())
     prefs_set = set((profile.get("preferences") or "").split("; "))
+    # kinds of funds only: this is worked out from their answers (no named fund)
     if year and ((plan or {}).get("goal_type") == "Retirement"
                  or "Hands-off / set and forget" in prefs_set or "Retirement" in (profile.get("goal") or "")):
-        extra.append(f"**One-fund option:** a target-date fund (look for a name with **{year}** "
-                     "in it, like \"Target Retirement " + str(year) + "\") holds a mix like this "
-                     "in a single fund and gradually shifts toward bonds as that year gets closer.")
+        extra.append(f"**One-fund option:** a target-date fund - a kind of fund with a year in "
+                     f"its name, such as **{year}** - holds a mix of stocks and bonds in a single "
+                     "fund and gradually shifts toward bonds as that year gets closer.")
     if "Sustainable (ESG) investing" in prefs_set:
-        extra.append("**Sustainable investing:** ESG versions of broad index funds exist - for "
-                     "example ESGV for US stocks.")
+        extra.append("**Sustainable investing:** ESG versions of broad index funds exist - they "
+                     "include or leave out companies by environmental, social and governance "
+                     "measures.")
     if "Dividend income" in prefs_set:
-        extra.append("**Dividend income:** dividend-focused funds, for example SCHD or VYM, lean "
-                     "toward companies that pay regular dividends.")
+        extra.append("**Dividend income:** dividend-focused funds lean toward companies that "
+                     "pay regular dividends.")
     for e in extra:
         st.markdown(e)
-    st.caption("An example for learning, based on common rules of thumb - not a recommendation "
-               "to buy these funds. The tickers are examples of well-known, low-cost index "
-               "funds; many similar funds exist.")
+    st.caption("An example for learning, based on common rules of thumb - not a recommendation. "
+               "It describes kinds of funds, not specific ones; *What these kinds of funds look "
+               "like* in Learn the basics shows examples of each kind.")
     learn_more("asset_allocation")
-
-    def _watch_examples():
-        c = connect(DB)
-        try:
-            for t in learn.PRACTICE_TICKERS.values():
-                watchlist.add(c, USER_ID, t)
-        finally:
-            c.close()
-        st.session_state["refresh_msg"] = (
-            "toast", "Added " + ", ".join(learn.PRACTICE_TICKERS.values()) + " to your watchlist.")
-
-    with st.container(horizontal=True):
-        st.button("Watch these example funds", key="gs_watch", on_click=_watch_examples,
-                  help="Adds " + ", ".join(learn.PRACTICE_TICKERS.values())
-                       + " to your Watchlist so you can follow their prices.")
-        _coach_button("mix")
+    _coach_button("mix")
 
 
 def _step_practice(mix, plan, profile, value):
@@ -539,9 +538,8 @@ def _step_practice(mix, plan, profile, value):
     years_avail = ((today - date.fromisoformat(first)).days / 365.25) if first else 0
     stale = not last or (today - date.fromisoformat(last)).days > 7
     if years_avail < 5 or stale:
-        st.caption("The practice portfolio uses real past prices for "
-                   + ", ".join(learn.PRACTICE_TICKERS.values()) + ". Load them first (takes a "
-                   "few seconds).")
+        st.caption("The practice portfolio uses real past prices of three broad index funds, "
+                   "one of each kind. Load them first (takes a few seconds).")
         if st.session_state.pop("gs_prices_failed", False):
             st.info(":material/cloud_off: Couldn't load past prices right now - try again "
                     "later.")
@@ -615,16 +613,22 @@ def _step_practice(mix, plan, profile, value):
     palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
     st.altair_chart(charts.money_in_chart(df, money_color=SERIES_OTHER, value_color=palette[0]),
                     width="stretch")
-    mix_words = f"{stocks}% stocks / {100 - stocks}% bonds ({', '.join(f'{k} {v}%' for k, v in weights.items() if v)})"
+    # in kinds of funds: the mix can be their own example mix (no named fund)
+    by_kind = (("US stocks", us), ("international stocks", stocks - us),
+               ("bonds", 100 - stocks))
+    mix_words = (f"{stocks}% stocks / {100 - stocks}% bonds ("
+                 + ", ".join(f"{k} {v}%" for k, v in by_kind if v) + ")")
     reaction = profile.get("drawdown_reaction")
     _md(f"Starting {_fmt_month(rows[0]['date'])} with {_usd0(initial)} and {_usd0(monthly)} a "
         f"month in {mix_words}. At its worst, the mix was **{abs(dd):.0f}% below its high**"
         + (f" - you said you'd *{reaction.lower()}* after a 20% drop. Selling during a drop "
            "locks in the loss; the chart shows what staying in would have looked like."
            if reaction in ("Sell everything", "Sell some") and dd <= -15 else "."))
-    st.caption("Real past prices with dividends reinvested; no fees or taxes; nothing is "
-               "rebalanced. Past results don't predict future ones - this is practice, not "
-               "a forecast.")
+    st.caption("Real past prices with dividends reinvested, from one widely held index fund "
+               "standing in for each kind (the first example of each in Learn the basics' "
+               "*What these kinds of funds look like*); no fees or taxes; nothing is "
+               "rebalanced. Past results don't predict future ones - this is hypothetical "
+               "practice, not a forecast.")
     _coach_button("practice")
 
 
@@ -679,18 +683,18 @@ def _account_checklist(step, monthly):
 
 
 def _first_buy_steps():
-    """What a first buy looks like, with an example ticker already shown in
-    An example mix - the steps, not a recommendation."""
-    t = learn.PRACTICE_TICKERS["us"]
-    _md(f"Every brokerage's screens look a little different, but a first buy usually goes like "
-        f"this - here with **{t}**, one of the example funds from *An example mix*:\n\n"
-        f"1. **Search the ticker.** Type {t} into the brokerage's search or Trade box.\n"
+    """What a first buy looks like - the steps, the same for everyone, with
+    no fund named (it sits just under their own direction)."""
+    _md("Every brokerage's screens look a little different, but a first buy usually goes like "
+        "this:\n\n"
+        "1. **Search for the fund.** Type its ticker - the short code of a few letters each "
+        "fund and stock has - or its name into the brokerage's search or Trade box.\n"
         "2. **Choose a dollar amount.** Many brokerages let you buy in dollars (fractional "
         "shares), so you can enter $100 rather than a number of whole shares.\n"
         "3. **Review.** Check the ticker, the amount and the order type - a *market order* buys "
         "at the going price while the market is open.\n"
         "4. **Confirm.** The shares show up in your account, usually within moments.")
-    st.caption(f"An example of the steps, not a recommendation to buy {t} or any other fund.")
+    st.caption("An example of the steps, not a recommendation to buy any fund.")
 
 
 def _advisor_start_line():
@@ -737,7 +741,7 @@ def _step_open_account(has_holdings, items, monthly):
     _coach_button("account")
 
 
-def _step_first(profile, plan, mix, kind, horizon, monthly):
+def _step_first(plan, mix, kind, monthly):
     import starter_funds
 
     target = (plan or {}).get("target_alloc") or {}
@@ -753,8 +757,9 @@ def _step_first(profile, plan, mix, kind, horizon, monthly):
     st.markdown("#### What your first buy looks like")
     _first_buy_steps()
     if not CLIENT_MODE:   # never beside an advisor's recommendations
+        # the general read, the same for everyone - not weighted by their mix
         with st.expander("Not sure what to start with?", icon=":material/help:"):
-            starter_funds.render(profile, horizon, db=DB, user_id=USER_ID, key="gs_starter")
+            starter_funds.render(db=DB, user_id=USER_ID, key="gs_starter")
     st.markdown("**Your checklist**")
     _account_checklist("first", monthly)
     _coach_button("first")
@@ -923,8 +928,8 @@ def _where_html(state):
 def _ask_type(name):
     st.session_state["coach_prompt"] = (
         f"Northwend says I'm a \"{name}\". Explain what that means for someone like me, what "
-        "the example mix is built from, and what I should understand before investing. Use "
-        "examples, not recommendations.")
+        "the example mix is built from, and what I should understand before investing. Talk "
+        "about kinds of funds, not specific ones.")
     st.session_state["page"] = "AI Assistant"
 
 
@@ -1108,7 +1113,7 @@ def _render_get_started(has_holdings, value):
             _step_open_account(has_holdings, items, monthly)
             footer = {"ready": done["account"], "why_not": ticks_why}
         elif at == "first":
-            _step_first(profile, plan, mix, kind, horizon, monthly)
+            _step_first(plan, mix, kind, monthly)
             footer = {"ready": done["first"], "why_not": ticks_why}
         else:
             _step_bring(real, has_holdings, managed)

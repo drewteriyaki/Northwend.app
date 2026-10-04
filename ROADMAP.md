@@ -924,12 +924,18 @@ Northwend stays free (no compensation from anyone), which keeps it clear of
 investment-adviser registration; these keep it educational and give advisors
 what their record-keeping needs. Batches of at most two agents; bug fixes
 release to main when green, new features wait on staging for the owner.
-- [ ] **0. Legal fixes** - advisor side: clients agree to the disclosures at
-      the setup link; notes archived, not deleted, with history; export a
-      client's record. Investor side: fund types (not tickers) wherever it's
-      tailored to the person; explicit AI rules in every prompt; "may be
-      delayed" price-source labels; Terms / Privacy / Security drafts in
-      `docs/legal/` (unpublished, for a lawyer).
+- [x] **0. Legal fixes** - advisor side: clients agree to the disclosures at
+      the setup link (old accounts asked once at sign-in; `users.terms_via`);
+      notes archived, not deleted, edits keep history; export one client's
+      record or all. Investor side: fund types (not tickers) wherever it's
+      worked out from the person's answers - named examples only in a general
+      read, the same for everyone (`starter_funds.py`); `advisor.GUARDRAILS`
+      in every AI prompt (a test pins every AI call), and
+      `scripts/ai_guardrail_eval.py` to try them against the real model;
+      "may be delayed" price-source labels; Terms / Privacy / Security drafts
+      in `docs/legal/` (unpublished, for a lawyer). Checked on a real Postgres,
+      upgrading a database built with the day before's schema.
+      Left for the owner: proposals can still be deleted once shared.
 - [ ] **1. Postgres check** - the live app runs on Postgres but every test
       runs on SQLite: a GitHub check against a real Postgres (pages and the
       write paths), and fixes for anything it finds. (A first page sweep on

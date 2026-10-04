@@ -65,7 +65,8 @@ if PAGE in ("Dashboard", "Watchlist"):
                                  else f"{_dchg_text} ({_dchg_pct:+.2f}%) today"))
             _price_at = M.value("price_at", _ctx)
             if _price_at:
-                st.caption(f"As of {_fmt_when(_price_at)}")
+                # (where it comes from is on the page's status line: PRICE_SOURCE)
+                st.caption(f"As of {_fmt_when(_price_at)} · may be delayed")
 
             t1, t2 = st.columns([0.6, 0.4])
             t1.markdown("#### Price history")

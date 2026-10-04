@@ -106,9 +106,11 @@ first, and nothing is charged without your say-so.
   time. A projection is not a promise.
 - **Past performance doesn't predict future results.** Historical figures and
   the practice simulation use past prices, which won't repeat the same way.
-- **Example funds are examples.** Funds named in Get started, model portfolios
-  or AI answers show what a kind of investment looks like. Research any fund
-  yourself - its costs, risks and holdings - before investing.
+- **Example funds are examples.** What's worked out from your own answers
+  (your example mix) names kinds of funds, not specific ones. Funds named in
+  Learn's general reads - the same for everyone - or in model portfolios show
+  what a kind of investment looks like. Research any fund yourself - its
+  costs, risks and holdings - before investing.
 - **All investing involves risk,** including losing the money you put in.
 """),
     ("For advisors", """
@@ -227,7 +229,9 @@ matched and you press **Let AI guess the columns** is anything sent: the
 **column names and the kind of each cell** ("text", "number", "money") - never
 the values, holdings or account numbers in it.
 
-AI answers can be wrong or out of date. Check anything important before acting on it.
+The AI is told to explain, never to recommend buying, selling or holding a
+specific investment or a specific mix for you. AI answers can still be wrong or
+out of date. Check anything important before acting on it.
 """),
     ("Market data", """
 Prices, company details and news come from Finnhub and Yahoo Finance. Prices
