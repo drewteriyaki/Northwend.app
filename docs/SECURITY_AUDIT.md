@@ -15,6 +15,10 @@ How to read it:
   migration. P3: hygiene. Where the code changes the brief's severity, the
   entry says why.
 - References are `file:line` at `ca362b2`.
+- **Revised Oct 5 for the owner's master brief** (two-sided: free education,
+  flat-fee advisor seats, legal gates L0-L4). New entries: 1.2d, 1.6f,
+  1.10f-h and 1.11 (payments). They are for things not built yet, so they
+  aren't in the counts below. Each is a condition on its gate opening.
 
 ---
 
@@ -68,6 +72,7 @@ than the code does.
 | G5 | No cost ceiling: no written budget, no app-wide AI cap, no spend alerts | Confirmed | P1 |
 | X3 | Privacy wording overstates. The app says "never balances" but saves holding values and cash. The website says the AI never sees dollar amounts or share counts, which screenshots break | Confirmed | P1 |
 | X6 | A full copy of the database (the Neon branch kept from the precision change) sits outside the stated retention | Confirmed | P1 |
+| 1.10h | Published copy says no advisor pays. It must be reworded (not removed) before the first paid seat | Confirmed | P1 at L1 |
 
 ---
 
@@ -220,6 +225,30 @@ Open:
 - Nothing re-checks once a year.
 - The Terms draft still has `[OWNER: describe how the check is done]`
   (`docs/legal/terms-of-use-DRAFT.md:154-155`).
+
+**1.2d New resources from the master brief - Not built yet, P1 before L2 opens.**
+The master brief (Oct 5) adds four resources: the advisor directory, intro
+requests, consent records and advisor access logs. None exist today. When
+they're built, each joins the cross-user matrix test (1.2a), plus three
+rules the brief names:
+- **A lapsed seat cannot write.** It keeps read and export for the grace
+  period and nothing else (brief §4.5). Today there are no seats.
+- **Revoking sharing ends access within one request.** This already holds
+  for "stop sharing" and "end relationship": they delete the
+  `advisor_clients` link, and `can_view` reads it on every run
+  (`advising.py:367-412`, `dashboard.py:1236-1245`). The same must hold for
+  the new consent record. Write it as a test from the start: revoke, then
+  the very next run as the advisor falls back to their own account.
+- **Every advisor access to a client's data is logged and shown to the
+  client** (brief §4.3.5). Nothing logs advisor access today. The natural
+  place is where `USER_ID` switches to a client (`dashboard.py:1236-1245`):
+  one row per page open, holding who, which client, which page and when.
+  Never figures.
+
+One difference from today, which the brief changes on purpose: an advisor
+now creates or invites a client and manages them from the start (1.2a). The
+brief adds a second way in, where the person picks the advisor and opts in
+to full sharing in two steps. Both ways need the consent record.
 
 ### 1.3 File uploads and "read and delete"
 
@@ -454,6 +483,22 @@ floats, and add display-boundary tests where a figure is shown in two
 places. Converting to `Decimal` would touch nearly every module for little
 benefit.
 
+**1.6f Append-only records - Not built yet, P1 before L2 opens (master brief §7).**
+Consent records and advisor access logs must be append-only. In order of
+strength:
+- In code, the module exposes only insert and read, and a test checks that
+  no `UPDATE` or `DELETE` against those tables appears anywhere outside the
+  retention job.
+- In Postgres, the app's role gets `INSERT, SELECT` only on the two tables.
+  This needs the separate roles in PLAN Phase 2.
+- A trigger rejects `UPDATE` and `DELETE`, and the retention job runs under
+  the owner role.
+
+Deleting an account (`admin.delete_account`) must not remove these rows
+while the retention period runs. They hold ids and timestamps, never
+figures, so keeping them doesn't break "deleted means deleted" for
+holdings. The Privacy Policy has to say so (1.10g).
+
 ### 1.7 Email (Resend)
 
 **1.7a SPF, DKIM, DMARC - Partly (unverified), P1.**
@@ -610,6 +655,64 @@ System. The advisor security draft promises breach notification
 (`docs/legal/security-for-advisors-DRAFT.md:130-137`) without a procedure
 behind it.
 
+**1.10f Advisor agreement and directory disclosures - Not built yet, P1 before L1/L2 (master brief §7).**
+To add to the legal checklist:
+- The advisor agreement text (gate L1). Today the advisor accepts the same
+  disclosures as everyone, plus the request form (`auth.py:964-987`).
+- The directory and intro copy (gate L2), including the standing line that
+  advice is the advisor's, not Northwend's.
+- The two-step consent text. Record it word for word with the consent, as
+  the brief asks.
+
+**1.10g Retention for consent and access logs - Needs decision.**
+The brief's default is seven years, or whatever the lawyer specifies. It
+goes into Decision D5's table as two new rows, and into the Privacy Policy.
+
+**1.10h Published copy says "paid by no one" - Confirmed, P1 the day L1 opens.**
+Today the disclosures, the website and the legal drafts say no advisor
+pays. That stays true while seats are free beta seats (brief §4.5). The
+copy has to change before the first paid seat. The brief says "never remove
+a disclosure", so it should be reworded, not removed. Each place is listed
+in `docs/LEGAL_GATES.md`.
+
+### 1.11 Payments (new in the master brief)
+
+None of this is built. It's listed so billing starts with these in place,
+behind gate L1, after hosting has moved (PLAN step 4).
+
+**1.11a Keys in config only.** Stripe's secret and webhook keys come from
+the host's secret store through `settings.py` (PLAN Phase 0 item 2). Staging
+uses test-mode keys only. A test fails if a live key prefix (`sk_live_`,
+`rk_live_`) is found in the repo.
+
+**1.11b Webhook signature verification.** Every webhook is checked with
+Stripe's library against the signing secret before anything is read.
+Anything else gets a 400 and is logged by type only.
+
+**1.11c Idempotency.** A `stripe_events` table keyed on the event id. An
+event that's already been handled is acknowledged and skipped. Outgoing API
+calls carry idempotency keys.
+
+**1.11d No card data, ever.** Checkout and the customer portal are hosted by
+Stripe. The database keeps the customer and subscription ids, the seat
+status and dates, and nothing else. Error reports (`error_alerts`) never
+include a webhook body.
+
+**1.11e Daily reconciliation.** A scheduled job compares Stripe's
+subscription status with each local seat and emails the admin, with counts
+only, when they differ. Like every job, it gets its own "Tell the admin it
+failed" step.
+
+**1.11f Where the webhook lands.** Streamlit can't receive a POST. The
+webhook needs a small separate endpoint on Render (a tiny Starlette or
+FastAPI app sharing the database), or the daily job polling Stripe instead
+of webhooks. That's a decision (PLAN, decisions). This is the first piece
+of the "second way in" that PLAN Phase 3 warned about. Keep it to one route
+that only writes seat status.
+
+**1.11g The billing module has no usage component.** A test checks that the
+billing code never reads client counts or intro counts (brief §4.5).
+
 ---
 
 ## Part 2 - planning gaps
@@ -654,6 +757,10 @@ down anywhere as a monthly total.
 CLAUDE.md is a good guide for developers. There's no runbook for deploying,
 restoring, rotating keys, signing everyone out, or shutting down cleanly with
 an export for every user.
+Master brief addition: the runbook also lists the owner-side prerequisites
+for gated features: a business entity, and insurance (errors and omissions,
+cyber). They aren't code. A deploy that turns on a gate checks them off
+first (`docs/LEGAL_GATES.md`).
 
 **G7 Support and status - Partly, P3.**
 support@northwend.app exists and is in the disclosures. There's no status
