@@ -677,7 +677,7 @@ Each behind its own flag; classification in `LEGAL_GATES.md`.
 |---|---|---|---|---|
 | 1 | Phase 0 (P1 fixes, flags, L0 basics, principle tests) and Phase 1 (runbook, CI, layer test, schema version, retention) | 20-23 | ~3 weeks | Yes |
 | 1 + B9 | If the re-layout, Alembic and pydantic are chosen | +20-30 | +3-4 weeks | Yes, if chosen |
-| 2 | AI foundations; example-mix rewrite | `AI_PLAN.md` | 2-3 weeks (placeholder) | Yes |
+| 2 | AI foundations; example-mix rewrite | `AI_PLAN.md` | 2-3 weeks (AI_PLAN.md section 10: 18 small steps, about 14-18 sessions) | Yes |
 | 3 | Walk flag, Ledger, Log, Storm Drill, 401(k) decoder, no-account decoder | 12-14 | 2-2.5 weeks | Yes |
 | 4 | Render, Cloudflare, restore drill, keys, roles | 3-5 code + owner time | ~1 week, overlapped with steps 1-3 | Yes (0-1 week on the path) |
 | 5 | Agreement, licence record, directory, intros, consent, access log, standing line | 20-24 | 3-4 weeks | Yes |
