@@ -426,6 +426,8 @@ never for selling or buying.
       steady), "What storms have looked like" (six past S&P 500 drops and
       how long each took to pass), Ask Northwend, and "Hide for now" (back
       if it gets worse or after a new high).
+- -> Oct 5: the storm note becomes the trigger for **R4 Storm Shelter** (the
+  person's drill answer, ledger and log; no trade button).
 
 ---
 
@@ -965,6 +967,7 @@ release to main when green, new features wait on staging for the owner.
       report" label on the same day.
 - [x] **3. Stress test your mix** (Plan) - 2008, 2020, 2022, hypothetical: a Stress
       test tab (`stress.py`), the mix now or the target, drop and rough recovery.
+      -> Oct 5: extended by **R4 Storm Drill** (a field after the 2008 run).
 - [x] **4. Contribution helper** (`next_deposit.py`, Plan's Target mix tab; a
       line and button on Home's drift notice) - where the next deposit could go, by asset
       class (never a ticker), to move toward the target mix without selling.
@@ -979,21 +982,468 @@ release to main when green, new features wait on staging for the owner.
       self-directed account and is told).
 - [ ] **8. Notes to future you** - a private note on a holding or the plan,
       shown back on Home when markets drop.
+      -> Oct 5: stays; feeds **R3 The Expedition Log** and **R4 Storm Shelter**.
 - [ ] **9. Year in review** - a private yearly recap, and a version to share
       with no dollar figures.
+      -> Oct 5: stays, as December in **R7 The Four Seasons**; **R3**'s log
+      becomes its main source.
 - [ ] **10. Account map** - an "if something happens to me" binder: every
       account (brokerage, type, last 3 digits, rough value, who to call),
       notes for family, a PDF only you download, and a guide to finding old
       401(k)s and unclaimed accounts.
+      -> Oct 5: the finding-old-accounts half becomes **R9 Lost & Found** (and
+      moves up to Tier 2); the binder stays here.
 - [ ] **11. Monthly check-in** - a 3-minute routine that counts toward a
       habit milestone; an optional reminder email (off unless turned on, no
       figures).
+      -> Oct 5: **absorbed by R1 The Monthly Walk** (the walk is the check-in,
+      redesigned around a verdict); higher priority - Tier 1, first in the
+      next two weeks.
 - [ ] **12. Money going out** (owner, Oct 5) - planned expenses (one-off or
       repeating, on dates) and regular withdrawals for income (monthly, from
       a date, optionally rising with inflation) on the Plan page; one
       month-by-month projection with money in and out, so the goal check,
       chart, retirement tab ("how long it lasts") and Home's on-track signal
       all include them; a calm note when withdrawals outpace growth.
+      -> Oct 5: stays; the base that **R11 Pay Yourself** builds on.
+
+## The Ritual - Northwend's primary direction (Oct 5)
+
+From a product-strategy session on retention and differentiation. Northwend's
+two deliberate "weaknesses" - no account linking and no revenue from anyone -
+are the two things every competitor is structurally unable to give up. That is
+now the lens for prioritizing features:
+
+1. **A manual holdings update is a moment of attention we get to design.**
+   Aggregators spend money removing that moment; we make it the product.
+2. **We can say "nothing to do" and "you're fine."** Brokerages earn on
+   activity, robos on assets, aggregators on upsell. None of them can end a
+   session with "close the app."
+3. **Nobody pays us to read anything, so we can read everything** - 401(k)
+   plan menus, any brokerage's statement, fund fact sheets - with no angle.
+
+Prefer features that exist *because* we don't link accounts and don't sell,
+not in spite of it.
+
+**The direction:** make the monthly update a designed ritual with a lasting
+record (the Walk, the Ledger, the Log), and hang the rest of the product off
+it. The Decoders (R5, R6) are the content the ritual points to.
+
+**Hard constraints for every item below** (unchanged, restated):
+- Free, paid by no one - flag anything that needs money to move.
+- Education, never advice - no buy/sell/hold for a specific person; anything
+  derived from a person's own answers speaks in kinds of funds, never tickers.
+- Privacy first - no brokerage login; the AI never sees dollar amounts, share
+  counts, account names or numbers. Any feature that reads an uploaded
+  document parses it locally and strips figures before anything reaches the AI.
+- Any brokerage equal, listed alphabetically.
+- Calm by default - no urgency, no trading nudges; gamification rewards
+  learning and habits only.
+- Phone-first for beginners.
+
+**How it absorbs the plan in flight** (overnight plan, Oct 4):
+- **11. Monthly check-in** is absorbed by **R1 The Monthly Walk**: the walk is
+  the check-in, redesigned around a verdict. Its reminder email becomes the
+  Walk's reminder.
+- **8. Notes to future you** stays. It feeds **R3 The Expedition Log** (a note
+  added during a walk lands on that walk's line) and **R4 Storm Shelter**.
+- **9. Year in review** stays as the December moment of **R7 The Four
+  Seasons**. The **R3** log becomes its main source.
+- **10. Account map**: its front half (finding old accounts) becomes **R9 Lost
+  & Found**. The binder itself (who to call, notes for family, the PDF) stays
+  with item 10.
+- **3. Stress test** is extended by **R4 Storm Drill** (one field after the
+  2008 run).
+- **12. Money going out** is the base that **R11 Pay Yourself** builds on.
+- **T4. Storms** (the storm note) becomes the trigger for **R4 Storm Shelter**.
+
+### Tier 1 - build first
+
+### R1. The Monthly Walk - M
+**User problem:** no linked account means holdings go stale, and "update your
+holdings" is a chore with no payoff. People don't know what to do after
+looking, so they either do nothing or something reactive.
+**Who:** everyone with holdings - scattered investors, income investors,
+near-retirees. Advisors' clients walk too (see R15).
+**What:** one "Walk" entry point on Home. It runs four steps:
+1. update holdings (the existing add/update window);
+2. see drift against the target mix;
+3. one short read (from Learn, or what happened this month);
+4. a rule-based verdict: **"Nothing to do this month"**, or one next step by
+   asset class (e.g. "your next deposit could go mostly to bonds" - R1 reuses
+   `next_deposit.py`).
+
+No AI in v1. A streak counts walks completed, never returns. This absorbs item
+11 (monthly check-in), including its milestone and optional reminder email
+(off unless turned on, no figures).
+**Retention loop:** the walk ends with a reason to come back - the verdict,
+the log line (R3), the streak, the date of the next walk. Next month the
+update is quicker because the walk remembers what changed.
+**Effort:** M (v1: S-M; the pieces exist - update window, drift, Learn reads,
+`next_deposit`).
+**Principle risk:** "Nothing to do this month" is, in effect, a *hold* for a
+specific person, and the next step is personalized allocation guidance. See
+"Principle risks higher than stated" below.
+**Mitigation:** the verdict is the person's own plan speaking ("Your target
+mix is within the band you set - your plan says nothing to do"). The rule
+(drift band, target) is theirs and visible, and it speaks in asset classes,
+never funds. No verdict at all without a target mix ("set one to get a
+monthly verdict").
+**One-week test:** ship the Walk button and the verdict. Metric:
+**second-walk completion within 45 days** of the first.
+
+### R2. The Do-Nothing Ledger - S/M
+**User problem:** staying the course is invisible; nobody records the times
+you *didn't* panic, so the next drop feels like the first.
+**Who:** anyone who has walked through at least one market drop; aimed at
+investors in their first downturn.
+**What:** every walk with no reactive change (no sale beyond the plan) gets a
+ledger entry. During a drop, the ledger shows hypothetically what selling would
+have cost, using the person's own mix on real prices. It is always labelled
+hypothetical; it is a record, not a grade.
+**Retention loop:** the ledger grows with every calm walk; each storm adds a
+visible "you stayed" entry to come back to.
+**Effort:** S/M (walk history + the stress-test price maths).
+**Principle risk:** higher than it looks - see the list below. Hindsight can
+cut either way (sometimes selling "would have helped"), and showing only the
+winning side is cherry-picking.
+**Mitigation:** show both directions honestly ("if you had sold on Mar 3: −X%
+by now" *and*, when true, "+Y%"). Never "you made the right call". The ledger
+records the decision, not its outcome. Percentages only.
+
+### R3. The Expedition Log - S
+**User problem:** a portfolio has no memory; every visit starts from zero.
+**Who:** everyone who walks.
+**What:** one auto-written line per walk, from percentages only (drift,
+deposits by asset class, the market's move, "no changes"), plus any note the
+person adds (item 8, Notes to future you). It feeds Year in review (item 9),
+the storm note (R4) and Notes to future you.
+**Retention loop:** the log is the lasting record; it gets more valuable the
+longer you keep it, and it can't be exported to a competitor's app.
+**Effort:** S.
+**Principle risk:** low. The lines are factual, from the person's own data.
+**Mitigation:** percentages only; never sent to the AI unless the person asks
+about it (then flattened, as data); private (never shown to an advisor
+without the client sharing it - see R15).
+
+### R4. Storm Drill -> Storm Shelter - S
+**User problem:** people decide what to do in a crash *during* the crash.
+**Who:** everyone with holdings; beginners after practice money.
+**What:**
+- **Storm Drill:** on the existing Stress test (item 3), after the 2008 run,
+  one field: "What will you do when this happens?" It is saved.
+- **Storm Shelter:** when the storm note (T4) fires on a real drop, Home shows
+  the person their own drill answer, their ledger (R2) and their log (R3).
+  There is no trade button anywhere on that screen.
+
+**Retention loop:** the drill answer waits for the storm; the storm brings the
+person back to read their own words, and shelter adds a ledger entry.
+**Effort:** S.
+**Principle risk:** low (their own words back to them).
+**Mitigation:** no suggested answers in the field; no "right" response.
+**One-week test:** the field, plus surfacing it in the storm card. Metric:
+on the next 5%+ drop, **the share of people who sell beyond their plan**,
+comparing those with a drill note against those without.
+
+### R5. 401(k) Menu Decoder - M
+**User problem:** a 401(k) enrolment screen is a list of fund names with no
+explanation; people pick by name or leave the default.
+**Who:** anyone with a workplace plan - especially during open enrolment
+(Oct-Nov, happening now: a natural test window).
+**What:**
+- Paste the plan's fund list (a photo later).
+- Each fund is matched against existing fund data (`security_info`,
+  `sync_history._expense_ratio`).
+- Output per fund: its kind; its fee %; the fee in dollars at a monthly amount
+  the person types. Each kind is explained with Learn content.
+- Honest "couldn't identify" rows.
+- No picks, and no "best" or "cheapest first" sorting by default (sort by
+  kind, then by name).
+
+**Retention loop:** one per enrolment season and job change; it links into
+the Four Seasons (R7, Oct-Nov) and Trail Forks (R8, new job).
+**Effort:** M (S for the text-box version).
+**Principle risk:** higher than stated - see the list below. Next to "kind"
+and "fee", people will read the table as a pick list. Wrong fee data harms.
+**Mitigation:** show fees as facts with the source and date; explain that
+kind and mix matter more than any single fund; "couldn't identify" rather
+than a guess; a photo version must parse locally and strip figures and
+account details before any AI.
+**One-week test:** a text box and the matching table, no AI. Metric: **the
+share of pasted funds identified**, plus whether the person returns within 30
+days (e.g. to set a contribution with the Free money check).
+
+### Tier 2 - next
+
+### R6. Statement & Fact Sheet Decoder - L
+**User problem:** brokerage statements and fund fact sheets are dense and
+written for compliance, not for people.
+**Who:** scattered investors, income investors, near-retirees, families
+helping a parent.
+**What:** upload any brokerage statement or fund fact sheet; it is explained
+in plain words, then deleted.
+**Engineering requirement:** parse locally, and strip every figure, account
+number and name before anything reaches the AI.
+**Retention loop:** every new statement (monthly or quarterly) is a reason to
+come back, and it leads straight into the Walk (R1).
+**Effort:** L (local PDF/image parsing and redaction is the hard part).
+**Principle risk:** higher than stated (privacy) - see the list below.
+**Mitigation:** fact sheets first (public documents, no personal data);
+statements only once local redaction is proven by tests. Opt-in, like
+screenshots today.
+
+### R7. The Four Seasons - M (content-heavy)
+**User problem:** "look at your balance" is a bad reason to open a finance
+app.
+**Who:** everyone; different moments matter to different personas.
+**What:** four fixed calendar moments, each with a reason:
+- **January:** contribution limits, the IRA window, the yearly fee bill
+  projected to the goal date.
+- **April:** tax forms explained.
+- **Oct-Nov:** open enrolment (R5), HSA.
+- **December:** Year in review (item 9), an RMD reminder for 73+, Letter from
+  Future You.
+
+**Retention loop:** four predictable visits a year that aren't about the
+balance.
+**Effort:** M (mostly content; small date logic).
+**Principle risk:** tax-adjacent content (RMD ages, contribution limits)
+changes yearly. Being out of date is the real risk.
+**Mitigation:** dated content with sources, reviewed each season;
+"check with your plan or a tax professional".
+
+### R8. Trail Forks - M (content-heavy, code-light)
+**User problem:** life events (new job, layoff, new baby, inheritance,
+divorce, death of a parent) change everything, and people rush decisions.
+**Who:** anyone at a life event; families.
+**What:** a route per event:
+- what changes;
+- what to gather;
+- what to ask;
+- what *not* to rush.
+
+Strictly educational.
+**Retention loop:** life events are rare but high-trust moments; each fork
+ends in the Walk.
+**Effort:** M (writing).
+**Principle risk:** higher than stated for divorce, inheritance and death -
+see the list below.
+**Mitigation:** what to ask a professional (attorney, tax preparer, plan
+administrator) rather than what to do; gentle tone; no deadlines invented.
+
+### R9. Lost & Found - S/M
+**User problem:** old 401(k)s, unclaimed property and forgotten accounts are
+money people already own.
+**Who:** scattered investors, job changers, families.
+**What:** the front half of the planned Account map (item 10):
+- old 401(k)s (the Department of Labor's Retirement Savings Lost and Found);
+- unclaimed property;
+- an unused HSA;
+- the employer match left on the table (`employer_match.py`).
+
+Receiving brokerages are listed alphabetically.
+**Retention loop:** each found account is a new account to bring in and walk.
+**Effort:** S/M.
+**Principle risk:** low; rollover choices are advice-adjacent.
+**Mitigation:** explain the options (leave it, roll to an IRA, roll to the new
+plan) neutrally, with what to ask; never recommend one.
+
+### R10. Explain It To Someone - S/M
+**User problem:** partners and adult children don't understand the plan, and
+the person can't easily show them without sharing their balances.
+**Who:** couples, families, a parent helping an adult child (and the
+reverse).
+**What:** a figure-free share view - percentages, the goal, the route and the
+plan on one page - that a partner or adult child can read and then take the
+Learn route themselves.
+**Retention loop:** brings a second person in; shared understanding keeps
+both walking.
+**Effort:** S/M.
+**Principle risk:** privacy (a share link).
+**Mitigation:** no figures, no account details; the link expires, can be
+revoked, and is created only by the owner.
+
+### R11. Pay Yourself - M
+**User problem:** near-retirees can't picture their savings as a paycheck.
+**Who:** near-retirees and retirees.
+**What:** a monthly "paycheck" built from income ahead (`income.py`) plus a
+withdrawal rule of thumb. It shows which month is thin, and what a 20% drop
+does to the paycheck. Builds on item 12 (money going out).
+**Retention loop:** every month the paycheck is checked against the walk.
+**Effort:** M.
+**Principle risk:** higher than stated - see the list below. Retirement
+income planning for a specific person is the closest thing here to
+personalized advice.
+**Mitigation:** rules of thumb are labelled and named, the person chooses the
+rule, scenarios are labelled hypothetical, and nothing says "withdraw X".
+
+### R12. Preparedness drills (weekly cadence, inside the Walk) - M
+**User problem:** finance basics run out in weeks; what people need is
+rehearsal for real situations.
+**Who:** everyone - and it must work for someone with no money invested yet,
+so beginners have a trail before their first dollar.
+**What:**
+- Short, tap-only scenarios, applied to the person's own mix and timeline
+  (percentages), and repeated later with a twist:
+  - difficulty: a market drop, job loss, a surprise expense, a fund closing;
+  - prosperity, with equal weight: a raise, a bonus, a windfall, a goal
+    reached early.
+- Two renewable content sources: the person's own portfolio in percentages,
+  and what happened in the world this month, explained for someone with their
+  mix.
+- A **readiness map** (which situations you've rehearsed, with gaps) is the
+  pull, rather than a streak counter.
+
+**Retention loop:** the readiness map's gaps, a weekly cadence (not daily),
+and drills that come back with a twist.
+**Effort:** M (content + a small engine).
+**Principle risk:** a drill with a "correct" answer about what to do with
+investments becomes advice.
+**Mitigation:** drills rehearse considerations and questions, not trades;
+answers are the person's own; "no right answer" on any investment choice.
+**One-week test:**
+- ten static drills;
+- one card on Home;
+- a weekly streak;
+- one piece of gear;
+- no reminders.
+
+Metric: **unprompted return for a third drill**.
+
+### Tier 3 - later / explore
+
+### R13. Teach It Back - M
+After each Learn topic, the person explains it in their own words to Ask
+Northwend; gear is awarded when the explanation holds.
+**Who:** beginners.
+**Loop:** gear, plus the readiness map (R12).
+**Risk:** low (education); AI grading can be wrong.
+**Mitigation:** generous grading; a "try again" with no penalty; gear never
+depends on returns.
+
+### R14. Shadow Trail - M
+Up to two hypothetical paths run alongside the real mix on real prices: no
+action buttons, no tickers.
+**Who:** tinkerers, practice-money graduates.
+**Loop:** checking how the shadows are doing.
+**Risk:** a tinkering toy that encourages chasing whichever path did best.
+**Mitigation:** cap hard (two paths, kinds of funds only, changed at most
+quarterly), always labelled hypothetical.
+
+### R15. People With Your Answers - M
+A percentage-only cohort view ("people with your timeline and direction hold
+roughly X% stocks").
+**Who:** beginners setting a target mix.
+**Loop:** none strong - it's a reference.
+**Risk:** highest advice risk on the list, and a privacy risk (other people's
+data) - see the list below.
+**Mitigation:**
+- shown only beside the example mix;
+- descriptive labelling;
+- a minimum sample size;
+- never per-fund;
+- covered in the disclosures.
+
+### R16. The Client-Owned Book (advisors) - L
+**What:**
+- The client's walk (R1) updates the advisor's book.
+- The advisor gets counts-only signals.
+- A one-click clean exit where the client keeps everything (builds on
+  `advising.end_relationship`).
+- The no-custody, no-aggregation model is documented explicitly for
+  compliance confidence.
+
+**Who:** advisors and their clients.
+**Loop:** the client's monthly walk keeps the advisor's book current without
+statements.
+**Effort:** L.
+**Risk:** advisors relying on client-entered data; "the client keeps
+everything" versus the advisor's record-keeping duty - see the list below.
+**Mitigation:** mark the book "client-reported, as of <date>"; the advisor's
+own records (`former_clients`, archived notes) stay with the advisor after an
+exit.
+
+### Decided: no daily engagement (Oct 5)
+We considered a "Duolingo for finance" model: a daily two-minute unit,
+streaks, spaced repetition. **We are not pursuing daily usage as a goal.**
+- Finance basics run out in weeks.
+- A daily finance habit tends to become a daily balance check.
+- Calm by default means rest days are real.
+
+What we keep from that thinking, at a weekly-or-monthly cadence inside the
+Walk:
+- preparedness drills instead of lessons (R12);
+- two renewable content sources (the person's portfolio in percentages, and
+  this month's world explained for their mix);
+- a readiness map as a stronger pull than a streak counter;
+- drills that work before the first dollar.
+
+### Someday / to explore (no commitment)
+- **The Sealed Envelope** - a printable one-page PDF (no figures) at the end
+  of a storm drill, to seal and open when the market falls 20%.
+- **Walk Together** - two people pair up; the streak counts only if both walk
+  in the same week; each sees only that the other walked.
+- **Base Camp** - a monthly text-only, percentage-only thread with one
+  prompt, moderated by Ask Northwend for advice and tickers. Invite-only if
+  ever built.
+- **The Inheritance Rehearsal** - practise administering a fictional parent's
+  accounts.
+- **Trail Conditions** - an email that says "calm, nothing to do" almost
+  every week, and changes its wording only when something changes; never
+  contains a figure.
+
+### Next two weeks (in this order)
+1. **The Monthly Walk v1 (R1)** - a Walk button on Home, the four steps, the
+   rule-based verdict ("Nothing to do this month" or one next step by asset
+   class), a walk streak. Folds in item 11.
+   **Test:** ship it to everyone with holdings. **Metric: second-walk
+   completion within 45 days.**
+2. **The Storm Drill field (R4)** - the "What will you do when this happens?"
+   field after the 2008 run on the Stress test, shown back in the storm card.
+   **Test:** live until the next 5%+ drop. **Metric: on that drop, the share
+   of people selling beyond their plan, with versus without a drill note.**
+3. **The 401(k) Menu Decoder text box (R5)** - paste a fund list; a matching
+   table of kind, fee % and fee in dollars at a typed monthly amount; honest
+   "couldn't identify" rows; no AI. In open enrolment season now.
+   **Test:** two weeks of enrolment season. **Metric: the share of pasted
+   funds identified.**
+
+### Principle risks higher than stated (flagged, not removed)
+- **R1 Monthly Walk verdict:** "Nothing to do this month" is a *hold* for a
+  specific person, and "one next step by asset class" is personalized
+  allocation guidance. It's the most-used screen, so it carries the most
+  weight. Keep it the person's own rule speaking (their target, their band),
+  in asset classes, with no verdict without a target.
+- **R2 Do-Nothing Ledger:** hindsight cuts both ways; showing only "what
+  selling would have cost" is cherry-picked performance framing, and it
+  implicitly tells people to hold. It must show both directions and record
+  the decision, not grade it.
+- **R5 401(k) Menu Decoder:** a table of kind and fee for a specific person's
+  real choices will be read as a pick list, especially if sorted by fee.
+  Wrong fee data matched to the wrong fund causes real harm. The photo
+  version adds a privacy risk (enrolment screenshots often show balances).
+- **R6 Statement Decoder:** statements are full of figures, names and account
+  numbers. Reliable local redaction of PDFs and images is hard, and one miss
+  sends personal data to the AI. Start with fact sheets.
+- **R8 Trail Forks:** divorce, inheritance and death of a parent are legal
+  and tax territory as much as investing; the content must stay with "what to
+  ask" and avoid anything that reads as legal advice.
+- **R11 Pay Yourself:** a monthly paycheck from someone's own savings is
+  retirement-income planning for a specific person - the closest item to
+  personalized advice after R15.
+- **R15 People With Your Answers:** besides the advice risk you named, it
+  uses other users' data. It needs aggregate-only figures, a minimum cohort,
+  and a disclosures update (a change to "what's shared").
+- **R16 Client-Owned Book:** advisors acting on client-entered figures, and
+  "the client keeps everything" can collide with the advisor's duty to keep
+  records. Keep the advisor's records with the advisor.
+- **Someday - Walk Together and Base Camp:** both reveal to another person
+  that someone uses a finance app and when. Base Camp is user-generated
+  content: moderation by AI can miss tickers and advice, and a forum invites
+  promotion.
+- **Someday - Trail Conditions:** a weekly "calm, nothing to do" to everyone
+  is a blanket hold message, and as a marketing email it needs an
+  unsubscribe link and a postal address.
 
 ## Later
 
