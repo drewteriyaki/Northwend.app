@@ -36,6 +36,7 @@ OWN = [
     ("profile", "investor_profiles", "user_id", ""),
     ("plan", "plans", "user_id", ""),
     ("contributions", "contributions", "user_id", ""),
+    ("money_going_out", "money_out", "user_id", ""),
     ("watchlist", "watchlist", "user_id", ""),
     ("settings", "user_prefs", "user_id", ""),
     ("ai_use", "ai_usage", "user_id", ""),
@@ -68,6 +69,7 @@ Open them in any spreadsheet. Dates are UTC.
 - holdings.csv, snapshots.csv, cash.csv: what you imported or entered
 - activity.csv, value_history.csv: buys, sells and value over time
 - plan.csv, contributions.csv, profile.csv: your goals and answers
+- money_going_out.csv: planned expenses and withdrawals in your plan
 - watchlist.csv, settings.csv, account_names.csv: your choices in the app
 - ai_use.csv: how many AI requests you made each month (not what you asked)
 - your_former_clients.csv: for an advisor, clients whose relationship ended

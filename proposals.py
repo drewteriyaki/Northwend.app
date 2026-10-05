@@ -259,12 +259,14 @@ def _mix_return(mix: dict, returns: dict) -> float | None:
 
 
 def compare(today: dict, proposed: dict, *, value: float | None = None, monthly: float = 0.0,
-            months: int | None = None) -> dict:
+            months: int | None = None, items=None, on=None) -> dict:
     """Today's mix next to the proposal: {"rows": [(class, today %, proposed
     %, change)], "stocks": (today, proposed), "assumed_return": (today,
     proposed), "hard_years": {year: (today %, proposed %)}, "projected":
     (today $, proposed $) at the goal date or None}. `today` may be empty (no
-    holdings yet): its figures are then None."""
+    holdings yet): its figures are then None. `items` (plans.list_money_out)
+    and `on` (today's date): the plan's money going out, taken out on its
+    dates."""
     classes = [c for c in asset_classes.CLASSES if today.get(c) or proposed.get(c)]
     rows = [(c, today.get(c), proposed.get(c, 0.0),
              (proposed.get(c, 0.0) - today[c]) if c in today else None) for c in classes]
@@ -275,8 +277,9 @@ def compare(today: dict, proposed: dict, *, value: float | None = None, monthly:
             for y, r in HARD_YEARS.items()}
     projected = None
     if value and months and months > 0:
-        projected = (plans.future_value(value, monthly, t_ret, months) if t_ret is not None
-                     else None, plans.future_value(value, monthly, p_ret, months))
+        projected = (plans.value_at(value, monthly, t_ret, months, items, today=on)
+                     if t_ret is not None else None,
+                     plans.value_at(value, monthly, p_ret, months, items, today=on))
     return {"rows": rows,
             "stocks": (today.get("Stocks", 0.0) if has_today else None, proposed.get("Stocks", 0.0)),
             "assumed_return": (t_ret, p_ret), "hard_years": hard, "projected": projected}

@@ -166,7 +166,8 @@ def _prop_compare(p, today_pct, value):
               if plans.has_goal(plan) else None)
     return proposals.compare(today_pct, p["mix"], value=value,
                              monthly=float((plan or {}).get("monthly_contribution") or 0.0),
-                             months=months)
+                             months=months, items=_money_out_counted(),
+                             on=datetime.now().date())
 
 
 def _prop_card(p, cmp, *, as_advisor):
@@ -197,6 +198,11 @@ def _prop_card(p, cmp, *, as_advisor):
             now, new = cmp["projected"]
             lines.append(f"**At your goal date:** about {fmt_money0(now)} today, "
                          f"{fmt_money0(new)} proposed")
+        out = _money_out_counted()
+        if out:   # the plan's planned expenses and regular withdrawal (plans.py)
+            lines.append(f"**Money going out:** {plans.money_out_text(out, fmt_money0)}"
+                         + (" - taken out of the goal-date figures" if cmp.get("projected")
+                            else ""))
         st.markdown("  \n".join(lines).replace("$", r"\$"))
         st.caption(proposals.ASSUMPTIONS_NOTE)
         with st.container(horizontal=True):

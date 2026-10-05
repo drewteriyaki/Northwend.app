@@ -144,11 +144,15 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
 
 
 def projection(df: pd.DataFrame, *, target: float | None, color: str, mask: bool = False,
-               tooltip=None, height: int = 300) -> alt.LayerChart:
+               tooltip=None, height: int = 300, marks: pd.DataFrame | None = None,
+               dawn: str = "#f0b23c", dip: str = "#74838f") -> alt.LayerChart:
     """Goal projection: the low-high range as a band, the assumed return as a
     line, and the goal (if any) as a dashed rule. `df` has date / low / mid /
     high. Same hover as line(): a rule and dot at the nearest month, with
-    `tooltip` on a wide invisible hit target."""
+    `tooltip` on a wide invisible hit target. `marks` (plans.out_markers:
+    date / kind / label) draws money going out: a dotted rule at each
+    planned expense, and a dawn-coloured one where income starts (dawn is
+    for arriving)."""
     grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
     x = alt.X("date:T", title=None, axis=alt.Axis(**grid))
     money_axis = y_axis(MONEY_AXIS, labels=not mask, **grid)
@@ -161,6 +165,18 @@ def projection(df: pd.DataFrame, *, target: float | None, color: str, mask: bool
     if target is not None:
         layers.append(alt.Chart(pd.DataFrame({"target": [target]})).mark_rule(
             strokeDash=[6, 4], strokeWidth=1.5, color="#8a8a86").encode(y="target:Q"))
+    if marks is not None and len(marks):
+        m = alt.Chart(marks)
+        mx = alt.X("date:T")
+        tips = [alt.Tooltip("label:N", title="Planned"),
+                alt.Tooltip("date:T", title="When", format="%b %Y")]
+        layers.append(m.transform_filter("datum.kind == 'expense'").mark_rule(
+            strokeDash=[2, 3], strokeWidth=1.5, color=dip).encode(x=mx, tooltip=tips))
+        income = m.transform_filter("datum.kind == 'income'")
+        layers.append(income.mark_rule(strokeWidth=2.5, color=dawn).encode(x=mx, tooltip=tips))
+        layers.append(income.mark_text(align="left", baseline="top", dx=5, dy=4, color=dawn,
+                                       fontWeight="bold").encode(x=mx, y=alt.value(0),
+                                                                 text="label:N"))
     nearest = alt.selection_point(nearest=True, on="pointerover", fields=["date"],
                                   empty=False, clear="pointerout")
     layers.append(base.mark_rule(color="#94a3b8", strokeWidth=1).encode(

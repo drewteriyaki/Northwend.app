@@ -9,6 +9,10 @@ Streamlit.
 Projections are compound growth at an assumed yearly return, shown as a
 range (the assumption plus and minus `SPREAD_PCT`), in today's dollars
 without inflation. They illustrate what a plan implies; they don't predict.
+
+Money going out (planned expenses and a regular withdrawal, the `money_out`
+table) is taken out month by month on its dates (simulate); with none, the
+closed-form results are used unchanged.
 """
 
 from __future__ import annotations
@@ -229,11 +233,17 @@ def future_value(present: float, monthly: float, annual_pct: float, months: int)
     return present * g + monthly * (g - 1) / r
 
 
-def required_monthly(present: float, target: float, annual_pct: float, months: int) -> float | None:
+def required_monthly(present: float, target: float, annual_pct: float, months: int,
+                     items=None, *, today: date | None = None) -> float | None:
     """Monthly amount that reaches `target` in `months` at `annual_pct`;
-    0 if growth alone gets there, None when there's no time left."""
+    0 if growth alone gets there, None when there's no time left. With
+    money going out (`items`, from list_money_out, and `today`): what still
+    gets there after it, worked out month by month (None if no monthly
+    amount can - additions stop when regular withdrawals start)."""
     if months <= 0:
         return None
+    if items and today is not None:
+        return _required_with_out(present, target, annual_pct, months, items, today)
     r = _monthly_rate(annual_pct)
     g = (1 + r) ** months
     gap = target - present * g
@@ -280,18 +290,24 @@ def add_months(d: date, months: int) -> date:
 
 
 def progress(plan: dict, current_value: float, *, today: date,
-             return_pct: float = DEFAULT_RETURN_PCT, spread: float = SPREAD_PCT) -> dict:
+             return_pct: float = DEFAULT_RETURN_PCT, spread: float = SPREAD_PCT,
+             items=None) -> dict:
     """Where the account stands against its goal.
 
     status: 'reached' (already at or past the target), 'starting' (nothing
     invested yet - day one isn't "behind"; needed_monthly is what gets
     there), 'on_track' (the assumed return gets there), 'within_reach' (only
     the optimistic end does), 'behind', or 'past_date' (the date has passed
-    short of it)."""
+    short of it).
+
+    `items`: the plan's money going out (list_money_out). Whatever comes out
+    by the goal date is taken out month by month; "projected_without" is
+    then where the plan would be without it, and "out_by_goal" how much
+    comes out before the goal date. Without any, the closed-form results."""
     target = float(plan["target_amount"])
     monthly = float(plan.get("monthly_contribution") or 0.0)
     months = months_until(plan["target_date"], today)
-    lo, mid, hi = (future_value(current_value, monthly, p, months)
+    lo, mid, hi = (value_at(current_value, monthly, p, months, items, today=today)
                    for p in (return_pct - spread, return_pct, return_pct + spread))
     if current_value >= target:
         status = "reached"
@@ -305,29 +321,440 @@ def progress(plan: dict, current_value: float, *, today: date,
         status = "within_reach"
     else:
         status = "behind"
-    return {
+    out = {
         "target": target, "current": current_value, "monthly": monthly, "months": months,
         "pct_of_target": (current_value / target * 100) if target else None,
         "projected_low": lo, "projected": mid, "projected_high": hi,
-        "needed_monthly": required_monthly(current_value, target, return_pct, months),
+        "needed_monthly": required_monthly(current_value, target, return_pct, months,
+                                           items, today=today),
         "status": status,
     }
+    if items:
+        sched = out_schedule(items, today, max(0, months))
+        out["out_by_goal"] = round(sum(sched.values()), 2)
+        out["projected_without"] = future_value(current_value, monthly, return_pct, months)
+    return out
 
 
 def projection_series(current_value: float, monthly: float, months: int, *, today: date,
-                      return_pct: float = DEFAULT_RETURN_PCT, spread: float = SPREAD_PCT) -> list[dict]:
-    """One row per month from today to the goal date: the low / assumed / high
-    projected value. At most ~240 rows (long horizons are sampled)."""
+                      return_pct: float = DEFAULT_RETURN_PCT, spread: float = SPREAD_PCT,
+                      items=None) -> list[dict]:
+    """One row per month from today to `months` on: the low / assumed / high
+    projected value. At most ~240 rows (long horizons are sampled). With
+    money going out (`items`), worked out month by month, and the months it
+    comes out in (and the one before) are always kept so the dips show."""
     months = max(0, months)
     step = max(1, -(-months // 240))  # ceiling, so at most ~240 points
     points = list(range(0, months + 1, step))
     if points[-1] != months:
         points.append(months)
-    return [{"date": add_months(today, n).isoformat(),
-             "low": future_value(current_value, monthly, return_pct - spread, n),
-             "mid": future_value(current_value, monthly, return_pct, n),
-             "high": future_value(current_value, monthly, return_pct + spread, n)}
-            for n in points]
+    if not items:
+        return [{"date": add_months(today, n).isoformat(),
+                 "low": future_value(current_value, monthly, return_pct - spread, n),
+                 "mid": future_value(current_value, monthly, return_pct, n),
+                 "high": future_value(current_value, monthly, return_pct + spread, n)}
+                for n in points]
+    sched = out_schedule(items, today, months)
+    stop = adding_stops(items, today)
+    lo, mid, hi = (simulate(current_value, monthly, p, months, sched, add_until=stop)["values"]
+                   for p in (return_pct - spread, return_pct, return_pct + spread))
+    # one-off dips: the month before and the month itself (regular
+    # withdrawals come out every month - only where they start)
+    keep = {n for n in _expense_steps(items, today, months) for n in (n - 1, n)}
+    if stop is not None and 1 <= stop <= months:
+        keep |= {stop - 1, stop}
+    points = sorted(set(points) | {n for n in keep if 0 <= n <= months})
+    return [{"date": add_months(today, n).isoformat(), "low": lo[n], "mid": mid[n],
+             "high": hi[n]} for n in points]
+
+
+# --------------------------------------------------------------------------- #
+# money going out (ROADMAP 12): planned expenses and regular withdrawals
+# --------------------------------------------------------------------------- #
+# An "expense" is an amount on a date, repeated `times` times every
+# `every_months` (1 time: a one-off; tuition each fall for 4 years: 4 times
+# every 12 months). A "withdrawal" is a monthly amount from `start_date`
+# (to `end_date`, if set), rising `inflation_pct` a year from when it starts
+# if that's set. An account has at most one regular withdrawal. Saved by
+# the owner or their advisor (`set_by`), like the plan.
+OUT_KINDS = ("expense", "withdrawal")
+DEFAULT_INFLATION_PCT = 2.5      # a stated, hypothetical rate
+LAST_AGE = 95                    # "does it last" checks to about this age...
+LAST_YEARS = 30                  # ...or this many years of withdrawals, without an age
+OUT_CAP_YEARS = 80
+MAX_TIMES = 40
+_OUT_FIELDS = ("label", "amount", "start_date", "end_date", "times", "every_months",
+               "inflation_pct")
+
+
+def may_change(conn, by: int, user_id: int) -> bool:
+    """Who may change an account's plan and money going out: the owner,
+    unless an advisor manages the account (then it's the advisor's, and the
+    client's view is read-only), or that advisor (auth.can_view)."""
+    import advising
+    import auth
+    if by == user_id:
+        return advising.advisor_of(conn, user_id) is None
+    return auth.can_view(conn, by, user_id)
+
+
+def _out_from(row) -> dict:
+    d = dict(row)
+    d["amount"] = float(d["amount"])
+    d["times"] = int(d.get("times") or 1)
+    d["every_months"] = int(d.get("every_months") or (1 if d["kind"] == "withdrawal" else 12))
+    d["inflation_pct"] = float(d["inflation_pct"]) if d.get("inflation_pct") else None
+    return d
+
+
+def list_money_out(conn, user_id: int, *, viewer: int | None = None) -> list[dict]:
+    """The account's planned expenses and regular withdrawal, by date.
+    With `viewer`, only for someone who may see the account (else
+    PermissionError)."""
+    if viewer is not None:
+        import auth
+        if not auth.can_view(conn, viewer, user_id):
+            raise PermissionError("not your account")
+    return [_out_from(r) for r in conn.execute(
+        "SELECT * FROM money_out WHERE user_id = ? ORDER BY start_date, id", (user_id,))]
+
+
+def get_withdrawal(items) -> dict | None:
+    """The regular withdrawal among `items`, if one is set."""
+    return next((i for i in items or () if i["kind"] == "withdrawal"), None)
+
+
+def _clean_out(kind: str, fields: dict) -> dict:
+    """Checked, tidied fields for a money_out row; ValueError when they don't make sense."""
+    if kind not in OUT_KINDS:
+        raise ValueError(f"unknown kind {kind!r}")
+    f = {k: fields.get(k) for k in _OUT_FIELDS}
+    try:
+        f["amount"] = round(float(f["amount"]), 2)
+    except (TypeError, ValueError):
+        raise ValueError("Enter an amount above $0.") from None
+    if f["amount"] <= 0:
+        raise ValueError("Enter an amount above $0.")
+    try:
+        start = date.fromisoformat(str(f["start_date"])[:10])
+    except ValueError:
+        raise ValueError("Pick a date.") from None
+    f["start_date"] = start.isoformat()
+    f["label"] = (str(f["label"] or "").strip()[:60]) or None
+    if kind == "expense":
+        f["times"] = max(1, min(MAX_TIMES, int(f["times"] or 1)))
+        f["every_months"] = max(1, min(120, int(f["every_months"] or 12)))
+        f["end_date"], f["inflation_pct"] = None, None
+        if not f["label"]:
+            raise ValueError("Say what it's for (a car, tuition...).")
+    else:
+        f["times"], f["every_months"] = 1, 1
+        if f["end_date"]:
+            end = date.fromisoformat(str(f["end_date"])[:10])
+            if end < start:
+                raise ValueError("The end date is before the start.")
+            f["end_date"] = end.isoformat()
+        else:
+            f["end_date"] = None
+        infl = f["inflation_pct"]
+        f["inflation_pct"] = None if not infl else max(0.0, min(15.0, float(infl))) or None
+        f["label"] = f["label"] or "Regular withdrawal"
+    return f
+
+
+def add_money_out(conn, user_id: int, kind: str, fields: dict, *, by: int) -> int:
+    """Add a planned expense, or set the regular withdrawal (it replaces the
+    one there was). Returns its id. PermissionError for anyone but the owner
+    or their advisor (may_change)."""
+    if not may_change(conn, by, user_id):
+        raise PermissionError("not your plan")
+    f = _clean_out(kind, fields)
+    if kind == "withdrawal":
+        old = get_withdrawal(list_money_out(conn, user_id))
+        if old:
+            return update_money_out(conn, user_id, old["id"], fields, by=by)
+    conn.execute(
+        "INSERT INTO money_out (user_id, kind, label, amount, start_date, end_date, times, "
+        "every_months, inflation_pct, set_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (user_id, kind, f["label"], f["amount"], f["start_date"], f["end_date"], f["times"],
+         f["every_months"], f["inflation_pct"], by))
+    conn.commit()
+    return conn.execute("SELECT MAX(id) AS id FROM money_out WHERE user_id = ?",
+                        (user_id,)).fetchone()["id"]
+
+
+def update_money_out(conn, user_id: int, item_id: int, fields: dict, *, by: int) -> int:
+    """Change one of the account's items (fields left out keep their value).
+    Returns its id; LookupError if it isn't this account's."""
+    if not may_change(conn, by, user_id):
+        raise PermissionError("not your plan")
+    row = conn.execute("SELECT * FROM money_out WHERE id = ? AND user_id = ?",
+                       (item_id, user_id)).fetchone()
+    if row is None:
+        raise LookupError("no such item")
+    old = _out_from(row)
+    f = _clean_out(old["kind"], {**{k: old[k] for k in _OUT_FIELDS},
+                                 **{k: v for k, v in fields.items() if k in _OUT_FIELDS}})
+    conn.execute(
+        "UPDATE money_out SET label = ?, amount = ?, start_date = ?, end_date = ?, times = ?, "
+        "every_months = ?, inflation_pct = ?, set_by = ?, updated_at = datetime('now') "
+        "WHERE id = ? AND user_id = ?",
+        (f["label"], f["amount"], f["start_date"], f["end_date"], f["times"], f["every_months"],
+         f["inflation_pct"], by, item_id, user_id))
+    conn.commit()
+    return item_id
+
+
+def delete_money_out(conn, user_id: int, item_id: int, *, by: int) -> bool:
+    """Remove one of the account's items; False if it wasn't there."""
+    if not may_change(conn, by, user_id):
+        raise PermissionError("not your plan")
+    cur = conn.execute("DELETE FROM money_out WHERE id = ? AND user_id = ?", (item_id, user_id))
+    conn.commit()
+    return bool(cur.rowcount)
+
+
+# ---- the month-by-month projection ----------------------------------------- #
+def _d(s) -> date:
+    return date.fromisoformat(str(s)[:10])
+
+
+def step_of(d: date, today: date) -> int:
+    """The projection month (1 = the month from today) an amount dated `d`
+    comes out in: the first month-end on or after it. 0 or less: already past."""
+    n = (d.year - today.year) * 12 + (d.month - today.month)
+    if add_months(today, n) < d:
+        n += 1
+    return n
+
+
+def _expense_steps(items, today: date, months: int) -> list[int]:
+    out = []
+    for it in items or ():
+        if it["kind"] != "expense":
+            continue
+        start = _d(it["start_date"])
+        for i in range(int(it.get("times") or 1)):
+            n = step_of(add_months(start, i * int(it.get("every_months") or 12)), today)
+            if 1 <= n <= months:
+                out.append(n)
+    return out
+
+
+def _withdrawal_amounts(w: dict, today: date, months: int):
+    """(step, amount) for each month of a regular withdrawal up to `months`."""
+    start = _d(w["start_date"])
+    end = _d(w["end_date"]) if w.get("end_date") else None
+    first = step_of(start, today)
+    rise = (w.get("inflation_pct") or 0.0) / 100
+    for n in range(max(1, first), months + 1):
+        k = n - first                                  # months since it started
+        if end is not None and add_months(start, k) > end:
+            break
+        yield n, float(w["amount"]) * (1 + rise) ** (k // 12)
+
+
+def out_schedule(items, today: date, months: int) -> dict[int, float]:
+    """{projection month: amount coming out} for months 1..`months`; past
+    dates are left out (they've happened)."""
+    sched: dict[int, float] = {}
+    for it in items or ():
+        if it["kind"] == "withdrawal":
+            for n, amt in _withdrawal_amounts(it, today, months):
+                sched[n] = sched.get(n, 0.0) + amt
+        else:
+            start = _d(it["start_date"])
+            for i in range(int(it.get("times") or 1)):
+                n = step_of(add_months(start, i * int(it.get("every_months") or 12)), today)
+                if 1 <= n <= months:
+                    sched[n] = sched.get(n, 0.0) + float(it["amount"])
+    return sched
+
+
+def adding_stops(items, today: date) -> int | None:
+    """The projection month money stops being added: when the regular
+    withdrawal starts (people stop adding when they start living on it).
+    None: it keeps being added."""
+    w = get_withdrawal(items)
+    return max(1, step_of(_d(w["start_date"]), today)) if w else None
+
+
+def simulate(present: float, monthly: float, annual_pct: float, months: int,
+             sched: dict | None = None, *, add_until: int | None = None) -> dict:
+    """Month by month: grow at `annual_pct`, add `monthly` at the end of
+    each month (until month `add_until`), take out `sched` {month: amount}.
+    {"values": value after each month, [0] = today; "runs_out": the first
+    month there wasn't enough to take out, or None}. The value never goes
+    below 0 - what can't be taken out isn't."""
+    r = _monthly_rate(annual_pct)
+    value, values, runs_out = float(present), [float(present)], None
+    sched = sched or {}
+    for n in range(1, max(0, months) + 1):
+        add = monthly if add_until is None or n < add_until else 0.0
+        value = value * (1 + r) + add - sched.get(n, 0.0)
+        if value < -1e-9:
+            if runs_out is None:
+                runs_out = n
+            value = 0.0
+        values.append(value)
+    return {"values": values, "runs_out": runs_out}
+
+
+def value_at(present: float, monthly: float, annual_pct: float, months: int, items=None, *,
+             today: date | None = None) -> float:
+    """future_value(), with the money going out in `items` taken out on its
+    dates (the same as future_value when there's none)."""
+    if not items or today is None:
+        return future_value(present, monthly, annual_pct, months)
+    months = max(0, months)
+    return simulate(present, monthly, annual_pct, months, out_schedule(items, today, months),
+                    add_until=adding_stops(items, today))["values"][-1]
+
+
+def _required_with_out(present, target, annual_pct, months, items, today):
+    def reach(m):
+        return value_at(present, m, annual_pct, months, items, today=today)
+    if reach(0.0) >= target:
+        return 0.0
+    hi = max(100.0, (target - present) / months)
+    while reach(hi) < target:
+        hi *= 2
+        if hi > 1e10:
+            return None       # nothing added makes it: additions stopped already
+    lo = 0.0
+    while hi - lo > 0.005:
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if reach(mid) < target else (lo, mid)
+    return hi
+
+
+def age_from(profile: dict | None) -> int | None:
+    """About how old they are, from the profile's age range (None if unanswered)."""
+    return _AGE_MIDDLE.get((profile or {}).get("age_range"))
+
+
+def lasting(present: float, monthly: float, annual_pct: float, items, *, today: date,
+            age: int | None = None) -> dict | None:
+    """How long the money lasts with the regular withdrawal (and any
+    expenses), month by month at `annual_pct`. None without a withdrawal.
+
+    {"monthly": its first amount, "start": its first projection month,
+    "horizon": how far it's checked (to about LAST_AGE with an `age`, else
+    LAST_YEARS of withdrawals, or its end date), "runs_out": the month the
+    money can't cover it, or None if it lasts the whole way, "less": how
+    much less a month (in $50s) lasts the whole way, "later": how many
+    years later a start would. Arithmetic, not advice."""
+    w = get_withdrawal(items)
+    if not w:
+        return None
+    start = max(1, step_of(_d(w["start_date"]), today))
+    if w.get("end_date"):
+        horizon = step_of(_d(w["end_date"]), today)
+    elif age is not None:
+        horizon = (LAST_AGE - age) * 12
+    else:
+        horizon = start + LAST_YEARS * 12
+    horizon = max(1, min(OUT_CAP_YEARS * 12, max(horizon, start + 12)))
+
+    def runs_out(its):
+        return simulate(present, monthly, annual_pct, horizon, out_schedule(its, today, horizon),
+                        add_until=adding_stops(its, today))["runs_out"]
+
+    found = {"monthly": float(w["amount"]), "start": start, "horizon": horizon,
+             "runs_out": runs_out(items), "less": None, "later": None}
+    if found["runs_out"] is not None:
+        others = [i for i in items if i is not w]
+        if runs_out(others) is None:      # without the withdrawal it lasts: some less does
+            lo, hi = 0.0, float(w["amount"])
+            while hi - lo > 1:
+                mid = (lo + hi) / 2
+                ok = runs_out(others + [{**w, "amount": w["amount"] - mid}]) is None
+                lo, hi = (lo, mid) if ok else (mid, hi)
+            found["less"] = float(min(w["amount"], -(-hi // 50) * 50))
+        for years in range(1, 16):
+            moved = {**w, "start_date": add_months(_d(w["start_date"]), 12 * years).isoformat()}
+            if w.get("end_date"):
+                moved["end_date"] = add_months(_d(w["end_date"]), 12 * years).isoformat()
+            if runs_out(others + [moved]) is None:
+                found["later"] = years
+                break
+    return found
+
+
+def out_horizon(items, today: date, months: int, age: int | None = None) -> int:
+    """How far a projection with this money going out runs: the goal date,
+    and on past the last expense and through the regular withdrawal's
+    lasting check."""
+    h = max(0, months)
+    steps = _expense_steps(items, today, OUT_CAP_YEARS * 12)
+    if steps:
+        h = max(h, max(steps) + 6)
+    w = get_withdrawal(items)
+    if w:
+        start = max(1, step_of(_d(w["start_date"]), today))
+        if w.get("end_date"):
+            end = step_of(_d(w["end_date"]), today)
+        elif age is not None:
+            end = (LAST_AGE - age) * 12
+        else:
+            end = start + LAST_YEARS * 12
+        h = max(h, min(OUT_CAP_YEARS * 12, max(end, start + 12)))
+    return h
+
+
+def out_markers(items, today: date, months: int) -> list[dict]:
+    """Where the chart marks money going out: each expense ("expense", a
+    dip) and where the regular withdrawal starts ("income")."""
+    out = []
+    for it in items or ():
+        if it["kind"] == "withdrawal":
+            n = step_of(_d(it["start_date"]), today)
+            if 1 <= n <= months:
+                out.append({"date": add_months(today, n).isoformat(), "kind": "income",
+                            "label": "Income starts"})
+            continue
+        start = _d(it["start_date"])
+        for i in range(int(it.get("times") or 1)):
+            n = step_of(add_months(start, i * int(it.get("every_months") or 12)), today)
+            if 1 <= n <= months:
+                out.append({"date": add_months(today, n).isoformat(), "kind": "expense",
+                            "label": it.get("label") or "Expense"})
+    return sorted(out, key=lambda m: m["date"])
+
+
+def when_text(item: dict) -> str:
+    """'Jun 2027', 'each year for 4 years from Sep 2027', 'from Jan 2035 to
+    Dec 2040, rising 2.5% a year' - an item's dates in words (no amounts)."""
+    def month(s):
+        d = _d(s)
+        return f"{d:%b} {d.year}"
+    if item["kind"] == "withdrawal":
+        text = f"a month from {month(item['start_date'])}"
+        if item.get("end_date"):
+            text += f" to {month(item['end_date'])}"
+        if item.get("inflation_pct"):
+            text += f", rising {item['inflation_pct']:g}% a year"
+        return text
+    times, every = int(item.get("times") or 1), int(item.get("every_months") or 12)
+    if times <= 1:
+        return month(item["start_date"])
+    each = "each year" if every == 12 else f"every {every} months"
+    return f"{each} for {times} {'years' if every == 12 else 'times'} from {month(item['start_date'])}"
+
+
+def money_out_text(items, money=lambda v: f"${v:,.0f}") -> str:
+    """The plan's money going out in one line, for a card or a PDF:
+    "A car, $20,000 in Jun 2027; $2,000 a month from Jan 2035". `money`
+    formats an amount (a masked one when amounts are hidden)."""
+    parts = []
+    for it in items or ():
+        if it["kind"] == "withdrawal":
+            parts.append(f"{money(it['amount'])} {when_text(it)}")
+        else:
+            w = when_text(it)
+            parts.append(f"{it.get('label') or 'Expense'}, {money(it['amount'])} "
+                         + (w if w.startswith(("each", "every")) else f"in {w}"))
+    return "; ".join(parts)
 
 
 # --------------------------------------------------------------------------- #

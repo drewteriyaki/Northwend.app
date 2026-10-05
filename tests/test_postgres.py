@@ -871,6 +871,64 @@ class HoldingsTests(_PG):
                          ["Headline 0", "Headline 1"])
 
 
+class MoneyOutTests(_PG):
+    """Money going out of a plan (plans.py, ROADMAP 12): every write path
+    commits, the advisor writes for a client, and the projection reads it."""
+    TAG = "moneyout"
+
+    def test_add_change_remove_and_who_may(self):
+        c = self.conn
+        me = self.user("mo.owner")
+        carol = self.user("mo.carol", advisor=True)
+        dana = auth.create_client(c, carol, "mo.dana@example.com", name="Dana")
+        stranger = self.user("mo.stranger")
+        car = plans.add_money_out(c, me, "expense", {"label": "A car", "amount": 20000,
+                                                     "start_date": "2027-06-01"}, by=me)
+        plans.add_money_out(c, me, "expense", {"label": "Tuition", "amount": 15000, "times": 4,
+                                               "start_date": "2030-09-01"}, by=me)
+        w = plans.add_money_out(c, me, "withdrawal", {"amount": 2000, "start_date": "2035-01-01",
+                                                      "inflation_pct": 2.5}, by=me)
+        rows = self.seen("SELECT label, amount, times, inflation_pct, set_by FROM money_out "
+                         "WHERE user_id = ? ORDER BY start_date", (me,))
+        self.assertEqual([(r["label"], r["amount"], r["times"]) for r in rows],
+                         [("A car", 20000.0, 1), ("Tuition", 15000.0, 4),
+                          ("Regular withdrawal", 2000.0, 1)])
+        self.assertEqual(rows[2]["inflation_pct"], 2.5)
+        # one regular withdrawal: setting it again changes it
+        self.assertEqual(plans.add_money_out(c, me, "withdrawal", {
+            "amount": 2500, "start_date": "2036-01-01"}, by=me), w)
+        plans.update_money_out(c, me, car, {"amount": 18000}, by=me)
+        self.assertEqual(self.one("SELECT amount, updated_at FROM money_out WHERE id = ?",
+                                  (car,))["amount"], 18000.0)
+        self.assertEqual(self.one("SELECT amount, inflation_pct FROM money_out WHERE id = ?",
+                                  (w,)), {"amount": 2500.0, "inflation_pct": 2.5})   # left out: kept
+        self.assertTrue(plans.delete_money_out(c, me, car, by=me))
+        self.assertEqual(self.seen("SELECT id FROM money_out WHERE id = ?", (car,)), [])
+        with self.assertRaises(PermissionError):
+            plans.add_money_out(c, me, "expense", {"label": "x", "amount": 1,
+                                                   "start_date": "2028-01-01"}, by=stranger)
+        # the advisor, for her client, recorded as who saved it
+        plans.add_money_out(c, dana, "expense", {"label": "Roof", "amount": 9000,
+                                                 "start_date": "2028-04-01"}, by=carol)
+        self.assertEqual(self.one("SELECT set_by FROM money_out WHERE user_id = ?", (dana,)),
+                         {"set_by": carol})
+        with self.assertRaises(PermissionError):
+            plans.list_money_out(c, dana, viewer=stranger)
+        with self.assertRaises(PermissionError):
+            plans.add_money_out(c, dana, "expense", {"label": "x", "amount": 1,
+                                                     "start_date": "2028-01-01"}, by=dana)
+        # the projection reads it back and takes it out
+        items = plans.list_money_out(c, me)
+        plan = {"target_amount": 500000, "target_date": "2046-10-05", "monthly_contribution": 800}
+        today = date(2026, 10, 5)
+        self.assertLess(plans.progress(plan, 50000, today=today, items=items)["projected"],
+                        plans.progress(plan, 50000, today=today)["projected"])
+        self.assertIsNotNone(plans.lasting(50000, 800, 6, items, today=today, age=40))
+        # Export everything has it
+        self.assertEqual([r["label"] for r in export.collect(c, me)["money_going_out"]],
+                         ["Tuition", "Regular withdrawal"])
+
+
 class DeleteAccountTests(_PG):
     TAG = "delete"
 
@@ -881,6 +939,8 @@ class DeleteAccountTests(_PG):
         watchlist.add(c, uid, "VTI")
         prefs.save(c, uid, {"a": 1})
         plans.save_plan(c, uid, {"goal_type": "Home"}, set_by=uid)
+        plans.add_money_out(c, uid, "expense", {"label": "A car", "amount": 20000,
+                                                "start_date": "2027-06-01"}, by=uid)
         auth.create_session(c, uid)
         self.assertFalse(admin.delete_own(c, uid, "wrong-password")["ok"])
         self.assertTrue(admin.delete_own(c, uid, PW)["ok"])
@@ -894,9 +954,13 @@ class DeleteAccountTests(_PG):
         carol = self.user("carol.del", advisor=True)
         dana = auth.create_client(c, carol, "dana.del@example.com", name="Dana")
         plans.save_plan(c, dana, {"goal_type": "Home"}, set_by=carol)
+        plans.add_money_out(c, dana, "withdrawal", {"amount": 2000,
+                                                    "start_date": "2040-01-01"}, by=carol)
         res = admin.delete_account(c, carol, by=boss)
         self.assertEqual((res["ok"], res["orphaned_clients"]), (True, 1))
         self.assertEqual(self.one("SELECT set_by FROM plans WHERE user_id = ?", (dana,)),
+                         {"set_by": None})
+        self.assertEqual(self.one("SELECT set_by FROM money_out WHERE user_id = ?", (dana,)),
                          {"set_by": None})
 
 

@@ -999,7 +999,9 @@ release to main when green, new features wait on staging for the owner.
       -> Oct 5: **absorbed by R1 The Monthly Walk** (the walk is the check-in,
       redesigned around a verdict); higher priority - Tier 1, first in the
       next two weeks.
-- [ ] **12. Money going out** (owner, Oct 5) - planned expenses (one-off or
+- [x] **12. Money going out** (owner, Oct 5; `plans.py` money_out, the `money_out` table)
+      - stops adding money once withdrawals start; checks it lasts to 95;
+      not on the What if tab or Your clients yet. Planned expenses (one-off or
       repeating, on dates) and regular withdrawals for income (monthly, from
       a date, optionally rising with inflation) on the Plan page; one
       month-by-month projection with money in and out, so the goal check,

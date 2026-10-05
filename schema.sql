@@ -363,6 +363,26 @@ CREATE TABLE IF NOT EXISTS contributions (
 );
 CREATE INDEX IF NOT EXISTS idx_contributions_user ON contributions (user_id, date);
 
+-- Money going out of a plan (plans.py, ROADMAP 12): planned expenses (an
+-- amount on a date, `times` times every `every_months`) and at most one
+-- regular withdrawal (a monthly amount from start_date to end_date, if set,
+-- rising inflation_pct a year if set). Saved by the owner or their advisor.
+CREATE TABLE IF NOT EXISTS money_out (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL,
+    kind          TEXT    NOT NULL,               -- 'expense' | 'withdrawal'
+    label         TEXT,
+    amount        REAL NOT NULL,
+    start_date    TEXT    NOT NULL,               -- YYYY-MM-DD
+    end_date      TEXT,                           -- a withdrawal's last month, if any
+    times         INTEGER NOT NULL DEFAULT 1,
+    every_months  INTEGER NOT NULL DEFAULT 12,
+    inflation_pct REAL,                    -- NULL: the same amount every year
+    set_by        INTEGER,                        -- users.id of whoever last saved it
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Advisor notes on a client's account (advising.py): a Review (meeting), a
 -- Note, or a Next step (done when the advisor ticks it). Private notes are
 -- never shown to the client. Nothing is deleted from the app: Archive hides a

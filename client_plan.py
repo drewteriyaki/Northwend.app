@@ -79,7 +79,9 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
     holdings.sort(key=lambda h: h["value"] or 0.0, reverse=True)
 
     plan = plans.get_plan(conn, user_id)
-    goal = (plans.progress(plan, summary["portfolio_value"] or 0.0, today=date.today())
+    money_out = plans.list_money_out(conn, user_id)   # planned expenses, regular withdrawal
+    goal = (plans.progress(plan, summary["portfolio_value"] or 0.0, today=date.today(),
+                           items=money_out)
             if plans.has_goal(plan) else None)
     # the advisor's open next steps the client can see - never private notes
     advisor_steps = [n["body"] for n in advising.open_next_steps(
@@ -89,6 +91,7 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
         "profile": profile,
         "plan": plan,
         "goal": goal,
+        "money_out": money_out,
         "advisor_steps": advisor_steps,
         "missing": advisor.missing_fields(profile),
         "summary": summary,
@@ -251,6 +254,11 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
         if plan.get("target_alloc"):
             para("Target mix: " + ", ".join(f"{k} {v:g}%" for k, v in sorted(
                 plan["target_alloc"].items(), key=lambda kv: -kv[1])) + ".")
+    if facts.get("money_out"):
+        if not g:
+            heading("Goal")
+        para("Money going out: " + plans.money_out_text(facts["money_out"], _money0)
+             + (" - taken out of the figures above on their dates." if g else "."))
 
     # summary
     heading("Portfolio summary")

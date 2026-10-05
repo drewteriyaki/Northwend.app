@@ -32,14 +32,14 @@ ACCOUNT_TABLES = {
     "invites": ("user_id", "created_by"), "advisor_clients": ("advisor_id", "client_id"),
     "advisor_notes": ("advisor_id", "client_id"), "model_portfolios": ("advisor_id",),
     "proposals": ("advisor_id", "client_id"), "progress_reports": ("advisor_id", "client_id"),
-    "two_step": ("user_id",),
+    "two_step": ("user_id",), "money_out": ("user_id",),
     "former_clients": ("advisor_id", "client_id"),
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)
 ADVISOR_RECORD_TABLES = ("advisor_notes", "proposals", "progress_reports", "former_clients")
 # columns that only record who last changed something - cleared, not deleted
-ACCOUNT_REFERENCES = {"plans": ("set_by",)}
+ACCOUNT_REFERENCES = {"plans": ("set_by",), "money_out": ("set_by",)}
 
 
 def listed_admins() -> set[str]:

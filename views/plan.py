@@ -67,8 +67,126 @@ def _plan_return_pct():
 
 
 def _goal_progress(plan, value):
+    """plans.progress for this account, with its money going out - what
+    Home's goal line and on-track chip, the Plan's goal card and the gear
+    all read, so they agree."""
     return plans.progress(plan, value or 0.0, today=datetime.now().date(),
-                          return_pct=_plan_return_pct())
+                          return_pct=_plan_return_pct(), items=_money_out_counted())
+
+
+# ---- money going out (ROADMAP 12, plans.py) --------------------------------- #
+def load_money_out():
+    """This account's planned expenses and regular withdrawal
+    (plans.list_money_out), cached for the session like the plan; saving
+    one (_money_out_saved) reads them again."""
+    cached = st.session_state.get("_money_out")
+    if cached is None or cached[0] != USER_ID:
+        conn = connect(DB)
+        try:
+            cached = (USER_ID, plans.list_money_out(conn, USER_ID))
+        finally:
+            conn.close()
+        st.session_state["_money_out"] = cached
+    return cached[1]
+
+
+def _pretend_dollars():
+    return globals().get("SNAPSHOT_SOURCE") == manual_entry.PCT_SOURCE
+
+
+def _money_out_counted():
+    """The money going out the projections take out: none for a
+    percentages-only portfolio, whose dollars are pretend (the Plan says so)."""
+    return [] if _pretend_dollars() else load_money_out()
+
+
+def _money_out_saved():
+    """After a change: read the items again and redraw the whole page (the
+    goal card above the tabs changes too)."""
+    st.session_state.pop("_money_out", None)
+    st.rerun()
+
+
+def _year(today, n):
+    return plans.add_months(today, n).year
+
+
+def _out_name(items, months, today):
+    """What comes out before the goal date, for "With ... you'd reach":
+    "a car in 2027", "tuition from 2030", or "what you plan to take out"."""
+    before = [i for i in items if plans.out_schedule([i], today, months)]
+    if len(before) == 1 and before[0]["kind"] == "expense":
+        it = before[0]
+        label = it.get("label") or "the expense"
+        if len(label) > 1 and label[0].isupper() and not label[1].isupper():
+            label = label[0].lower() + label[1:]
+        when = plans._d(it["start_date"]).year
+        return f"{label} {'in' if int(it.get('times') or 1) <= 1 else 'from'} {when}"
+    if before and all(i["kind"] == "expense" for i in before):
+        return "your planned expenses"
+    return "the money you plan to take out"
+
+
+def _money_out_goal_line(plan, prog, items, today):
+    """"With a car in 2027 you'd reach $X instead of $Y by <goal date> -
+    about $Z more a month gets you back on track." None when nothing comes
+    out before the goal date."""
+    if not items or not prog.get("out_by_goal") or prog["status"] in ("reached", "past_date"):
+        return None
+    when = _fmt_month(plan["target_date"])
+    line = (f"With {_out_name(items, prog['months'], today)} you'd reach about "
+            f"**{fmt_money0(prog['projected'])}** instead of {fmt_money0(prog['projected_without'])} "
+            f"by {when}")
+    need = prog.get("needed_monthly")
+    if prog["projected"] >= prog["target"]:
+        return line + " - still enough for the goal."
+    if need is not None and need > prog["monthly"]:
+        return line + (f" - about **{fmt_money0(need - prog['monthly'])}** more a month gets you "
+                       "back on track.")
+    return line + "."
+
+
+def _lasting_lines(value, plan, today, rp):
+    """(how long the money lasts with the regular withdrawal, the calm note
+    when it runs out or None) - the same figures on How it's going, Money
+    going out and Retirement income. None without a withdrawal."""
+    items = _money_out_counted()
+    w = plans.get_withdrawal(items)
+    if not w:
+        return None
+    age = plans.age_from(_profile())
+    monthly = float((plan or {}).get("monthly_contribution") or 0.0)
+    last = plans.lasting(float(value or 0.0), monthly, rp, items, today=today, age=age)
+    start_year = _year(today, last["start"])
+    if w.get("end_date"):
+        through = f"to {_fmt_month(w['end_date'])}, when it stops"
+    elif age is not None:
+        through = f"past age {plans.LAST_AGE}"
+    else:
+        through = (f"at least {plans.LAST_YEARS} years (to about "
+                   f"{_year(today, last['horizon'])})")
+    rising = (f", rising {w['inflation_pct']:g}% a year" if w.get("inflation_pct") else "")
+    lead = f"Taking {fmt_money0(w['amount'])} a month from {start_year}{rising}, your money "
+    if last["runs_out"] is None:
+        return (lead + f"lasts **{through}** at **{rp:g}%** a year.", None)
+    out_year = _year(today, last["runs_out"])
+    at_age = (f" (around age {age + out_year - today.year})" if age is not None else "")
+    first = lead + f"lasts to about **{out_year}**{at_age} at **{rp:g}%** a year."
+    fixes = ([f"taking {fmt_money0(last['less'])} less a month"] if last["less"] else []) + \
+            ([f"starting {_years_text(last['later'])} later"] if last["later"] else [])
+    note = (f"At this rate the money runs out in {out_year}"
+            + (f"; {' or '.join(fixes)} makes it last {through}." if fixes else ".")
+            + " Arithmetic on the plan's numbers, not advice.")
+    return first, note
+
+
+def _show_lasting(value, plan, today, rp):
+    found = _lasting_lines(value, plan, today, rp)
+    if not found:
+        return
+    _md(found[0])
+    if found[1]:
+        st.info(found[1].replace("$", r"\$"), icon=":material/hourglass_bottom:")
 
 
 # ---- suggested starting points (learn.suggestions) - Plan and Learn ---------- #
@@ -194,8 +312,7 @@ def _md(text):
 
 
 def _render_plan_status(plan, value, today):
-    rp = _plan_return_pct()
-    prog = plans.progress(plan, value or 0.0, today=today, return_pct=rp)
+    prog = _goal_progress(plan, value)
     label, tone = PLAN_STATUS[prog["status"]]
     title = plan.get("goal_name") or plan.get("goal_type") or "Your goal"
     target, when = prog["target"], _fmt_month(plan["target_date"])
@@ -229,7 +346,8 @@ def _render_projection(plan, value, today):
     """How it's going: where the plan leads at an assumed return (its own
     tab; moving the slider redraws only this)."""
     rp = _plan_return_pct()
-    prog = plans.progress(plan, value or 0.0, today=today, return_pct=rp)
+    items = _money_out_counted()
+    prog = plans.progress(plan, value or 0.0, today=today, return_pct=rp, items=items)
     target, when = prog["target"], _fmt_month(plan["target_date"])
     projected, needed = fmt_money0(prog["projected"]), fmt_money0(prog["needed_monthly"])
     status = prog["status"]
@@ -254,6 +372,10 @@ def _render_projection(plan, value, today):
     else:
         _md(f"At **{rp:g}%** a year you'd have about **{projected}** by {when}. Reaching "
                     f"{fmt_money0(target)} would take about **{needed}** a month.")
+    out_line = _money_out_goal_line(plan, prog, items, today)
+    if out_line:
+        _md(out_line)
+    _show_lasting(value, plan, today, rp)
 
     if prog["months"] > 0:
         # set again just before it's drawn: a value put in session state on an
@@ -272,22 +394,193 @@ def _render_projection(plan, value, today):
             _p = _read_prefs()
             _p["plan_return_pct"] = st.session_state["plan_return"]
             _write_prefs(_p)
+        # with money going out, on past the goal date to the last expense
+        # and through the withdrawal's years
+        horizon = (plans.out_horizon(items, today, prog["months"], plans.age_from(_profile()))
+                   if items else prog["months"])
+        if plans.get_withdrawal(items):   # runs out: a few years past it is enough to see
+            gone = plans.lasting(prog["current"], prog["monthly"], rp, items, today=today,
+                                 age=plans.age_from(_profile()))["runs_out"]
+            if gone is not None:
+                horizon = max(prog["months"], min(horizon, gone + 36))
         df = pd.DataFrame(plans.projection_series(
-            prog["current"], prog["monthly"], prog["months"], today=today, return_pct=rp))
+            prog["current"], prog["monthly"], horizon, today=today, return_pct=rp, items=items))
         df["date"] = pd.to_datetime(df["date"])
+        marks = pd.DataFrame(plans.out_markers(items, today, horizon),
+                             columns=["date", "kind", "label"])
+        marks["date"] = pd.to_datetime(marks["date"])
         tips = [alt.Tooltip("date:T", title="Date", format="%b %Y")]
         if not _hidden():
             tips += [alt.Tooltip("mid:Q", title=f"At {rp:g}%", format="$,.0f"),
                      alt.Tooltip("low:Q", title=f"At {rp - plans.SPREAD_PCT:g}%", format="$,.0f"),
                      alt.Tooltip("high:Q", title=f"At {rp + plans.SPREAD_PCT:g}%", format="$,.0f")]
         palette = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+        trail = route.TRAIL_COLORS["dark" if st.context.theme.type == "dark" else "light"]
         st.altair_chart(charts.projection(df, target=target, color=palette[0], mask=_hidden(),
-                                          tooltip=tips), width="stretch")
+                                          tooltip=tips, marks=marks, dawn=trail["dawn"],
+                                          dip=trail["line"]), width="stretch")
         st.caption(f"The line assumes {rp:g}% a year; the shaded range is "
                    f"{rp - plans.SPREAD_PCT:g}-{rp + plans.SPREAD_PCT:g}%. The dashed line is the "
-                   "goal. Before inflation, fees and taxes - an illustration of the plan, not a "
+                   "goal."
+                   + (" Dotted lines are planned expenses; the gold line is where income "
+                      "starts, and money stops being added then." if len(marks) else "")
+                   + " Before inflation, fees and taxes - an illustration of the plan, not a "
                    "prediction.")
         learn_more("compound_interest")
+
+
+MONEY_OUT_TAB = "Money going out"
+
+
+def _money_out_write(action, *args, **fields):
+    """Save a change to the money going out as the signed-in login (an
+    advisor on a client's plan is recorded as the advisor); an error
+    message, or None."""
+    conn = connect(DB)
+    try:
+        if action == "add":
+            plans.add_money_out(conn, USER_ID, *args, fields, by=LOGIN_ID)
+        elif action == "update":
+            plans.update_money_out(conn, USER_ID, *args, fields, by=LOGIN_ID)
+        else:
+            plans.delete_money_out(conn, USER_ID, *args, by=LOGIN_ID)
+    except ValueError as e:
+        return str(e)
+    except (PermissionError, LookupError):
+        return "Only this account's owner or their advisor can change its plan."
+    finally:
+        conn.close()
+    return None
+
+
+def _money_out_remove(item_id):
+    """A Remove / Stop button: take it out and redraw the whole page."""
+    err = _money_out_write("delete", item_id)
+    if err:
+        st.error(err)
+    else:
+        st.session_state.pop("mo_pick", None)
+        _money_out_saved()
+
+
+@st.fragment
+def _render_money_out(plan, value, today):
+    """Money going out of the plan (ROADMAP 12): planned expenses on their
+    dates and a regular withdrawal for income. The goal check, the chart,
+    Retirement income and Home's on-track signal all take them out."""
+    items = load_money_out()
+    rp = _plan_return_pct()
+    st.caption("Big costs you know are coming - a car, a wedding, tuition each fall - and money "
+               "you plan to take out to live on. The plan takes them out on their dates. "
+               "Hypothetical, to help you plan - not advice.")
+    if _pretend_dollars():
+        st.info("Your holdings are percentages of a pretend total, so these dollar amounts aren't "
+                "taken out of the projections. Bring in your real amounts to see what they change.")
+    elif items:
+        if plans.has_goal(plan):
+            line = _money_out_goal_line(plan, _goal_progress(plan, value), items, today)
+            if line:
+                _md(line)
+        _show_lasting(value, plan, today, rp)
+    if items:
+        st.html("<div class='pt-legend'>" + "".join(
+            # two lines (what, then when), so it fits a phone
+            "<div class='pt-legend-row'>"
+            f"<span class='pt-legend-label'><b>{html.escape(i['label'] or '')}</b>"
+            f"<span class='pt-goal-sub' style='display:block'>"
+            f"{html.escape(plans.when_text(i))}</span></span>"
+            f"<span class='pt-legend-pct'>{fmt_money0(i['amount'])}</span></div>"
+            for i in items) + "</div>")
+    elif not CAN_MANAGE:
+        st.caption("Nothing planned to come out yet.")
+    if not CAN_MANAGE:
+        if items:
+            st.caption(f"Your advisor, {_advisor_display_name()}, sets these with you.")
+        return
+    if _hidden():
+        st.caption("Show amounts (the eye beside the page title) to add or change these.")
+        return
+
+    # ---- a planned expense ------------------------------------------------ #
+    expenses = {i["id"]: i for i in items if i["kind"] == "expense"}
+    with st.expander("Add or change a planned expense", expanded=not items):
+        pick = None
+        if expenses:
+            pick = st.selectbox("Which one", [None, *expenses], key="mo_pick",
+                                format_func=lambda i: "A new expense" if i is None else
+                                f"{expenses[i]['label']} - {plans.when_text(expenses[i])}")
+        cur = expenses.get(pick) or {}
+        on_default = (plans._d(cur["start_date"]) if cur else plans.add_months(today, 12))
+        with st.form(f"mo_expense_{pick or 'new'}", clear_on_submit=pick is None):
+            c1, c2 = st.columns(2)
+            label = c1.text_input("What it's for", value=cur.get("label") or "", max_chars=60,
+                                  placeholder="A car, a wedding, tuition")
+            amount = c2.number_input("Amount ($)", min_value=0.0, step=500.0, format="%.0f",
+                                     value=float(cur.get("amount") or 0.0))
+            c3, c4 = st.columns(2)
+            on = c3.date_input("When", value=on_default, min_value=min(on_default, today),
+                               max_value=date(today.year + 80, 12, 31))
+            times = c4.number_input("Every year for (years)", min_value=1, max_value=plans.MAX_TIMES,
+                                    step=1, value=int(cur.get("times") or 1),
+                                    help="1 is a one-off. Tuition each fall for 4 years: 4.")
+            saved = st.form_submit_button("Save expense", type="primary")
+        if saved:
+            fields = {"label": label, "amount": amount, "start_date": on.isoformat(),
+                      "times": int(times), "every_months": 12}
+            err = (_money_out_write("update", pick, **fields) if pick
+                   else _money_out_write("add", "expense", **fields))
+            if err:
+                st.error(err)
+            else:
+                st.session_state.pop("mo_pick", None)
+                _money_out_saved()
+        if pick:
+            if st.button("Remove this expense", key="mo_remove", type="tertiary",
+                         icon=":material/delete:"):
+                _money_out_remove(pick)
+
+    # ---- the regular withdrawal --------------------------------------------- #
+    w = plans.get_withdrawal(items)
+    with st.expander("Change the regular withdrawal" if w else
+                     "Set a regular withdrawal for income"):
+        st.caption("A monthly amount to live on, from a date - for example when you retire. "
+                   "Money stops being added to the plan when it starts.")
+        start_default = (plans._d(w["start_date"]) if w else
+                         plans._d(plan["target_date"]) if plans.has_goal(plan)
+                         else plans.add_months(today, 12))
+        end_default = plans._d(w["end_date"]) if w and w.get("end_date") else None
+        with st.form("mo_withdrawal"):
+            c1, c2 = st.columns(2)
+            amount = c1.number_input("Take out each month ($)", min_value=0.0, step=100.0,
+                                     format="%.0f", value=float(w["amount"]) if w else 0.0)
+            start = c2.date_input("Starting", value=start_default,
+                                  min_value=min(start_default, today),
+                                  max_value=date(today.year + 80, 12, 31))
+            c3, c4 = st.columns(2)
+            end = c3.date_input("Until (optional)", value=end_default,
+                                min_value=min(start_default, today),
+                                max_value=date(today.year + 90, 12, 31))
+            rise = c4.number_input(
+                "Rising each year by (%)", min_value=0.0, max_value=15.0, step=0.5,
+                format="%.1f",
+                value=float(w["inflation_pct"] or 0.0) if w else plans.DEFAULT_INFLATION_PCT,
+                help=f"To keep up with prices. {plans.DEFAULT_INFLATION_PCT:g}% is a hypothetical "
+                     "rate, not a forecast; 0 keeps the same amount every year.")
+            saved = st.form_submit_button("Save withdrawal", type="primary")
+        if saved:
+            err = _money_out_write("add", "withdrawal", amount=amount,
+                                   start_date=start.isoformat(),
+                                   end_date=end.isoformat() if end else None,
+                                   inflation_pct=rise or None)
+            if err:
+                st.error(err)
+            else:
+                _money_out_saved()
+        if w:
+            if st.button("Stop the withdrawal", key="mo_stop", type="tertiary",
+                         icon=":material/delete:"):
+                _money_out_remove(w["id"])
+    learn_more("compound_interest")
 
 
 @st.fragment
@@ -653,11 +946,22 @@ def _render_retirement_income(value, today):
     # ---- how long a yearly amount could last ------------------------------- #
     if real:
         st.markdown("**How long the money could last**")
+        if plans.get_withdrawal(_money_out_counted()):
+            # the plan's own regular withdrawal: the same figures as How
+            # it's going and Money going out (plans.lasting)
+            rp = _plan_return_pct()
+            _show_lasting(value, load_plan(), today, rp)
+            st.caption(f"Your plan's regular withdrawal ({MONEY_OUT_TAB}), with what you add "
+                       f"until it starts and any planned expenses, at the plan's assumed "
+                       f"{rp:g}% a year."
+                       + ("" if _hidden() else
+                          " Below, try a yearly amount at one steady rate instead."))
         if _hidden():
             st.caption("Show amounts (the eye beside the page title) to try a yearly amount.")
         else:
-            st.session_state.setdefault("retire_yearly",
-                                        float(max(100, round(value * 0.04 / 100) * 100)))
+            planned = plans.get_withdrawal(_money_out_counted())
+            st.session_state.setdefault("retire_yearly", float(
+                planned["amount"] * 12 if planned else max(100, round(value * 0.04 / 100) * 100)))
             yearly = st.number_input("A yearly amount to try ($)", min_value=0.0, step=1000.0,
                                      format="%.0f", key="retire_yearly")
             if yearly > 0:
@@ -708,6 +1012,7 @@ def _render_plan(value, growth, alloc_rows):
     if plans.has_goal(plan) and not editing:
         sections.append(("How it's going", lambda: _render_projection(plan, value, today)))
     if not editing:
+        sections.append((MONEY_OUT_TAB, lambda: _render_money_out(plan, value, today)))
         sections.append(("What if", lambda: _render_what_if(plan, value, alloc_rows, today)))
     sections.append(("Contributions", lambda: _render_contributions(plan, today)))
     if value is not None:

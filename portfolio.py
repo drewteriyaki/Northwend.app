@@ -143,6 +143,7 @@ USER_INDEXES = [
     ("idx_account_totals_user", "account_totals", "user_id, snapshot_date"),
     ("idx_transactions_user", "transactions", "user_id, trade_date"),
     ("idx_value_log_user", "value_log", "user_id, logged_at"),
+    ("idx_money_out_user", "money_out", "user_id, start_date"),
 ]
 
 
