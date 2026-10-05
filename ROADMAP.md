@@ -963,12 +963,16 @@ release to main when green, new features wait on staging for the owner.
       whether an email has an account; a double click on Save and share makes
       two proposals; markdown links in advisor notes; an odd "since the last
       report" label on the same day.
-- [ ] **3. Stress test your mix** (Plan) - 2008, 2020, 2022, hypothetical.
-- [ ] **4. Contribution helper** - where the next deposit could go, by asset
+- [x] **3. Stress test your mix** (Plan) - 2008, 2020, 2022, hypothetical: a Stress
+      test tab (`stress.py`), the mix now or the target, drop and rough recovery.
+- [x] **4. Contribution helper** (`next_deposit.py`, Plan's Target mix tab; a
+      line and button on Home's drift notice) - where the next deposit could go, by asset
       class (never a ticker), to move toward the target mix without selling.
-- [ ] **5. Cash check** - how much sits in cash; a sweep account vs a money
+- [x] **5. Cash check** (`cash_check.py`; Home's one "Your money, checked" card now
+      holds Fee check, Fund overlap and Cash check) - how much sits in cash; a sweep account vs a money
       market fund, explained (no fund named).
-- [ ] **6. Free money check** - an employer 401(k) match calculator.
+- [x] **6. Free money check** - an employer 401(k) match calculator
+      (`employer_match.py`; from Learn's readiness step and Plan's Contributions tab).
 - [ ] **7. Advisors** - add clients from a CSV with invites; a demo book
       while approval is pending; "End relationship" (the client keeps a
       self-directed account and is told).
@@ -983,6 +987,12 @@ release to main when green, new features wait on staging for the owner.
 - [ ] **11. Monthly check-in** - a 3-minute routine that counts toward a
       habit milestone; an optional reminder email (off unless turned on, no
       figures).
+- [ ] **12. Money going out** (owner, Oct 5) - planned expenses (one-off or
+      repeating, on dates) and regular withdrawals for income (monthly, from
+      a date, optionally rising with inflation) on the Plan page; one
+      month-by-month projection with money in and out, so the goal check,
+      chart, retirement tab ("how long it lasts") and Home's on-track signal
+      all include them; a calm note when withdrawals outpace growth.
 
 ## Later
 

@@ -235,6 +235,8 @@ def _step_ready(items, profile):
             _md(f"{icon} **{it['label']}** ({words}) - {it['text']}")
     if any(it["key"] in READY_FIELDS and it["state"] != learn.UNKNOWN for it in items):
         st.toggle("Change my answers", key="gs_ready_edit")
+    if profile.get("employer_match") and profile["employer_match"] != "No match or no plan":
+        render_free_money_card("learn")   # the match calculator (views/free_money.py)
     st.caption("These are common first steps many people take before investing, not rules - "
                "your situation may differ.")
     _coach_button("ready")

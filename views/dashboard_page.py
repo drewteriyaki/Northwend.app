@@ -60,7 +60,8 @@ def _route_words(step, gp, monthly, plan):
         actual = mask_or(f"{step['actual']:.0f}%")
         return ("Your mix has drifted from its target",
                 f"{step['label']} is {actual} of your portfolio against a target of "
-                f"{step['target']:.0f}%. Bringing it back is called rebalancing.",
+                f"{step['target']:.0f}%. Bringing it back is called rebalancing - new money "
+                "can do it without selling.",
                 "See your target mix", ("page", "Plan"))
     if k == "update":
         return ("Update your holdings", f"You last brought them in {step['days']} days ago - "
@@ -156,8 +157,8 @@ if PAGE == "Dashboard":
     if INVESTOR_VIEW:
         _render_route()
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
-        render_fee_card()                     # fee check (views/fees.py)
-        render_overlap_card()                 # fund overlap (views/fund_overlap.py)
+        # fee check, fund overlap and cash check in one card (views/cash_check.py)
+        render_money_checks()
         check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #
@@ -434,6 +435,12 @@ if PAGE == "Dashboard":
                 for lbl, actual, target, d in _drift
             )
             st.warning(f"Drifted beyond ±{_thresh:g} pts from target:  \n{lines}")
+            _dep = deposit_line(alloc["by_asset_class"], _targets)   # views/next_deposit.py
+            if _dep:
+                with st.container(horizontal=True, vertical_alignment="center"):
+                    st.caption(f":material/savings: {_dep}", width="stretch")
+                    st.button("Where it could go", key="dash_deposit", type="tertiary",
+                              on_click=_open_deposit_tab)
         else:
             st.caption(f"Every targeted asset class is within ±{_thresh:g} pts of target.")
         learn_more("rebalancing")

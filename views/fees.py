@@ -95,24 +95,19 @@ def open_fee_window():
     _fee_window()
 
 
-def render_fee_card():
-    """Fee check on Home: the yearly total in one line, the window on a tap.
-    Nothing when there are no funds (single stocks have no fund fee)."""
+def fee_card_line():
+    """Fee check's one line on Home (HTML): the yearly total. None when there
+    are no funds (single stocks have no fund fee). Drawn in Home's "Your
+    money, checked" card (views/cash_check.py)."""
     r = _fee_check()
     if not fees.has_funds(r):
-        return
-    with st.container(border=True, horizontal=True, vertical_alignment="center",
-                      key="pt_fees"):
-        n_unknown = len(r["unknown"])
-        line = ("We don't have your funds' yearly fees yet." if not r["funds"] else
-                f"Your funds' yearly fees: about <span style='font-weight:600'>{html.escape(fmt_money0(r['total_yearly']))}"
-                "</span> a year at today's value"
-                + (f" ({n_unknown} fund{'s' if n_unknown != 1 else ''} not known yet)."
-                   if n_unknown else "."))
-        st.html(f"<div class='pt-route-label'>Fee check</div><div class='pt-region'>{line}</div>",
-                width="stretch")
-        if st.button("Check fees", key="fees_open", type="tertiary"):
-            open_fee_window()
+        return None
+    n_unknown = len(r["unknown"])
+    return ("We don't have your funds' yearly fees yet." if not r["funds"] else
+            f"Your funds' yearly fees: about <span style='font-weight:600'>{html.escape(fmt_money0(r['total_yearly']))}"
+            "</span> a year at today's value"
+            + (f" ({n_unknown} fund{'s' if n_unknown != 1 else ''} not known yet)."
+               if n_unknown else "."))
 
 
 def render_fee_step():

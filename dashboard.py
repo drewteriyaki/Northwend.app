@@ -262,6 +262,8 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 /* the route as a trail (route.trail_html), and the map plate above a title */
 .pt-trail { display: block; width: 100%; max-width: 760px; height: auto; margin: .6rem 0 .1rem; }
 .pt-region { font-size: .85rem; opacity: .8; margin: 0 0 .2rem; }
+.pt-checks-title { font-weight: 600; font-size: .95rem; }
+[class*="st-key-pt_check_"] { border-top: 1px solid var(--pt-line); padding-top: .5rem; }
 .pt-region b { font-family: Newsreader, Georgia, serif; font-style: italic; font-weight: 500;
   font-size: 1rem; opacity: 1; }
 .pt-eyebrow { font-family: Newsreader, Georgia, serif; font-style: italic; font-size: 1rem;
@@ -2085,6 +2087,18 @@ _view("fees")
 
 # Fund overlap: do the funds hold the same companies? (fund_holdings.py)
 _view("fund_overlap")
+
+# Cash check, and Home's "Your money, checked" card (fees, overlap, cash)
+_view("cash_check")
+
+# Plan: Stress test your mix (stress.py)
+_view("stress_test")
+
+# Plan and Home: where the next deposit could go (next_deposit.py)
+_view("next_deposit")
+
+# Learn and Plan: the employer match calculator (employer_match.py)
+_view("free_money")
 
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")

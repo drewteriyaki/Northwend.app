@@ -185,18 +185,11 @@ def _overlap_line(holdings):
     return "Your funds' largest holdings don't overlap much."
 
 
-def render_overlap_card():
-    """Fund overlap on Home: one line, the window on a tap. Nothing without
-    two funds (or a fund and a stock) to compare."""
+def overlap_card_line():
+    """Fund overlap's one line on Home (HTML), drawn in the "Your money,
+    checked" card (views/cash_check.py). None without two funds (or a fund
+    and a stock) to compare."""
     holdings = _overlap_holdings()
     if not _overlap_worth_it(holdings):
-        return
-    line = _overlap_line(holdings)
-    if line is None:
-        return
-    with st.container(border=True, horizontal=True, vertical_alignment="center",
-                      key="pt_overlap"):
-        st.html(f"<div class='pt-route-label'>Fund overlap</div><div class='pt-region'>{line}"
-                "</div>", width="stretch")
-        if st.button("See overlap", key="overlap_open", type="tertiary"):
-            open_overlap_window()
+        return None
+    return _overlap_line(holdings)

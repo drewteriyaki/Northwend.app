@@ -356,6 +356,7 @@ def _render_contributions(plan, today):
             + (_tone(m["amount"], _signed_money(m["amount"])) if m["counted"]
                else f"<s>{_signed_money(m['amount'])}</s>")
             + "</span></div>" for m in moves) + "</div>")
+    render_free_money_card("plan")   # the employer match (views/free_money.py)
 
 
 @st.fragment
@@ -416,6 +417,7 @@ def _render_target_mix(alloc_rows):
                      + "</div>")
         st.html(f"<div class='pt-legend'>{rows}</div>")
         st.caption("The bar is where the portfolio is now; the mark is the target.")
+        _render_next_deposit(alloc_rows, targets)   # views/next_deposit.py
     learn_more("asset_allocation")
     if IS_ADVISOR:
         conn = connect(DB)
@@ -712,6 +714,8 @@ def _render_plan(value, growth, alloc_rows):
         sections.append(("Money in vs growth", lambda: _render_money_in(value, growth)))
     if alloc_rows:
         sections.append(("Target mix", lambda: _render_target_mix(alloc_rows)))
+    if alloc_rows or load_alloc_targets():   # views/stress_test.py
+        sections.append(("Stress test", lambda: _render_stress_test(alloc_rows, value)))
     # what it could pay each year: for everyone, first for someone retired or
     # nearly (plans.retirement_first: the goal, the timeline, the profile)
     retire = (RETIRE_TAB, lambda: _render_retirement_income(value, today))
@@ -721,6 +725,9 @@ def _render_plan(value, growth, alloc_rows):
         sections.append(retire)
     if ON_CLIENT:   # the client's advisor: proposals (views/proposals.py)
         sections.append(("Proposals", lambda: _render_proposals_advisor(alloc_rows, value)))
-    for tab, (_name, draw) in zip(st.tabs([s[0] for s in sections]), sections):
+    # a link from elsewhere (Home's "Where it could go") may open one tab
+    first = st.session_state.pop("plan_tab", None)
+    first = first if first in [s[0] for s in sections] else None
+    for tab, (_name, draw) in zip(st.tabs([s[0] for s in sections], default=first), sections):
         with tab:
             draw()
