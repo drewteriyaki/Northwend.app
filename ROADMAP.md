@@ -1013,6 +1013,52 @@ release to main when green, new features wait on staging for the owner.
       all include them; a calm note when withdrawals outpace growth.
       -> Oct 5: stays; the base that **R11 Pay Yourself** builds on.
 
+## B. Build order - the master brief (approved Oct 5)
+
+The owner approved `docs/PLAN.md` with its recommendations (B1-B12, D1-D16
+as updated). This order now leads. The Ritual below supplies step 3 and
+step 9. Its "Next two weeks" is replaced, and its R15 is dropped. The
+"Find an advisor" M-items are superseded: M1/M3 become step 5; M2 "Get
+matched", M6 client payments and M7 reviews are out. Every new feature
+ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
+
+- [ ] **Step 1 - Hardening Phase 0 and Phase 1** (PLAN 1a and 1b, about 3 weeks)
+  - [ ] 1a.1 `flags.py`, the Walk behind its flag; Admin lists flags
+  - [ ] 1a.3 Fail closed on configuration (`settings.py`)
+  - [ ] 1a.4 Size limits (uploads, CSV rows, pasted text, chat box)
+  - [ ] 1a.5 Sign-in limits per address; timing-safe unknown usernames
+  - [ ] 1a.6 AI ceiling, first slice (app-wide monthly cap, alerts)
+  - [ ] 1a.7 Privacy wording made true; screenshot AI behind a flag; memory
+        keeps no amounts (D9); a former client's delete keeps the old advisor's
+        records (D7)
+  - [ ] 1a.8 One-click unsubscribe and `List-Unsubscribe` on the walk reminder and
+        the advisors' Monday email
+  - [ ] 1a.9 L0 basics: US-residency box, both attestations timestamped; invite
+        codes while L0 is off
+  - [ ] 1a.10 Principle tests (emails, two-step gate, `?client=`, the A/B matrix)
+  - [ ] 1a.12 Friendly save errors; 1a.13 first ADRs
+  - [ ] 1b Phase 1: RUNBOOK, sign out everyone, admin action log, CI additions,
+        layer rule test, schema version, password hashing, retention job,
+        `.env.example`, ARCHITECTURE.md, staging seed
+- [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
+      example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
+- [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
+      decoder, the no-account decoder route
+- [ ] **Step 4 - Own the hosting** (Render behind Cloudflare). Steps 5-6 never go
+      live before this
+- [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and
+      two-step consent, access logs, the standing "advice is the advisor's" line
+- [ ] **Step 6 - Billing** behind L1 (Paddle, by pull; founding seats; owner metrics)
+- [ ] **Step 7 - Remaining AI helpers** (most as rules, not AI)
+- [ ] **Step 8 - Service seams** (no new frontend now)
+- [ ] **Step 9 - Ritual R6-R12**
+
+Owner, any time from week 1: GitHub secret scanning, the Anthropic console
+spend limit and a staging workspace, a zero-data-retention request to
+Anthropic, deleting the old Neon branch, a DMARC check, the securities
+attorney (L0, then L3, L1, L2), a business entity and insurance, and the
+payment provider's approval.
+
 ## The Ritual - Northwend's primary direction (Oct 5)
 
 From a product-strategy session on retention and differentiation. Northwend's
