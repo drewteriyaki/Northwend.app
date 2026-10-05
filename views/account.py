@@ -303,6 +303,9 @@ def _render_account():
                       disabled=not st.session_state.get("confirm_delete_holdings"),
                       on_click=_delete_my_holdings)
 
+    # ---- the account map: private to this login (views/account_map.py) ----- #
+    render_account_map()
+
     # ---- delete the account ------------------------------------------------ #
     st.subheader("Delete your account", anchor=False)
     if can_delete:

@@ -996,6 +996,73 @@ class MoneyOutTests(_PG):
                          ["Tuition", "Regular withdrawal"])
 
 
+class YearAndMapTests(_PG):
+    """Year in review's reads (recap.py) and the account map's writes
+    (account_map.py) - ROADMAP 9 and 10."""
+    TAG = "yearmap"
+
+    def test_year_in_review_with_and_without_imported_history(self):
+        import recap
+        from tests.test_year_map import TODAY, seed
+        c = self.conn
+        ann, bea = self.user("ann.yr"), self.user("bea.yr")
+        seed(c, ann)
+        seed(c, bea, imported=True)
+        r = recap.build(c, ann, 2026, TODAY, current_value=4900.0, basis=perf._basis(c, ann),
+                        prefs={"gear_dates": {"map": {"on": "2026-02-01"}}})
+        self.assertEqual((r["added"], r["value_start"], r["growth"]), (1000.0, 4100.0, -200.0))
+        self.assertEqual((r["income"]["source"], r["income"]["total"]), ("estimated", 10.0))
+        self.assertEqual((r["worst"]["month"], len(r["months"])), ("2026-03", 10))
+        self.assertEqual((r["gear"], r["months_invested"]), (["map"], 10))
+        self.assertEqual(r["notes"], 0)
+        r = recap.build(c, bea, 2026, TODAY, current_value=5000.0, basis=perf._basis(c, bea))
+        self.assertEqual((r["added"], r["income"]["source"], r["income"]["total"]),
+                         (2000.0, "brokerage", 5.0))
+        self.assertFalse(recap.has_money(recap.share_text(r)))
+        self.assertTrue(recap.share_pdf(r).startswith(b"%PDF"))
+        # notes to future you written that year (the table found in information_schema)
+        import future_notes
+        future_notes.save(c, ann, None, "Hold on", now="2026-04-01T10:00:00Z")
+        self.assertEqual(recap.notes_written(c, ann, "2026-01-01", "2026-10-05"), 1)
+        with unittest.mock.patch.object(recap, "NOTES_TABLE", "no_such_table"):
+            self.assertIsNone(recap.notes_written(c, ann, "2026-01-01", "2026-10-05"))
+
+    def test_account_map_save_export_and_delete(self):
+        import account_map
+        from tests.test_year_map import seed
+        c = self.conn
+        uid = auth.sign_up(c, "map@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        seed(c, uid)
+        account_map.save_account(c, uid, "Roth IRA ...641", {
+            "kind": "Roth IRA", "contact": "Help line", "phone": "800-555-0101",
+            "beneficiary": "Yes", "paperwork": "Desk", "notes": "Since 2019"})
+        account_map.save_account(c, uid, "Roth IRA ...641", {"kind": "Roth IRA",
+                                                             "beneficiary": "Not sure"})
+        oid = account_map.save_other(c, uid, {"label": "Credit union", "digits": "12345"})
+        account_map.save_other(c, uid, {"label": "Credit union savings", "digits": "678"}, oid)
+        account_map.save_family(c, uid, "Spouse knows the password manager")
+        rows = self.seen("SELECT entry, account, label, last_digits, kind, beneficiary, notes "
+                         "FROM account_map WHERE user_id = ? ORDER BY entry", (uid,))
+        self.assertEqual(rows, [
+            {"entry": "account", "account": "Roth IRA ...641", "label": None,
+             "last_digits": None, "kind": "Roth IRA", "beneficiary": "Not sure", "notes": None},
+            {"entry": "family", "account": None, "label": None, "last_digits": None,
+             "kind": None, "beneficiary": None, "notes": "Spouse knows the password manager"},
+            {"entry": "other", "account": None, "label": "Credit union savings",
+             "last_digits": "678", "kind": None, "beneficiary": None, "notes": None}])
+        m = account_map.load(c, uid)
+        self.assertEqual([a["account"] for a in m["accounts"]],
+                         ["Individual ...222", "Roth IRA ...641"])
+        self.assertTrue(account_map.render_pdf(m, name="Map").startswith(b"%PDF"))
+        z = zipfile.ZipFile(io.BytesIO(export.export_zip(c, uid)))
+        self.assertIn("Spouse knows", z.read("account_map.csv").decode())
+        account_map.delete_entry(c, uid, oid)
+        self.assertEqual(len(self.seen("SELECT id FROM account_map WHERE user_id = ?", (uid,))),
+                         2)
+        self.assertTrue(admin.delete_own(c, uid, PW)["ok"])
+        self.assertEqual(self.seen("SELECT id FROM account_map WHERE user_id = ?", (uid,)), [])
+
+
 class DeleteAccountTests(_PG):
     TAG = "delete"
 

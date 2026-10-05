@@ -160,6 +160,8 @@ if PAGE == "Dashboard":
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
         # fee check, fund overlap and cash check in one card (views/cash_check.py)
         render_money_checks()
+        render_account_map_nudge()            # 2+ accounts, no map yet (views/account_map.py)
+        render_year_card()                    # Year in review (views/year_review.py)
         check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #

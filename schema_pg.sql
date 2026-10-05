@@ -474,6 +474,23 @@ CREATE TABLE IF NOT EXISTS csv_layouts (
     updated_at  TEXT NOT NULL
 );
 
+-- Account map - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS account_map (
+    id           SERIAL  PRIMARY KEY,
+    user_id      INTEGER NOT NULL,
+    entry        TEXT    NOT NULL,
+    account      TEXT,
+    label        TEXT,
+    last_digits  TEXT,
+    kind         TEXT,
+    contact      TEXT,
+    phone        TEXT,
+    beneficiary  TEXT,
+    paperwork    TEXT,
+    notes        TEXT,
+    updated_at   TEXT    NOT NULL
+);
+
 -- Errors and failed jobs, one row per kind - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS error_events (
     kind        TEXT PRIMARY KEY,

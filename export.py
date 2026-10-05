@@ -3,8 +3,8 @@ files, from Profile > Your data, next to deleting it. Pure logic, no
 Streamlit.
 
 What's in it: the account's holdings and their history, cash, activity,
-plan, goals, profile answers, settings, watchlist, AI use counts and an
-advisor request; for a client, what their advisor shared with them (notes
+plan, goals, profile answers, settings, watchlist, AI use counts, an
+account map and an advisor request; for a client, what their advisor shared with them (notes
 not marked private, proposals that were shared, progress reports); for an
 advisor, their model portfolios. Never a password, a sign-in or email-link
 token, or a hash of an internet address; never another person's data (an
@@ -54,6 +54,8 @@ OWN = [
     ("two_step_sign_in", "two_step", "user_id", ""),
     # private to them: in their own export only, never an advisor's client record
     ("notes_to_future_you", "future_notes", "user_id", ""),
+    # the "if something happens to me" binder (account_map.py) - their own only
+    ("account_map", "account_map", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -78,6 +80,7 @@ Open them in any spreadsheet. Dates are UTC.
 - from_your_advisor_*.csv: what your advisor shared with you, if you have one
 - two_step_sign_in.csv: when you turned on two-step sign-in, if you did
 - notes_to_future_you.csv: the notes you wrote to yourself on a holding or your plan
+- account_map.csv: your account map - who to call, paperwork, notes for family
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

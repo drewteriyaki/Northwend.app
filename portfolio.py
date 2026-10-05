@@ -144,6 +144,7 @@ USER_INDEXES = [
     ("idx_transactions_user", "transactions", "user_id, trade_date"),
     ("idx_value_log_user", "value_log", "user_id, logged_at"),
     ("idx_money_out_user", "money_out", "user_id, start_date"),
+    ("idx_account_map_user", "account_map", "user_id"),   # account_map.py
 ]
 
 

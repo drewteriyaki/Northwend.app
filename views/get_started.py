@@ -6,6 +6,8 @@
 # The Get started page: the new-investor path and the practice portfolio.
 # ruff: noqa: F821
 
+import recap   # steps and reads are dated for Year in review (recap.note_done)
+
 # ---- Get started page ------------------------------------------------------ #
 # readiness state -> (icon markdown, words); the words always go with the icon
 _READY_ICON = {
@@ -104,6 +106,7 @@ def _complete(step):
     then), then on to the next waypoint not complete yet."""
     p = _read_prefs()
     p["get_started_done"] = sorted(set(p.get("get_started_done") or []) | {step})
+    recap.note_done(p, recap.LEARN_DATES, step)   # dated, for Year in review
     if step == "brokerage":   # the account checklist's first tick (ACCOUNT_STEPS)
         ticks = set(p.get("account_steps") or []) | {"chosen"}
         p["account_steps"] = [k for k, _, _ in ACCOUNT_STEPS if k in ticks]
@@ -475,6 +478,9 @@ def _basics_topics(monthly, years):
 
 @st.dialog("The basics", width="medium")
 def _basics_window(key, monthly, years):
+    p = _read_prefs()
+    if recap.note_done(p, recap.LEARN_READS, f"basics:{key}"):   # for Year in review
+        _write_prefs(p)
     for k, icon, title, _line, body in _basics_topics(monthly, years):
         if k == key:
             st.markdown(f"### {icon} {title}")

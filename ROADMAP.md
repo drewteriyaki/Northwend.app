@@ -984,11 +984,13 @@ release to main when green, new features wait on staging for the owner.
       shown back on Home when markets drop. Never shown to an advisor or sent to
       the AI unless the person asks about that note.
       -> Oct 5: stays; feeds **R3 The Expedition Log** and **R4 Storm Shelter**.
-- [ ] **9. Year in review** - a private yearly recap, and a version to share
+- [x] **9. Year in review** (`recap.py`, `views/year_review.py`: a window from Home;
+      the share card and PDF carry percentages, never dollars) - a private yearly recap, and a version to share
       with no dollar figures.
       -> Oct 5: stays, as December in **R7 The Four Seasons**; **R3**'s log
       becomes its main source.
-- [ ] **10. Account map** - an "if something happens to me" binder: every
+- [x] **10. Account map** (`account_map.py`, `views/account_map.py`, the `account_map`
+      table; on Account, only ever the login's own) - an "if something happens to me" binder: every
       account (brokerage, type, last 3 digits, rough value, who to call),
       notes for family, a PDF only you download, and a guide to finding old
       401(k)s and unclaimed accounts.

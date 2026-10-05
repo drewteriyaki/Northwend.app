@@ -62,6 +62,10 @@ Each statement about data here must stay true to the code:
   plans, profile, notes, settings, watchlist, login); only for an account
   that manages itself (dashboard CAN_MANAGE).
 - No usage statistics: .streamlit/config.toml gatherUsageStats = false.
+- Account map (account_map.py, the Account page): the login's own, never shown
+  to an advisor, never emailed or sent to the AI; its PDF only downloaded.
+  Year in review (recap.py): read from data already kept; the share version
+  has no dollar figures.
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).

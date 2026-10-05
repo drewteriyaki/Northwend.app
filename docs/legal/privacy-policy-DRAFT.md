@@ -54,6 +54,9 @@ account, contact us and we will delete it.
 - Your plan and goal, target mix, watchlist, settings and progress through Learn.
 - Notes you write to your future self on a holding or your plan, and your monthly
   check-ins.
+- If you make one, your account map: for each account, its kind, who to call,
+  whether a beneficiary is named, where the paperwork is, and your notes for
+  family (accounts you add by hand keep at most their last 3 digits).
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations (not shown in the app).
@@ -116,8 +119,10 @@ It is shared only as needed to run the service, with:
 | **Cloudflare** (Pages) | Serves the website northwend.app | Visitors' IP address and browser details |
 
 Your advisor, if you have one, sees everything in your account except your notes
-to your future self, which only you see; you see your own portfolio, plan and the
-notes your advisor shares with you (not ones they mark private).
+to your future self and your account map, which only you see (the account
+map is never emailed, and its PDF is only downloaded by you); you see your
+own portfolio, plan and the notes your advisor shares with you (not ones
+they mark private).
 
 The person who runs Northwend can see, on an admin page, only login details:
 username, email, role, when the account was made and last signed in, and locks -

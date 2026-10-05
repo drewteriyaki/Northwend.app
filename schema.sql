@@ -528,6 +528,28 @@ CREATE TABLE IF NOT EXISTS csv_layouts (
     updated_at  TEXT NOT NULL
 );
 
+-- Account map (account_map.py, ROADMAP 10): the person's own "if something
+-- happens to me" binder. entry 'account': what they filled in for an account
+-- they brought in (`account` its saved name, already cut to the last 3
+-- digits); 'other': one they added by hand (label, last_digits - 3 at most);
+-- 'family': their notes for family (notes), one per person. Private: never
+-- shown to an advisor, never emailed, never sent to the AI.
+CREATE TABLE IF NOT EXISTS account_map (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,
+    entry        TEXT    NOT NULL,               -- 'account' | 'other' | 'family'
+    account      TEXT,
+    label        TEXT,
+    last_digits  TEXT,
+    kind         TEXT,                           -- account_map.KINDS
+    contact      TEXT,                           -- who to call
+    phone        TEXT,
+    beneficiary  TEXT,                           -- 'Yes' | 'No' | 'Not sure'
+    paperwork    TEXT,                           -- where the paperwork is
+    notes        TEXT,
+    updated_at   TEXT    NOT NULL                -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+);
+
 -- Unexpected errors and failed scheduled jobs, one row per kind (error_alerts.py):
 -- the error's type and the file/function where it happened - never its message,
 -- anyone's data or a user_id. Limits the admin's alert emails to one an hour.

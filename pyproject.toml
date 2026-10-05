@@ -51,4 +51,6 @@ py-modules = [
     "weekly_email",
     # the investor tools: stress test, next deposit, cash check, employer match
     "stress", "next_deposit", "cash_check", "employer_match",
+    # year in review and the account map
+    "recap", "account_map",
 ]

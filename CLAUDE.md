@@ -110,6 +110,11 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   message; it also hands the error to `error_alerts.py`, R1: type and place only, no
   user_id, emailed to ALERT_EMAIL at most once an hour per kind, hosted copies only -
   a new scheduled job needs its own "Tell the admin it failed" step, a test checks).
+- Recaps and records: `recap.py` + `views/year_review.py` (Year in review, a window from
+  Home; the share version never has dollars), `account_map.py` + `views/account_map.py`
+  (the "if something happens to me" map on Account - only the login's own, never an
+  advisor's view or the AI), `checkin.py` + `views/checkin.py` (the monthly check-in;
+  `checkin_email.py` its no-figures reminder), `future_notes.py` (notes to future you).
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
