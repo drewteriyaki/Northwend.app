@@ -487,6 +487,17 @@ CREATE TABLE IF NOT EXISTS error_events (
     emailed_at  TEXT
 );
 
+-- Notes to future you - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS future_notes (
+    id          SERIAL  PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    symbol      TEXT,                            -- NULL: the plan's note
+    body        TEXT    NOT NULL,
+    created_at  TEXT    NOT NULL,                -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    updated_at  TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_future_notes_user ON future_notes (user_id, symbol);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

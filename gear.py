@@ -47,6 +47,10 @@ GEAR = (
      "Log money you add on Plan - any amount, three months in a row.", None,
      ('<path d="M9 6h6"/>', '<path d="M10 3h4v3h-4z"/>',
       '<rect x="7" y="6" width="10" height="13" rx="3"/>', '<path d="M12 10v5"/>')),
+    ("logbook", "Logbook", "A steady hand: three monthly check-ins",
+     "Do the monthly check-in on Home - three of them, in any months.", None,
+     ('<path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z"/>', '<path d="M6 19a2 2 0 0 1 2-2h11"/>',
+      '<path d="M10 7h6"/>', '<path d="M10 11h4"/>')),
     ("cloak", "Storm cloak", "Storm weathered: you held steady through a drop",
      "Nothing to do now - it comes if the market has a rough patch and you stay in.", None,
      ('<path d="M3 15h18"/>', '<path d="M6 15c0-4 2.7-7 6-7s6 3 6 7"/>',
@@ -59,12 +63,13 @@ KEYS = tuple(g[0] for g in GEAR)
 BY_KEY = {g[0]: g for g in GEAR}
 STORM_DROP_PCT = 10.0
 STREAK_MONTHS = 3
+CHECKINS = 3   # the logbook: monthly check-ins finished (checkin.LOGBOOK_CHECKINS)
 _NUMBER_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
 
 # the fact (earned()'s `facts`) that earns each piece
 NEED = {"map": "profile_done", "compass": "goal_set", "tent": "basics_done",
         "rope": "practice_done", "boots": "statement_in", "lantern": "steady",
-        "cloak": "storm", "flag": "goal_reached"}
+        "logbook": "checkins", "cloak": "storm", "flag": "goal_reached"}
 
 # What each piece is for, in one short line - shown wherever it appears.
 FOR = {
@@ -77,6 +82,7 @@ FOR = {
             "real money.",
     "boots": "For starting to follow your own investments here.",
     "lantern": "For a steady habit of adding money - any amount counts.",
+    "logbook": "For a calm habit of looking in once a month - not every day.",
     "cloak": "For holding steady through a market drop instead of selling.",
     "flag": "For reaching the goal you set.",
 }
@@ -94,6 +100,8 @@ HOW = {
     "lantern": (f"Earned when you add money in {_NUMBER_WORDS[STREAK_MONTHS]} calendar "
                 "months in a row, up to this month or last - logged on Plan or in your "
                 "brokerage's activity."),
+    "logbook": (f"Earned when you finish the monthly check-in on Home "
+                f"{_NUMBER_WORDS[CHECKINS]} times - in any months, in a row or not."),
     "cloak": (f"Earned when your portfolio falls {STORM_DROP_PCT:.0f}% or more below its "
               "high and you don't sell anything between the high and the low."),
     "flag": "Earned when your holdings reach your goal's amount (the example portfolio "
@@ -114,6 +122,8 @@ WHY = {
              "instead of guessing.",
     "lantern": "Adding regularly, whatever the amount, is one of the habits that matters "
                "most over the years.",
+    "logbook": "A short, regular look at your plan keeps you in touch with it without "
+               "watching every move, so the ups and downs are easier to sit through.",
     "cloak": "Selling in a drop turns a fall on paper into a real loss; staying in gives "
              "your investments the chance to recover.",
     "flag": "You set a goal and stayed with it until you got there - a good moment to "
@@ -121,7 +131,8 @@ WHY = {
 }
 
 # Where to go to earn it: (button label, ("learn", Get started waypoint) |
-# ("page", page) | ("dialog", holdings dialog)). The storm cloak has none -
+# ("page", page) | ("dialog", holdings dialog) | ("checkin", page): Home with
+# the monthly check-in open, views/checkin.py). The storm cloak has none -
 # there's nothing to do but stay in.
 GO = {
     "map": ("Answer the questions", ("learn", "profile")),
@@ -130,6 +141,7 @@ GO = {
     "rope": ("Try practice money", ("learn", "practice")),
     "boots": ("Bring in holdings", ("dialog", "manual")),
     "lantern": ("Log money added", ("page", "Plan")),
+    "logbook": ("Start a check-in", ("checkin", "Dashboard")),
     "flag": ("See your plan", ("page", "Plan")),
 }
 
@@ -186,8 +198,8 @@ NOT_FOR_CLIENTS = ("rope",)
 
 def earned(facts: dict, keys: tuple[str, ...] = KEYS) -> list[str]:
     """The keys of the gear earned, in kit order. `facts`: profile_done,
-    goal_set, basics_done, practice_done, statement_in, steady, storm,
-    goal_reached (booleans). `keys`: the kit (kit_keys())."""
+    goal_set, basics_done, practice_done, statement_in, steady, checkins,
+    storm, goal_reached (booleans). `keys`: the kit (kit_keys())."""
     return [k for k in keys if facts.get(NEED[k])]
 
 

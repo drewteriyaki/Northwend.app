@@ -52,6 +52,8 @@ OWN = [
     ("your_former_clients", "former_clients", "advisor_id", ""),
     # when two-step sign-in was turned on - its key and backup codes never
     ("two_step_sign_in", "two_step", "user_id", ""),
+    # private to them: in their own export only, never an advisor's client record
+    ("notes_to_future_you", "future_notes", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -75,6 +77,7 @@ Open them in any spreadsheet. Dates are UTC.
 - your_former_clients.csv: for an advisor, clients whose relationship ended
 - from_your_advisor_*.csv: what your advisor shared with you, if you have one
 - two_step_sign_in.csv: when you turned on two-step sign-in, if you did
+- notes_to_future_you.csv: the notes you wrote to yourself on a holding or your plan
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

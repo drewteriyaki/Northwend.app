@@ -393,7 +393,7 @@ class InvestPathAppTests(unittest.TestCase):
     def test_milestones_still_earned(self):
         with self._run(self.rae, "rae", "Dashboard") as at:
             # map, compass, tent, rope and boots: Learn's waypoints and their holdings
-            self.assertIn("Your kit · 5 of 8 earned", self._html(at))
+            self.assertIn("Your kit · 5 of 9 earned", self._html(at))
             self.assertIn("On the trail · your expedition", self._html(at))
 
     # ---- an advisor's client ------------------------------------------------- #

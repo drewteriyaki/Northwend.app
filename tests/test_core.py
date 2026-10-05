@@ -1763,7 +1763,7 @@ class GearTests(unittest.TestCase):
         import gear
         self.assertEqual(gear.earned({"goal_set": True, "profile_done": True, "storm": True}),
                          ["map", "compass", "cloak"])
-        self.assertEqual(len(gear.KEYS), 8)
+        self.assertEqual(len(gear.KEYS), 9)
 
     def test_first_visit_after_the_update_is_quiet(self):
         import gear
@@ -1844,6 +1844,8 @@ class GearTests(unittest.TestCase):
                 self.assertIn(f'("{where}", ', steps)
             elif kind == "page":
                 self.assertEqual(where, "Plan")
+            elif kind == "checkin":    # Home, with the monthly check-in open
+                self.assertEqual((k, where), ("logbook", "Dashboard"))
             else:
                 self.assertEqual((kind, where), ("dialog", "manual"))
         self.assertNotIn("cloak", gear.GO)    # nothing to do but stay in
@@ -1852,7 +1854,9 @@ class GearTests(unittest.TestCase):
         import gear
         self.assertEqual(gear.next_up([]), "map")
         self.assertEqual(gear.next_up(["map", "compass", "tent", "rope", "boots", "lantern"]),
-                         "flag")
+                         "logbook")
+        self.assertEqual(gear.next_up(["map", "compass", "tent", "rope", "boots", "lantern",
+                                       "logbook"]), "flag")
         self.assertEqual(gear.next_up([k for k in gear.KEYS if k != "cloak"]), "cloak")
         self.assertIsNone(gear.next_up(list(gear.KEYS)))
 

@@ -36,10 +36,13 @@ import advising  # noqa: E402
 import advisor  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
+import checkin  # noqa: E402
+import checkin_email  # noqa: E402
 import csv_import  # noqa: E402
 import error_alerts  # noqa: E402
 import export  # noqa: E402
 import fund_holdings  # noqa: E402
+import future_notes  # noqa: E402
 import income  # noqa: E402
 import learn  # noqa: E402
 import live_prices  # noqa: E402
@@ -618,6 +621,70 @@ class AdvisorTests(_PG):
 
 
 # --------------------------------------------------------------------------- #
+# notes to future you and the monthly check-in's reminder email
+# --------------------------------------------------------------------------- #
+@unittest.skipUnless(PG, SKIP)
+class FutureNotesTests(_PG):
+    TAG = "fnotes"
+
+    def test_notes_add_edit_delete_export_and_never_the_advisors(self):
+        c = self.conn
+        carol = self.user("carol.fn", advisor=True)
+        dana = auth.create_client(c, carol, "dana.fn@example.com", name="Dana")
+        self.assertTrue(future_notes.save(c, dana, "vti", "Holding this for 20 years",
+                                          now="2026-03-03T10:00:00Z"))
+        self.assertTrue(future_notes.save(c, dana, None, "For the house; not before 2030"))
+        future_notes.save(c, dana, "VTI", "Twenty years, whole market",
+                          now="2026-04-01T10:00:00Z")
+        # what another connection sees: committed, one note per holding, the plan's NULL
+        self.assertEqual(self.one("SELECT body, created_at, updated_at FROM future_notes "
+                                  "WHERE user_id = ? AND symbol = ?", (dana, "VTI")),
+                         {"body": "Twenty years, whole market",
+                          "created_at": "2026-03-03T10:00:00Z",
+                          "updated_at": "2026-04-01T10:00:00Z"})
+        self.assertEqual(self.one("SELECT body FROM future_notes WHERE user_id = ? AND "
+                                  "symbol IS NULL", (dana,)),
+                         {"body": "For the house; not before 2030"})
+        self.assertEqual(set(future_notes.all_notes(c, dana)), {"VTI", None})
+        mine = zipfile.ZipFile(io.BytesIO(export.export_zip(c, dana)))
+        self.assertIn("Twenty years", mine.read("notes_to_future_you.csv").decode())
+        record = zipfile.ZipFile(io.BytesIO(export.client_record_zip(c, carol, dana)))
+        for name in record.namelist():
+            self.assertNotIn("Twenty years", record.read(name).decode(), name)
+        future_notes.delete(c, carol, "VTI")                 # not the advisor's to delete
+        self.assertIsNotNone(future_notes.get(c, dana, "VTI"))
+        self.assertFalse(future_notes.save(c, dana, "VTI", "  "))   # empty: deleted
+        future_notes.delete(c, dana)
+        self.assertEqual(self.seen("SELECT * FROM future_notes WHERE user_id = ?", (dana,)), [])
+
+    def test_checkin_reminders_opt_in_confirmed_once_a_month(self):
+        c = self.conn
+        yes = self.user("yes.ci")
+        off = self.user("off.ci")
+        for uid, name, on in ((yes, "yes.ci", True), (off, "off.ci", False)):
+            c.execute("UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?",
+                      (f"{name}@example.com", "2026-09-01T10:00:00Z", uid))
+            c.commit()
+            prefs.save(c, uid, {checkin.PREF_SINCE: "2026-08", checkin.PREF_EMAIL: on})
+        carol = self.user("carol.ci", advisor=True)
+        client = auth.create_client(c, carol, "client.ci@example.com", name="Cli")
+        prefs.save(c, client, {checkin.PREF_SINCE: "2026-08", checkin.PREF_EMAIL: True})
+        self.assertEqual([r["id"] for r in checkin_email.recipients(c)], [yes])
+        day = date(2026, 10, 5)
+        sent = []
+        dry = checkin_email.run(c, "https://app.example/", day, dry_run=True,
+                                send=lambda *a: sent.append(a) or True)
+        self.assertEqual((dry["would_send"], sent), (1, []))
+        done = checkin_email.run(c, "https://app.example/", day,
+                                 send=lambda *a: sent.append(a) or True)
+        self.assertEqual((done["sent"], len(sent)), (1, 1))
+        self.assertEqual(json.loads(self.one("SELECT data FROM user_prefs WHERE user_id = ?",
+                                             (yes,))["data"])[checkin.PREF_SENT], "2026-10")
+        again = checkin_email.run(c, "https://app.example/", day, send=lambda *a: True)
+        self.assertEqual(again["sent"], 0)
+
+
+# --------------------------------------------------------------------------- #
 # an investor's own data: holdings, activity, plans, settings, prices
 # --------------------------------------------------------------------------- #
 def _positions_file(name):
@@ -941,6 +1008,7 @@ class DeleteAccountTests(_PG):
         plans.save_plan(c, uid, {"goal_type": "Home"}, set_by=uid)
         plans.add_money_out(c, uid, "expense", {"label": "A car", "amount": 20000,
                                                 "start_date": "2027-06-01"}, by=uid)
+        future_notes.save(c, uid, None, "For the house")
         auth.create_session(c, uid)
         self.assertFalse(admin.delete_own(c, uid, "wrong-password")["ok"])
         self.assertTrue(admin.delete_own(c, uid, PW)["ok"])

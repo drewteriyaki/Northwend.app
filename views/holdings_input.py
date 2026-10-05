@@ -482,6 +482,8 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
            if p["older"] and (n_changed or d["closed"]) else ""))
     st.caption(NOT_KEPT)
     if st.button("Save holdings", type="primary", key=key):
+        # a first save of real holdings: offer a note to future you after it
+        first = not HAS_REAL_HOLDINGS and source != SAMPLE_SOURCE and USER_ID == LOGIN_ID
         try:
             _manual_save(p, source)
         except DBError as exc:
@@ -496,6 +498,8 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
                 flash += (f"; your {k} other account{'s are' if k != 1 else ' is'} "
                           "kept as before")
             st.session_state["import_flash"] = flash + "."
+            if first:
+                st.session_state["fn_nudge"] = True   # views/future_notes.py
             if after:
                 after()
             _after_import()

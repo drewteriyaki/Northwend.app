@@ -1005,6 +1005,7 @@ def _render_plan(value, growth, alloc_rows):
         _render_plan_form(plan, today, value)
     else:
         _render_plan_status(plan, value, today)
+    render_future_note(None)   # private, the person's own (views/future_notes.py)
     editing = CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan))
     # Everything else one tab at a time (ROADMAP S3); each tab redraws on its
     # own when something in it changes, not the whole page.

@@ -52,6 +52,8 @@ account, contact us and we will delete it.
 - Your portfolio's value over time, any contributions you record, and nicknames
   you give your accounts.
 - Your plan and goal, target mix, watchlist, settings and progress through Learn.
+- Notes you write to your future self on a holding or your plan, and your monthly
+  check-ins.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations (not shown in the app).
@@ -109,13 +111,13 @@ It is shared only as needed to run the service, with:
 | **Anthropic** (Claude) | The AI guide, plan next steps, advisor talking points; screenshot reading and the column guess only when you choose | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
-| **GitHub Actions** | Runs the scheduled price updates and the advisors' Monday email | Access to the database to do those jobs |
+| **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly check-in reminders people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails | Your email address and that message |
 | **Cloudflare** (Pages) | Serves the website northwend.app | Visitors' IP address and browser details |
 
-Your advisor, if you have one, sees everything in your account; you see your own
-portfolio, plan and the notes your advisor shares with you (not ones they mark
-private).
+Your advisor, if you have one, sees everything in your account except your notes
+to your future self, which only you see; you see your own portfolio, plan and the
+notes your advisor shares with you (not ones they mark private).
 
 The person who runs Northwend can see, on an admin page, only login details:
 username, email, role, when the account was made and last signed in, and locks -
@@ -135,7 +137,8 @@ Anthropic:
   portfolio, its gain or loss as a percentage, and figures like dividend yield,
   beta and P/E - **never dollar amounts, share counts, account names or numbers**;
 - what you type in the chat, and the guide's short notes from earlier
-  conversations.
+  conversations. A note to your future self is sent only when you ask the guide
+  about that note, as part of your question.
 
 An advisor's meeting talking points send the same profile and holdings summary,
 plus facts in percentages (how the portfolio and goal moved since the last review,
@@ -202,7 +205,8 @@ terms, and link them.]
 - **Anything else,** or if you can't sign in: email support@northwend.app. We'll
   answer within [OWNER: number] days.
 - **Emails:** Northwend sends no newsletters or marketing. Advisors can turn off
-  the Monday summary on the Clients page.
+  the Monday summary on the Clients page. The monthly check-in reminder is off
+  unless you turn it on (Account page), and says only that it's time - no figures.
 
 ## 9. Security
 

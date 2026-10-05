@@ -102,7 +102,7 @@ class KitTests(unittest.TestCase):
     def test_home_card_names_every_piece_and_opens_the_window(self):
         with self._run(self.kim, "kim") as at:
             body = self._html(at)
-            self.assertIn("Your kit · 2 of 8 earned", body)
+            self.assertIn("Your kit · 2 of 9 earned", body)
             for k in gear.KEYS:
                 name = gear.BY_KEY[k][1]
                 self.assertIn(f">{name}</span>", body)          # a visible label
@@ -121,7 +121,8 @@ class KitTests(unittest.TestCase):
             keys = [b.key for b in at.button if b.key]
             for k in ("tent", "rope", "boots", "lantern", "flag"):
                 self.assertIn(f"kit_go_{k}", keys)
-            for k in ("map", "compass", "cloak"):           # earned / nothing to do
+            # earned / nothing to do (the logbook: no check-in waiting without holdings)
+            for k in ("map", "compass", "cloak", "logbook"):
                 self.assertNotIn(f"kit_go_{k}", keys)
 
     def test_the_button_goes_to_the_waypoint(self):

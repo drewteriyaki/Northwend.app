@@ -34,6 +34,7 @@ ACCOUNT_TABLES = {
     "proposals": ("advisor_id", "client_id"), "progress_reports": ("advisor_id", "client_id"),
     "two_step": ("user_id",), "money_out": ("user_id",),
     "former_clients": ("advisor_id", "client_id"),
+    "future_notes": ("user_id",),   # notes to future you (future_notes.py)
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)

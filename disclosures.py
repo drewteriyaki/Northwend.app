@@ -42,6 +42,13 @@ Each statement about data here must stay true to the code:
   due / coming due, accepted proposals, open next steps), no client names or
   figures; confirmed or admin-made emails only; off switch in prefs
   (weekly_email_off); once a week (weekly_email_week).
+- Notes to future you (future_notes.py, future_notes table): the person's own,
+  never drawn while an advisor views the account, never in an advisor's client
+  record (export.client_record), never in an AI prompt - only in the person's
+  own chat message when they press "Ask Northwend about it"; real delete.
+- Monthly check-in reminder (checkin_email.py, GitHub Actions): off unless
+  turned on (prefs checkin_email), confirmed emails only, once a month
+  (checkin_email_sent), says only that it's time - no figures.
 - Export everything (export.py): the account's own rows as CSV; never password
   hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,

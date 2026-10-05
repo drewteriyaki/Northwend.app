@@ -8,6 +8,7 @@
 # learning and steady habits only; nothing is lost or for sale.
 # ruff: noqa: F821
 
+import checkin
 import gear
 import storms
 
@@ -43,6 +44,7 @@ def _read_gear_facts(value):
             "basics_done": state["done"]["basics"], "practice_done": state["done"]["practice"],
             "statement_in": HAS_HOLDINGS and SNAPSHOT_SOURCE != SAMPLE_SOURCE,
             "steady": gear.steady_months(added, datetime.now().date()),
+            "checkins": checkin.logbook(_read_prefs()),   # monthly check-ins (views/checkin.py)
             "storm": gear.weathered_storm(values, sells), "goal_reached": reached}
 
 
@@ -71,6 +73,9 @@ def _gear_go(target):
     kind, where = target
     if kind == "dialog":
         _open_holdings_dialog(where)
+    elif kind == "checkin":   # Home, with this month's check-in open (views/checkin.py)
+        st.session_state["checkin_open"] = True
+        _go(where)
     elif kind == "learn":
         # that waypoint open on Learn (if Learn still has it)
         if where in dict(globals().get("GET_STARTED_STEPS") or ()):
@@ -82,7 +87,10 @@ def _gear_go(target):
 
 def _gear_can_go(k):
     """A button to where the piece is earned - not for a managed client's
-    goal or money added, which their advisor keeps (Plan is read-only)."""
+    goal or money added, which their advisor keeps (Plan is read-only); the
+    logbook only while a check-in is waiting on Home (views/checkin.py)."""
+    if k == "logbook":
+        return _checkin_due()
     return k in gear.GO and (CAN_MANAGE or k not in ("compass", "lantern"))
 
 
@@ -280,6 +288,8 @@ def render_weather():
                 f"<div class='pt-region' style='margin-top:.4rem'>{html.escape(nothing)}"
                 + (" Holding steady through a storm earns the <b>storm cloak</b> for "
                    "your kit." if cloak else "") + "</div>")
+        if own:   # their own words back, never an advisor's view (views/future_notes.py)
+            render_storm_notes(w)
         with st.container(horizontal=True):
             if st.button("What storms have looked like", key="storm_more", type="tertiary"):
                 st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)

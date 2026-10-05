@@ -192,6 +192,8 @@ if PAGE in ("Dashboard", "Watchlist"):
                                     "your holdings)" if _div.get("since") else "") + ".")
                     st.caption("Total return is the price change plus the dividends this holding "
                                f"paid. {_from} Dividends can change.")
+                # private, the person's own (views/future_notes.py)
+                render_future_note(_sym)
             else:
                 st.markdown("#### On your watchlist")
                 st.caption("Not a position you own — tracking it for the chart and stats only.")

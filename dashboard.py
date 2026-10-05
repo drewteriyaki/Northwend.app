@@ -256,6 +256,14 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-storm-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .pt-storm-table th { text-align: left; font-weight: 600; opacity: .75; padding: .3rem .4rem; }
 .pt-storm-table td { padding: .35rem .4rem; border-top: 1px solid var(--pt-line); }
+/* notes to future you (views/future_notes.py): the person's own words, quoted */
+.pt-fnote { border-left: 3px solid var(--pt-dawn); padding: .1rem 0 .1rem .7rem;
+  font-family: Newsreader, Georgia, serif; font-style: italic; font-size: 1.05rem;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.pt-fnote-when { font-size: .8rem; opacity: .75; margin: .2rem 0 0 .85rem; }
+.pt-fnote-storm { margin-top: .6rem; padding: .5rem .8rem; border-radius: .5rem;
+  background: var(--pt-dawn-soft); overflow-wrap: anywhere; }
+.pt-fnote-head { font-weight: 600; margin-top: .45rem; }
 /* the trail is two images, one per theme; show the one that matches */
 :root[data-pt-theme="dark"] .pt-on-light, :root:not([data-pt-theme="dark"]) .pt-on-dark {
   display: none; }
@@ -2115,6 +2123,12 @@ _view("advisor_demo")
 # milestones and gear: the "milestone reached" window and Your kit (gear.py)
 _view("kit")
 
+# notes to future you: on a holding, on the plan, back on a storm (future_notes.py)
+_view("future_notes")
+
+# the monthly check-in on Home, and its settings on Account (checkin.py)
+_view("checkin")
+
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)
 _view("fees")
 
@@ -2758,6 +2772,7 @@ def _page_header(title, *, data=True):
     _flash = st.session_state.pop("import_flash", None)
     if _flash:
         st.success(_flash)
+    render_future_note_nudge()   # after a first save of holdings (views/future_notes.py)
 
 
 def _signed_money(v):

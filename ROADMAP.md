@@ -980,8 +980,9 @@ release to main when green, new features wait on staging for the owner.
       `former_clients` keeps the advisor's records) - add clients from a CSV with invites; a demo book
       while approval is pending; "End relationship" (the client keeps a
       self-directed account and is told).
-- [ ] **8. Notes to future you** - a private note on a holding or the plan,
-      shown back on Home when markets drop.
+- [x] **8. Notes to future you** (`future_notes.py`, `views/future_notes.py`) - a private note on a holding or the plan,
+      shown back on Home when markets drop. Never shown to an advisor or sent to
+      the AI unless the person asks about that note.
       -> Oct 5: stays; feeds **R3 The Expedition Log** and **R4 Storm Shelter**.
 - [ ] **9. Year in review** - a private yearly recap, and a version to share
       with no dollar figures.
@@ -993,7 +994,8 @@ release to main when green, new features wait on staging for the owner.
       401(k)s and unclaimed accounts.
       -> Oct 5: the finding-old-accounts half becomes **R9 Lost & Found** (and
       moves up to Tier 2); the binder stays here.
-- [ ] **11. Monthly check-in** - a 3-minute routine that counts toward a
+- [x] **11. Monthly check-in** (`checkin.py`, `views/checkin.py`, `checkin_email.py`;
+      the base R1 builds on) - a 3-minute routine that counts toward a
       habit milestone; an optional reminder email (off unless turned on, no
       figures).
       -> Oct 5: **absorbed by R1 The Monthly Walk** (the walk is the check-in,

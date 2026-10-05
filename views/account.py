@@ -237,6 +237,9 @@ def _render_account():
                        "summary, and the details open in a window when you ask. On: every "
                        "section is on the page at once.")
 
+    # ---- the monthly check-in: its day and reminder email (views/checkin.py) -- #
+    render_checkin_settings(bool(me["email"] and me["email_verified_at"]))
+
     # ---- email ----------------------------------------------------------------- #
     st.subheader("Email", anchor=False)
     if me["email"] and not me["email_verified_at"]:
