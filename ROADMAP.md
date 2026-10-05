@@ -1420,6 +1420,17 @@ Walk:
    class), a walk streak. Folds in item 11.
    **Test:** ship it to everyone with holdings. **Metric: second-walk
    completion within 45 days.**
+   -> built (Oct 5): the check-in became the Walk (checkin.py, views/checkin.py;
+   old check-ins count as walks, same prefs). Four steps one at a time on Home
+   (holdings, drift, one Learn read, the verdict); the rule-based verdict
+   (`checkin.verdict`: no target -> "set a target mix"; within the band ->
+   nothing to do; outside -> one asset class from `next_deposit.split`, no
+   figures) with their rule under it; the band is now also settable on the
+   Plan's Target mix. "Walks finished: N" and the next walk's day; each walk's
+   verdict kind kept per month (prefs `walk_verdicts`) for R2/R3. Feature
+   counts (`feature_counts.py`, groups of 20+, Admin > Feature tests),
+   Account > "Leave me out of feature counts", privacy text updated first
+   (disclosures.py, the Privacy Policy draft; LAST_UPDATED Oct 5).
 2. **The Storm Drill field (R4)** - the "What will you do when this happens?"
    field after the 2008 run on the Stress test, shown back in the storm card.
    **Test:** live until the next 5%+ drop. **Metric: on that drop, the share

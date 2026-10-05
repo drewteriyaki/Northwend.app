@@ -93,8 +93,9 @@ pasted text and screenshots are not kept. Clients can also use an example or
 ## Who sees a client's data in the app
 
 - **You** (the client's advisor): everything in that client's account, through the
-  advisor-client link (`can_view`), except the client's own account map (an "if
-  something happens to me" list only they see). Every per-account query is filtered
+  advisor-client link (`can_view`), except what's theirs alone - their notes to
+  their future self, their monthly walks and their account map (an "if
+  something happens to me" list). Every per-account query is filtered
   by account.
 - **Your client:** their own portfolio, plan, and the notes you share (not notes you
   mark private).

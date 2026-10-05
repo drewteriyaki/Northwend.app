@@ -2126,7 +2126,8 @@ _view("kit")
 # notes to future you: on a holding, on the plan, back on a storm (future_notes.py)
 _view("future_notes")
 
-# the monthly check-in on Home, and its settings on Account (checkin.py)
+# the Monthly Walk on Home (it grew out of the monthly check-in), and its
+# settings on Account (checkin.py)
 _view("checkin")
 
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)

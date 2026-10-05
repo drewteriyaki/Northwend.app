@@ -44,7 +44,7 @@ def _read_gear_facts(value):
             "basics_done": state["done"]["basics"], "practice_done": state["done"]["practice"],
             "statement_in": HAS_HOLDINGS and SNAPSHOT_SOURCE != SAMPLE_SOURCE,
             "steady": gear.steady_months(added, datetime.now().date()),
-            "checkins": checkin.logbook(_read_prefs()),   # monthly check-ins (views/checkin.py)
+            "checkins": checkin.logbook(_read_prefs()),   # monthly walks (views/checkin.py)
             "storm": gear.weathered_storm(values, sells), "goal_reached": reached}
 
 
@@ -73,7 +73,7 @@ def _gear_go(target):
     kind, where = target
     if kind == "dialog":
         _open_holdings_dialog(where)
-    elif kind == "checkin":   # Home, with this month's check-in open (views/checkin.py)
+    elif kind == "checkin":   # Home, with this month's walk open (views/checkin.py)
         st.session_state["checkin_open"] = True
         _go(where)
     elif kind == "learn":
@@ -88,7 +88,7 @@ def _gear_go(target):
 def _gear_can_go(k):
     """A button to where the piece is earned - not for a managed client's
     goal or money added, which their advisor keeps (Plan is read-only); the
-    logbook only while a check-in is waiting on Home (views/checkin.py)."""
+    logbook only while a walk is waiting on Home (views/checkin.py)."""
     if k == "logbook":
         return _checkin_due()
     return k in gear.GO and (CAN_MANAGE or k not in ("compass", "lantern"))

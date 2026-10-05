@@ -1,8 +1,9 @@
-"""Notes to future you (ROADMAP 8, future_notes.py) and the monthly check-in
-(ROADMAP 11, checkin.py, checkin_email.py): the notes' storage and privacy
+"""Notes to future you (ROADMAP 8, future_notes.py) and the monthly check-in,
+now the Monthly Walk (ROADMAP 11 / R1, checkin.py, checkin_email.py; the
+verdict and feature counts are in test_walk.py): the notes' storage and privacy
 (never an advisor's, in the person's own export only, gone with the
 account, never in an AI prompt unless they ask), the storm note showing
-the person's own words, the check-in's steps and the logbook it earns, and
+the person's own words, the walk's steps and the logbook it earns, and
 the reminder email (off unless turned on, once a month, confirmed emails
 only, a dry run sends nothing). Runs dashboard.py with streamlit's AppTest
 on a scratch database in a temp dir, plus the pure pieces.
@@ -307,7 +308,7 @@ class CheckinEmailTests(_DB):
                 contextlib.redirect_stderr(err):
             self.assertTrue(checkin_email.reminder("yes@example.com", "https://x/"))
         out = err.getvalue()
-        self.assertIn("Time for your monthly check-in - about 3 minutes.", out)
+        self.assertIn("Time for your monthly walk - about 3 minutes.", out)
         for figure in ("$", "%"):
             self.assertNotIn(figure, out)
         self.assertIsNone(re.search(r"\d{2,}", out.split("https://x/")[0].replace("3 minutes", "")))
@@ -333,7 +334,7 @@ class CheckinEmailTests(_DB):
         job = text.split("\n  checkin-email:", 1)[1]
         self.assertIn("python checkin_email.py", job)
         self.assertIn("if: failure()", job)
-        self.assertIn('python error_alerts.py job "Monthly check-in reminders"', job)
+        self.assertIn('python error_alerts.py job "Monthly walk reminders"', job)
 
 
 # --------------------------------------------------------------------------- #
@@ -513,38 +514,46 @@ class AppTests(unittest.TestCase):
         with self._run(self.dana, "dana", "Plan") as at:
             self.assertIn("Zebra plan, kept private", self._text(at))
 
-    def test_the_monthly_check_in_and_the_logbook(self):
-        month = checkin.month_name(checkin.month_of(datetime.now().date()))
+    def test_the_monthly_walk_and_the_logbook(self):
+        today = datetime.now().date()
+        month = checkin.month_name(checkin.month_of(today))
         with self._run(self.sam, "sam") as at:
-            self.assertIn(f"Your {month} check-in", self._text(at))
-            at.button(key="ci_start").click().run()
-            self.assertTrue(at.button(key="ci_finish").disabled)
-            for key in ("ci_holdings_same", "ci_mix", "ci_read"):
+            self.assertIn(f"Your {month} walk", self._text(at))
+            self.assertIn("Walks finished: 2", self._text(at))       # the check-ins count
+            at.button(key="walk_start").click().run()
+            for key in ("walk_holdings_same", "walk_mix", "walk_read"):
+                self.assertNotIn("walk_finish", self._keys(at))      # one step at a time
                 at.button(key=key).click().run()
-            self.assertIn("Note to future you", self._text(at))        # the optional step
-            self.assertFalse(at.button(key="ci_finish").disabled)
-            at.button(key="ci_finish").click().run()
+            self.assertIn("Note to future you", self._text(at))        # optional, by the verdict
+            at.button(key="walk_finish").click().run()
             text = self._text(at)
-            self.assertIn(f"Your {month} check-in is done", text)
-            self.assertNotIn("ci_start", self._keys(at))                # done for the month
+            self.assertIn(f"Your {month} walk is done. Walks finished: 3.", text)
+            self.assertNotIn("walk_start", self._keys(at))              # done for the month
             # the third: the logbook is earned
             self.assertIn("You've earned the <b>logbook</b> for your kit", text)
         p = self._prefs(self.sam)
         self.assertEqual(len(p[checkin.PREF_LOG]), 3)
         self.assertIn("logbook", p["gear_seen"])
+        # no target mix: no verdict, and that's what's kept
+        self.assertEqual(checkin.verdict_of(p, checkin.month_of(today)),
+                         {"kind": "none", "on": today.isoformat()})
 
-    def test_an_advisor_doesnt_do_a_clients_check_in(self):
+    def test_an_advisor_doesnt_do_a_clients_walk(self):
         with self._run(self.carol, "carol", active_user_id=self.dana,
                        two_step_ok=self.carol_ok) as at:
-            self.assertNotIn("ci_start", self._keys(at))
+            self.assertNotIn("walk_start", self._keys(at))
+            self.assertNotIn("monthly walk", self._text(at).lower())
         with self._run(self.dana, "dana") as at:
-            self.assertIn("ci_start", self._keys(at))        # hers (habits are hers too)
+            self.assertIn("walk_start", self._keys(at))      # hers (habits are hers too)
 
     def test_not_this_month(self):
         with self._run(self.kai, "kai") as at:
-            at.button(key="ci_skip").click().run()
-            self.assertNotIn("ci_start", self._keys(at))
-            self.assertIn("No check-in this month", self._text(at))
+            at.button(key="walk_skip").click().run()
+            self.assertNotIn("walk_start", self._keys(at))
+            text = self._text(at)
+            self.assertIn("No walk this month - the next one is on", text)
+            self.assertIn("Nothing is lost.", text)
+            self.assertIn("Walks finished: 0 · Next walk:", text)     # the quiet line
         self.assertTrue(self._prefs(self.kai)[checkin.PREF_STATE]["skipped"])
 
     def test_the_reminder_setting_is_off_and_needs_a_confirmed_email(self):

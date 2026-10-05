@@ -156,7 +156,8 @@ These extra terms apply if you use Northwend as a financial advisor.
 - **Client consent.** Before you add a client or their holdings, you must have their
   permission. Clients you add can see their own portfolio, plan, and the notes you
   share with them (not ones you mark private). You can see everything in their
-  account.
+  account except what's theirs alone: their notes to their future self and their
+  monthly walks.
 - **Client relationships.** Your relationship with your clients is between you and
   them. Northwend is not a party to it and does not refer clients to advisors.
   Emails you send through Northwend (a client's setup link, or a note that a report

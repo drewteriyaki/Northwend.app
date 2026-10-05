@@ -46,14 +46,23 @@ Each statement about data here must stay true to the code:
   never drawn while an advisor views the account, never in an advisor's client
   record (export.client_record), never in an AI prompt - only in the person's
   own chat message when they press "Ask Northwend about it"; real delete.
-- Monthly check-in reminder (checkin_email.py, GitHub Actions): off unless
+- The Monthly Walk (checkin.py, views/checkin.py): kept in the person's own
+  settings (prefs checkin_log, walk_verdicts: the verdict's kind and asset
+  class, and the day - no figures); never drawn while an advisor views the
+  account. Its reminder (checkin_email.py, GitHub Actions): off unless
   turned on (prefs checkin_email), confirmed emails only, once a month
   (checkin_email_sent), says only that it's time - no figures.
+- Feature counts (feature_counts.py): totals worked out in code from the
+  settings column only (no user id read), shown only for groups of
+  feature_counts.MIN_GROUP (20) or more, only in the Admin portal's
+  "Feature tests" panel; never sent anywhere or to the AI; anyone with
+  prefs feature_counts_off (Account > "Leave me out of feature counts") is
+  skipped; only walks kept with their day (from the Walk on) count.
 - Export everything (export.py): the account's own rows as CSV; never password
   hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
   role, created, last sign-in (users.last_login_at), locks; no holdings,
-  plans or profile answers.
+  plans or profile answers; feature counts as totals only (above).
 - Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
@@ -61,7 +70,8 @@ Each statement about data here must stay true to the code:
 - Delete all my holdings: portfolio.delete_holdings / HOLDINGS_TABLES (keeps
   plans, profile, notes, settings, watchlist, login); only for an account
   that manages itself (dashboard CAN_MANAGE).
-- No usage statistics: .streamlit/config.toml gatherUsageStats = false.
+- No third-party analytics: .streamlit/config.toml gatherUsageStats = false;
+  the only counting is feature_counts.py (above), inside the database.
 - Account map (account_map.py, the Account page): the login's own, never shown
   to an advisor, never emailed or sent to the AI; its PDF only downloaded.
   Year in review (recap.py): read from data already kept; the share version
@@ -71,7 +81,7 @@ Change this text when any of those change.
 Plain text, no "$" (Streamlit would read a pair of them as math).
 """
 
-LAST_UPDATED = "October 1, 2026"
+LAST_UPDATED = "October 5, 2026"
 MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
@@ -129,7 +139,9 @@ If you use Northwend with clients, you remain responsible for your own advice,
 licensing, record-keeping and compliance, and for having your clients' consent
 to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
-to them (not ones you mark private); you can see everything in their account.
+to them (not ones you mark private); you can see everything in their account
+except what's theirs alone: their notes to future you, their monthly walks and
+their account map.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
@@ -137,7 +149,8 @@ to them (not ones you mark private); you can see everything in their account.
   row's date, kind, symbol, shares, price, amount, fees and description, with
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
-  answers, notes, and settings, and the name you'd like to be called, if you
+  answers, notes, monthly walks (when each was finished and what your own plan
+  said, with no amounts), your account map if you make one, and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
@@ -194,9 +207,16 @@ to them (not ones you mark private); you can see everything in their account.
 """),
     ("Cookies and tracking", """
 Northwend sets one cookie of its own, only if you tick **Stay signed in**: it keeps
-you signed in on that device. There are no advertising or tracking cookies, and
-the app doesn't send usage analytics. The hosting service may set cookies it needs
+you signed in on that device. There are no advertising or tracking cookies, and no
+third-party analytics or tracking. The hosting service may set cookies it needs
 to run the site.
+
+**Feature counts:** to learn whether features like the monthly walk help,
+Northwend counts in totals only, inside its own database - for example, how many
+people took a second monthly walk within 45 days of their first. A count is
+never about one person, is shown only for groups of 20 or more, and is never
+shared, sold or sent to the AI. To leave yourself out, turn on **Leave me out of
+feature counts** on the **Account** page.
 """),
     ("Services Northwend uses", """
 - **Streamlit Community Cloud** hosts the app.

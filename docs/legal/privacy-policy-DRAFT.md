@@ -53,7 +53,9 @@ account, contact us and we will delete it.
   you give your accounts.
 - Your plan and goal, target mix, watchlist, settings and progress through Learn.
 - Notes you write to your future self on a holding or your plan, and your monthly
-  check-ins.
+  walks: the months you finished one, the day, and the kind of verdict your own
+  plan gave (for example "nothing to do" or "next deposit mostly to bonds") - no
+  amounts.
 - If you make one, your account map: for each account, its kind, who to call,
   whether a beneficiary is named, where the paperwork is, and your notes for
   family (accounts you add by hand keep at most their last 3 digits).
@@ -90,15 +92,27 @@ mode work without any.
 - Our hosting providers receive your IP address and browser details as part of
   serving the site and may keep them in their logs. [OWNER: confirm each host's log
   retention.]
-- Northwend does not use analytics: Streamlit's usage statistics are turned off,
-  and the website (northwend.app) runs no scripts.
+- Northwend uses no third-party analytics or tracking: Streamlit's usage
+  statistics are turned off, and the website (northwend.app) runs no scripts.
+- **Feature counts.** To learn whether features like the monthly walk help,
+  Northwend counts in totals only, inside its own database - for example, how many
+  people took a second monthly walk within 45 days of their first. The counts are
+  worked out by the app's code from what's already stored; nobody looks at one
+  person's record to make them. A count is never about one person, is shown only
+  for groups of 20 or more (and only on the admin page), and is never shared,
+  sold or sent to the AI. You can leave yourself out at any time with **Leave me
+  out of feature counts** on the Account page; you're then left out of every
+  count, including ones about walks you took before. Counting began on [OWNER:
+  the date this text is live] and covers only walks from then on.
 
 ## 3. How we use it
 
 Only to run Northwend for you: to sign you in, store and show your portfolio,
 work out values and plans, answer your AI questions, let your advisor work with
 you (if you have one), send account emails, keep the service secure, and fix
-problems. We don't use your data for advertising, and we don't sell it.
+problems - and, in totals only, to learn whether features help (the feature
+counts in section 2, which you can leave yourself out of). We don't use your data
+for advertising, and we don't sell it.
 
 ## 4. Who it's shared with
 
@@ -114,19 +128,19 @@ It is shared only as needed to run the service, with:
 | **Anthropic** (Claude) | The AI guide, plan next steps, advisor talking points; screenshot reading and the column guess only when you choose | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
-| **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly check-in reminders people turn on | Access to the database to do those jobs |
+| **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly walk reminders people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails | Your email address and that message |
 | **Cloudflare** (Pages) | Serves the website northwend.app | Visitors' IP address and browser details |
 
 Your advisor, if you have one, sees everything in your account except your notes
-to your future self and your account map, which only you see (the account
-map is never emailed, and its PDF is only downloaded by you); you see your
-own portfolio, plan and the notes your advisor shares with you (not ones
-they mark private).
+to your future self, your monthly walks and your account map, which only you
+see (the account map is never emailed, and its PDF is only downloaded by you);
+you see your own portfolio, plan and the notes your advisor shares with you (not
+ones they mark private).
 
 The person who runs Northwend can see, on an admin page, only login details:
 username, email, role, when the account was made and last signed in, and locks -
-not your holdings, plans or answers.
+not your holdings, plans or answers - and the feature counts, as totals only.
 
 We may also disclose information if the law requires it, to protect someone's
 safety, or as part of a transfer of the service (we'd tell you first).
@@ -210,8 +224,10 @@ terms, and link them.]
 - **Anything else,** or if you can't sign in: email support@northwend.app. We'll
   answer within [OWNER: number] days.
 - **Emails:** Northwend sends no newsletters or marketing. Advisors can turn off
-  the Monday summary on the Clients page. The monthly check-in reminder is off
+  the Monday summary on the Clients page. The monthly walk reminder is off
   unless you turn it on (Account page), and says only that it's time - no figures.
+- **Feature counts:** turn on "Leave me out of feature counts" on the Account
+  page to be left out of every count (see section 2).
 
 ## 9. Security
 

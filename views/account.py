@@ -6,11 +6,13 @@
 # The Account page: the signed-in person's own account - what's on it, their
 # name, email (changed only through a link to the new address), password,
 # other signed-in devices, two-step sign-in (set up with views/two_step.py's
-# steps), a copy of their data, and deleting it. Always the
+# steps), a copy of their data, leaving themselves out of feature counts
+# (feature_counts.py), and deleting it. Always the
 # login's own account (LOGIN_ID), even while an advisor is viewing a client.
 # ruff: noqa: F821
 
 import admin
+import feature_counts
 import two_step
 
 
@@ -31,6 +33,34 @@ def _acct_show_all():
     p = _read_prefs()
     p["show_everything"] = bool(st.session_state.get("acct_show_all"))
     _write_prefs(p)
+
+
+def _acct_counts_off():
+    """"Leave me out of feature counts" (feature_counts.PREF_OFF), on the
+    login's own settings - honoured by every count from then on."""
+    c = connect(DB)
+    try:
+        p = prefs.load(c, LOGIN_ID)
+        p[feature_counts.PREF_OFF] = bool(st.session_state.get("acct_counts_off"))
+        prefs.save(c, LOGIN_ID, p)
+    finally:
+        c.close()
+    st.session_state.pop("_prefs", None)   # read afresh (_read_prefs)
+
+
+def _render_counts_switch():
+    c = connect(DB)
+    try:
+        off = feature_counts.left_out(prefs.load(c, LOGIN_ID))
+    finally:
+        c.close()
+    st.session_state["acct_counts_off"] = off
+    st.toggle("Leave me out of feature counts", key="acct_counts_off",
+              on_change=_acct_counts_off)
+    st.caption("To learn whether features like the monthly walk help, Northwend counts in "
+               "totals only, inside its own database - never you by name, only groups of 20 "
+               "or more, never shared or sold, and never sent to the AI. Turn this on and "
+               "you're left out of every count.")
 
 
 def _acct_change_email():
@@ -237,7 +267,7 @@ def _render_account():
                        "summary, and the details open in a window when you ask. On: every "
                        "section is on the page at once.")
 
-    # ---- the monthly check-in: its day and reminder email (views/checkin.py) -- #
+    # ---- the Monthly Walk: its day and reminder email (views/checkin.py) ----- #
     render_checkin_settings(bool(me["email"] and me["email_verified_at"]))
 
     # ---- email ----------------------------------------------------------------- #
@@ -294,6 +324,7 @@ def _render_account():
     else:
         st.button("Prepare my data", key="export_prepare", on_click=_prepare_export,
                   icon=":material/folder_zip:")
+    _render_counts_switch()
     if not IS_MANAGED_CLIENT:
         with st.expander("Delete all my holdings"):
             st.caption("Delete everything you've imported or entered: holdings, cash, "

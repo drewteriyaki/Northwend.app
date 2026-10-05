@@ -4,6 +4,7 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # The Admin page (ROADMAP A1): accounts and logins, advisor requests, AI use,
+# feature tests (totals only, feature_counts.py),
 # and which experience the admin's own account shows. Only admins see it
 # (admin.is_admin, set from the command line). Logins only - never anyone's
 # holdings or plans. Every action re-checks admin rights in the database.
@@ -13,6 +14,7 @@ import secrets
 
 import admin
 import error_alerts
+import feature_counts
 import hosting
 import two_step
 
@@ -449,3 +451,37 @@ def _render_admin():
                      hide_index=True, width="stretch")
     else:
         st.caption("No AI use yet this month.")
+
+    # ---- feature tests: totals only (feature_counts.py) -------------------- #
+    c = connect(DB)
+    try:
+        _render_feature_tests(c)
+    finally:
+        c.close()
+
+
+def _render_feature_tests(c):
+    """Whether features help, in totals only (feature_counts.py): no names,
+    nobody's row, nothing for a group under feature_counts.MIN_GROUP, and
+    without anyone who left themselves out on Account."""
+    st.subheader("Feature tests", anchor=False)
+    st.caption(f"Totals only, worked out from what's stored - never a person. A total shows "
+               f"once a group reaches {feature_counts.MIN_GROUP} people, and people who turned "
+               "on \"Leave me out of feature counts\" are never counted.")
+    days = feature_counts.SECOND_WITHIN_DAYS
+    w = feature_counts.walks(c, datetime.now().date())
+    st.markdown(f"**The monthly walk** - a second walk within {days} days of the first")
+    if w is None:
+        st.caption(f"Fewer than {feature_counts.MIN_GROUP} people have finished a first walk "
+                   "so far - nothing to show yet.")
+        return
+    lines = [f"- Finished a first walk: {w['first_walks']}",
+             f"- Their {days} days are up: {w['window_closed']}"]
+    if w["second_walks"] is None:
+        lines.append(f"- Walked again within {days} days: shown once {feature_counts.MIN_GROUP} "
+                     f"people's {days} days are up")
+    else:
+        share = w["second_walks"] / w["window_closed"] * 100
+        lines.append(f"- Walked again within {days} days: {w['second_walks']} of "
+                     f"{w['window_closed']} ({share:.0f}%)")
+    st.markdown("\n".join(lines))

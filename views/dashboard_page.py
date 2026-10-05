@@ -156,7 +156,7 @@ if PAGE == "Dashboard":
     render_weather()                          # a storm note while well below the high (T4)
     if INVESTOR_VIEW:
         _render_route()
-        render_checkin_card()                 # the monthly check-in (views/checkin.py)
+        render_checkin_card()                 # the Monthly Walk (views/checkin.py)
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
         # fee check, fund overlap and cash check in one card (views/cash_check.py)
         render_money_checks()

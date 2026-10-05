@@ -41,6 +41,7 @@ import checkin_email  # noqa: E402
 import csv_import  # noqa: E402
 import error_alerts  # noqa: E402
 import export  # noqa: E402
+import feature_counts  # noqa: E402
 import fund_holdings  # noqa: E402
 import future_notes  # noqa: E402
 import income  # noqa: E402
@@ -682,6 +683,51 @@ class FutureNotesTests(_PG):
                                              (yes,))["data"])[checkin.PREF_SENT], "2026-10")
         again = checkin_email.run(c, "https://app.example/", day, send=lambda *a: True)
         self.assertEqual(again["sent"], 0)
+
+
+# --------------------------------------------------------------------------- #
+# the Monthly Walk's kept verdicts and the feature counts (totals only)
+# --------------------------------------------------------------------------- #
+@unittest.skipUnless(PG, SKIP)
+class WalkTests(_PG):
+    TAG = "walk"
+
+    def test_kept_walks_and_the_totals(self):
+        c = self.conn
+        first = date(2026, 10, 5)
+        for i in range(22):
+            uid = self.user(f"walker{i}.wk")
+            p = {checkin.PREF_SINCE: "2026-09"}
+            days = [first] + ([first + timedelta(days=30)] if i % 2 else [])
+            for d in days:
+                for k in checkin.REQUIRED:
+                    checkin.tick(p, k, d)
+                self.assertTrue(checkin.finish(p, d, {"kind": "next", "class": "Bonds",
+                                                      "how": "most", "amount": 500.0}))
+            if i == 0:
+                p[feature_counts.PREF_OFF] = True        # left out of every count
+            prefs.save(c, uid, p)
+        other = self.user("other.wk")
+        prefs.save(c, other, {"hide_amounts": True})
+        # what another connection sees: the verdict's kind only, no figure
+        kept = json.loads(self.one("SELECT p.data FROM user_prefs p JOIN users u ON u.id = "
+                                   "p.user_id WHERE u.username = ?",
+                                   ("walker21.wk",))["data"])[checkin.PREF_VERDICTS]
+        self.assertEqual(kept, {"2026-10": {"kind": "next", "class": "Bonds", "how": "most",
+                                            "on": "2026-10-05"},
+                                "2026-11": {"kind": "next", "class": "Bonds", "how": "most",
+                                            "on": "2026-11-04"}})
+        self.assertEqual(feature_counts.walks(c, date(2026, 12, 31)),
+                         {"first_walks": 21, "window_closed": 21, "second_walks": 11})
+        self.assertEqual(feature_counts.walks(c, date(2026, 10, 6)),     # windows still open
+                         {"first_walks": 21, "window_closed": 0, "second_walks": None})
+        # under 20 after more leave themselves out: nothing at all
+        for i in range(1, 3):
+            uid = self.one("SELECT id FROM users WHERE username = ?", (f"walker{i}.wk",))["id"]
+            p = prefs.load(c, uid)
+            p[feature_counts.PREF_OFF] = True
+            prefs.save(c, uid, p)
+        self.assertIsNone(feature_counts.walks(c, date(2026, 12, 31)))
 
 
 # --------------------------------------------------------------------------- #

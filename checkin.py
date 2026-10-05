@@ -1,31 +1,46 @@
-"""The monthly check-in (ROADMAP 11): a 3-minute routine on Home once a
-month - update holdings, look at the mix against its target, one short
-read from Learn, and (if they like) a note to future you. Pure logic, no
-Streamlit; the card is views/checkin.py, the reminder email checkin_email.py.
+"""The Monthly Walk (ROADMAP R1; it grew out of the monthly check-in, item
+11): a 3-minute routine on Home once a month - update holdings, look at the
+mix against its target, one short read from Learn, and the verdict: what
+the person's own rule (their target mix and their band) says this month.
+Pure logic, no Streamlit; the card is views/checkin.py, the reminder email
+checkin_email.py, the totals feature_counts.py.
 
-Kept in the account's settings (prefs.py), never anywhere else:
+The verdict is rule-based, never AI, and speaks in asset classes only: no
+target mix, no verdict; within the band, nothing to do this month; outside
+it, one next step for new money by asset class (next_deposit.py). Never a
+fund, a ticker, a dollar figure or selling.
+
+Kept in the account's settings (prefs.py), never anywhere else. The keys
+still say "checkin", so check-ins finished before the Walk count as walks:
   PREF_STATE  {"month": "2026-10", "done": [step keys], "finished": date |
-               None, "skipped": bool} - this month's check-in
-  PREF_LOG    ["2026-08", "2026-10"] - the months a check-in was finished
+               None, "skipped": bool} - this month's walk
+  PREF_LOG    ["2026-08", "2026-10"] - the months a walk was finished
+  PREF_VERDICTS {"2026-10": {"kind": "next", "class": "Bonds", "how": "most",
+               "on": "2026-10-05"}} - each finished walk's verdict kind (no
+              figures) and the day it was finished; R2 and R3 build on it
   PREF_SINCE  "2026-10" - the month real holdings were first seen: the
-              check-in is offered from the month after
+              walk is offered from the month after
   PREF_DAY    1-28 - the day of the month it's offered from (default 1)
   PREF_EMAIL  True when they asked for the reminder email (off by default)
   PREF_SENT   "2026-10" - the month the reminder was last sent
 
 Finishing it is a habit, and earns the logbook in the kit (gear.py) after
 LOGBOOK_CHECKINS of them, in any months - a missed month never takes
-anything away. Nothing about it ever asks anyone to buy or sell.
+anything away. Walks are counted, never returns.
 """
 
 from __future__ import annotations
 
 from datetime import date
 
+import next_deposit
+import route
+from asset_classes import CLASSES
 from gear import CHECKINS as LOGBOOK_CHECKINS   # the kit's logbook
 
 PREF_STATE = "checkin"
 PREF_LOG = "checkin_log"
+PREF_VERDICTS = "walk_verdicts"
 PREF_SINCE = "checkin_since"
 PREF_DAY = "checkin_day"
 PREF_EMAIL = "checkin_email"
@@ -42,11 +57,16 @@ STEPS = (
      "How your money is spread now, beside the target mix you chose."),
     ("read", "One short read",
      "A couple of minutes on one idea worth knowing."),
-    ("note", "A note to future you",
-     "Optional: a line about why you're investing, for when markets get rough."),
+    ("verdict", "What your plan says",
+     "Your own rule - your target mix and your band - read for this month."),
 )
-REQUIRED = ("holdings", "mix", "read")   # the note is optional
+REQUIRED = ("holdings", "mix", "read")   # then the verdict, and Finish
 STEP_KEYS = tuple(s[0] for s in STEPS)
+
+# the verdict's kinds (stored per walk, PREF_VERDICTS)
+NONE, WITHIN, NEXT = "none", "within", "next"
+KINDS = (NONE, WITHIN, NEXT)
+HOWS = ("all", "most", "much")   # how much of the next deposit the class gets, in words
 
 
 def month_of(today: date) -> str:
@@ -123,9 +143,10 @@ def can_finish(st: dict) -> bool:
     return all(k in st["done"] for k in REQUIRED)
 
 
-def finish(p: dict, today: date) -> bool:
-    """Finish this month's check-in when the required steps are ticked: kept
-    in PREF_LOG (once a month). Changes `p`; True when finished now."""
+def finish(p: dict, today: date, verdict: dict | None = None) -> bool:
+    """Finish this month's walk when the required steps are ticked: kept in
+    PREF_LOG (once a month), with the verdict's kind - no figures - and the
+    day in PREF_VERDICTS. Changes `p`; True when finished now."""
     st = current(p, today)
     if st["finished"] or not can_finish(st):
         return False
@@ -135,7 +156,34 @@ def finish(p: dict, today: date) -> bool:
     if st["month"] not in log:
         log.append(st["month"])
     p[PREF_LOG] = sorted(log)
+    kept = p.get(PREF_VERDICTS)
+    kept = dict(kept) if isinstance(kept, dict) else {}
+    kept[st["month"]] = {**stored(verdict), "on": today.isoformat()}
+    p[PREF_VERDICTS] = kept
     return True
+
+
+def stored(verdict: dict | None) -> dict:
+    """What's kept of a verdict: its kind, and for a next step the asset
+    class and how much of it ("all" / "most" / "much") - only names from
+    fixed lists, so no figure can ever be stored."""
+    v = verdict or {}
+    kind = v.get("kind")
+    if kind not in KINDS:
+        return {}
+    out = {"kind": kind}
+    if kind == NEXT and v.get("class") in CLASSES:
+        out["class"] = v["class"]
+        if v.get("how") in HOWS:
+            out["how"] = v["how"]
+    return out
+
+
+def verdict_of(p: dict, month: str) -> dict | None:
+    """The kept verdict of a month's walk (PREF_VERDICTS), or None."""
+    kept = p.get(PREF_VERDICTS)
+    v = kept.get(month) if isinstance(kept, dict) else None
+    return v if isinstance(v, dict) else None
 
 
 def skip(p: dict, today: date) -> None:
@@ -147,13 +195,114 @@ def skip(p: dict, today: date) -> None:
 
 
 def count(p: dict) -> int:
-    """How many months a check-in was finished."""
+    """How many months a walk was finished (check-ins from before count)."""
     return len({m for m in p.get(PREF_LOG) or [] if isinstance(m, str)})
 
 
 def logbook(p: dict) -> bool:
-    """The kit's logbook: LOGBOOK_CHECKINS check-ins finished, any months."""
+    """The kit's logbook: LOGBOOK_CHECKINS walks finished, any months."""
     return count(p) >= LOGBOOK_CHECKINS
+
+
+def next_walk(p: dict, today: date) -> date:
+    """The day the next walk is offered: today while one is waiting, this
+    month's chosen day when it's still ahead, else next month's."""
+    st = current(p, today)
+    day = day_of(p)
+    since = p.get(PREF_SINCE)
+    if not (st["finished"] or st["skipped"] or not since or since >= st["month"]):
+        if st["done"] or today.day >= day:
+            return today
+        return date(today.year, today.month, day)
+    y, m = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    return date(y, m, day)
+
+
+# ---- the verdict: their own rule speaking ----------------------------------- #
+
+def verdict(values: dict, targets: dict, band: float, amount: float) -> dict:
+    """What the person's own rule says this month, by asset class:
+    {"kind": NONE} without a target mix; {"kind": WITHIN} when every
+    targeted class is within `band` points of its target (the drift Home
+    and Plan flag, route.drifted); else {"kind": NEXT, "class", "how",
+    "below"}: the class that gets most of a deposit of `amount` split to
+    move toward the target without selling (next_deposit.split), "how" much
+    of it in words, and whether it's below its target now. `values` is
+    {class: dollars held now}, `targets` {class: target %}. The amount only
+    picks the class - no figure is ever part of the verdict."""
+    targets = {k: float(v) for k, v in (targets or {}).items() if v}
+    if not targets:
+        return {"kind": NONE}
+    values = {k: float(v or 0.0) for k, v in (values or {}).items()}
+    now = next_deposit.mix_pct(values)
+    if not route.drifted(now, targets, float(band)):
+        return {"kind": WITHIN}
+    add = next_deposit.split(values, targets, amount or 1.0)
+    if not add:
+        return {"kind": NEXT, "class": None, "how": None, "below": False}
+    top = max(sorted(add), key=add.get)
+    share = add[top] / sum(add.values())
+    # next_deposit.words' thresholds: "mostly" from 60%
+    how = "all" if share > 0.995 else "most" if share >= 0.6 else "much"
+    return {"kind": NEXT, "class": top, "how": how,
+            "below": now.get(top, 0.0) < targets.get(top, 0.0)}
+
+
+def class_name(cls: str) -> str:
+    """'bonds', 'other holdings' - an asset class in a sentence."""
+    return next_deposit._name(cls)
+
+
+def _deposit_words(v: dict) -> str:
+    name = class_name(v["class"])
+    if v.get("how") == "all":
+        return f"your next deposit to {name}"
+    if v.get("how") == "most":
+        return f"your next deposit mostly to {name}"
+    return f"much of your next deposit to {name}"
+
+
+def verdict_text(v: dict) -> str:
+    """The verdict in one sentence, as the person's own plan speaking.
+    Never "sell", never a fund, a ticker or a figure."""
+    kind = (v or {}).get("kind")
+    if kind == WITHIN:
+        return ("Your mix is within the band you set - your plan says nothing to do this "
+                "month.")
+    if kind == NEXT and v.get("class"):
+        lead = (f"Your target has more {class_name(v['class'])} than you hold now, so your "
+                "plan points " if v.get("below") else "Your plan points ")
+        return f"{lead}{_deposit_words(v)}."
+    if kind == NEXT:
+        return ("Your mix is outside the band you set - the Target mix on your Plan shows "
+                "where new money could go.")
+    return "Set a target mix to get a monthly verdict."
+
+
+def verdict_past(v: dict | None) -> str:
+    """A finished walk's kept verdict, looking back ("Your plan said ...")."""
+    kind = (v or {}).get("kind")
+    if kind == WITHIN:
+        return "Your plan said nothing to do this month - your mix was within your band."
+    if kind == NEXT and v.get("class"):
+        return f"Your plan pointed {_deposit_words(v)}."
+    if kind == NEXT:
+        return "Your mix was outside your band - your plan pointed new money back toward it."
+    if kind == NONE:
+        return "No verdict this month - there was no target mix to read it from."
+    return ""
+
+
+def rule_text(targets: dict, band: float) -> str:
+    """'Your rule: a target mix of 60% stocks, 35% bonds and 5% cash, and a
+    band of 5 points either way.' - shown under every verdict."""
+    parts = [f"{float(v):g}% {class_name(k)}" for k, v in
+             sorted(((k, v) for k, v in (targets or {}).items() if v), key=lambda kv: -kv[1])]
+    if not parts:
+        return ""
+    mix = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return (f"Your rule: a target mix of {mix}, and a band of {float(band):g} points either "
+            "way.")
 
 
 def read_for(month: str, keys: list[str]) -> str:

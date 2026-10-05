@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""The monthly check-in reminder (ROADMAP 11): one short email a month to
-someone who asked for it (Account > Monthly check-in), saying only that
-it's time - no amounts, holdings or anything else about their money.
+"""The Monthly Walk's reminder (ROADMAP R1; it was the monthly check-in's,
+item 11): one short email a month to someone who asked for it (Account >
+Monthly walk), saying only that it's time - no amounts, holdings, verdict
+or anything else about their money.
 
 Run daily by .github/workflows/scheduled-sync.yml:
 
@@ -9,7 +10,7 @@ Run daily by .github/workflows/scheduled-sync.yml:
 
 Sent at most once a month per person (remembered in their settings,
 checkin.PREF_SENT, so a re-run doesn't send twice), on or after the day
-they chose, only while Home has the check-in waiting for them
+they chose, only while Home has the walk waiting for them
 (checkin.wants_email), and only to a confirmed email - an advisor's client
 whose email isn't confirmed gets nothing. Off unless the person turned it
 on. Does nothing when email isn't set up (RESEND_API_KEY) or --app-url is
@@ -29,11 +30,11 @@ import mailer
 import prefs
 from portfolio import DEFAULT_DB, connect
 
-SUBJECT = "Time for your monthly check-in"
-LINES = ("Time for your monthly check-in - about 3 minutes.",
-         ("A quick look at your holdings and your mix, one short read, and a note to "
-          "future you if you like. It's waiting on Home whenever suits you."),
-         "To stop these emails, turn off the reminder under Account > Monthly check-in.")
+SUBJECT = "Time for your monthly walk"
+LINES = ("Time for your monthly walk - about 3 minutes.",
+         ("A quick look at your holdings and your mix, one short read, and what your own "
+          "plan says for the month. It's waiting on Home whenever suits you."),
+         "To stop these emails, turn off the reminder under Account > Monthly walk.")
 
 
 def recipients(conn) -> list[dict]:
@@ -76,7 +77,7 @@ def run(conn, app_url: str, today: date, *, send=reminder, dry_run: bool = False
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Send monthly check-in reminders to those who "
+    ap = argparse.ArgumentParser(description="Send monthly walk reminders to those who "
                                              "asked for them.")
     ap.add_argument("--db", default=os.environ.get("PORTFOLIO_DB") or DEFAULT_DB)
     ap.add_argument("--app-url", default=os.environ.get("APP_URL") or "",

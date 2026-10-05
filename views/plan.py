@@ -709,7 +709,9 @@ def _render_target_mix(alloc_rows):
                         if t is not None else "")
                      + "</div>")
         st.html(f"<div class='pt-legend'>{rows}</div>")
-        st.caption("The bar is where the portfolio is now; the mark is the target.")
+        st.caption("The bar is where the portfolio is now; the mark is the target. Your band is "
+                   f"{load_drift_threshold():g} points either way: a kind further than that "
+                   "from its target is flagged.")
         _render_next_deposit(alloc_rows, targets)   # views/next_deposit.py
     learn_more("asset_allocation")
     if IS_ADVISOR:
@@ -749,12 +751,20 @@ def _render_target_mix(alloc_rows):
                            f"% in {lbl.lower()}", min_value=0.0, max_value=100.0, step=5.0,
                            format="%.0f", key=f"plan_target_{lbl}")
                        for i, lbl in enumerate(asset_classes.CLASSES)}
+                # the band: how far a kind can be from its target before it's
+                # flagged - Home's drift note and the Monthly Walk's verdict
+                st.session_state.setdefault("plan_drift_band", load_drift_threshold())
+                band = st.number_input("Your band: points either way before a kind is flagged",
+                                       min_value=0.5, max_value=50.0, step=0.5,
+                                       key="plan_drift_band", width=320)
                 if st.form_submit_button("Save target mix", type="primary"):
                     total = sum(new.values())
                     if total and abs(total - 100) > 0.5:
                         st.error(f"The targets add up to {total:g}% - make them total 100%.")
                     else:
                         save_alloc_targets(new)
+                        if band != load_drift_threshold():
+                            save_drift_threshold(band)
                         st.rerun(scope="fragment")
 
 

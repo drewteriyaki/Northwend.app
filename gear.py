@@ -47,8 +47,8 @@ GEAR = (
      "Log money you add on Plan - any amount, three months in a row.", None,
      ('<path d="M9 6h6"/>', '<path d="M10 3h4v3h-4z"/>',
       '<rect x="7" y="6" width="10" height="13" rx="3"/>', '<path d="M12 10v5"/>')),
-    ("logbook", "Logbook", "A steady hand: three monthly check-ins",
-     "Do the monthly check-in on Home - three of them, in any months.", None,
+    ("logbook", "Logbook", "A steady hand: three monthly walks",
+     "Take the monthly walk on Home - three of them, in any months.", None,
      ('<path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z"/>', '<path d="M6 19a2 2 0 0 1 2-2h11"/>',
       '<path d="M10 7h6"/>', '<path d="M10 11h4"/>')),
     ("cloak", "Storm cloak", "Storm weathered: you held steady through a drop",
@@ -63,7 +63,7 @@ KEYS = tuple(g[0] for g in GEAR)
 BY_KEY = {g[0]: g for g in GEAR}
 STORM_DROP_PCT = 10.0
 STREAK_MONTHS = 3
-CHECKINS = 3   # the logbook: monthly check-ins finished (checkin.LOGBOOK_CHECKINS)
+CHECKINS = 3   # the logbook: monthly walks finished (checkin.LOGBOOK_CHECKINS)
 _NUMBER_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
 
 # the fact (earned()'s `facts`) that earns each piece
@@ -100,7 +100,7 @@ HOW = {
     "lantern": (f"Earned when you add money in {_NUMBER_WORDS[STREAK_MONTHS]} calendar "
                 "months in a row, up to this month or last - logged on Plan or in your "
                 "brokerage's activity."),
-    "logbook": (f"Earned when you finish the monthly check-in on Home "
+    "logbook": (f"Earned when you finish the monthly walk on Home "
                 f"{_NUMBER_WORDS[CHECKINS]} times - in any months, in a row or not."),
     "cloak": (f"Earned when your portfolio falls {STORM_DROP_PCT:.0f}% or more below its "
               "high and you don't sell anything between the high and the low."),
@@ -132,7 +132,7 @@ WHY = {
 
 # Where to go to earn it: (button label, ("learn", Get started waypoint) |
 # ("page", page) | ("dialog", holdings dialog) | ("checkin", page): Home with
-# the monthly check-in open, views/checkin.py). The storm cloak has none -
+# the monthly walk open, views/checkin.py). The storm cloak has none -
 # there's nothing to do but stay in.
 GO = {
     "map": ("Answer the questions", ("learn", "profile")),
@@ -141,7 +141,7 @@ GO = {
     "rope": ("Try practice money", ("learn", "practice")),
     "boots": ("Bring in holdings", ("dialog", "manual")),
     "lantern": ("Log money added", ("page", "Plan")),
-    "logbook": ("Start a check-in", ("checkin", "Dashboard")),
+    "logbook": ("Start this month's walk", ("checkin", "Dashboard")),
     "flag": ("See your plan", ("page", "Plan")),
 }
 

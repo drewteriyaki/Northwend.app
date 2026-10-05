@@ -12,7 +12,7 @@ name: Scheduled sync (hosted Postgres)
 #   DATABASE_URL      the Neon connection string
 #   FINNHUB_API_KEY   for the price refresh job
 # and, for the advisors' Monday email (weekly_email.py) and the monthly
-# check-in reminders people ask for (checkin_email.py; both skipped until set):
+# walk reminders people ask for (checkin_email.py; both skipped until set):
 #   RESEND_API_KEY    the same key the app sends email with
 #   APP_URL           the app's address, for the link in the email
 # A job that fails emails the admin (error_alerts.py, at most once an hour per
@@ -31,7 +31,7 @@ on:
     - cron: "30 21 * * 1-5"
     # Advisors' Monday email - 12:30 UTC, early morning in the US.
     - cron: "30 12 * * 1"
-    # Monthly check-in reminders (only for those who turned them on, at most
+    # Monthly walk reminders (only for those who turned them on, at most
     # one a month each) - daily at 13:15 UTC, morning in the US.
     - cron: "15 13 * * *"
   workflow_dispatch: {}  # allow manual triggering from the Actions tab
@@ -116,7 +116,7 @@ jobs:
           python-version: "3.13"
           cache: pip  # reuse installed packages between runs
       - run: pip install -r requirements.txt
-      - name: Send monthly check-in reminders
+      - name: Send monthly walk reminders
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -128,4 +128,4 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
-        run: python error_alerts.py job "Monthly check-in reminders" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: python error_alerts.py job "Monthly walk reminders" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

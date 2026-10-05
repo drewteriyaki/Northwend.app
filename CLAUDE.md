@@ -115,6 +115,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   (the "if something happens to me" map on Account - only the login's own, never an
   advisor's view or the AI), `checkin.py` + `views/checkin.py` (the monthly check-in;
   `checkin_email.py` its no-figures reminder), `future_notes.py` (notes to future you).
+  The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
+  rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
+  totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature
+  tests panel) - any new test metric goes through it and the privacy text first.
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
