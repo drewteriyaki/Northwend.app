@@ -1148,6 +1148,22 @@ person back to read their own words, and shelter adds a ledger entry.
 **One-week test:** the field, plus surfacing it in the storm card. Metric:
 on the next 5%+ drop, **the share of people who sell beyond their plan**,
 comparing those with a drill note against those without.
+**Decided (owner, Oct 5): measuring is OK if it's legal and open.** The drill
+answer itself stays private: only the person ever sees their words. The
+measuring is a different matter. The privacy draft says "Northwend does not
+use analytics", so counting without changing that text first would be the
+deceptive practice the FTC acts on. The rules for these test metrics (and
+R1's) are:
+- **Totals only, worked out in code.** Nobody reads anyone's drill answer,
+  and nobody looks at a single person's row.
+- **Shown only for groups of at least 20.**
+- **Never shared or sold, and never sent to the AI.**
+- **Said plainly first.** The Privacy Policy, disclosures.py and one line
+  under the field say so before any counting starts, and counting applies
+  only from then on.
+- **One switch in Account** turns it off: "Leave me out of feature counts".
+
+(Not legal advice. The lawyer review of docs/legal covers it.)
 
 ### R5. 401(k) Menu Decoder - M
 **User problem:** a 401(k) enrolment screen is a list of fund names with no
