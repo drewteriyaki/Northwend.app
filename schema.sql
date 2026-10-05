@@ -474,6 +474,22 @@ CREATE TABLE IF NOT EXISTS advisor_requests (
     decided_at    TEXT
 );
 
+-- A relationship an advisor or their client ended (advising.end_relationship).
+-- The client keeps their account; the advisor keeps their own notes,
+-- proposals and reports about them (export.client_record), and this row says
+-- who they were to the advisor: the advisor's name for them and their email
+-- when it ended. One row per advisor and former client.
+CREATE TABLE IF NOT EXISTS former_clients (
+    advisor_id   INTEGER NOT NULL,
+    client_id    INTEGER NOT NULL,
+    client_name  TEXT,                           -- the advisor's name for them then
+    email        TEXT,                           -- their email then, if any
+    ended_at     TEXT    NOT NULL,               -- 'YYYY-MM-DD HH:MM:SS' UTC
+    ended_by     TEXT    NOT NULL,               -- 'advisor' or 'client'
+    account      TEXT    NOT NULL,               -- 'kept', 'setup link' or 'closed'
+    PRIMARY KEY (advisor_id, client_id)
+);
+
 -- Emails asked for, for the limits on them (auth._email_limit). Hashes of the
 -- email typed and the internet address only; kept for a day.
 CREATE TABLE IF NOT EXISTS email_sends (

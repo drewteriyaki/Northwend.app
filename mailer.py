@@ -278,6 +278,39 @@ def advisor_message(to: str, link: str, advisor_name: str, *,
                 from_name=from_name)
 
 
+def relationship_ended(to: str, link: str, advisor_name: str, *, setup_days: int | None = None,
+                       from_name: str | None = None) -> bool:
+    """An advisor ended the relationship (advising.end_relationship): the
+    client keeps their account. With `setup_days`, `link` is a "choose your
+    password" link (they never set one up). No figures."""
+    lines = [f"{advisor_name} has ended your advisory relationship in Northwend.",
+             "Your account and holdings are still here - nothing has been deleted. From now on "
+             "the account is yours to manage: your plan, your goals and bringing in new "
+             "statements. Your advisor no longer sees it."]
+    if setup_days:
+        lines.append("You haven't chosen a password yet. Choose one to keep using your "
+                     f"account - the link works once, for {setup_days} days.")
+        button = "Choose my password"
+    else:
+        button = "Open Northwend"
+    lines.append("Questions about Northwend? Reply to this email - we're happy to help.")
+    text = "\n\n".join(lines[:-1]) + f"\n\n{button}: {link}\n\n{lines[-1]}\n"
+    return send(to, "Your advisory relationship in Northwend has ended", text,
+                _html([html_escape(x) for x in lines], (button, link)), from_name=from_name)
+
+
+def client_stopped_sharing(to: str, link: str, client_name: str) -> bool:
+    """A client stopped sharing their account with their advisor
+    (advising.end_relationship, by the client). No figures."""
+    lines = [f"{client_name} has stopped sharing their Northwend account with you, so you no "
+             "longer see their portfolio.",
+             "Your notes, proposals and reports about them are kept: find them under Your "
+             "clients > Former clients, where you can export their record."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nOpen your clients: {link}\n"
+    return send(to, f"{client_name} stopped sharing their account with you", text,
+                _html([html_escape(x) for x in lines], ("Open your clients", link)))
+
+
 def reset_password(to: str, link: str, minutes: int) -> bool:
     lines = ["Someone - hopefully you - asked to reset the password for your Northwend "
              "account.",

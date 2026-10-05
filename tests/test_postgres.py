@@ -544,6 +544,78 @@ class AdvisorTests(_PG):
             self.assertGreaterEqual(again["already"], 1)
         self.assertEqual(sum(done.values()), len(weekly_email.recipients(c)))
 
+    def test_clients_from_a_file_checks_and_invites_left(self):
+        import client_csv
+        c = self.conn
+        carol, dana = self.advisor_with_client("csv")
+        self.user("taken.csv@example.com")
+        rows = client_csv.parse(
+            b"Client name,Email\nNew,new.csv@example.com\nDana,DANA.CSV@example.com\n"
+            b"Taken,taken.csv@example.com\nBad,nope\nNew again,new.csv@example.com\n")["rows"]
+        states = [r["state"] for r in client_csv.review(c, carol, rows)]
+        self.assertEqual(states, ["ok", "client", "taken", "invalid", "duplicate"])
+        self.assertEqual(len(self.seen("SELECT * FROM email_sends WHERE purpose = "
+                                       "'client_check'")), 2)
+        with unittest.mock.patch.object(auth, "CLIENT_CHECKS_PER_DAY", 2):
+            more = client_csv.parse(b"name,email\nX,x.csv@example.com\n")["rows"]
+            self.assertEqual(client_csv.review(c, carol, more)[0]["state"], "later")
+        left = auth.invites_left_today(c, carol)
+        self.assertIsNone(auth.invite_email_limit(c, carol, "new.csv@example.com"))
+        self.assertEqual(auth.invites_left_today(c, carol), left - 1)
+
+    def test_ending_a_relationship_each_way(self):
+        c = self.conn
+        carol, dana = self.advisor_with_client("end")
+        c.execute("UPDATE users SET last_login_at = ? WHERE id = ?", ("2026-09-01 10:00:00",
+                                                                     dana))
+        c.commit()
+        advising.add_note(c, dana, carol, "Note", "Kept note", "2026-09-01")
+        proposals.share(c, carol, proposals.save(c, carol, dana, title="Mix",
+                                                 mix={"Stocks": 60, "Bonds": 40}))
+        auth.create_invite(c, carol, dana)
+        res = advising.end_relationship(c, carol, dana, by="advisor", now=NOW)
+        self.assertEqual((res["ok"], res["account"]), (True, "kept"))
+        self.assertFalse(auth.can_view(c, carol, dana))
+        self.assertEqual(self.seen("SELECT * FROM advisor_clients WHERE client_id = ?",
+                                   (dana,)), [])
+        self.assertEqual(self.seen("SELECT * FROM invites WHERE user_id = ?", (dana,)), [])
+        self.assertEqual(self.one("SELECT ended_by, account, client_name FROM former_clients "
+                                  "WHERE client_id = ?", (dana,)),
+                         {"ended_by": "advisor", "account": "kept", "client_name": "Dana Lee"})
+        self.assertEqual(len(self.seen("SELECT id FROM advisor_notes WHERE client_id = ?",
+                                       (dana,))), 1)
+        record = zipfile.ZipFile(io.BytesIO(export.client_record_zip(c, carol, dana)))
+        self.assertIn("Kept note", record.read("notes.csv").decode())
+        self.assertIn(f"former-dana-lee-{dana}/notes.csv", zipfile.ZipFile(io.BytesIO(
+            export.all_client_records_zip(c, carol))).namelist())
+        self.assertIn("your_former_clients.csv", zipfile.ZipFile(io.BytesIO(
+            export.export_zip(c, carol))).namelist())
+
+        # never signed in, with an email: a link to choose a password
+        eve = auth.create_client(c, carol, "eve.end@example.com", name="Eve")
+        res = advising.end_relationship(c, carol, eve, by="advisor", now=NOW)
+        self.assertEqual(res["account"], "setup link")
+        self.assertTrue(auth.reset_password(c, res["setup_token"], "eves-own-pass1")["ok"])
+        self.assertEqual(auth.verify_login(c, "eve.end@example.com", "eves-own-pass1"), eve)
+
+        # never signed in, no email: closed, the advisor's records stay
+        hh = auth.create_client(c, carol, "", name="End household")
+        sample_data.load(c, hh)
+        advising.add_note(c, hh, carol, "Review", "First meeting", "2026-09-01")
+        self.assertEqual(advising.end_relationship(c, carol, hh, by="advisor")["account"],
+                         "closed")
+        self.assertEqual(self.seen("SELECT * FROM users WHERE id = ?", (hh,)), [])
+        self.assertEqual(self.seen("SELECT * FROM positions WHERE user_id = ?", (hh,)), [])
+        self.assertEqual(len(self.seen("SELECT id FROM advisor_notes WHERE client_id = ?",
+                                       (hh,))), 1)
+
+        # the client ends it
+        omar = auth.create_client(c, carol, "omar.end@example.com", name="Omar")
+        res = advising.end_relationship(c, carol, omar, by="client")
+        self.assertEqual(res["ok"], True)
+        self.assertIsNone(advising.advisor_of(c, omar))
+        self.assertEqual([f["ended_by"] for f in advising.former_clients(c, carol)][0], "client")
+
 
 # --------------------------------------------------------------------------- #
 # an investor's own data: holdings, activity, plans, settings, prices
@@ -1095,6 +1167,41 @@ class AppTests(_KeepModules):
         self.assertEqual(row["client_name"], "Chen household")
         self.assertTrue(self.read("SELECT 1 FROM invites WHERE user_id = ?", (row["id"],)))
 
+    def test_ending_from_both_sides_and_the_preview_page(self):
+        alice, carol, dave, carol_ok = self.people
+        c = portfolio.connect(self.dsn)
+        try:
+            ann = auth.create_client(c, carol, "ann.pg@example.com", name="Ann")
+            bo = auth.create_client(c, carol, "bo.pg@example.com", name="Bo")
+            c.execute("UPDATE users SET last_login_at = ? WHERE id IN (?, ?)",
+                      ("2026-09-01 10:00:00", ann, bo))
+            pat = auth.create_user(c, "pat.pg@example.com", PW)
+            auth.request_advisor(c, pat, "Pat Wealth", "CRD 1")
+            c.commit()
+        finally:
+            c.close()
+        _mail(self)
+        at = self.run_app(app(self, self.dsn, carol, "carol", "Clients", two_step_ok=carol_ok))
+        at.checkbox(key=f"end_ok_{ann}").check()
+        at.button(key=f"end_go_card_{ann}").click()
+        self.run_app(at)
+        at = self.run_app(app(self, self.dsn, bo, "bo.pg@example.com", "Advisor notes"))
+        at.checkbox(key="stop_sharing_ok").check()
+        at.button(key="stop_sharing").click()
+        self.run_app(at)
+        rows = self.read("SELECT client_id, ended_by FROM former_clients WHERE advisor_id = ? "
+                         "ORDER BY client_id", (carol,))
+        self.assertEqual(rows, [{"client_id": ann, "ended_by": "advisor"},
+                                {"client_id": bo, "ended_by": "client"}])
+        self.assertEqual(self.read("SELECT * FROM advisor_clients WHERE client_id IN (?, ?)",
+                                   (ann, bo)), [])
+        before = self.read("SELECT COUNT(*) AS n FROM users")
+        at = self.run_app(app(self, self.dsn, pat, "pat.pg@example.com", "Advisor preview"))
+        self.assertTrue(any("Rivera household" in h.proto.body for h in at.get("html")))
+        self.assertEqual(self.read("SELECT COUNT(*) AS n FROM users"), before)
+        # Your clients with a former client draws too
+        self.run_app(app(self, self.dsn, carol, "carol", "Clients", two_step_ok=carol_ok))
+
 
 # --------------------------------------------------------------------------- #
 # an older database, upgraded by today's code
@@ -1146,7 +1253,8 @@ class UpgradeTests(_KeepModules):
             self.assertEqual(cols("positions")["market_value"], "double precision")
             self.assertEqual(cols("daily_bars")["volume"], "bigint")
             for table in ("fund_top_holdings", "proposals", "progress_reports", "two_step",
-                          "error_events", "email_tokens", "advisor_requests", "csv_layouts"):
+                          "error_events", "email_tokens", "advisor_requests", "csv_layouts",
+                          "former_clients"):
                 self.assertTrue(cols(table), table)
             self.assertEqual([r["account"] for r in conn.execute(
                 "SELECT account FROM positions UNION ALL SELECT account FROM transactions")],

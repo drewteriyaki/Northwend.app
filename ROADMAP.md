@@ -973,7 +973,8 @@ release to main when green, new features wait on staging for the owner.
       market fund, explained (no fund named).
 - [x] **6. Free money check** - an employer 401(k) match calculator
       (`employer_match.py`; from Learn's readiness step and Plan's Contributions tab).
-- [ ] **7. Advisors** - add clients from a CSV with invites; a demo book
+- [x] **7. Advisors** (`client_csv.py`, `advisor_demo.py`, `advising.end_relationship`;
+      `former_clients` keeps the advisor's records) - add clients from a CSV with invites; a demo book
       while approval is pending; "End relationship" (the client keeps a
       self-directed account and is told).
 - [ ] **8. Notes to future you** - a private note on a holding or the plan,

@@ -124,6 +124,10 @@ def _render_notes():
                    "the earlier text.")
         _render_archived_notes(_archive)
         _render_client_record()
+        with st.expander(":material/link_off: End the relationship"):
+            _render_end_confirm(USER_ID, "notes")
+    elif IS_MANAGED_CLIENT:
+        _render_stop_sharing()
 
 
 def _render_note(n, set_done, archive, edit):
@@ -251,6 +255,183 @@ def _render_client_record():
         else:
             st.button("Prepare the record", key="client_record_prepare",
                       on_click=_prepare_client_record, icon=":material/folder_zip:")
+
+
+# ---- ending a relationship (advising.end_relationship) ----------------------- #
+def _end_relationship(client_id):
+    """The advisor ends it: the client keeps their account (or, with no way
+    in at all, it's closed) and gets a short email from the advisor; the
+    advisor's records stay under Former clients."""
+    viewer = st.session_state["user_id"]
+    if not st.session_state.get(f"end_ok_{client_id}"):
+        st.session_state["end_msg"] = (client_id, "Tick the box to confirm first.")
+        return
+    c = connect(DB)
+    try:
+        if (viewer == client_id or not auth.is_advisor(c, viewer)
+                or not auth.can_view(c, viewer, client_id)):
+            return
+        res = advising.end_relationship(c, viewer, client_id, by="advisor")
+        email = res["client_email"] if res["ok"] and res["account"] != "closed" else None
+        # at most one such email an hour to an address (auth.notice_ok)
+        tell = bool(email) and auth.notice_ok(c, "ended", email)
+        card = prefs.load(c, viewer).get("advisor_card") or {}
+    finally:
+        c.close()
+    if not res["ok"]:
+        st.session_state["client_msg"] = ("info", res["error"])
+        return
+    sent = False
+    if tell:
+        body_name, from_name = _advisor_names(card, st.session_state["username"])
+        token = res["setup_token"]
+        sent = mailer.relationship_ended(
+            email, f"{_app_address()}?reset={token}" if token else _app_address(), body_name,
+            setup_days=auth.SETUP_DAYS if token else None, from_name=from_name)
+    name = res["name"]
+    text = {"kept": f"Ended your relationship with {name}. They keep their account and manage "
+                    "it themselves from now on.",
+            "setup link": f"Ended your relationship with {name}. They keep their account",
+            "closed": f"Ended your relationship with {name} and closed their account - nobody "
+                      "could have opened it."}[res["account"]]
+    if res["account"] == "setup link":
+        text += (" - we emailed them a link to choose a password." if sent else
+                 ". The email with their password link couldn't go just now - they can use "
+                 "Forgot password with their email to get in.")
+    elif email:
+        text += (" We emailed them to let them know." if sent else
+                 " No email went just now - you may want to tell them yourself.")
+    text += " Your notes, proposals and reports are under **Former clients** below."
+    if st.session_state.get("active_user_id") == client_id:
+        _switch_to(viewer)
+    st.session_state["page"] = "Clients"
+    st.session_state["client_msg"] = ("success", text)
+
+
+def _render_end_confirm(client_id, where, plan=None):
+    """The confirm step for ending a relationship: what happens, then a box
+    to tick and the button. `plan` is advising.ending_plan's answer when the
+    page already has what it needs (Your clients' cards); read here
+    otherwise. Ending itself works it out again."""
+    if plan is None:
+        c = connect(DB)
+        try:
+            plan = advising.ending_plan(c, LOGIN_ID, client_id)
+        finally:
+            c.close()
+    if plan is None:
+        return
+    msg = st.session_state.get("end_msg")
+    if msg and msg[0] == client_id:
+        st.session_state.pop("end_msg")
+        st.error(msg[1])
+    name = _md_name(plan["name"])
+    account = {
+        "kept": f"**{name}** keeps their account and everything in it, and manages it "
+                "themselves from now on. You'll no longer see their portfolio.",
+        "setup link": f"**{name}** hasn't set up their login yet, so we'll email them a link "
+                      "to choose a password and keep the account. A password you set for "
+                      "them stops working.",
+        "closed": f":orange[**{name}** has never signed in and there's no email for them, so "
+                  "nobody could open this account afterwards. It will be **closed**: the "
+                  "holdings and plan in it are deleted.]"}[plan["account"]]
+    st.markdown(account)
+    st.markdown("Your notes, proposals and reports about them are **kept** - under Former "
+                "clients on Your clients, where you can still export their record."
+                + (" They get a short email from you saying it has ended - no figures."
+                   if plan["email"] and plan["account"] != "closed" else ""))
+    st.checkbox("I understand - end this relationship", key=f"end_ok_{client_id}")
+    st.button("End relationship", key=f"end_go_{where}_{client_id}", type="primary",
+              on_click=_end_relationship, args=(client_id,))
+
+
+def _stop_sharing():
+    """A client ends it (Your advisor > Stop sharing with my advisor): they
+    keep everything; their advisor is emailed and keeps their own records."""
+    me = st.session_state["user_id"]
+    if not st.session_state.get("stop_sharing_ok"):
+        st.session_state["stop_sharing_msg"] = "Tick the box to confirm first."
+        return
+    c = connect(DB)
+    try:
+        adv = advising.advisor_of(c, me)
+        if adv is None:
+            return
+        res = advising.end_relationship(c, adv, me, by="client")
+        to = auth.email_status(c, adv)
+        email = (to["email"] if res["ok"] and to["confirmed"]
+                 and auth.notice_ok(c, "ended", to["email"]) else None)
+    finally:
+        c.close()
+    if email:
+        # what the advisor calls them (Your clients), so they know who it is
+        mailer.client_stopped_sharing(email, f"{_app_address()}?page=your-clients",
+                                      res["name"])
+    st.session_state["page"] = "Dashboard"
+    st.session_state["import_flash"] = ("You've stopped sharing with your advisor. Everything "
+                                        "is still here, and it's yours to manage from now on.")
+    st.toast("You've stopped sharing with your advisor.")
+
+
+def _render_stop_sharing():
+    """Your advisor page (a managed client): stop sharing, with a confirm step."""
+    msg = st.session_state.pop("stop_sharing_msg", None)
+    with st.expander(":material/link_off: Stop sharing with my advisor", expanded=bool(msg)):
+        if msg:
+            st.error(msg)
+        st.markdown(f"Your advisor, **{_md_name(_advisor_display_name())}**, will no longer "
+                    "see your account. You keep everything - your holdings, plan and goals - "
+                    "and manage them yourself from now on.")
+        st.markdown("Your advisor keeps their own notes about your time working together, for "
+                    "their records. We'll let them know you've stopped sharing.")
+        st.checkbox("I understand - stop sharing my account", key="stop_sharing_ok")
+        st.button("Stop sharing", key="stop_sharing", type="primary", on_click=_stop_sharing)
+
+
+def _prepare_former_record(client_id, name):
+    import export
+    c = connect(DB)
+    try:
+        data = export.client_record_zip(c, LOGIN_ID, client_id)
+    except PermissionError:
+        data = None
+    finally:
+        c.close()
+    if data is not None:
+        st.session_state["former_record"] = (client_id, export.record_file_name(name), data)
+
+
+def _render_former_clients():
+    """Your clients: relationships that ended - the advisor's records stay."""
+    c = connect(DB)
+    try:
+        former = advising.former_clients(c, LOGIN_ID)
+    finally:
+        c.close()
+    if not former:
+        return
+    with st.expander(f":material/inventory_2: Former clients ({len(former)})"):
+        st.caption("Clients whose relationship with you ended. You no longer see their "
+                   "accounts; your notes, proposals and reports about them are kept here, and "
+                   "in Export all client records.")
+        ready = st.session_state.get("former_record")
+        for f in former:
+            name = f["client_name"] or f"Client {f['client_id']}"
+            who = "you ended it" if f["ended_by"] == "advisor" else "they stopped sharing"
+            closed = " · account closed" if f["account"] == "closed" else ""
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.html(f"<b>{html.escape(name)}</b> <span class='pt-muted'>· ended "
+                        f"{html.escape(_fmt_date(f['ended_at'][:10]))} · {who}{closed}</span>",
+                        width="stretch")
+                if ready and ready[0] == f["client_id"]:
+                    st.download_button("Download the record", ready[2], file_name=ready[1],
+                                       mime="application/zip", on_click="ignore",
+                                       key=f"former_dl_{f['client_id']}",
+                                       icon=":material/download:")
+                else:
+                    st.button("Prepare the record", key=f"former_prep_{f['client_id']}",
+                              type="tertiary", icon=":material/folder_zip:",
+                              on_click=_prepare_former_record, args=(f["client_id"], name))
 
 
 def _advisor_notes_card():
@@ -493,23 +674,166 @@ def _render_add_client():
                                   "answer a few questions about their goals before your first "
                                   "meeting.") and has_email
         if invite:
-            conn = connect(DB)
-            try:
-                card = prefs.load(conn, LOGIN_ID).get("advisor_card") or {}
-            finally:
-                conn.close()
-            if not card.get("name"):
-                st.markdown("**Who's it from?** Your name and firm go in the invite, so they "
-                            "know it's you.")
-                c1, c2 = st.columns(2)
-                c1.text_input("Your name", key="new_adv_name", max_chars=60,
-                              placeholder="e.g. Dana Ruiz")
-                c2.text_input("Firm (optional)", key="new_adv_firm", max_chars=80,
-                              placeholder="e.g. Ruiz Wealth")
-                st.caption("Saved under **How clients see you** at the bottom of this page, "
-                           "where you can change it any time.")
+            _render_who_from("new_adv")
         st.button("Add and send invite" if invite else "Add client", key="add_client",
                   on_click=_add_client, type="primary")
+    _render_add_from_file()
+
+
+def _render_who_from(prefix):
+    """Before the first invite (no name under How clients see you yet): the
+    advisor's name and firm, saved by _save_invite_card."""
+    conn = connect(DB)
+    try:
+        card = prefs.load(conn, LOGIN_ID).get("advisor_card") or {}
+    finally:
+        conn.close()
+    if card.get("name"):
+        return
+    st.markdown("**Who's it from?** Your name and firm go in the invite, so they "
+                "know it's you.")
+    c1, c2 = st.columns(2)
+    c1.text_input("Your name", key=f"{prefix}_name", max_chars=60,
+                  placeholder="e.g. Dana Ruiz")
+    c2.text_input("Firm (optional)", key=f"{prefix}_firm", max_chars=80,
+                  placeholder="e.g. Ruiz Wealth")
+    st.caption("Saved under **How clients see you** at the bottom of this page, "
+               "where you can change it any time.")
+
+
+# ---- adding clients from a file (client_csv.py) ------------------------------ #
+def _bulk_reset():
+    st.session_state.pop("bulk_review", None)
+    st.session_state["bulk_upload_n"] = st.session_state.get("bulk_upload_n", 0) + 1
+
+
+def _add_clients_from_file():
+    """Add the file's ready rows (client_csv.review, re-checked by
+    create_client) through the same path as Add client, and email each a
+    setup link while today's limit allows (_send_invite)."""
+    review = st.session_state.get("bulk_review")
+    viewer = st.session_state["user_id"]
+    invite = bool(st.session_state.get("bulk_invite", True))
+    if not review:
+        return
+    ready = [r for r in review[1] if r["state"] == "ok"]
+    added, invited, not_sent, failed = [], 0, {}, 0
+    c = connect(DB)
+    try:
+        if not auth.is_advisor(c, viewer):
+            return
+        if invite:
+            missing = _save_invite_card(c, viewer, "bulk_adv")
+            if missing:
+                st.session_state["bulk_msg"] = ("error", missing)
+                return
+        for r in ready:
+            try:
+                client_id, shown, sent = _add_one_client(c, viewer, r["name"], r["email"],
+                                                         invite)
+            except (ValueError, DBError):
+                failed += 1   # taken since the review (or by another row): not added
+                continue
+            added.append(client_id)
+            if sent and sent[0]:
+                invited += 1
+                if not mailer.dry_run():
+                    time.sleep(0.6)   # the email service takes a couple a second
+            elif sent:
+                not_sent[sent[1]] = not_sent.get(sent[1], 0) + 1
+    finally:
+        c.close()
+    n = len(added)
+    text = f"Added {n} client{'s' if n != 1 else ''}."
+    if invite and invited:
+        text += f" Setup links went to {invited}."
+    for why, k in not_sent.items():
+        text += (f" {k} didn't get a setup link yet: {why[0].lower()}{why[1:].rstrip('.')}. "
+                 "Send theirs from **Client login** in their account.")
+    if failed:
+        text += (f" {failed} couldn't be added - their email has a Northwend account "
+                 "already.")
+    st.session_state["client_msg"] = ("success" if n and not not_sent and not failed
+                                      else "warning", text)
+    _bulk_reset()
+
+
+def _render_add_from_file():
+    """Your clients: Add clients from a file - review each row first."""
+    import hashlib
+
+    import client_csv
+
+    msg = st.session_state.pop("bulk_msg", None)
+    with st.expander(":material/upload_file: Add clients from a file",
+                     expanded=bool(msg or st.session_state.get("bulk_review"))):
+        if msg:
+            getattr(st, msg[0])(msg[1])
+        st.caption(f"A CSV file with a row per client: their name (or household) and email - "
+                   f"up to {client_csv.MAX_ROWS} rows. Most spreadsheets and CRMs can save one. "
+                   "You'll see every row before anything is added. The file itself isn't kept.")
+        up = st.file_uploader("Your client list (CSV)", type=["csv", "txt"],
+                              key=f"bulk_upload_{st.session_state.get('bulk_upload_n', 0)}")
+        if up is None:
+            st.session_state.pop("bulk_review", None)
+            return
+        data = bytes(up.getvalue())   # read in memory, never written anywhere
+        sig = (up.name, len(data), hashlib.sha256(data).hexdigest())
+        review = st.session_state.get("bulk_review")
+        if not review or review[0] != sig:
+            parsed = client_csv.parse(data)
+            if not parsed["ok"]:
+                st.warning(parsed["error"])
+                return
+            c = connect(DB)
+            try:
+                review = (sig, client_csv.review(c, LOGIN_ID, parsed["rows"]))
+            finally:
+                c.close()
+            st.session_state["bulk_review"] = review
+        rows = review[1]
+        n = client_csv.counts(rows)
+        ready = n["ok"]
+        others = len(rows) - ready
+        st.markdown(f"**{ready} of {len(rows)} ready to add.**"
+                    + (f" {others} need{'s' if others == 1 else ''} a look - they won't be "
+                       "added." if others else ""))
+        st.dataframe(pd.DataFrame([{"Row": r["row"], "Name": r["name"] or "",
+                                    "Email": r["email"], "Status": client_csv.STATES[r["state"]],
+                                    "Why": r["why"]} for r in rows]),
+                     hide_index=True, width="stretch", height=min(38 + 35 * len(rows), 320))
+        if others:
+            st.download_button("Download the rows that need a look",
+                               client_csv.needs_a_look_csv(rows), on_click="ignore",
+                               file_name="clients-to-check.csv", mime="text/csv",
+                               key="bulk_problems", icon=":material/download:", type="tertiary")
+            if n["taken"]:
+                st.caption("An email that already has a Northwend account can't be added as a "
+                           "new client - as with Add client.")
+        if not ready:
+            st.button("Choose another file", key="bulk_again", on_click=_bulk_reset)
+            return
+        invite = st.checkbox("Email each of them a setup link", value=True, key="bulk_invite",
+                             help="They choose their own password - you never see it - then "
+                                  "answer a few questions about their goals.")
+        if invite:
+            c = connect(DB)
+            try:
+                left = auth.invites_left_today(c, LOGIN_ID)
+            finally:
+                c.close()
+            if ready > left:
+                st.info(f"You can email {auth.INVITES_PER_ADVISOR_PER_DAY} setup links a day, "
+                        f"and {left} are left today. Everyone is added; "
+                        f"{'the first ' + str(left) if left else 'none'} get their link now, "
+                        "and you can send the rest from **Client login** in their account "
+                        "tomorrow.")
+            _render_who_from("bulk_adv")
+        with st.container(horizontal=True):
+            st.button(f"Add {ready} client{'s' if ready != 1 else ''}"
+                      + (" and send invites" if invite else ""),
+                      key="bulk_add", type="primary", on_click=_add_clients_from_file)
+            st.button("Cancel", key="bulk_cancel", type="tertiary", on_click=_bulk_reset)
 
 
 def _rename_client(client_id):
@@ -719,6 +1043,12 @@ def _render_clients():
                               args=(r["user_id"],),
                               help="Let this client import their own statements. Their plan, "
                                    "goal, target mix and alert limits stay yours to set.")
+                    with st.popover("End", type="tertiary", width=90,
+                                    help="End your relationship with this client"):
+                        _render_end_confirm(r["user_id"], "card", plan={
+                            "name": r["name"], "email": r["email"],
+                            "account": ("kept" if r["login_days"] is not None else
+                                        "setup link" if r["email"] else "closed")})
         st.caption(f"Sorted by what needs a look. Reviews are due {advising.REVIEW_EVERY_DAYS} days "
                    f"after the last one; drift is flagged past {advising.DRIFT_ATTENTION_PTS:g} "
                    "points from the plan's target mix; alerts count holdings past the "
@@ -727,6 +1057,7 @@ def _render_clients():
                    f"client who used to sign in is flagged after {advising.INACTIVE_DAYS} days "
                    "away.")
         _render_all_records()
+    _render_former_clients()
     st.divider()
     _render_models()
     st.divider()

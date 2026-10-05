@@ -321,6 +321,105 @@ def weekly_summary(rows: list[dict]) -> dict:
             "any": bool(due or soon or attention)}
 
 
+# ---- ending a relationship (ROADMAP 7) --------------------------------------- #
+# Either side can end it: the advisor from the client's card or Advisor notes
+# page, the client from Your advisor ("Stop sharing with my advisor"). The
+# client keeps their account and becomes self-directed (no advisor_clients
+# row: no client mode, they manage their holdings and plan themselves). The
+# advisor keeps their own notes, proposals and reports about them - nothing
+# is deleted - and a former_clients row lets them still export that record
+# (export.client_record). What happens to the client's login:
+#   "kept"       they have signed in before: they carry on with their login
+#   "setup link" never signed in but there's an email: the password is replaced
+#                by a random one (so a password the advisor set no longer
+#                works) and they're emailed a "choose your password" link
+#   "closed"     never signed in and no email: nobody could ever open the
+#                account, so it's closed - what the advisor entered for them
+#                goes with it, the advisor's own records stay
+ENDED_BY = ("advisor", "client")
+
+
+def _client_name(conn, advisor_id: int, client_id: int) -> str | None:
+    row = conn.execute("SELECT ac.client_name, u.display_name, u.username FROM advisor_clients ac "
+                       "JOIN users u ON u.id = ac.client_id WHERE ac.advisor_id = ? "
+                       "AND ac.client_id = ?", (advisor_id, client_id)).fetchone()
+    return (row["client_name"] or row["display_name"] or row["username"]) if row else None
+
+
+def ending_plan(conn, advisor_id: int, client_id: int) -> dict | None:
+    """What ending this relationship would do, for the confirm step:
+    {"account": "kept" / "setup link" / "closed", "email", "name" (the
+    advisor's name for them)}. None if they aren't linked."""
+    name = _client_name(conn, advisor_id, client_id)
+    if name is None:
+        return None
+    row = conn.execute("SELECT email, last_login_at FROM users WHERE id = ?",
+                       (client_id,)).fetchone()
+    other = conn.execute("SELECT 1 FROM advisor_clients WHERE client_id = ? AND advisor_id != ? "
+                         "LIMIT 1", (client_id, advisor_id)).fetchone()
+    if row["last_login_at"] or other:   # another advisor still reaches the account
+        account = "kept"
+    else:
+        account = "setup link" if row["email"] else "closed"
+    return {"account": account, "email": row["email"], "name": name}
+
+
+def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
+                     now: datetime | None = None) -> dict:
+    """End the relationship between `advisor_id` and `client_id` (`by`:
+    'advisor' or 'client' - who asked; the caller has checked it's one of
+    them). Unlinks them, cancels any setup link the advisor made, keeps the
+    advisor's records and notes who the client was (former_clients), and
+    deals with the client's login as ending_plan() says. Returns {"ok",
+    "error", "account", "name", "client_email", "setup_token" (for the email,
+    "setup link" only)}. Sends nothing: the caller emails both sides."""
+    import admin
+    import auth
+
+    if by not in ENDED_BY:
+        raise ValueError("ended by the advisor or the client")
+    plan = ending_plan(conn, advisor_id, client_id)
+    out = {"ok": False, "error": None, "account": None, "name": None, "client_email": None,
+           "setup_token": None}
+    if plan is None or advisor_id == client_id:
+        return {**out, "error": "This relationship has already ended."}
+    stamp = _stamp(now)
+    try:
+        conn.execute("DELETE FROM former_clients WHERE advisor_id = ? AND client_id = ?",
+                     (advisor_id, client_id))
+        conn.execute("INSERT INTO former_clients (advisor_id, client_id, client_name, email, "
+                     "ended_at, ended_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                     (advisor_id, client_id, plan["name"], plan["email"], stamp, by,
+                      plan["account"]))
+        # a setup link the advisor made (or holds) stops working
+        conn.execute("DELETE FROM invites WHERE user_id = ?", (client_id,))
+        conn.execute("DELETE FROM advisor_clients WHERE advisor_id = ? AND client_id = ?",
+                     (advisor_id, client_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    token = None
+    if plan["account"] == "setup link":
+        import secrets
+        # nobody has used this login: any password the advisor set stops
+        # working, and the client chooses their own from the emailed link
+        auth.set_password(conn, auth.get_username(conn, client_id), secrets.token_urlsafe(32))
+        token = auth.setup_link(conn, client_id, now=now)["token"]
+    elif plan["account"] == "closed":
+        admin.delete_account(conn, client_id, by=advisor_id, keep_records_of=advisor_id)
+    return {"ok": True, "error": None, "account": plan["account"], "name": plan["name"],
+            "client_email": plan["email"], "setup_token": token}
+
+
+def former_clients(conn, advisor_id: int) -> list[dict]:
+    """This advisor's former clients, most recently ended first: {"client_id",
+    "client_name", "email", "ended_at", "ended_by", "account"}."""
+    return [dict(r) for r in conn.execute(
+        "SELECT client_id, client_name, email, ended_at, ended_by, account FROM former_clients "
+        "WHERE advisor_id = ? ORDER BY ended_at DESC, client_id DESC", (advisor_id,))]
+
+
 # ---- model portfolios ------------------------------------------------------- #
 def _clean_mix(mix: dict) -> dict:
     return {k: float(v) for k, v in (mix or {}).items() if v and float(v) > 0}

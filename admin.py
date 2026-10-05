@@ -33,7 +33,11 @@ ACCOUNT_TABLES = {
     "advisor_notes": ("advisor_id", "client_id"), "model_portfolios": ("advisor_id",),
     "proposals": ("advisor_id", "client_id"), "progress_reports": ("advisor_id", "client_id"),
     "two_step": ("user_id",),
+    "former_clients": ("advisor_id", "client_id"),
 }
+# an advisor's own records about a client (advising.end_relationship keeps
+# them when it closes an account nobody could open)
+ADVISOR_RECORD_TABLES = ("advisor_notes", "proposals", "progress_reports", "former_clients")
 # columns that only record who last changed something - cleared, not deleted
 ACCOUNT_REFERENCES = {"plans": ("set_by",)}
 
@@ -198,11 +202,15 @@ def create_account(conn, login: str) -> dict:
             "temp_password": None if email else temp}
 
 
-def delete_account(conn, user_id: int, *, by: int) -> dict:
+def delete_account(conn, user_id: int, *, by: int, keep_records_of: int | None = None) -> dict:
     """Delete an account and everything it holds, in one transaction. An
     advisor's clients keep their accounts (they just no longer have an
-    advisor). Refuses the admin's own account and other admins. Returns
-    {"ok", "error", "username", "orphaned_clients"}."""
+    advisor). Refuses the admin's own account and other admins. With
+    `keep_records_of` (an advisor's id), that advisor's own notes, proposals,
+    reports and former-client row about this account are kept
+    (ADVISOR_RECORD_TABLES) - an advisor closing a client account nobody
+    could open (advising.end_relationship). Returns {"ok", "error",
+    "username", "orphaned_clients"}."""
     row = conn.execute("SELECT username, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         return {"ok": False, "error": "No such account.", "username": None,
@@ -216,7 +224,10 @@ def delete_account(conn, user_id: int, *, by: int) -> dict:
     with conn:
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
-            conn.execute(f"DELETE FROM {table} WHERE {where}", (user_id,) * len(cols))
+            params = (user_id,) * len(cols)
+            if keep_records_of is not None and table in ADVISOR_RECORD_TABLES:
+                where, params = f"({where}) AND advisor_id != ?", params + (keep_records_of,)
+            conn.execute(f"DELETE FROM {table} WHERE {where}", params)
         for table, cols in ACCOUNT_REFERENCES.items():
             for c in cols:
                 conn.execute(f"UPDATE {table} SET {c} = NULL WHERE {c} = ?", (user_id,))

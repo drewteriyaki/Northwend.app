@@ -1317,6 +1317,11 @@ else:
              *(["Get started"] if _learn_last else []), "Account", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
+# while advisor access is being checked: a read-only preview of the advisor
+# side, with made-up clients (views/advisor_demo.py) - in the name menu
+ADVISOR_PENDING = bool(ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None)
+if ADVISOR_PENDING:
+    PAGES.append("Advisor preview")
 
 # The menu: a bar along the top (the phone tab bar below shows the same tabs),
 # everything on it at once - nothing hidden behind a "More". Investors get
@@ -1338,6 +1343,7 @@ if IS_ADVISOR:
 else:
     NAV = ["Dashboard", "Plan", "Get started", "AI Assistant", MONEY,
            *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
+# (Advisor preview is reached from the name menu's "advisor access requested" note)
 ACCOUNT_MENU = [p for p in ("Account", "About", "Admin") if p in PAGES]
 # the top bar's words where they're shorter than the page's own name (an
 # advisor's bar holds more); the button's tooltip gives the full name
@@ -1447,22 +1453,12 @@ def _add_client():
         return
     c = connect(DB)
     try:
-        p = prefs.load(c, viewer)
-        card = p.get("advisor_card") or {}
-        if invite and not card.get("name"):
-            # the first invite: who it's from (saved as How clients see you)
-            my_name = " ".join((st.session_state.get("new_adv_name") or "").split())[:60]
-            my_firm = " ".join((st.session_state.get("new_adv_firm") or "").split())[:80]
-            if not my_name:
-                st.session_state["client_msg"] = (
-                    "error", "Add your name first - the invite tells them who it's from.")
+        if invite:
+            missing = _save_invite_card(c, viewer, "new_adv")
+            if missing:
+                st.session_state["client_msg"] = ("error", missing)
                 return
-            card = {**card, "name": my_name, **({"firm": my_firm} if my_firm else {})}
-            p["advisor_card"] = card
-            prefs.save(c, viewer, p)
-        client_id = auth.create_client(c, viewer, email, name=name)
-        shown = name or auth.get_username(c, client_id)   # an email is stored lower-cased
-        sent = _send_invite(c, viewer, client_id) if invite else None
+        client_id, shown, sent = _add_one_client(c, viewer, name, email, invite)
     except ValueError as exc:
         st.session_state["client_msg"] = ("error", str(exc).capitalize() + ".")
         return
@@ -1486,6 +1482,34 @@ def _add_client():
     else:
         st.session_state["client_msg"] = ("warning", f"Added {shown}, but {sent[1][0].lower()}"
                                                      f"{sent[1][1:]}", client_id)
+
+
+def _save_invite_card(c, viewer, prefix):
+    """Before the first invite: who it's from. If How clients see you has no
+    name yet, the "Who's it from?" inputs (`prefix`_name / _firm, drawn by
+    _render_who_from) are saved there. The error to show, or None."""
+    p = prefs.load(c, viewer)
+    card = p.get("advisor_card") or {}
+    if card.get("name"):
+        return None
+    my_name = " ".join((st.session_state.get(f"{prefix}_name") or "").split())[:60]
+    my_firm = " ".join((st.session_state.get(f"{prefix}_firm") or "").split())[:80]
+    if not my_name:
+        return "Add your name first - the invite tells them who it's from."
+    p["advisor_card"] = {**card, "name": my_name, **({"firm": my_firm} if my_firm else {})}
+    prefs.save(c, viewer, p)
+    return None
+
+
+def _add_one_client(c, viewer, name, email, invite):
+    """Add one client - Add client, and each row of a file - and, with
+    `invite`, email their setup link (_send_invite, with its limits). Returns
+    (client id, how to show them, (sent, message) or None). Raises
+    ValueError / DBError as auth.create_client does."""
+    client_id = auth.create_client(c, viewer, email, name=name)
+    shown = name or auth.get_username(c, client_id)   # an email is stored lower-cased
+    sent = _send_invite(c, viewer, client_id) if invite else None
+    return client_id, shown, sent
 
 
 def _send_invite(c, viewer, client_id):
@@ -1665,7 +1689,8 @@ _BRAND = (f"<div class='pt-brand{' pt-brand-compact' if IS_ADVISOR else ''}'>"
           "<span class='pt-brand-mark' aria-hidden='true' translate='no'>flag</span>"
           f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
 ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
-                 "Admin": ":material/admin_panel_settings:"}
+                 "Admin": ":material/admin_panel_settings:",
+                 "Advisor preview": ":material/preview:"}
 
 
 def _render_viewing_pick():
@@ -1706,10 +1731,15 @@ def _render_name_menu():
         st.caption(f"Logged in as **{MY_NAME}**{_viewing}")
         if IS_MANAGED_CLIENT:
             st.caption(f"Your advisor: **{_advisor_display_name()}**")
-        if ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None:
+        if ADVISOR_PENDING:
             st.caption(f":material/hourglass_top: **Advisor access requested** for "
-                       f"{ADVISOR_REQUEST['firm']}. We're checking your details - usually "
-                       "within two working days. Advisor tools appear once it's approved.")
+                       f"{_md_name(ADVISOR_REQUEST['firm'])}. We're checking your details - "
+                       "usually within two working days. Advisor tools appear once it's "
+                       "approved.")
+            st.button("While you wait: see what Northwend looks like for an advisor",
+                      key="menu_advisor_preview", on_click=_go, args=("Advisor preview",),
+                      width="stretch", type="secondary",
+                      icon=ACCOUNT_ICONS["Advisor preview"])
         elif ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] == "declined":
             st.caption("Your request for advisor access wasn't approved. Questions: "
                        f"{disclosures.CONTACT}")
@@ -2077,6 +2107,9 @@ _view("plan")
 
 
 _view("proposals")
+
+# "See what you'll get": made-up clients while advisor access is pending
+_view("advisor_demo")
 
 
 # milestones and gear: the "milestone reached" window and Your kit (gear.py)
@@ -2836,7 +2869,7 @@ if "hide_amounts" not in st.session_state:
 
 # Add holdings (the top bar) or a page's own button was pressed (_open_holdings_dialog)
 _open = st.session_state.pop("open_dialog", None)
-if PAGE in ("Clients", "Admin", "Account", "About") and not _open:
+if PAGE in ("Clients", "Admin", "Account", "About", "Advisor preview") and not _open:
     # these pages are about the login, its clients or the app - not the viewed
     # account's holdings, so they aren't read (a Holdings window needs them)
     snapshot, positions, cash_by_account, quotes, watch_tickers = None, [], {}, {}, []
@@ -2894,6 +2927,11 @@ if PAGE == "Account":
 if PAGE == "About":
     _page_header("About and disclosures", data=False)
     _render_disclosures()
+    st.stop()
+if PAGE == "Advisor preview":
+    # made-up clients, in memory only - nothing of the viewed account's is read
+    _page_header("See what you'll get", data=False)
+    _render_advisor_demo()
     st.stop()
 if not positions and PAGE != "Watchlist":
     # Nothing brought in yet (the watchlist works regardless - Learn's example

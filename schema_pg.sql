@@ -425,6 +425,18 @@ CREATE TABLE IF NOT EXISTS advisor_requests (
     decided_at    TEXT
 );
 
+-- An ended advisor relationship - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS former_clients (
+    advisor_id   INTEGER NOT NULL,
+    client_id    INTEGER NOT NULL,
+    client_name  TEXT,
+    email        TEXT,
+    ended_at     TEXT    NOT NULL,
+    ended_by     TEXT    NOT NULL,
+    account      TEXT    NOT NULL,
+    PRIMARY KEY (advisor_id, client_id)
+);
+
 -- Emails asked for - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS email_sends (
     email_key    TEXT NOT NULL,

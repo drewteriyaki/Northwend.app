@@ -589,6 +589,48 @@ def invite_email_limit(conn, advisor_id: int, email: str, *,
     return reason
 
 
+def invites_left_today(conn, advisor_id: int, *, now: datetime | None = None) -> int:
+    """How many more setup links this advisor can email today
+    (INVITES_PER_ADVISOR_PER_DAY, counted by invite_email_limit)."""
+    now = now or datetime.now(timezone.utc)
+    sent = _sends(conn, now, address_key=_address_key(f"advisor:{advisor_id}"), purpose="invite")
+    conn.commit()
+    return max(0, INVITES_PER_ADVISOR_PER_DAY - len(sent))
+
+
+# Adding clients from a file (client_csv.review) says which addresses already
+# have a Northwend account - as Add client does, one at a time, when it can't
+# make the account. So a file can't check addresses faster than that, each
+# advisor may look up this many NEW addresses a day (the same address again
+# is free; their own clients aren't looked up). One full file's worth.
+CLIENT_CHECKS_PER_DAY = 200
+
+
+def client_checks_allowed(conn, advisor_id: int, emails, *,
+                          now: datetime | None = None) -> set:
+    """Which of `emails` (normalized) may be checked for an existing account
+    now: those already checked today, then new ones up to
+    CLIENT_CHECKS_PER_DAY - each new one is counted (hashed, kept a day)."""
+    now = now or datetime.now(timezone.utc)
+    akey = _address_key(f"advisor:{advisor_id}")
+    _sends(conn, now, address_key=akey, purpose="client_check")   # tidies a day's old ones
+    seen = {r["email_key"] for r in conn.execute(
+        "SELECT email_key FROM email_sends WHERE address_key = ? AND purpose = 'client_check'",
+        (akey,))}
+    allowed, stamp = set(), _utc(now)
+    for email in dict.fromkeys(emails):
+        key = _email_key(email)
+        if key not in seen:
+            if len(seen) >= CLIENT_CHECKS_PER_DAY:
+                continue
+            seen.add(key)
+            conn.execute("INSERT INTO email_sends (email_key, address_key, purpose, sent_at) "
+                         "VALUES (?, ?, 'client_check', ?)", (key, akey, stamp))
+        allowed.add(email)
+    conn.commit()
+    return allowed
+
+
 def notice_ok(conn, purpose: str, email: str, *, now: datetime | None = None) -> bool:
     """Whether a "something's waiting for you" email (`purpose`: 'message',
     'report', 'proposal', 'answer') may go to `email` now: at most one of a

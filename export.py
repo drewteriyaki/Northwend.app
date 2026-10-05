@@ -47,6 +47,8 @@ OWN = [
      " AND status != 'draft' AND archived_at IS NULL"),
     ("from_your_advisor_reports", "progress_reports", "client_id", ""),
     ("your_model_portfolios", "model_portfolios", "advisor_id", ""),
+    # an advisor's clients whose relationship ended (advising.end_relationship)
+    ("your_former_clients", "former_clients", "advisor_id", ""),
     # when two-step sign-in was turned on - its key and backup codes never
     ("two_step_sign_in", "two_step", "user_id", ""),
 ]
@@ -68,6 +70,7 @@ Open them in any spreadsheet. Dates are UTC.
 - plan.csv, contributions.csv, profile.csv: your goals and answers
 - watchlist.csv, settings.csv, account_names.csv: your choices in the app
 - ai_use.csv: how many AI requests you made each month (not what you asked)
+- your_former_clients.csv: for an advisor, clients whose relationship ended
 - from_your_advisor_*.csv: what your advisor shared with you, if you have one
 - two_step_sign_in.csv: when you turned on two-step sign-in, if you did
 
@@ -172,7 +175,12 @@ Open them in any spreadsheet. Times are UTC.
 - proposals.csv: your proposals, with the client's answer (status, responded_at) -
   archived ones too (archived_at)
 - reports.csv: progress reports you sent, and when they were opened (read_at)
-- profile.csv: the client's answers about their goals and risk
+- profile.csv: the client's answers about their goals and risk (while they're
+  your client - not once the relationship has ended)
+
+For a former client, client.csv says when the relationship ended, who ended
+it (ended_by) and what happened to their login (account: kept; setup link -
+they were emailed a link to set up their own sign-in; or closed).
 
 Only what you recorded for this client in Northwend. Keep it with your firm's
 own records: Northwend isn't a record-keeping system for advisers.
@@ -186,22 +194,36 @@ PROPOSAL_COLUMNS = ("id", "title", "mix_json", "note", "status", "created_at", "
 REPORT_COLUMNS = ("id", "period_label", "period_start", "period_end", "created_at", "read_at",
                   "message", "facts_json")
 PROFILE_LEFT_OUT = {"ai_memory"}   # the AI guide's own notes, never shown in the app
+# a former client's client.csv: who they were to the advisor when it ended
+FORMER_COLUMNS = ("client_name", "email", "ended_at", "ended_by", "account")
 
 
 def client_record(conn, advisor_id: int, client_id: int) -> dict[str, list[dict]]:
     """{file name: rows} of what `advisor_id` recorded for one of their
     clients. Raises PermissionError for anyone but this client's advisor."""
-    if (advisor_id == client_id or not auth.is_advisor(conn, advisor_id)
-            or not auth.can_view(conn, advisor_id, client_id)):
+    if advisor_id == client_id or not auth.is_advisor(conn, advisor_id):
         raise PermissionError("only this client's advisor can export their record")
-    link = conn.execute("SELECT client_name, client_can_import FROM advisor_clients "
-                        "WHERE advisor_id = ? AND client_id = ?",
-                        (advisor_id, client_id)).fetchone()
-    user = conn.execute(f"SELECT {', '.join(CLIENT_COLUMNS)} FROM users WHERE id = ?",
-                        (client_id,)).fetchone()
-    found = {"client": [{"your_name_for_them": link["client_name"],
-                         **{c: user[c] for c in CLIENT_COLUMNS},
-                         "can_import": int(bool(link["client_can_import"]))}]}
+    former = None
+    if not auth.can_view(conn, advisor_id, client_id):
+        # a former client (advising.end_relationship): the advisor's own
+        # records only - who they were when it ended, never their account now
+        former = conn.execute(f"SELECT {', '.join(FORMER_COLUMNS)} FROM former_clients "
+                              "WHERE advisor_id = ? AND client_id = ?",
+                              (advisor_id, client_id)).fetchone()
+        if former is None:
+            raise PermissionError("only this client's advisor can export their record")
+    if former is not None:
+        found = {"client": [{"your_name_for_them": former["client_name"],
+                             **{c: former[c] for c in FORMER_COLUMNS if c != "client_name"}}]}
+    else:
+        link = conn.execute("SELECT client_name, client_can_import FROM advisor_clients "
+                            "WHERE advisor_id = ? AND client_id = ?",
+                            (advisor_id, client_id)).fetchone()
+        user = conn.execute(f"SELECT {', '.join(CLIENT_COLUMNS)} FROM users WHERE id = ?",
+                            (client_id,)).fetchone()
+        found = {"client": [{"your_name_for_them": link["client_name"],
+                             **{c: user[c] for c in CLIENT_COLUMNS},
+                             "can_import": int(bool(link["client_can_import"]))}]}
     notes = [dict(r) for r in conn.execute(
         "SELECT * FROM advisor_notes WHERE client_id = ? AND advisor_id = ? "
         "ORDER BY note_date, id", (client_id, advisor_id))]
@@ -216,9 +238,10 @@ def client_record(conn, advisor_id: int, client_id: int) -> dict[str, list[dict]
         found[file] = [dict(r) for r in conn.execute(
             f"SELECT {', '.join(cols)} FROM {table} WHERE client_id = ? AND advisor_id = ? "
             "ORDER BY id", (client_id, advisor_id))]
-    found["profile"] = [{k: v for k, v in dict(r).items() if k not in PROFILE_LEFT_OUT}
-                        for r in conn.execute("SELECT * FROM investor_profiles WHERE user_id = ?",
-                                              (client_id,))]
+    # their answers are their own: in the record only while they're a client
+    found["profile"] = [] if former is not None else [
+        {k: v for k, v in dict(r).items() if k not in PROFILE_LEFT_OUT}
+        for r in conn.execute("SELECT * FROM investor_profiles WHERE user_id = ?", (client_id,))]
     return {k: v for k, v in found.items() if v}
 
 
@@ -236,7 +259,9 @@ def client_record_zip(conn, advisor_id: int, client_id: int, *,
     """One client's record as a ZIP: README.txt plus one CSV per kind of
     record. PermissionError if `advisor_id` isn't this client's advisor."""
     now = now or datetime.now(timezone.utc)
-    name = dict(auth.list_clients(conn, advisor_id)).get(client_id) or f"Client {client_id}"
+    name = (dict(auth.list_clients(conn, advisor_id)).get(client_id)
+            or {f["client_id"]: f["client_name"] for f in advising.former_clients(
+                conn, advisor_id)}.get(client_id) or f"Client {client_id}")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         _write_record(z, conn, advisor_id, client_id, name, now.strftime("%Y-%m-%d %H:%M"))
@@ -254,6 +279,12 @@ def all_client_records_zip(conn, advisor_id: int, *, now: datetime | None = None
                 _write_record(z, conn, advisor_id, client_id, name,
                               now.strftime("%Y-%m-%d %H:%M"),
                               folder=f"{_slug(name)}-{client_id}/")
+            # and former clients (advising.end_relationship): their records stay yours
+            for f in advising.former_clients(conn, advisor_id):
+                name = f["client_name"] or f"Client {f['client_id']}"
+                _write_record(z, conn, advisor_id, f["client_id"], name,
+                              now.strftime("%Y-%m-%d %H:%M"),
+                              folder=f"former-{_slug(name)}-{f['client_id']}/")
     return buf.getvalue()
 
 

@@ -81,7 +81,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status`, counts with `_ai_record` only after a
   successful answer, and shows failures via `_ai_failed` - never raw error text),
-  `advising.py`,
+  `advising.py` (also ending a relationship: `end_relationship`, the advisor's records
+  stay via `former_clients`), `client_csv.py` (Add clients from a file, through
+  dashboard `_add_one_client`), `advisor_demo.py` + `views/advisor_demo.py` (the
+  in-memory example book a pending advisor sees - never written anywhere),
   `advisor.py` (the AI guide, Claude API with prompt caching), `prefs.py`, `accounts.py`.
 - Look: `.streamlit/config.toml` (the Northwend theme: colors per light/dark,
   Figtree text and Newsreader titles from `static/`, served at `app/static/`),
