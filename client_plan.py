@@ -125,6 +125,8 @@ def next_steps(client, profile: dict, summary: str, chat_text: str = "",
         thinking={"type": "adaptive"},
         output_config={"effort": "medium"},
     )
+    import ai_spend
+    ai_spend.note(message, "plan", advisor.MODEL)   # token counts only
     if message.stop_reason == "refusal":
         return None
     text = "".join(b.text for b in message.content if b.type == "text").strip()

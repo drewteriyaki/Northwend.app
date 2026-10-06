@@ -112,8 +112,12 @@ def left_text(st: dict, kind: str) -> str:
     return f"{st['left']} of {st['limit']} {many if st['limit'] != 1 else one} left this month"
 
 
-def used_up_text(st: dict, kind: str) -> str:
-    """Why `kind` can't be used right now - for any status() with ok False."""
+def used_up_text(st: dict, kind: str, app_name: str = "Northwend") -> str:
+    """Why `kind` can't be used right now - for any status() with ok False
+    (also with the app-wide ceiling's say, ai_spend.apply)."""
+    if st.get("resting_why"):
+        import ai_spend
+        return ai_spend.resting_text(st["resting_why"], kind, st["resets"], app_name)
     if st.get("unconfirmed"):
         return ("Confirm your email to use this - open the link we sent you (you can send "
                 "it again from the note at the top of the page).")

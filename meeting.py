@@ -140,6 +140,8 @@ def talking_points(client, profile: dict, summary: str, facts: str) -> list[str]
         thinking={"type": "adaptive"},
         output_config={"effort": "low"},
     )
+    import ai_spend
+    ai_spend.note(message, "prep", advisor.MODEL)   # token counts only
     if message.stop_reason == "refusal":
         return None
     text = "".join(b.text for b in message.content if b.type == "text").strip()

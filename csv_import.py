@@ -482,6 +482,8 @@ def ai_mapping(header, shapes, api_key, *, client=None, model=None) -> dict | No
     prompt = AI_PROMPT.format(header=json.dumps(header), shapes=json.dumps(shapes))
     resp = client.messages.create(model=model, max_tokens=400,
                                   messages=[{"role": "user", "content": prompt}])
+    import ai_spend
+    ai_spend.note(resp, "csv", model)   # token counts only
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     m = re.search(r"\{.*\}", text, re.S)
     try:

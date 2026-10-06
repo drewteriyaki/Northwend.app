@@ -81,6 +81,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status`, counts with `_ai_record` only after a
   successful answer, and shows failures via `_ai_failed` - never raw error text),
+  `ai_spend.py` (the app-wide monthly AI cost: tokens and cost per helper, no text or
+  user_id; levels at 50/80/95/100% of `NORTHWEND_AI_CEILING_USD`, alert emails, calm
+  "resting" wording - every AI call records with `ai_spend.note` after a good answer),
   `advising.py` (also ending a relationship: `end_relationship`, the advisor's records
   stay via `former_clients`), `client_csv.py` (Add clients from a file, through
   dashboard `_add_one_client`), `advisor_demo.py` + `views/advisor_demo.py` (the

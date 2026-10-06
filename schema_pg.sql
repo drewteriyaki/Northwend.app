@@ -504,6 +504,29 @@ CREATE TABLE IF NOT EXISTS error_events (
     emailed_at  TEXT
 );
 
+-- The app-wide AI spend - see the matching comment in schema.sql. No user_id, no text.
+CREATE TABLE IF NOT EXISTS ai_spend (
+    month              TEXT    NOT NULL,
+    helper             TEXT    NOT NULL,
+    model              TEXT    NOT NULL,
+    calls              BIGINT  NOT NULL DEFAULT 0,
+    input_tokens       BIGINT  NOT NULL DEFAULT 0,
+    output_tokens      BIGINT  NOT NULL DEFAULT 0,
+    cache_write_tokens BIGINT  NOT NULL DEFAULT 0,
+    cache_read_tokens  BIGINT  NOT NULL DEFAULT 0,
+    cost_micro         BIGINT  NOT NULL DEFAULT 0,  -- estimated, micro-dollars
+    updated_at         TEXT    NOT NULL,
+    PRIMARY KEY (month, helper, model)
+);
+
+-- Spend alerts sent this month - see schema.sql.
+CREATE TABLE IF NOT EXISTS ai_alerts (
+    month    TEXT    NOT NULL,
+    level    INTEGER NOT NULL,
+    sent_at  TEXT    NOT NULL,
+    PRIMARY KEY (month, level)
+);
+
 -- Notes to future you - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS future_notes (
     id          SERIAL  PRIMARY KEY,

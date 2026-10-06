@@ -23,6 +23,7 @@ _OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
 
 import accounts
 import advising
+import ai_spend
 import ai_usage
 import alerts
 import asset_classes
@@ -93,6 +94,10 @@ friendly_errors.install(show_details=settings.show_error_details()
                         and st.get_option("client.showErrorDetails") in ("full", True, "true"),
                         alert_db=DB or None, copy="Staging" if STAGING else "Live",
                         send_alerts=settings.send_error_alerts())
+# Every AI answer's token counts go into this copy's month total (ai_spend.py:
+# counts only); the admin is emailed at 50% and 80% of the ceiling - hosted only.
+ai_spend.use_db(DB or None, send=settings.send_error_alerts(),
+                copy="Staging" if STAGING else "Live")
 
 # said wherever people decide what to share (import, hand entry, paste). True
 # to what's saved: each holding's symbol, shares, cost and value, and cash
@@ -2043,18 +2048,23 @@ def _anthropic_key() -> str | None:
     return settings.get("ANTHROPIC_API_KEY", env_file=True) or None
 
 
-def _ai_status(kind, *, full_run=False):
+def _ai_status(kind, *, full_run=False, conversation_open=False):
     """This month's AI allowance for `kind` (ai_usage.py) of whoever is signed
-    in - an advisor in a client's account uses their own. `full_run`: the
-    caller is drawn in the page's full run (not in a fragment or a window), so
-    the login's row the two-step gate read at the top of this run is used
-    rather than read again; the count used so far is always read."""
+    in - an advisor in a client's account uses their own - with the app-wide
+    ceiling's say (ai_spend.apply: "level", and "resting_why" when the feature
+    rests this month). `full_run`: the caller is drawn in the page's full run
+    (not in a fragment or a window), so the login's row the two-step gate read
+    at the top of this run is used rather than read again; the count used so
+    far is always read. `conversation_open`: chat only - a conversation
+    already under way may finish once new ones have closed (95%)."""
     gate = _gate_read(LOGIN_ID) if full_run else None
     c = connect(DB)
     try:
-        return ai_usage.status(c, LOGIN_ID, kind, user=gate[1] if gate else None)
+        st_ = ai_usage.status(c, LOGIN_ID, kind, user=gate[1] if gate else None)
+        level = ai_spend.level(c)
     finally:
         c.close()
+    return ai_spend.apply(st_, level, kind, conversation_open=conversation_open)
 
 
 def _ai_record(kind):
@@ -2083,7 +2093,7 @@ def _ai_failed(exc, kind, feature=""):
     return ai_usage.failure_text(exc, GUIDE, feature)
 
 
-CHAT_MESSAGE_LIMIT = 40  # per conversation - keeps each one a sensible length
+CHAT_MESSAGE_LIMIT = 30  # per conversation - keeps each one a sensible length (AI_PLAN 10.2)
 CHAT_MAX_CHARS = 2000    # one question's length (audit 1.3b)
 QUICK_STARTS = {
     "Help me get started": "I'm new to investing. Help me figure out how to get started.",

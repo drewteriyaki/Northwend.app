@@ -104,7 +104,9 @@ def _render_assistant(contexts, cash_by_account):
 
     n_sent = sum(1 for m in display if m["role"] == "user")
     # this month's allowance (ai_usage.py); this page is drawn in the full run
-    quota = _ai_status("chat", full_run=True)
+    # (and the app-wide ceiling, ai_spend.py: a conversation under way may
+    # finish after new ones close)
+    quota = _ai_status("chat", full_run=True, conversation_open=n_sent > 0)
     at_limit = n_sent >= CHAT_MESSAGE_LIMIT or not quota["ok"]
     # Inside a container the input sits inline under the chat instead of pinned to
     # the bottom of the screen. Pinned, Streamlit also keeps the page stuck to the
@@ -149,7 +151,7 @@ def _render_assistant(contexts, cash_by_account):
             try:
                 reply = st.write_stream(advisor.stream_reply(
                     anthropic.Anthropic(api_key=api_key), history, system, on_update,
-                    on_memory))
+                    on_memory, **ai_spend.chat_settings(quota["level"])))
             except anthropic.AnthropicError as exc:
                 # one calm sentence, never the error's text (_ai_failed); the
                 # question leaves the history so the next try asks it afresh,
@@ -169,7 +171,7 @@ def _render_assistant(contexts, cash_by_account):
             st.rerun()
 
     if not quota["ok"]:
-        st.info(ai_usage.used_up_text(quota, "chat"))
+        st.info(ai_usage.used_up_text(quota, "chat", GUIDE))
     elif at_limit:
         st.info(f"This conversation hit the {CHAT_MESSAGE_LIMIT}-message limit. Start a new one "
                 "to keep going.")

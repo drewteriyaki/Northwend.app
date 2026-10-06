@@ -565,6 +565,30 @@ CREATE TABLE IF NOT EXISTS error_events (
     emailed_at  TEXT                             -- last alert email, NULL if none
 );
 
+-- The app-wide AI spend (ai_spend.py): token counts and an estimated cost per
+-- month, helper and model. Counts only - no user_id, no question or answer text.
+CREATE TABLE IF NOT EXISTS ai_spend (
+    month              TEXT    NOT NULL,         -- 'YYYY-MM' (UTC)
+    helper             TEXT    NOT NULL,         -- 'chat', 'prep', 'plan', 'screenshot', 'csv', 'txn'
+    model              TEXT    NOT NULL,
+    calls              INTEGER NOT NULL DEFAULT 0,
+    input_tokens       INTEGER NOT NULL DEFAULT 0,
+    output_tokens      INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens  INTEGER NOT NULL DEFAULT 0,
+    cost_micro         INTEGER NOT NULL DEFAULT 0,  -- estimated, micro-dollars
+    updated_at         TEXT    NOT NULL,         -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    PRIMARY KEY (month, helper, model)
+);
+
+-- Which spend alerts (50%, 80% of the ceiling) the admin was sent this month.
+CREATE TABLE IF NOT EXISTS ai_alerts (
+    month    TEXT    NOT NULL,                   -- 'YYYY-MM'
+    level    INTEGER NOT NULL,                   -- the percent: 50 or 80
+    sent_at  TEXT    NOT NULL,
+    PRIMARY KEY (month, level)
+);
+
 -- Notes to future you (future_notes.py): a note a person writes to themselves on
 -- a holding (symbol) or on their plan (symbol NULL). Private: never shown to an
 -- advisor or sent to the AI unless they ask it about the note.

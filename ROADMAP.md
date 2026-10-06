@@ -1038,7 +1038,13 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [x] 1a.5 Sign-in limits per address; timing-safe unknown usernames - 20 wrong
     passwords per address in 15 minutes pause it (`addr:` + hashed address); none
     without an address; an unknown username hashes against a dummy salt
-  - [ ] 1a.6 AI ceiling, first slice (app-wide monthly cap, alerts)
+  - [x] 1a.6 AI ceiling, first slice (app-wide monthly cap, alerts) - chat capped at
+    2,500 tokens, 3 tool rounds, 30 messages; every AI answer's token counts and
+    estimated cost in `ai_spend` (`ai_spend.py`, counts only, no user_id); ceiling
+    NORTHWEND_AI_CEILING_USD (default $100); admin emailed once at 50% and 80%; from
+    80% shorter chat and the optional helpers rest, 95% no new conversations, 100% the
+    calm "resting until <date>" line; Admin > AI use shows the month vs the ceiling.
+    Owner: set the console spend limits (production $150, staging $10)
   - [x] 1a.7 Privacy wording made true; screenshot AI behind a flag; memory
         keeps no amounts (D9); a former client's delete keeps the old advisor's
         records (D7). *Done, all but the flag:* `TRUST_LINE`/`NOT_KEPT` say what's

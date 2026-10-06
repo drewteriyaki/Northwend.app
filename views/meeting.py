@@ -111,6 +111,8 @@ def _render_meeting_prep(value, alloc_rows, contexts, cash):
                       disabled=not quota["ok"],
                       help="Sends percentages and the facts above - never dollar amounts or "
                            "your notes. " + (ai_usage.left_text(quota, "prep") or ""))
+        if quota.get("resting_why"):   # the month's AI use is high (ai_spend.py)
+            st.caption(ai_usage.used_up_text(quota, "prep", GUIDE) + " Write your own below.")
         st.text_area("Your talking points", key=key, height=180,
                      placeholder="- What to celebrate\n- What to check in about\n- Questions "
                                  "to ask", label_visibility="collapsed")

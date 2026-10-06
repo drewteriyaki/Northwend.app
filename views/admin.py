@@ -13,6 +13,7 @@
 import secrets
 
 import admin
+import ai_spend
 import error_alerts
 import feature_counts
 import flags
@@ -301,6 +302,7 @@ def _render_admin():
         usage = c.execute("SELECT u.username, a.kind, a.used FROM ai_usage a JOIN users u "
                           "ON u.id = a.user_id WHERE a.month = ? ORDER BY u.username, a.kind",
                           (ai_usage.month_of(),)).fetchall()
+        spend = ai_spend.summary(c)   # the app-wide month total, counts only
     finally:
         c.close()
     by_id = {a["id"]: a for a in accounts}
@@ -460,6 +462,7 @@ def _render_admin():
 
     # ---- AI use ---------------------------------------------------------- #
     st.subheader(f"AI use in {ai_usage.month_of()}", anchor=False)
+    _render_ai_spend(spend)
     if usage:
         st.dataframe(pd.DataFrame([{"Account": r["username"], "Feature": r["kind"],
                                     "Used": r["used"]} for r in usage]),
@@ -473,6 +476,36 @@ def _render_admin():
         _render_feature_tests(c)
     finally:
         c.close()
+
+
+AI_LEVEL_WORDS = {
+    ai_spend.NORMAL: "Everything AI runs as usual.",
+    ai_spend.ALERT: "Past 50% - you were emailed. Everything AI still runs as usual.",
+    ai_spend.REDUCED: "Past 80%: chat answers are shorter, and screenshot reads, column "
+                      "guesses, plan next steps and talking points rest until next month.",
+    ai_spend.CLOSING: "Past 95%: no new conversations; open ones may finish. The other AI "
+                      "helpers rest.",
+    ai_spend.RESTING: "At the ceiling: everything AI rests until next month.",
+}
+
+
+def _render_ai_spend(s):
+    """The month's AI spend against the ceiling (ai_spend.py) - totals only,
+    estimated from token counts at list price."""
+    st.markdown(f"**{ai_spend.dollars(s['spent'])}** of the {ai_spend.dollars(s['ceiling'])} "
+                f"monthly ceiling ({s['percent']:.0f}%) · {s['calls']} AI answers · on track "
+                f"for {ai_spend.dollars(s['projected'])} by the month's end")
+    st.progress(min(1.0, s["percent"] / 100))
+    st.caption(AI_LEVEL_WORDS[s["level"]] + " Estimated from token counts at list price; "
+               "the ceiling is NORTHWEND_AI_CEILING_USD.")
+    if s["rows"]:
+        with st.expander("By helper"):
+            st.dataframe(pd.DataFrame([{
+                "Helper": r["helper"], "Model": r["model"], "Answers": r["calls"],
+                "Input tokens": r["input_tokens"], "Output tokens": r["output_tokens"],
+                "Cache write": r["cache_write_tokens"], "Cache read": r["cache_read_tokens"],
+                "Estimated": ai_spend.dollars(r["cost_micro"])} for r in s["rows"]]),
+                hide_index=True, width="stretch")
 
 
 def _render_feature_tests(c):

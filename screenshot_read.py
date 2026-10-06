@@ -158,6 +158,8 @@ def read(images: list[tuple[bytes, str]], api_key: str, *, client=None, model=No
         import ai_usage
         return {**empty, "failure": exc,
                 "error": ai_usage.failure_text(exc, feature="Reading screenshots")}
+    import ai_spend
+    ai_spend.note(resp, "screenshot", model)   # token counts only
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     try:
         answer = _extract_json(text)

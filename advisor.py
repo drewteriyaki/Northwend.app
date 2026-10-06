@@ -23,8 +23,11 @@ from allocation import CONCENTRATION_PCT, allocate
 from asset_classes import describe, from_asset_type
 
 MODEL = "claude-sonnet-5"
-MAX_TOKENS = 16000
-MAX_TOOL_ROUNDS = 4
+# hard caps on one chat message (AI_PLAN 10 step 2, AI_COSTS 3.3): an answer's
+# length and the tool rounds it may take; ai_spend.chat_settings shortens the
+# answer further once the month's AI use passes 80% of the ceiling
+MAX_TOKENS = 2500
+MAX_TOOL_ROUNDS = 3
 
 RISK_LEVELS = ("conservative", "moderate", "aggressive")
 EXPERIENCE_LEVELS = ("new", "some", "experienced")
@@ -524,28 +527,33 @@ def system_prompt(profile: dict, summary: str, memory: str = "") -> str:
 # --------------------------------------------------------------------------- #
 # talking to the model
 # --------------------------------------------------------------------------- #
-def stream_reply(client, history: list, system: str, on_profile_update, on_memory=None):
+def stream_reply(client, history: list, system: str, on_profile_update, on_memory=None, *,
+                 max_tokens: int = MAX_TOKENS, effort: str = "medium"):
     """Yield the assistant's reply as text chunks. `history` is the API
     message list and is extended in place (assistant turns, tool results).
     `on_profile_update(fields)` is called with validated profile fields, and
     `on_memory(text)` with the assistant's new notes, whenever it uses those
-    tools."""
+    tools. `max_tokens` (never above MAX_TOKENS) and `effort`: shorter
+    answers once the month's AI use is high (ai_spend.chat_settings). Each
+    answer's token counts are recorded (ai_spend.note - counts only)."""
+    import ai_spend
     for _ in range(MAX_TOOL_ROUNDS):
         try:
             with client.messages.stream(
                 model=MODEL,
-                max_tokens=MAX_TOKENS,
+                max_tokens=min(max_tokens, MAX_TOKENS),
                 system=system,
                 messages=history,
                 tools=[PROFILE_TOOL, MEMORY_TOOL],
                 thinking={"type": "adaptive"},
-                output_config={"effort": "medium"},
+                output_config={"effort": effort},
                 cache_control={"type": "ephemeral"},
             ) as stream:
                 for event in stream:
                     if event.type == "text":
                         yield event.text
                 message = stream.get_final_message()
+            ai_spend.note(message, "chat", MODEL)
         except ValueError:
             # tool input the SDK couldn't parse at all
             yield "\n\n(Something went wrong saving your profile - please try again.)"

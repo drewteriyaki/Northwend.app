@@ -936,6 +936,41 @@ class HoldingsTests(_PG):
         self.assertEqual(error_alerts.clear(c), 1)
         self.assertEqual(self.seen("SELECT * FROM error_events"), [])
 
+    def test_ai_spend_and_its_alerts(self):
+        # the app-wide AI month total (ai_spend.py, PLAN 1a.6): counts only
+        import ai_spend
+        c = self.conn
+        model = "claude-sonnet-5"
+        big = {"input_tokens": 3_000_000_000, "output_tokens": 0,   # past 32-bit columns
+               "cache_write_tokens": 0, "cache_read_tokens": 0}
+        when = datetime(2031, 3, 15, 12, tzinfo=timezone.utc)
+        self.assertEqual(ai_spend.record(c, "chat", model, {"input_tokens": 1000,
+                                                             "output_tokens": 500}, now=when),
+                         7000)   # 1,000 x $2 + 500 x $10 per million = 7,000 micro-dollars
+        ai_spend.record(c, "chat", model, {"input_tokens": 1000, "cache_read_tokens": 2000},
+                        now=when)
+        row = self.one("SELECT calls, input_tokens, output_tokens, cache_read_tokens, cost_micro "
+                       "FROM ai_spend WHERE month = '2031-03' AND helper = 'chat'")
+        self.assertEqual(row, {"calls": 2, "input_tokens": 2000, "output_tokens": 500,
+                               "cache_read_tokens": 2000, "cost_micro": 9400})
+        self.assertEqual(ai_spend.level(c, when), ai_spend.NORMAL)
+        box = _mail(self)
+        with unittest.mock.patch.dict(os.environ, {"NORTHWEND_AI_CEILING_USD": "100"}):
+            ai_spend.record(c, "csv", "claude-haiku-4-5-20251001", {"output_tokens": 10_000_000},
+                            now=when)   # $50 more
+            self.assertEqual(ai_spend.level(c, when), ai_spend.ALERT)
+            self.assertEqual(ai_spend.maybe_alert(c, now=when), 50)
+            self.assertIsNone(ai_spend.maybe_alert(c, now=when))   # once a month
+            ai_spend.record(c, "chat", model, big, now=when)
+            self.assertEqual(ai_spend.level(c, when), ai_spend.RESTING)
+            self.assertEqual(ai_spend.maybe_alert(c, now=when), 80)
+        self.assertEqual(len(box.sent), 2)
+        self.assertEqual([r["level"] for r in self.seen(
+            "SELECT level FROM ai_alerts WHERE month = '2031-03' ORDER BY level")], [50, 80])
+        c.execute("DELETE FROM ai_spend WHERE month = '2031-03'")
+        c.execute("DELETE FROM ai_alerts WHERE month = '2031-03'")
+        c.commit()
+
     def test_income_while_held_and_total_return(self):
         c = self.conn
         uid = self.user("ivan")

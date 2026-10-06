@@ -121,6 +121,16 @@ def send_error_alerts() -> bool:
     return hosted()
 
 
+def ai_ceiling_usd(default: float = 100) -> float:
+    """NORTHWEND_AI_CEILING_USD: the app-wide AI spend a month, in dollars
+    (ai_spend.py). Unset, blank, unreadable or negative: `default`."""
+    try:
+        value = float(get("NORTHWEND_AI_CEILING_USD"))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
 def server_files_ok() -> bool:
     """The "path to a CSV on this machine" box may show: local runs only -
     hosted, the path would be on the server's own disk."""
