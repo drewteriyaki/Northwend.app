@@ -9,8 +9,9 @@ favoured and no single company's stock is named. It is never weighted by,
 or tied to, the person's own answers or mix: named funds next to "your mix"
 would read as a recommendation for them, which is advice, not education. It
 always says the funds are examples of each kind to learn from, not
-recommendations. How much goes in each kind is Learn's "An example mix",
-which speaks in kinds of funds and percentages only.
+recommendations. How much goes in each kind is Learn's mix step (common
+starting points, the same for everyone, while gate L3 is off), which speaks
+in kinds of funds and percentages only.
 
 card() is the pure part (tested); render() draws it with Streamlit on any
 page: Learn the basics, Start investing's "Your first investments" and the
@@ -29,8 +30,8 @@ INTRO = ("Most simple portfolios are built from three kinds of funds. Here are a
          "well-known examples of each kind, from several providers:")
 FOOTER = ("These are examples of each kind, from several providers, to learn from - not "
           "recommendations. Many similar funds exist.")
-MIX_NOTE = ("How much goes in each kind depends on your timeline and how you feel about ups "
-            "and downs - Learn's *An example mix* shows a split in percentages.")
+MIX_NOTE = ("How much goes in each kind usually depends on the timeline and how someone feels "
+            "about ups and downs - Learn shows common splits in percentages.")
 
 # The three kinds (learn.BLOCKS) and, for each, one broad index fund from each
 # of three providers. Names as the providers give them; the yearly fee comes

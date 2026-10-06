@@ -279,9 +279,9 @@ def render_weather():
             "in months, sometimes in years." if storm else
             "Dips like this happen a few times in a typical year, and most pass "
             "without much notice.")
-    nothing = ("Nothing needs doing today. If your goal is years away, the plan you "
-               "set still holds; if you'll need this money soon, that's worth a look "
-               "at your plan.")
+    # (COPY_AUDIT.md "Same problem" 19: describes, never a hold message)
+    nothing = ("Drops like this are part of investing. Your plan's target and dates "
+               "haven't changed; they're on the Plan page.")
     cloak = (storm and _kit_shown()
              and "cloak" not in (_read_prefs().get("gear_seen") or []))
     with st.container(border=True, key="pt_storm"):

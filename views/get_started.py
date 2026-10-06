@@ -32,6 +32,9 @@ GET_STARTED_STEPS = (
     ("first", "Your first investments"),
     ("bring", "Bring it in"),
 )
+if not TAILORED_MIX:   # gate L3 off: the mix waypoint is the table, the same for everyone
+    GET_STARTED_STEPS = tuple((k, learn.COMMON_POINTS_TITLE if k == "mix" else t)
+                              for k, t in GET_STARTED_STEPS)
 # each waypoint opens with one plain line: why it matters, and what you'll do
 WAYPOINT_WHY = {
     "profile": "So the rest of your route fits you - a few taps about your timeline and how "
@@ -41,8 +44,8 @@ WAYPOINT_WHY = {
     "goal": "So you know how much to invest each month to get there - your goal, a monthly "
             "amount and a mix, one at a time.",
     "basics": "So the words and ideas make sense - six short reads, a minute or two each.",
-    "mix": "So you can see what a simple portfolio looks like - an example split for someone "
-           "with your answers.",
+    "mix": "So you can see what a simple portfolio looks like - an example split worked out "
+           "from your timeline and comfort answers.",
     "practice": "So you can feel the ups and downs before using real money - try a mix on "
                 "real past prices.",
     "brokerage": "So your money has a good home - what to compare, and some well-known "
@@ -54,6 +57,9 @@ WAYPOINT_WHY = {
     "bring": "So you can follow your own investments here - your plan and your goal then "
              "track the real thing.",
 }
+if not TAILORED_MIX:   # gate L3 off
+    WAYPOINT_WHY["mix"] = ("So you can see what simple mixes look like - common starting "
+                           "points for different timelines, the same for everyone.")
 # "Set a goal" in short parts, each with its own Complete button (key, title)
 GOAL_PARTS = (
     ("what", "What are you saving for?"),
@@ -63,11 +69,12 @@ GOAL_PARTS = (
 )
 # questions a step can hand to the AI Assistant
 COACH_PROMPTS = {
-    "ready": "Looking at my situation, what should I take care of before I start investing, "
-             "and in what order?",
+    "ready": "What do people usually take care of before they start investing, and in what "
+             "order?",
     "basics": "Explain stocks, bonds, index funds and ETFs to me like I'm brand new to investing.",
-    "mix": "Explain why a mix of US stocks, international stocks and bonds might fit my time "
-           "horizon and comfort with risk. Talk about kinds of funds, not specific ones.",
+    "mix": "How do people usually think about splitting money between US stocks, "
+           "international stocks and bonds for different timelines? Talk about kinds of "
+           "funds, not specific ones.",
     "practice": "What should I expect emotionally when my investments drop 20% or more, and "
                 "what do long-term investors usually do?",
     "brokerage": "What should I compare when choosing a brokerage, and which questions should "
@@ -78,7 +85,11 @@ COACH_PROMPTS = {
              "what mistakes do beginners often make? Talk about kinds of funds, not specific "
              "ones.",
 }
-PRACTICE_MIXES = ("Example mix", "All stocks", "Mostly bonds")
+# practice money's mixes: with gate L3 on, "Example mix" (theirs), "All stocks"
+# and "Mostly bonds" (_step_practice); off: mixes the same for everyone (label -> % in stocks), plus the
+# target they set themselves, if any - never one worked out from their answers
+PRACTICE_GENERAL = {"All stocks": 100, "80% stocks": 80, "60% stocks": 60, "Mostly bonds": 20}
+PRACTICE_OWN = "Your target"
 # each basics topic -> where to read more (learn.LEARN_MORE)
 BASICS_LINKS = {"funds": "index_funds", "spread": "diversification", "time": "compound_interest",
                 "fees": "expense_ratios", "ups": "risk", "accounts": "account_types"}
@@ -292,9 +303,19 @@ def _save_goal_monthly():
 
 
 def _save_goal_mix():
-    """The last part: the target mix into the plan, and the waypoint complete."""
-    stocks = float(st.session_state.get("gs_goal_stocks") or 0)
-    save_alloc_targets({"Stocks": stocks, "Bonds": 100.0 - stocks})
+    """The last part: the target mix into the plan, and the waypoint complete.
+    Gate L3 off, they type it themselves (nothing is filled in) - so nothing
+    is saved until they have."""
+    picked = st.session_state.get("gs_goal_stocks")
+    if picked is None:
+        st.session_state["gs_goal_err"] = "Type how much you'd like in stocks, from 0 to 100."
+        return
+    stocks = float(picked)
+    # Northwend's example mix taken as it was (gate L3 on only): noted, so the
+    # Walk can ask whether it's theirs (checkin.target_from_example)
+    taken = TAILORED_MIX and int(stocks) == _suggest()["stocks_pct"]
+    save_alloc_targets({"Stocks": stocks, "Bonds": 100.0 - stocks},
+                       by="example" if taken else "own")
     _goal_part_done("mix")
     _complete("goal")
 
@@ -381,7 +402,8 @@ def _step_goal(plan, value, profile, keys, titles, done, pressed):
                       on_change=lambda: st.session_state.update(gs_goal_date_set=True))
         _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
                          f"{_years_text(tip['goal_years'])} from now, {_goal_why(tip)}",
-                         key="gs_goal_date_use", values={"gs_goal_date": tip["goal_date"]})
+                         key="gs_goal_date_use", values={"gs_goal_date": tip["goal_date"]},
+                         lead=_goal_lead(tip))
         err = st.session_state.pop("gs_goal_err", None)
         if err:
             st.error(err)
@@ -403,7 +425,7 @@ def _step_goal(plan, value, profile, keys, titles, done, pressed):
                         key="gs_goal_monthly",
                         help="The part of your income you'll put toward this goal each month.")
         if need:
-            _suggestion_line(f"{fmt_money0(need)} a month - what reaches your goal",
+            _suggestion_line(f"{fmt_money0(need)} a month", lead="sum",
                              key="gs_goal_monthly_use", values={"gs_goal_monthly": need})
         st.caption("Many people start with a smaller amount and raise it over time - any amount "
                    "counts, and you can change it whenever you like.")
@@ -415,15 +437,31 @@ def _step_goal(plan, value, profile, keys, titles, done, pressed):
                   on_click=_goal_part_done, args=("how", "mix"))
     else:
         saved = (plan or {}).get("target_alloc") or {}
-        st.session_state.setdefault("gs_goal_stocks", int(5 * round(saved["Stocks"] / 5))
-                                    if saved.get("Stocks") else tip["stocks_pct"])
         st.markdown("How you'd like to split your money between stocks and bonds. Once you "
                     "invest, your plan shows when your portfolio drifts away from it.")
-        st.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="gs_goal_stocks")
-        _two_part_bar(st.session_state["gs_goal_stocks"])
-        _suggestion_line(f"{tip['stocks_pct']}% stocks, {100 - tip['stocks_pct']}% bonds - "
-                         "the example mix for your answers (An example mix shows how it adds up)",
-                         key="gs_goal_stocks_use", values={"gs_goal_stocks": tip["stocks_pct"]})
+        if TAILORED_MIX:   # gate L3 on: the slider starts at the example mix
+            st.session_state.setdefault("gs_goal_stocks", int(5 * round(saved["Stocks"] / 5))
+                                        if saved.get("Stocks") else tip["stocks_pct"])
+            st.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="gs_goal_stocks")
+            _two_part_bar(st.session_state["gs_goal_stocks"])
+            _suggestion_line(f"{tip['stocks_pct']}% stocks, {100 - tip['stocks_pct']}% bonds "
+                             "(An example mix shows how it adds up)", lead="example",
+                             key="gs_goal_stocks_use",
+                             values={"gs_goal_stocks": tip["stocks_pct"]})
+        else:
+            # off: their own number, typed - nothing filled in from Northwend
+            st.session_state.setdefault("gs_goal_stocks", int(round(saved["Stocks"]))
+                                        if saved.get("Stocks") else None)
+            st.number_input("% in stocks (the rest in bonds)", min_value=0, max_value=100,
+                            step=5, key="gs_goal_stocks", placeholder="Type a number, 0-100")
+            if st.session_state.get("gs_goal_stocks") is not None:
+                _two_part_bar(st.session_state["gs_goal_stocks"])
+            st.caption("Your target is yours to choose. Common starting points for different "
+                       "timelines - the same for everyone - are here for reference:")
+            render_common_points()
+        err = st.session_state.pop("gs_goal_err", None)
+        if err:
+            st.error(err)
         if set(saved) - {"Stocks", "Bonds"}:
             st.caption("Saving here sets stocks and bonds only; the Plan page can add cash and "
                        "other targets.")
@@ -513,7 +551,51 @@ def _step_basics(monthly, years):
     render_fee_step()   # your own funds' fees, once there are holdings (views/fees.py)
 
 
+def render_common_points():
+    """Common starting points (learn.common_starting_points): one table of
+    the share in stocks by timeline and comfort with drops, the same for
+    everyone - no row or column picked for this person - labelled as
+    illustrations, not a plan for them. No expander, so it can sit inside one."""
+    head = "".join(f"<th>{html.escape(label)}</th>" for _r, label in learn.COMFORT_BUCKETS)
+    body = "".join(
+        f"<tr><td>{html.escape(row['timeline'])}</td>"
+        + "".join(f"<td>{row['stocks'][risk]}% stocks</td>" for risk, _l in learn.COMFORT_BUCKETS)
+        + "</tr>" for row in learn.common_starting_points())
+    st.html(f"<table class='pt-storm-table pt-common-points' aria-label='"
+            f"{learn.COMMON_POINTS_TITLE}'><thead><tr><th>How long until the money is needed"
+            f"</th>{head}</tr></thead><tbody>{body}</tbody></table>")
+    st.caption(learn.COMMON_POINTS_NOTE)
+
+
+def _step_common_points():
+    """Gate L3 off: Learn's mix waypoint is the general table and how
+    timelines and comfort move a mix, in general - nothing from their answers."""
+    st.markdown("Simple portfolios are usually built from three kinds of funds - US stocks, "
+                "international stocks and bonds. How much goes in stocks is the biggest "
+                "choice. Here is where people often start, by timeline and by how they feel "
+                "about drops:")
+    render_common_points()
+    st.markdown("**How a mix usually moves:**  \n"
+                + "  \n".join(f"- {line}" for line in learn.COMMON_POINTS_WHY))
+    st.markdown("**The kinds of funds simple mixes are built from:**  \n"
+                + "  \n".join(f"- **{b['label']}** - {b['about']} Usually held through "
+                              f"{b['kind']}." for b in learn.BLOCKS))
+    st.markdown("**One-fund option:** a target-date fund - a kind of fund with a year in its "
+                "name, near the year the money is needed - holds a mix of stocks and bonds in "
+                "a single fund and gradually shifts toward bonds as that year gets closer. "
+                "ESG versions of broad index funds, and dividend-focused funds, are other "
+                "kinds people look at.")
+    st.caption("Common rules of thumb for learning - not a recommendation. They describe kinds "
+               "of funds, not specific ones; *What these kinds of funds look like* in Learn the "
+               "basics shows examples of each kind.")
+    learn_more("asset_allocation")
+    _coach_button("mix")
+
+
 def _step_mix(mix, profile, plan):
+    if not TAILORED_MIX:   # gate L3 off: the same table for everyone
+        _step_common_points()
+        return
     if mix is None:
         st.caption("Answer the time horizon question in step 1 to see an example mix.")
         return
@@ -521,8 +603,8 @@ def _step_mix(mix, profile, plan):
         st.info("You'll need this money within about 3 years. Money needed that soon usually "
                 "goes in a high-yield savings account, CDs or Treasury bills rather than stocks. "
                 "This is how a cautious mix would look if you do invest some of it.")
-    st.markdown(f"An example for someone with your answers: **{mix['stocks_pct']}% stocks, "
-                f"{mix['weights']['bonds']}% bonds.**")
+    st.markdown(f"An example worked out from your timeline and comfort answers: "
+                f"**{mix['stocks_pct']}% stocks, {mix['weights']['bonds']}% bonds.**")
     _render_mix_bar(mix["weights"])
     st.markdown(f"How it adds up to {mix['stocks_pct']}% stocks:  \n"
                 + "  \n".join(f"- {r}" for r in mix["reasons"]))
@@ -602,17 +684,25 @@ def _step_practice(mix, plan, profile, value):
                               format="%.0f", key="gs_initial",
                               help="Money put in on the first day, if any - 0 is fine.")
     if tip_monthly:
-        _suggestion_line(f"{fmt_money0(tip_monthly)} a month - what reaches your goal",
+        _suggestion_line(f"{fmt_money0(tip_monthly)} a month", lead="sum",
                          key="gs_monthly_use", values={"gs_monthly": tip_monthly})
     span_opts = [y for y in (1, 3, 5, 10) if y <= years_avail + 0.05] or [1]
     years = st.segmented_control("When you'd have started", span_opts, default=span_opts[-1],
                                  key="gs_years",
                                  format_func=lambda y: f"{y} year{'s' if y != 1 else ''} ago") \
         or span_opts[-1]
-    which = st.segmented_control("Mix to practice with", PRACTICE_MIXES,
-                                 default=PRACTICE_MIXES[0], key="gs_mix") or PRACTICE_MIXES[0]
-    stocks = {"Example mix": (mix or {}).get("stocks_pct", 60), "All stocks": 100,
-              "Mostly bonds": 20}[which]
+    if TAILORED_MIX:   # gate L3 on: their example mix first
+        choices = {"Example mix": (mix or {}).get("stocks_pct", 60), "All stocks": 100,
+                   "Mostly bonds": 20}
+    else:              # off: the same mixes for everyone, and the target they set, if any
+        own = ((plan or {}).get("target_alloc") or {}).get("Stocks")
+        choices = {**({PRACTICE_OWN: int(round(own))} if own else {}), **PRACTICE_GENERAL}
+    names = list(choices)
+    if st.session_state.get("gs_mix") not in names:
+        st.session_state.pop("gs_mix", None)
+    which = st.segmented_control("Mix to practice with", names, default=names[0],
+                                 key="gs_mix") or names[0]
+    stocks = choices[which]
     us = round(stocks * learn.US_SHARE_OF_STOCKS)
     t = learn.PRACTICE_TICKERS
     weights = {t["us"]: us, t["intl"]: stocks - us, t["bonds"]: 100 - stocks}
@@ -649,7 +739,8 @@ def _step_practice(mix, plan, profile, value):
         f"month in {mix_words}. At its worst, the mix was **{abs(dd):.0f}% below its high**"
         + (f" - you said you'd *{reaction.lower()}* after a 20% drop. Selling during a drop "
            "locks in the loss; the chart shows what staying in would have looked like."
-           if reaction in ("Sell everything", "Sell some") and dd <= -15 else "."))
+           if TAILORED_MIX and reaction in ("Sell everything", "Sell some") and dd <= -15
+           else "."))   # (gate L3 off: nothing aimed at their own answer)
     st.caption("Real past prices with dividends reinvested, from one widely held index fund "
                "standing in for each kind (the first example of each in Learn the basics' "
                "*What these kinds of funds look like*); no fees or taxes; nothing is "
@@ -710,7 +801,7 @@ def _account_checklist(step, monthly):
 
 def _first_buy_steps():
     """What a first buy looks like - the steps, the same for everyone, with
-    no fund named (it sits just under their own direction)."""
+    no fund named."""
     _md("Every brokerage's screens look a little different, but a first buy usually goes like "
         "this:\n\n"
         "1. **Search for the fund.** Type its ticker - the short code of a few letters each "
@@ -767,19 +858,13 @@ def _step_open_account(has_holdings, items, monthly):
     _coach_button("account")
 
 
-def _step_first(plan, mix, kind, monthly):
+def _step_first(monthly):
+    """Your first investments: the steps of a first buy and the general read
+    of what kinds of funds look like - the same for everyone. Nothing from
+    their answers, their direction or their mix sits here, so the named
+    examples stay general education (LEGAL_GATES.md B14)."""
     import starter_funds
 
-    target = (plan or {}).get("target_alloc") or {}
-    if target.get("Stocks") is not None:
-        st.markdown(":material/explore: **Your direction:** the target mix you set - "
-                    f"{target['Stocks']:g}% stocks, {target.get('Bonds', 0):g}% bonds"
-                    + (f" ({kind['name']})." if kind else "."))
-    elif mix:
-        st.markdown(":material/explore: **Your direction:** "
-                    + (f"{kind['name']} - " if kind else "")
-                    + f"an example mix of {mix['stocks_pct']}% stocks, "
-                    f"{mix['weights']['bonds']}% bonds, from your answers.")
     st.markdown("#### What your first buy looks like")
     _first_buy_steps()
     if not CLIENT_MODE:   # never beside an advisor's recommendations
@@ -953,9 +1038,14 @@ def _where_html(state):
 
 def _ask_type(name):
     st.session_state["coach_prompt"] = (
-        f"Northwend says I'm a \"{name}\". Explain what that means for someone like me, what "
-        "the example mix is built from, and what I should understand before investing. Talk "
-        "about kinds of funds, not specific ones.")
+        f"Explain the \"{name}\" description in general terms, what common starting points "
+        "are built from, and what people usually learn before investing. Talk about kinds of "
+        "funds, not specific ones.")
+    st.session_state["page"] = "AI Assistant"
+
+
+def _ask_common_points():
+    st.session_state["coach_prompt"] = COACH_PROMPTS["mix"]
     st.session_state["page"] = "AI Assistant"
 
 
@@ -974,10 +1064,21 @@ def _render_direction(kind, mix):
         st.markdown("**Kinds of funds that usually fill it:**  \n"
                     + "  \n".join(f"- {k}" for k in kind["kinds"]))
         st.markdown(f":material/info: {kind['watch']}")
-        st.caption("A common rule of thumb for learning, from your answers - not a "
-                   "recommendation to buy anything. Change your answers in waypoint 1 any time.")
-        st.button(f":material/forum: Ask {GUIDE} what this means for me", key="type_ask",
+        st.caption("A common rule of thumb for learning, worked out from your timeline and "
+                   "comfort answers - not a recommendation to buy anything. Change your "
+                   "answers in waypoint 1 any time.")
+        st.button(f":material/forum: Ask {GUIDE} about this", key="type_ask",
                   type="tertiary", on_click=_ask_type, args=(kind["name"],))
+
+
+def _render_common_card():
+    """Gate L3 off, in place of "Your direction": the same table for everyone."""
+    with st.container(border=True, key="pt_common_points"):
+        st.html(f"<div class='pt-route-label'>{learn.COMMON_POINTS_TITLE}</div>")
+        render_common_points()
+        st.markdown("  \n".join(f"- {line}" for line in learn.COMMON_POINTS_WHY))
+        st.button(f":material/forum: Ask {GUIDE} about this", key="common_ask",
+                  type="tertiary", on_click=_ask_common_points)
 
 
 def _gs_go(key):
@@ -999,6 +1100,36 @@ def _direction_window(kind_key):
         _render_direction(kind, mix)
     if st.session_state.get("page") == "AI Assistant":   # its Ask button: go there
         st.rerun()
+
+
+@st.dialog(learn.COMMON_POINTS_TITLE, width="large")
+def _common_points_window():
+    """Gate L3 off: Home's and Learn's one line opens the general table."""
+    _render_common_card()
+    if st.session_state.get("page") == "AI Assistant":   # its Ask button: go there
+        st.rerun()
+
+
+def _direction_kind(profile, horizon, items):
+    """The investor type for Home's and Learn's one line - only with gate L3
+    on; off, nothing is named for the person (the line shows common starting
+    points instead)."""
+    if not TAILORED_MIX:
+        return None
+    return learn.investor_type(profile, learn.starter_mix(profile, horizon), items)
+
+
+def _common_points_line(key):
+    """Gate L3 off, in place of "Your direction": one calm line that opens the
+    common starting points table."""
+    with st.container(border=True, horizontal=True, vertical_alignment="center",
+                      key=f"pt_{key}_line"):
+        st.html(f"<span class='pt-route-label'>{learn.COMMON_POINTS_TITLE}</span><br>"
+                "What simple mixes look like for different timelines - the same for everyone, "
+                "not a plan for you.", width="stretch")
+        if st.button("See the table", key=key, type="tertiary",
+                     icon=":material/open_in_new:"):
+            _common_points_window()
 
 
 def _progress_html(stage, keys, titles, done, at, optional=False):
@@ -1044,7 +1175,7 @@ def _render_get_started(has_holdings, value):
     mix = learn.starter_mix(profile, horizon)
     monthly = float((plan or {}).get("monthly_contribution") or 0.0)
     years = horizon or float(profile.get("time_horizon_years") or 20)
-    kind = learn.investor_type(profile, mix, items)
+    kind = _direction_kind(profile, horizon, items)   # gate L3 on only
     titles = dict(GET_STARTED_STEPS)
     mine, shown = state["route"], state["shown"]   # their route; every waypoint here
     by_stage = {s: list(route.stage_keys(s, managed)) for s in (route.LEARN, route.INVEST)}
@@ -1139,7 +1270,7 @@ def _render_get_started(has_holdings, value):
             _step_open_account(has_holdings, items, monthly)
             footer = {"ready": done["account"], "why_not": ticks_why}
         elif at == "first":
-            _step_first(plan, mix, kind, monthly)
+            _step_first(monthly)
             footer = {"ready": done["first"], "why_not": ticks_why}
         else:
             _step_bring(real, has_holdings, managed)
@@ -1155,7 +1286,9 @@ def _render_get_started(has_holdings, value):
 
     # ---- your direction, in one line (the whole card in a window) --------- #
     # (not for an advisor's client: its example mix could cross their advisor's)
-    if kind and not missing and not managed:
+    # (and never on Your first investments: named example funds there stay
+    # general, away from their direction - LEGAL_GATES B14)
+    if kind and not missing and not managed and at != "first":
         with st.container(border=True, horizontal=True, vertical_alignment="center"):
             st.html(f"<span class='pt-route-label'>Your direction</span><br>"
                     f"<b>{html.escape(kind['name'])}</b> - {html.escape(kind['line'])}",
@@ -1163,6 +1296,8 @@ def _render_get_started(has_holdings, value):
             if st.button("See your mix", key="gs_direction", type="tertiary",
                          icon=":material/open_in_new:"):
                 _direction_window(kind["key"])
+    elif not TAILORED_MIX and not managed and not CLIENT_MODE and at not in ("mix", "first"):
+        _common_points_line("gs_common_points")   # gate L3 off: the same for everyone
     st.caption("Learn explains and shows examples; it never tells you what to buy.")
     if not IS_ADVISOR and USER_ID == LOGIN_ID:
         st.button(":material/replay: Go through the first steps again", key="fs_restart",

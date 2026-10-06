@@ -21,7 +21,8 @@ FIRST_STEPS = (
     ("safety", "Your safety net", ("income_stability", "emergency_fund", "high_interest_debt",
                                      "employer_match")),
     ("goal", "Your goal", ()),
-    ("direction", "Your direction", ()),
+    # gate L3 off: the common starting points table, the same for everyone
+    ("direction", "Your direction" if TAILORED_MIX else learn.COMMON_POINTS_TITLE, ()),
     ("bring", "Bring it in", ()),
 )
 # a trusted, public place to read more about each screen's idea (learn.LEARN_MORE)
@@ -224,14 +225,20 @@ def _fs_screen_goal(profile):
         tip = learn.suggestions(profile, {"target_amount": target, "target_date": when.isoformat()},
                                 today=today, return_pct=_plan_return_pct())
         if tip["monthly"]:
-            _suggestion_line(f"{fmt_money0(tip['monthly'])} a month - what reaches "
+            _suggestion_line(f"{fmt_money0(tip['monthly'])} a month for "
                              f"{fmt_money0(target)} by {_fmt_month(when.isoformat())} at "
                              f"{_plan_return_pct():g}% a year", key="fs_goal_monthly_use",
-                             values={"fs_goal_monthly": tip["monthly"]})
+                             values={"fs_goal_monthly": tip["monthly"]}, lead="sum")
     st.caption("Not sure yet? Leave the amount at 0 and press Next.")
 
 
 def _fs_screen_direction(profile):
+    if not TAILORED_MIX:   # gate L3 off: the same table for everyone, nothing picked
+        st.markdown("Where people often start, by how long until the money is needed and how "
+                    "they feel about drops. Learn explains how a mix is built, one step at a "
+                    "time.")
+        render_common_points()
+        return
     plan = load_plan()
     today = datetime.now().date()
     horizon = (plans.months_until(plan["target_date"], today) / 12
@@ -242,8 +249,8 @@ def _fs_screen_direction(profile):
     if kind:
         _render_direction(kind, mix)
     else:
-        st.markdown("Answer the questions on the earlier screens and this shows what kind of "
-                    "investor you are, with an example mix that fits.")
+        st.markdown("Answer the questions on the earlier screens and this shows a direction "
+                    "worked out from them, with an example mix.")
 
 
 def _fs_screen_bring(profile):
@@ -309,8 +316,8 @@ def render_first_steps(has_holdings):
             elif key == "welcome":
                 st.markdown(f"### Welcome to {APP_NAME}")
                 st.markdown(f"{APP_NAME} is your guide from first step to goal. A few quick "
-                            "questions - every answer a tap - and it shows what kind of investor "
-                            "you are and a route to follow, one waypoint at a time.")
+                            "questions - every answer a tap - and it shows common starting "
+                            "points and a route to follow, one waypoint at a time.")
                 st.markdown(":material/lock: **Private by design.** We never ask for your "
                             "brokerage login, and you can use percentages or an example "
                             "portfolio instead of real numbers.  \n"

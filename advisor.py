@@ -630,9 +630,11 @@ def chat_rules() -> str:
     person is in it), so one cache entry serves every conversation
     (ai_gateway.build_request). The person's own facts follow in the second
     block, their ContextCard (context_card.py)."""
+    import ai_policy   # the conclusion policy (AI_PLAN 7.1): the same for everyone
     return "\n\n".join([
         _INTRO,
         guardrails_text(),
+        ai_policy.rules_text(),
         _PLAIN,
         "## The card\n"
         "The next part of this prompt is the person's card, inside <card> tags: their "
@@ -738,6 +740,36 @@ def system_prompt(profile: dict, summary: str, memory: str = "") -> str:
 # --------------------------------------------------------------------------- #
 CHAT_TOOLS = (PROFILE_TOOL, MEMORY_TOOL)   # a fixed order: they open the cached prefix
 NOTES_OFF = "Not kept: notes are kept only in a person's own conversations with you."
+
+
+def policed(chunks, allowed_tickers=None):
+    """The conclusion policy's output check (AI_PLAN 7.2) on a streamed answer:
+    text is held until each sentence ends and only shown once it passes
+    ai_policy.check(). A sentence that concludes for the person (or names a
+    fund outside `allowed_tickers` and the general examples) ends the answer
+    with ai_policy.FALLBACK instead - nothing after it is shown. The retry
+    with ai_policy.RETRY_REMINDER is for a later step."""
+    import ai_policy
+    buf = ai_policy.SentenceBuffer()
+
+    def ok(piece):
+        return not ai_policy.findings(piece, allowed_tickers)
+
+    for chunk in chunks:
+        if not isinstance(chunk, str):
+            yield chunk
+            continue
+        for sentence in buf.feed(chunk):
+            if not ok(sentence):
+                yield "\n\n" + ai_policy.FALLBACK
+                close = getattr(chunks, "close", None)
+                if close:
+                    close()
+                return
+            yield sentence
+    rest = buf.flush()
+    if rest.strip():
+        yield rest if ok(rest) else "\n\n" + ai_policy.FALLBACK
 
 
 def stream_reply(client, history: list, card: str, on_suggest, on_memory=None, *,

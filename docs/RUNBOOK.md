@@ -333,6 +333,29 @@ Stay calm and keep to what's true. Say only what you know.
 
 ---
 
+## The AI eval
+
+Ask Northwend's eval set (`evals/`, docs/AI_PLAN.md section 8): 64 cases in
+groups A-J. Its checker runs free in Tests on canned answers
+(`tests/test_evals.py`). Asking the real model is by hand only - never in
+CI, which has no key - and costs about $2 a pass on the chat model.
+
+1. In the Anthropic console, use the separate eval workspace with its own
+   spend limit (about $50 a month). Never the production key.
+2. In the shell for this run only (not `.env`, not any app's secrets):
+   `ANTHROPIC_API_KEY_EVAL=` its key (PowerShell: `$env:ANTHROPIC_API_KEY_EVAL = "..."`).
+3. From the repo root, the baseline on today's prompt and the stricter
+   policy, three samples each:
+   `python -m evals.run --samples 3 --rules current --out ../eval-current.json`
+   `python -m evals.run --samples 3 --rules policy --out ../eval-policy.json`
+   `--group A` or `--case A1,A6` narrows it, `--judge` adds a second opinion
+   from the cheap model, `--dry-run` builds the prompts and sends nothing.
+4. Any failed case fails the run. Triage each one, never re-run until
+   green: fix the prompt or the rules, or - if the checker was wrong - fix
+   `evals/checker.py`/`ai_policy.py` and add the answer to
+   `evals/canned.py` so Tests holds the fix. Keep the `--out` files outside
+   the repo: they hold the answers (made-up data only).
+
 ## Owner prerequisites
 
 Not code, but required before some gates (decision B8; not legal advice).
@@ -421,10 +444,15 @@ before its name goes into the live `NORTHWEND_GATES`.
 - [ ] Step 4 is done.
 
 ### L3 Conclusion policy
-- [ ] The example-mix rewrite ("common starting points", the same for
-      everyone) is in place.
-- [ ] Ask Northwend's conclusion policy is in `advisor.GUARDRAILS`, and the
-      eval set (60 or more cases) passes in CI.
+- [x] The example-mix rewrite ("common starting points", the same for
+      everyone) is in place - it is what L3 off shows (step 2). Turning L3
+      on brings back the tailored example mix: the attorney decides whether
+      that, or a version of it, may show.
+- [ ] Ask Northwend's conclusion policy (`ai_policy.rules()` and the output
+      check `ai_policy.check()`) is wired into every AI call by the gateway,
+      and the eval set (64 cases, `evals/`) passes 3 of 3 samples with
+      `python -m evals.run --samples 3 --rules policy` (see "The AI eval").
+      Keep the run's summary as the evidence for the attorney.
 - [ ] The Monthly Walk verdict points in LEGAL_GATES.md section 4 are
       settled.
 - [ ] The guardrail gaps in LEGAL_GATES.md section 5 are closed.

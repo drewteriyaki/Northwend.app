@@ -44,6 +44,16 @@ GATE_CHECKS = {
     # Signing in, setup links and admin-made accounts never change. The live
     # copy needs NORTHWEND_GATES = "L0" to keep sign-up open.
     "L0": "open self-serve sign-up - off, Create account needs an invite code",
+    # PLAN step 2, master brief 3.1 and 5.3 (LEGAL_GATES.md "What off means
+    # for L3"): anything worked out from a person's answers. Off, Learn, Home
+    # and Plan show common starting points - one table, the same for everyone
+    # (learn.common_starting_points) - instead of an example mix or investor
+    # type picked for them, and nothing copies Northwend's mix into their
+    # target (dashboard.TAILORED_MIX); Ask Northwend's about-my-situation
+    # answers stay in general terms (ai_policy.situation_answers_open). On:
+    # today's tailored example mix, pending the lawyer.
+    "L3": "answers worked out from a person's own answers - off, common starting points "
+          "the same for everyone, and Ask Northwend's about-my-situation answers stay general",
 }
 
 # name -> {"gates": the gates it needs besides its flag, "view": the view it

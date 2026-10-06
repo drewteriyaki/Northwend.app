@@ -62,8 +62,8 @@ to a person's answers; AI rules in `advisor.GUARDRAILS`), keeps Northwend within
 
 ## 4. The AI guide and other AI features
 
-Northwend uses an AI model (Claude, from Anthropic) for the AI guide, for a written
-plan's suggested next steps, for advisors' meeting talking points, and - only when
+Northwend uses an AI model (Claude, from Anthropic) for the AI guide, for
+advisors' meeting talking points, and - only when
 you choose - for guessing a file's columns and, where it's offered, reading
 screenshots.
 

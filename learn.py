@@ -4,9 +4,13 @@ Streamlit, no network.
 - readiness(): the common order of operations before investing (emergency
   savings, high-interest debt, an employer match, money needed soon), read
   from the investing profile's answers.
-- starter_mix(): an example stock / bond split from the time horizon and
-  comfort with risk - a transparent rule of thumb for learning, shown with
-  its reasons, not a recommendation.
+- common_starting_points(): one table of common starting points (the share
+  in stocks) by timeline and comfort with drops - the same for everyone,
+  illustrations for learning, not a plan for anyone. What Learn, Home and
+  Plan show while gate L3 is off (master brief 3.1; docs/LEGAL_GATES.md).
+- starter_mix(): an example stock / bond split from one person's time
+  horizon and comfort with risk - a transparent rule of thumb for learning,
+  shown with its reasons. Shown only with gate L3 on (dashboard.TAILORED_MIX).
 - simulate(): a practice portfolio - a monthly amount invested in a mix
   over real past prices - and max_drawdown() for its worst drop.
 
@@ -59,12 +63,12 @@ def readiness(profile: dict) -> list[dict]:
         {"state": GOOD, "text": "You have a cushion, so a surprise bill won't force you to "
                                 "sell investments at a bad time."}
         if ef in ("6+ months of expenses", "3-6 months") else
-        {"state": CAUTION, "text": "Aim for 3-6 months of expenses in savings before investing "
-                                   "money you might need soon."}
+        {"state": CAUTION, "text": "Many people keep 3-6 months of expenses in savings before "
+                                   "investing money they might need soon."}
         if ef == "Under 3 months" else
-        {"state": STOP, "text": "Start with an emergency fund - even $500-$1,000 in savings "
-                                "helps - so a surprise bill doesn't land on a credit card or "
-                                "force you to sell."}
+        {"state": STOP, "text": "Many people start with an emergency fund - even $500-$1,000 "
+                                "in savings - so a surprise bill doesn't land on a credit card "
+                                "or force a sale at a bad time."}
         if ef == "None" else
         {"state": UNKNOWN, "text": "Answer the emergency savings question in your profile."})})
 
@@ -73,8 +77,8 @@ def readiness(profile: dict) -> list[dict]:
         {"state": GOOD, "text": "No high-interest debt working against you."}
         if debt == "None" else
         {"state": CAUTION if debt == "Some" else STOP,
-         "text": "Credit card interest (often 20% a year or more) usually costs more than "
-                 "investing is likely to earn, so paying it down first is a strong move."}
+         "text": "Credit card interest is often 20% a year or more - more than investing "
+                 "usually earns - which is why many people pay it down first."}
         if debt in ("Some", "A lot") else
         {"state": UNKNOWN, "text": "Answer the high-interest debt question in your profile."})})
 
@@ -83,12 +87,13 @@ def readiness(profile: dict) -> list[dict]:
         {"state": GOOD, "text": "You're getting your employer's full match - money you'd "
                                 "otherwise leave on the table."}
         if match == "Yes, and I get the full match" else
-        {"state": CAUTION, "text": "Putting in enough to get the full match is usually the "
-                                   "best return available: the match is often 50% or 100% of "
-                                   "what you put in."}
+        {"state": CAUTION, "text": "An employer match adds money on top of what you put in - "
+                                   "often 50% or 100% of it, up to a limit. Many people check "
+                                   "what they'd need to put in to get all of it. The Free money "
+                                   "check does the sums."}
         if match == "Yes, but I'm not getting all of it" else
-        {"state": GOOD, "text": "No employer match to collect. An IRA is a common place to "
-                                "start instead."}
+        {"state": GOOD, "text": "No employer match to collect. Many people without one look "
+                                "at an IRA - Learn explains the kinds of accounts."}
         if match == "No match or no plan" else
         {"state": CAUTION, "text": "Check your benefits site or ask HR - many employers match "
                                    "part of what you put into a 401(k)."}
@@ -181,18 +186,57 @@ def starter_mix(profile: dict, horizon_years: float | None = None) -> dict:
             "horizon_years": years, "short_horizon": years < 3, "reasons": reasons}
 
 
+# ---- common starting points (master brief 3.1; gate L3 off) ----------------- #
+# One table, the same for everyone: the share in stocks people often start
+# from, by how long until the money is needed and how they feel about drops.
+# The same rule of thumb as starter_mix(), worked out for each bucket instead
+# of for one person - so nothing in it comes from anyone's answers.
+TIMELINE_BUCKETS = (   # (label, years at the bucket's start)
+    ("Under 3 years", 0), ("3 to 5 years", 3), ("5 to 10 years", 5),
+    ("10 to 20 years", 10), ("20 years or more", 20),
+)
+COMFORT_BUCKETS = (    # (risk answer, column label)
+    ("conservative", "Prefer a calmer ride"), ("moderate", "In the middle"),
+    ("aggressive", "Fine with bigger drops"),
+)
+COMMON_POINTS_TITLE = "Common starting points"
+COMMON_POINTS_NOTE = ("Illustrations, not a plan for you: rough starting points people use, "
+                      "the same for everyone - not a recommendation. The rest of each mix is "
+                      "in bonds. Your own target is yours to choose.")
+COMMON_POINTS_WHY = (
+    "Longer timelines usually hold more in stocks: there's more time to recover from drops.",
+    "Shorter timelines usually hold more in bonds and cash - money needed soon has less time "
+    "to recover from a fall.",
+    "People who'd rather not watch big drops often hold less in stocks; people comfortable "
+    "riding them out often hold more.",
+    "Money needed within about 3 years often stays in savings, CDs or Treasury bills rather "
+    "than the stock market.",
+)
+
+
+def common_starting_points() -> list[dict]:
+    """[{"timeline": label, "stocks": {risk answer: % in stocks}}], one row per
+    TIMELINE_BUCKETS entry. Takes nothing: identical for everyone."""
+    return [{"timeline": label,
+             "stocks": {risk: int(5 * round(max(10, min(95, _base_stock_pct(start)
+                                                         + _RISK_ADJ[risk])) / 5))
+                        for risk, _ in COMFORT_BUCKETS}}
+            for label, start in TIMELINE_BUCKETS]
+
+
 # ---- investor type ("Find your direction", ROADMAP G3) ----------------------- #
 # Named from the readiness check and the example mix above, so the type always
-# agrees with them. Education: "people in your spot often...", never "buy".
+# agrees with them. Shown only with gate L3 on. Education in general terms
+# ("many people...", "a common starting point"), never "people in your spot"
+# or "buy" (COPY_AUDIT.md).
 INVESTOR_TYPES = {
     "foundation": {
-        "name": "Foundation builder", "line": "Build your base first - investing comes right after.",
-        "about": "People in your spot usually start by putting a little aside for emergencies and "
-                 "paying down high-interest debt. It's often the strongest first move: it protects "
-                 "you from surprises, and credit-card interest costs more than investing tends to "
-                 "earn.",
-        "watch": "Once the base is in place, the example mix below shows what investing could "
-                 "look like for you.",
+        "name": "Foundation builder",
+        "line": "Many people build a base first: savings, then investing.",
+        "about": "Many people start by putting a little aside for emergencies and paying down "
+                 "high-interest debt. It protects against surprises, and credit-card interest "
+                 "often costs more than investing tends to earn.",
+        "watch": "Once the base is in place, the mix below shows what investing can look like.",
         "kinds": ("A high-yield savings account for the emergency fund",
                   "Then a simple mix of broad index funds")},
     "short_term": {
@@ -228,8 +272,8 @@ INVESTOR_TYPES = {
                   "A broad bond index fund", "Or one target-date fund")},
     "grower": {
         "name": "Long-horizon grower", "line": "Time is on your side.",
-        "about": "With many years ahead, people in your spot often hold mostly stocks: there's "
-                 "time to ride out the drops, and growth does the heavy lifting.",
+        "about": "With many years ahead, a mix that is mostly stocks is a common starting "
+                 "point: there's time to ride out the drops, and growth does the heavy lifting.",
         "watch": "Drops of 30% or more happen on a long journey. What tends to matter most is "
                  "staying invested and keeping up the monthly amount.",
         "kinds": ("A total US stock market fund", "An international stock fund",
@@ -275,17 +319,19 @@ def target_date_year(plan: dict | None, age_range: str | None, today: date) -> i
 
 # ---- suggested starting points ------------------------------------------------ #
 # The numbers a beginner would otherwise have to guess - the monthly amount,
-# the years, the share in stocks, the yearly return to assume, a target mix -
-# worked out from their own answers and plan. Shown as "Suggested starting
-# point for your answers" with a way to use it, and always theirs to change:
-# a place to start for learning, not a recommendation (disclosures.py).
+# the years, the yearly return to assume - as arithmetic on their own goal
+# ("What reaches your goal") or a typical value people use, each with a way to
+# use it and always theirs to change (views/plan.py SUGGEST_LEADS). The share
+# in stocks and a target mix come from their answers only with gate L3 on
+# (`tailored`); off, nothing offers Northwend's mix as their target.
 SUGGESTED_RETURN_PCT = 6.0   # a typical middle value, the plan's own default
 DEFAULT_YEARS = 10           # no goal date and no timeline answered yet
 DEFAULT_STOCKS_PCT = 60      # no timeline answered yet: a middle-of-the-road mix
 
 
 def suggestions(profile: dict | None, plan: dict | None, *, today: date, present: float = 0.0,
-                return_pct: float | None = None, goal_type: str | None = None) -> dict:
+                return_pct: float | None = None, goal_type: str | None = None,
+                tailored: bool = True) -> dict:
     """Suggested starting points from the profile's answers and the plan:
 
     goal_years / goal_date - a goal date from the timeline answer (years from
@@ -295,8 +341,10 @@ def suggestions(profile: dict | None, plan: dict | None, *, today: date, present
                  where it came from ("timeline", "age" or "typical")
     years      - years to the plan's goal date, else goal_years (1 to 40)
     stocks_pct - the example mix's share in stocks (starter_mix, with the plan's
-                 horizon), else DEFAULT_STOCKS_PCT
-    target_mix - {"Stocks": %, "Bonds": %} from that example mix
+                 horizon), else DEFAULT_STOCKS_PCT; with `tailored` False (gate
+                 L3 off) always DEFAULT_STOCKS_PCT - the same for everyone
+    target_mix - {"Stocks": %, "Bonds": %} from that example mix; None when not
+                 `tailored` (nothing offers Northwend's mix as their target)
     return_pct - SUGGESTED_RETURN_PCT
     monthly    - with a goal: the monthly amount that reaches it from `present`
                  by its date at `return_pct` (default SUGGESTED_RETURN_PCT), in
@@ -317,7 +365,7 @@ def suggestions(profile: dict | None, plan: dict | None, *, today: date, present
     months = plans.months_until(plan["target_date"], today) if plans.has_goal(plan) else None
     horizon = months / 12 if months and months > 0 else None
     years = max(1, min(40, round(horizon))) if horizon else goal_years
-    mix = starter_mix(p, horizon)
+    mix = starter_mix(p, horizon) if tailored else None
     stocks = mix["stocks_pct"] if mix else DEFAULT_STOCKS_PCT
     monthly = None
     if horizon:
@@ -327,7 +375,8 @@ def suggestions(profile: dict | None, plan: dict | None, *, today: date, present
         monthly = None if need is None else float(round(need))
     return {"goal_years": goal_years, "goal_date": plans.add_months(today, 12 * goal_years),
             "goal_why": goal_why, "years": years, "stocks_pct": stocks,
-            "target_mix": {"Stocks": float(stocks), "Bonds": float(100 - stocks)},
+            "target_mix": ({"Stocks": float(stocks), "Bonds": float(100 - stocks)}
+                           if tailored else None),
             "return_pct": SUGGESTED_RETURN_PCT, "monthly": monthly}
 
 

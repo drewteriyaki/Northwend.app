@@ -139,7 +139,7 @@ It is shared only as needed to run the service, with:
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
 | **Streamlit Community Cloud** and/or **Render** | Hosts the app | Requests to the app, your IP address, server logs [OWNER: which host is live; Render serves app.northwend.app] |
-| **Anthropic** (Claude) | The AI guide, plan next steps, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
+| **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly walk reminders people turn on | Access to the database to do those jobs |
@@ -169,8 +169,7 @@ safety, or as part of a transfer of the service (we'd tell you first).
 
 ## 5. What's sent to the AI
 
-When you use the AI guide or a plan's suggested next steps, Northwend sends
-Anthropic:
+When you use the AI guide, Northwend sends Anthropic:
 
 - your investing-profile answers (the chat leaves out your "Other notes" box);
 - your holdings: in the chat, as tickers, fund names from market data, what each

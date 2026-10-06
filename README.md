@@ -305,10 +305,11 @@ database keeps working after an update.
 - **Client plan (PDF):** under **Client plan** on the AI Assistant page,
   **Create plan** builds a printable PDF for the viewed account - profile,
   allocation, holdings with dollar amounts, concentration and alerts, and
-  AI-written suggested next steps (`client_plan.py`, rendered with
-  `fpdf2`). The one API call gets the same percentages-only summary as the
-  chat; dollar figures are added locally. Download only - nothing is
-  saved. Disabled while **Hide amounts** is on.
+  "Questions to look into" (`client_plan.py`, rendered with `fpdf2`): fixed
+  rules over the person's own answers and figures - drift beyond their
+  band, fees, cash, the goal - written as questions, never instructions.
+  No AI; everything is made locally. Download only - nothing is saved.
+  Disabled while **Hide amounts** is on.
 - Dashboard settings (columns, alert limits, hide amounts, ...) are saved per
   account in the database (`user_prefs`, `prefs.py`). Older
   `.dashboard_prefs.<id>.json` files are read once and carried over.

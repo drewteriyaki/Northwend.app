@@ -99,17 +99,19 @@ def _render_profile_form(advisor, profile):
 
 def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, display,
                         in_window=False):
-    """'Client plan' block: one API call for next steps, then a PDF download.
-    The PDF lives in session state only, so switching accounts drops it.
-    `in_window`: drawn inside a window (Ask Northwend's calm view), not an expander."""
-    import advisor
-    import anthropic
+    """'Client plan' block: a PDF download, made here - no AI (client_plan.py;
+    its "Questions to look into" come from fixed rules). The PDF lives in
+    session state only, so switching accounts drops it. `in_window`: drawn
+    inside a window (Ask Northwend's calm view), not an expander. (api_key,
+    profile, memory and display are no longer used; kept so the callers in
+    views/assistant.py don't change.)"""
     import client_plan
 
     with st.container() if in_window else st.expander("Client plan (PDF)", expanded=False):
-        st.caption("A printable plan for this account: profile, allocation, holdings with "
-                   "dollar amounts, things to watch, and AI-suggested next steps. The AI sees your "
-                   "holdings only as percentages; the dollar figures are added on this machine.")
+        st.caption("A printable plan for this account: profile, goal, allocation, holdings with "
+                   "dollar amounts, things to watch, and questions to look into - worked out "
+                   "from your own answers and figures by fixed rules. Made on this machine; "
+                   "nothing is sent to the AI.")
         blocked = ("Turn off Hide amounts to create a plan - it includes dollar figures."
                    if _hidden() else
                    "Import positions for this account first." if not contexts else None)
@@ -117,32 +119,14 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
             conn = connect(DB)
             try:
                 facts = client_plan.build_facts(conn, USER_ID, contexts, cash_by_account,
-                                                _rules_for(USER_ID))
+                                                _rules_for(USER_ID), band=load_drift_threshold(),
+                                                info=globals().get("sec_info") or {})
             finally:
                 conn.close()
-            steps = None
-            quota = _ai_status("plan")  # this month's allowance (ai_usage.py)
-            if not quota["ok"]:
-                st.info(ai_usage.used_up_text(quota, "plan") + " This plan was made without "
-                        "suggested next steps.")
-            else:
-                with st.spinner("Writing suggested next steps..."):
-                    try:
-                        steps = client_plan.next_steps(
-                            anthropic.Anthropic(api_key=api_key), profile,
-                            advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
-                            client_plan.chat_transcript(display),
-                            # the guide's notes stay the person's own (AI_PLAN 6)
-                            memory if USER_ID == LOGIN_ID else "", user_id=LOGIN_ID)
-                    except anthropic.AnthropicError as exc:
-                        st.warning(_ai_failed(exc, "plan", "Writing suggested next steps")
-                                   + " This plan was made without suggested next steps.")
-                    else:
-                        _ai_record("plan")  # counted once it has answered
             today = datetime.now().date()
             st.session_state["plan_pdf"] = {
                 "data": client_plan.render_pdf(
-                    facts, steps, account_name=ACTIVE_NAME, today=today,
+                    facts, account_name=ACTIVE_NAME, today=today,
                     advisor_name=None if USER_ID == LOGIN_ID else st.session_state["username"]),
                 "name": f"plan-{ACTIVE_NAME}-{today.isoformat()}.pdf",
             }

@@ -1,13 +1,14 @@
-"""Downloadable client plan: a PDF of one account's profile, holdings, and
-suggested next steps.
+"""Downloadable client plan: a PDF of one account's profile, goal, holdings,
+and "Questions to look into".
 
-Pure logic, no Streamlit; dashboard.py's AI Assistant page owns the button.
-
-What leaves the machine: only next_steps() calls the API, with the same
-weights-only portfolio summary the chat uses (advisor.portfolio_summary) and
-the session's chat transcript, plus the assistant's own saved notes (which
-are never printed in the PDF). The dollar figures in the PDF are computed and
-rendered locally.
+Pure logic, no Streamlit; the AI Assistant page owns the button
+(views/profile.py). No AI: nothing in the plan leaves the machine. The
+questions (questions()) come from fixed rules over the person's own answers
+and figures - drift beyond their own band, a fund's fee above a level, the
+cash share, the goal's projection, open profile answers, the emergency fund
+- and are always questions, never instructions (docs/AI_PLAN.md section 9,
+item 12, and step 15; the plan's old AI "Suggested next steps" was the
+closest thing to a personal conclusion, LEGAL_GATES.md G4).
 """
 
 from __future__ import annotations
@@ -20,41 +21,42 @@ from fpdf import FPDF
 import advising
 import advisor
 import asset_classes
+import fees
 import plans
 import alerts
 import metrics as M
 import overview
 from allocation import CONCENTRATION_PCT, SHORT_ASSET_TYPE, allocate
 
-MAX_TOKENS = 4000
-DISCLAIMER = ("Educational information only - not financial advice. The assistant is not a "
-              "licensed financial advisor; do your own research before making any investment "
-              "decision.")
+DISCLAIMER = ("Educational information only - not financial advice. Northwend doesn't tell "
+              "anyone what to buy, sell or hold; do your own research before making any "
+              "investment decision.")
 
-_NEXT_STEPS_REQUEST = (
-    "Write the \"Suggested next steps\" section of a short written plan for this person, "
-    "based on their profile, their holdings, and the conversation so far (if any). Give 3 to 6 "
-    "concrete, educational steps tied to their goals and risk tolerance: things to learn, "
-    "check, decide for themselves or ask a professional about. Follow your rules - no step "
-    "may recommend buying, selling or holding a specific security, or a specific mix for "
-    "them. If profile answers are missing, one step can be to settle them. Output only the "
-    "steps, one per line, each starting with \"- \", in plain text: no headings, no bold, no "
-    "intro or closing line."
+QUESTIONS_TITLE = "Questions to look into"
+# printed under the questions
+QUESTIONS_NOTE = ("Worked out from your own answers and figures by fixed rules - anyone with "
+                  "the same numbers gets the same questions. They are questions to think "
+                  "about, or to take to a licensed professional of your choosing - not "
+                  "recommendations. Any figure about the future is hypothetical.")
+FEE_LINE = 0.005       # a fund's yearly fee from which it gets a question (0.50%)
+CASH_LINE = 20.0       # % of the portfolio in cash from which it gets a question
+MAX_QUESTIONS = 10
+# asked of everyone, after the ones from their own figures
+GENERAL_QUESTIONS = (
+    "How much of a drop - 20%, 30%, more - could I sit through without changing my plan?",
+    "If I ever work with a licensed professional, how are they paid, and do they have to act "
+    "in my best interest?",
 )
-
-# printed under the AI-written steps
-AI_STEPS_NOTE = ("Written by AI for education - not a recommendation to buy, sell or hold "
-                 "anything. Any figure about the future is hypothetical. Talk to a licensed "
-                 "professional before acting on it.")
 
 
 # --------------------------------------------------------------------------- #
 # facts (computed locally, dollars included)
 # --------------------------------------------------------------------------- #
 def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
-                rules=None) -> dict:
-    """Everything the PDF shows except the AI section. `contexts` is
-    dashboard.py's per-position metric context list."""
+                rules=None, *, band: float | None = None, info: dict | None = None) -> dict:
+    """Everything the PDF shows. `contexts` is dashboard.py's per-position
+    metric context list; `band` the account's drift band in points (its
+    setting, else 5); `info` the holdings' security_info rows (for fees)."""
     profile = advisor.get_profile(conn, user_id)
     quotes = {c["pos"]["symbol"]: c.get("quote") or {} for c in contexts}
     summary = overview.account_summary(conn, user_id, quotes, rules)
@@ -86,6 +88,11 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
     # the advisor's open next steps the client can see - never private notes
     advisor_steps = [n["body"] for n in advising.open_next_steps(
         advising.list_notes(conn, user_id, include_private=False))]
+    # each fund's yearly fee, where it's known (fees.py) - for the questions
+    fee_rows = fees.check([{"symbol": c["pos"].get("symbol"),
+                            "name": c["pos"].get("description"),
+                            "asset_type": c["pos"].get("asset_type"), "value": M.eff_mv(c)}
+                           for c in contexts], info or {})["funds"] if info else []
 
     return {
         "profile": profile,
@@ -102,39 +109,99 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
         "concentration": alloc["concentration"],
         "alerts": alerts.evaluate(contexts, rules),
         "holdings": holdings,
+        "band": float(band) if band else 5.0,
+        "fees": [{"symbol": f["symbol"], "ratio": f["ratio"]} for f in fee_rows],
     }
 
 
 # --------------------------------------------------------------------------- #
-# the one API call (percentages only)
+# Questions to look into - fixed rules, no AI
 # --------------------------------------------------------------------------- #
-def next_steps(client, profile: dict, summary: str, chat_text: str = "",
-               memory: str = "", *, user_id: int | None = None) -> list[str] | None:
-    """Suggested next steps as a list of short lines, or None if the model
-    declined. API errors propagate so the caller can say what went wrong.
-    `summary` must be advisor.portfolio_summary() output (weights only);
-    `memory` is the assistant's saved notes (advisor.get_memory); the call
-    goes through ai_gateway (`user_id`: whose allowance)."""
-    import ai_gateway
-    content = _NEXT_STEPS_REQUEST
-    if chat_text.strip():
-        content = "## Conversation so far\n" + chat_text.strip() + "\n\n" + content
-    message = ai_gateway.call("plan", client=client, user_id=user_id,
-                              system=advisor.system_prompt(profile, summary, memory),
-                              messages=[{"role": "user", "content": content}])
-    if message.stop_reason == "refusal":
-        return None
-    text = "".join(b.text for b in message.content if b.type == "text").strip()
-    if not text:
-        return None
-    steps = [ln.strip()[2:].strip() for ln in text.splitlines() if ln.strip().startswith("- ")]
-    return steps or [text]
+def _pct_of(rows, label) -> float:
+    return next((float(r["pct"] or 0.0) for r in rows or [] if r["label"] == label), 0.0)
 
 
-def chat_transcript(display: list[dict]) -> str:
-    """The AI Assistant page's chat_display list as plain text."""
-    who = {"user": "User", "assistant": "Assistant"}
-    return "\n\n".join(f"{who.get(m['role'], m['role'])}: {m['text']}" for m in display)
+def questions(facts: dict) -> list[str]:
+    """The plan's "Questions to look into": from the person's own answers and
+    figures, by fixed rules (the same numbers always give the same
+    questions), then GENERAL_QUESTIONS. Each one is a question - something to
+    think about or ask - never an instruction. At most MAX_QUESTIONS."""
+    out = []
+    p = facts.get("profile") or {}
+    missing = facts.get("missing") or []
+    has_data = bool((facts.get("summary") or {}).get("has_data"))
+    by_class = facts.get("by_asset_class") or []
+
+    # open answers about them
+    if missing:
+        names = ", ".join(advisor.PROFILE_FIELDS[f].lower() for f in missing[:3])
+        out.append(f"Some questions about you are still open ({names}"
+                   + (" and more" if len(missing) > 3 else "") + "). What are your answers?")
+    ef = p.get("emergency_fund")
+    if ef in ("None", "Under 3 months"):
+        out.append(f"You answered \"{ef}\" for emergency savings. How much would you want set "
+                   "aside for surprises, and where would it sit?")
+    if p.get("high_interest_debt") in ("Some", "A lot"):
+        out.append("How does the interest on your high-interest debt compare with what "
+                   "investing has earned in the past?")
+    if p.get("employer_match") == "Yes, but I'm not getting all of it":
+        out.append("What would it take to get all of your employer's match, and what are its "
+                   "vesting rules?")
+    elif p.get("employer_match") == "Not sure":
+        out.append("Does your employer match what you put into a retirement plan, and how?")
+
+    # the target mix: their own rule
+    plan = facts.get("plan") or {}
+    target = {k: float(v) for k, v in (plan.get("target_alloc") or {}).items() if v}
+    band = float(facts.get("band") or 5.0)
+    if not target:
+        out.append("What split between stocks, bonds and cash would you choose for this goal, "
+                   "and why?")
+    elif has_data:
+        drifted = sorted(((k, _pct_of(by_class, k) - t, t) for k, t in target.items()
+                          if abs(_pct_of(by_class, k) - t) > band),
+                         key=lambda r: -abs(r[1]))
+        for label, off, t in drifted[:2]:
+            out.append(f"{label}: {abs(off):.0f} points {'above' if off > 0 else 'below'} "
+                       f"the {t:g}% target you set, outside your {band:g}-point band. "
+                       "Your mix has moved from your target - what would you like to do "
+                       "about that, and is the target still the one you want?")
+
+    if has_data:
+        cash = _pct_of(by_class, "Cash")
+        if cash >= CASH_LINE:
+            out.append(f"{cash:.0f}% of the portfolio is cash. What is that cash for, and "
+                       "where does it sit - a sweep account or a money market fund?")
+        for f in sorted(facts.get("fees") or [], key=lambda f: -f["ratio"]):
+            if f["ratio"] >= FEE_LINE:
+                out.append(f"{f['symbol']} charges {fees.fmt_ratio(f['ratio'])} a year. What "
+                           "do you get for that fee, and what do similar funds charge?")
+                break
+        for c in (facts.get("concentration") or [])[:1]:
+            out.append(f"{c['symbol']} is {c['pct']:.0f}% of the portfolio. How much of your "
+                       "money do you want riding on one holding?")
+        stocks = _pct_of(by_class, "Stocks")
+        if p.get("withdrawal_needs") == "A large amount" and stocks > 50:
+            out.append("You expect to take out a large amount within about 3 years. How much "
+                       "of that money would you want kept out of the stock market's ups and "
+                       "downs?")
+
+    # the goal, by the plan's own arithmetic (hypothetical)
+    g = facts.get("goal")
+    if not g:
+        out.append("What are you investing for, and by when?")
+    elif g["status"] == "past_date":
+        out.append("Your goal's date has passed. What's the next goal, or a new date?")
+    elif g["status"] in ("behind", "starting"):
+        out.append("At the plan's assumed return, the projection doesn't reach your goal by "
+                   "its date (hypothetical). Which, if any, would you change: the monthly "
+                   "amount, the date or the target?")
+    elif g["status"] in ("on_track", "within_reach"):
+        out.append("At the plan's assumed return, the projection reaches your goal by its date "
+                   "(hypothetical). What would change if returns were lower than assumed?")
+
+    out = out[:MAX_QUESTIONS - len(GENERAL_QUESTIONS)]
+    return out + list(GENERAL_QUESTIONS)
 
 
 # --------------------------------------------------------------------------- #
@@ -174,8 +241,10 @@ class _PlanPDF(FPDF):
         self.set_text_color(0)
 
 
-def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
+def render_pdf(facts: dict, asks: list[str] | None = None, *, account_name: str,
                advisor_name: str | None = None, today: date | None = None) -> bytes:
+    """The plan as PDF bytes. `asks`: the Questions to look into (None:
+    questions(facts))."""
     pdf = _PlanPDF(format="Letter")
     pdf.set_auto_page_break(auto=True, margin=22)
     pdf.set_margins(18, 16, 18)
@@ -298,13 +367,11 @@ def render_pdf(facts: dict, steps: list[str] | None, *, account_name: str,
         for i, step in enumerate(facts["advisor_steps"], 1):
             para(f"{i}. {step}")
 
-    heading("Suggested next steps (AI-written)" if facts.get("advisor_steps")
-            else "Suggested next steps")
-    if steps:
-        for i, st in enumerate(steps, 1):
-            para(f"{i}. {st}")
-        para(AI_STEPS_NOTE)
-    else:
-        para("The AI-written suggestions weren't available when this plan was created.")
+    heading(QUESTIONS_TITLE)
+    for i, ask in enumerate(questions(facts) if asks is None else asks, 1):
+        para(f"{i}. {ask}")
+    pdf.set_text_color(90)
+    para(QUESTIONS_NOTE)
+    pdf.set_text_color(0)
 
     return bytes(pdf.output())

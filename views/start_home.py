@@ -18,8 +18,10 @@ START_WAYPOINT_LINES = {
              "and any employer match.",
     "goal": "Pick what you're investing for and roughly when - a rough goal is plenty.",
     "basics": "Six short ideas worth knowing before you invest.",
-    "mix": "What a mix could look like for someone with your answers - an example, not a "
-           "recommendation.",
+    "mix": ("An example mix worked out from your timeline and comfort answers - an example, "
+            "not a recommendation." if TAILORED_MIX else
+            "Common starting points for different timelines - the same for everyone, not a "
+            "plan for you."),
     "practice": "See how a mix would have done with real past prices - no real money.",
     "brokerage": "What to compare, and some well-known brokerages side by side - none of "
                  "them ranked.",
@@ -27,7 +29,8 @@ START_WAYPOINT_LINES = {
     "first": "What a first buy looks like, and the kinds of funds many people start with.",
     "bring": "Bring in what you own from any brokerage, so your plan follows the real thing.",
 }
-START_ASK = "I'm new to investing. What should I do before I invest, and in what order?"
+START_ASK = ("I'm new to investing. What do people usually do before they invest, and in what "
+             "order?")
 
 
 def _start_words(step):
@@ -86,8 +89,7 @@ def _render_start_home():
         has_holdings=False, monthly=monthly, goal=gp, drift=[], days_since_holdings=None,
         waypoints=waypoints, starting=True)
     title, line, button, action = _start_words(step)
-    mix = learn.starter_mix(profile, state["horizon"])
-    kind = learn.investor_type(profile, mix, state["items"])
+    kind = _direction_kind(profile, state["horizon"], state["items"])   # gate L3 on only
 
     # ---- Your route: the goal, the trail, the one next step ------------------- #
     with st.container(border=True, key="pt_route"):
@@ -125,6 +127,8 @@ def _render_start_home():
             if st.button("See your mix", key="start_direction", type="tertiary",
                          icon=":material/open_in_new:"):
                 _direction_window(kind["key"])
+    elif not TAILORED_MIX:   # gate L3 off: the same table for everyone
+        _common_points_line("start_common_points")
 
     # ---- calm ways to look around, or bring in what they already own -------- #
     st.markdown("**Not investing yet? That's fine.** Look around at your own pace - nothing "

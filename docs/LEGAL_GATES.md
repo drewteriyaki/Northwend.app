@@ -42,6 +42,16 @@ example for someone with your answers") must go in **both** states. So:
 - **L3 on:** whatever form the lawyer approves. For example, the person's own
   timeline bucket highlighted in that same table.
 
+*Built in step 2 (Oct 6):* `flags.gate("L3")` is `dashboard.TAILORED_MIX`
+(`flags.GATE_CHECKS["L3"]`). Off: the common starting points table
+(`learn.common_starting_points`), no investor type, no "Use this" that copies
+Northwend's mix into a target, practice mixes the same for everyone, and Ask
+Northwend's rules add `situation_general` (`ai_policy.rules()`). On: today's
+tailored example mix, its copy reworded (no "for your answers", no "for
+you"), pending the lawyer. The stricter AI rules and the output check
+(`ai_policy.py`) apply either way. Rows B2, B5, B6, B9, B10, B11, B14, B16,
+C1, C2, C3, D1, D4, D7, G1, G2, G4 and W2 say what changed.
+
 **Gates and feature flags are different things.** The Ritual items (R1-R5)
 each get their own feature flag (brief 3.2). A feature that is also inside a
 gate needs both to be on.
@@ -109,30 +119,30 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 | # | Feature | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|---|
 | B1 | First steps slideshow: welcome, tap questions, goal, bring it in | `views/first_steps.py:285` | Calculator | L0 | No. Its goal screen's "a month - what reaches your goal" (`views/first_steps.py:227`) is arithmetic. |
-| B2 | First steps "Your direction" screen | `views/first_steps.py:234` (draws B10) | Descriptive | **L3** | **Yes** - see B10. |
+| B2 | First steps "Your direction" screen | `views/first_steps.py:234` (draws B10) | Descriptive | **L3** | **Yes** - see B10. **Step 2 (L3 off): No** - the screen is "Common starting points", the same table for everyone (`learn.common_starting_points`); the type and its mix show only with L3 on. |
 | B3 | The route: two stages, progress, the next waypoint | `views/get_started.py:1031`, `route.py` | Education | L0 | No |
 | B4 | About you (the profile questions) | `views/get_started.py:204`, `views/profile.py:49` | Calculator | L0 | No |
-| B5 | Are you ready to invest? (readiness check) | `learn.py:51-109`, `views/get_started.py:227` | Descriptive | **L3** (review) | **Borderline.** Not about securities, but it tells this person what to do first, with a red "Start here": "Start with an emergency fund" (`learn.py:65`), "paying it down first is a strong move" (`learn.py:77`), "Putting in enough to get the full match is usually the best return available" (`learn.py:86-87`). General form: "Many people build 3-6 months of savings first." |
-| B6 | Set a goal: what, monthly amount, how it's going, **target mix** | `views/get_started.py:319-431` | Calculator | L0; mix part **L3** | **Yes, for the mix part.** The slider starts at the example mix from their answers (`views/get_started.py:418-419`), and "Use the suggestion: X% stocks, Y% bonds - the example mix for your answers" (`views/get_started.py:424-426`) makes it their target in one tap. That target then drives drift, next deposit and the walk verdict. |
+| B5 | Are you ready to invest? (readiness check) | `learn.py:51-109`, `views/get_started.py:227` | Descriptive | **L3** (review) | **Borderline.** Not about securities, but it tells this person what to do first, with a red "Start here": "Start with an emergency fund" (`learn.py:65`), "paying it down first is a strong move" (`learn.py:77`), "Putting in enough to get the full match is usually the best return available" (`learn.py:86-87`). General form: "Many people build 3-6 months of savings first." **Step 2:** the three lines now speak in general terms ("Many people keep 3-6 months...", "which is why many people pay it down first", "An employer match adds money on top... Many people check what they'd need to put in to get all of it"); the red "Start here" state stays (Borderline). |
+| B6 | Set a goal: what, monthly amount, how it's going, **target mix** | `views/get_started.py:319-431` | Calculator | L0; mix part **L3** | **Yes, for the mix part.** The slider starts at the example mix from their answers (`views/get_started.py:418-419`), and "Use the suggestion: X% stocks, Y% bonds - the example mix for your answers" (`views/get_started.py:424-426`) makes it their target in one tap. That target then drives drift, next deposit and the walk verdict. **Step 2 (L3 off): No** - nothing is filled in: they type their own % in stocks, with the common starting points table beside it for reference, and saving needs a number. L3 on keeps the slider and "Use this" (the example mix), and a target taken untouched is recorded (`checkin.PREF_TARGET_FROM`, see C3). |
 | B7 | Learn the basics: six short reads, lesson numbers | `views/get_started.py:436-512`, `learn.py` | Education | L0 | No. The lesson numbers use the person's monthly amount and years (calculator). |
 | B8 | "What these kinds of funds look like" (three kinds, three providers each) | `starter_funds.py` | Education | L0 | No - the same for everyone. But see B14 for where it is shown. |
-| B9 | An example mix | `views/get_started.py:516-551`, `learn.starter_mix` `learn.py:140` | Descriptive | **L3** | **Yes.** "An example for someone with your answers: 60% stocks, 40% bonds" (`views/get_started.py:524`), then how *their* answers move it. Brief 3.1 says rewrite as common starting points by bucket, the same for everyone in the bucket. |
-| B10 | Find your direction (the investor type card and window; the type name on Home's route) | `learn.investor_type` `learn.py:240`, `learn.INVESTOR_TYPES` `learn.py:186-237`, `views/get_started.py:962-1001`, `views/dashboard_page.py:119-125` | Descriptive | **L3** | **Yes.** Names a type for the person, "An example mix for this type", "Kinds of funds that usually fill it". The Foundation type says "Build your base first" and "the example mix below shows what investing could look like for you" (`learn.py:189-195`). |
-| B11 | Try it with practice money | `views/get_started.py:554-660`, `learn.simulate` | Calculator | L0; its "Example mix" choice **L3** | **Borderline.** The default mix is their example mix, run on the named stand-in funds. For someone who answered "Sell everything", it adds "Selling during a drop locks in the loss" (`views/get_started.py:650-652`) - a behaviour nudge aimed at them. |
+| B9 | An example mix | `views/get_started.py:516-551`, `learn.starter_mix` `learn.py:140` | Descriptive | **L3** | **Yes.** "An example for someone with your answers: 60% stocks, 40% bonds" (`views/get_started.py:524`), then how *their* answers move it. Brief 3.1 says rewrite as common starting points by bucket, the same for everyone in the bucket. **Step 2 (L3 off): No** - the waypoint is "Common starting points": one table (5 timelines x 3 comfort columns) with no row picked, how timelines and comfort move a mix in general, the kinds of funds, "Illustrations, not a plan for you". L3 on keeps the example mix, reworded "An example worked out from your timeline and comfort answers". |
+| B10 | Find your direction (the investor type card and window; the type name on Home's route) | `learn.investor_type` `learn.py:240`, `learn.INVESTOR_TYPES` `learn.py:186-237`, `views/get_started.py:962-1001`, `views/dashboard_page.py:119-125` | Descriptive | **L3** | **Yes.** Names a type for the person, "An example mix for this type", "Kinds of funds that usually fill it". The Foundation type says "Build your base first" and "the example mix below shows what investing could look like for you" (`learn.py:189-195`). **Step 2 (L3 off): No** - no type is named for anyone (Home's route label, Learn's and Home's direction line, the window): a "Common starting points" line opens the general table. With L3 on, the copy is rewritten ("Many people build a base first", no "people in your spot", no "for you", "Ask Northwend about this"). |
+| B11 | Try it with practice money | `views/get_started.py:554-660`, `learn.simulate` | Calculator | L0; its "Example mix" choice **L3** | **Borderline.** The default mix is their example mix, run on the named stand-in funds. For someone who answered "Sell everything", it adds "Selling during a drop locks in the loss" (`views/get_started.py:650-652`) - a behaviour nudge aimed at them. **Step 2 (L3 off): No** - the choices are the target they set (if any), All stocks, 80% stocks, 60% stocks and Mostly bonds - the same for everyone - and the "Sell everything" line isn't shown. |
 | B12 | Choose a brokerage (what to compare; brokerages alphabetical, unranked) | `brokerages.py`, `views/get_started.py:736` | Education | L0 | No |
 | B13 | Open your account (steps and checklist) | `views/get_started.py:750` | Education | L0 | No. "Many people finish a 3-6 month emergency fund first" is shown only to those who answered short on savings - mild. |
-| B14 | Your first investments | `views/get_started.py:770-791` | Education | **L3** | **Yes, by placement.** It opens with "Your direction: ... an example mix of X% stocks, Y% bonds, from your answers" (`views/get_started.py:779-782`), then "What your first buy looks like", then the named-fund card (B8). `starter_funds.py`'s own docstring says named funds next to "your mix" would read as a recommendation. |
+| B14 | Your first investments | `views/get_started.py:770-791` | Education | **L3** | **Yes, by placement.** It opens with "Your direction: ... an example mix of X% stocks, Y% bonds, from your answers" (`views/get_started.py:779-782`), then "What your first buy looks like", then the named-fund card (B8). `starter_funds.py`'s own docstring says named funds next to "your mix" would read as a recommendation. **Step 2: No** - with L3 on or off, the step shows no direction, mix or target, and the page's direction / common-points line is hidden on this step; the named-fund card is the general one, the same for everyone. |
 | B15 | Bring it in (waypoint) | `views/get_started.py:794` | Account | L0 | No |
-| B16 | Home before anything is brought in: the route card and waypoint lines | `views/start_home.py:74`, `views/start_home.py:15-29` | Education | L0 | Borderline, through copy only: "What a mix could look like for someone with your answers" (`views/start_home.py:21`). |
+| B16 | Home before anything is brought in: the route card and waypoint lines | `views/start_home.py:74`, `views/start_home.py:15-29` | Education | L0 | Borderline, through copy only: "What a mix could look like for someone with your answers" (`views/start_home.py:21`). **Step 2: No** - "Common starting points for different timelines - the same for everyone, not a plan for you." (L3 on: "An example mix worked out from your timeline and comfort answers"). |
 | B17 | Learn more links (trusted public sources) | `learn.LEARN_MORE` | Education | L0 | No |
 
 ### 3.3 Home (with holdings)
 
 | # | Feature | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|---|
-| C1 | Your route card: goal progress and the one next step | `route.py:15-75`, `views/dashboard_page.py:30-152` | Calculator | L0; wording **L3** | **Borderline.** The numbers are arithmetic toward their own goal. The words are orders: "Close the gap to your goal ... About $743 (... more) would get you there by <date> at the plan's assumed return - or you could move the date or the target" (`views/dashboard_page.py:53-58`); "You're on track. Keep adding $X a month and your plan gets you there by <date>" (`:76`), a projection not labelled hypothetical. |
-| C2 | Storm note ("Weather on the trail") and "What storms have looked like" | `storms.py`, `views/kit.py:243-301` | Descriptive | L0; wording **L3** | **Yes (soft).** "Nothing needs doing today. If your goal is years away, the plan you set still holds" (`views/kit.py:279-281`) is a hold message to this person during a drop. "Holding steady through a storm earns the storm cloak" (`views/kit.py:289`) rewards not selling - a trading behaviour, not learning or a habit (principle 5). The history table itself is general education. |
-| C3 | The Monthly Walk (update, drift, one read, verdict; streak; next walk date) | `checkin.py`, `views/checkin.py` | Descriptive | L0 + its feature flag; the verdict **L3** | **Yes (soft, by design).** See section 4. |
+| C1 | Your route card: goal progress and the one next step | `route.py:15-75`, `views/dashboard_page.py:30-152` | Calculator | L0; wording **L3** | **Borderline.** The numbers are arithmetic toward their own goal. The words are orders: "Close the gap to your goal ... About $743 (... more) would get you there by <date> at the plan's assumed return - or you could move the date or the target" (`views/dashboard_page.py:53-58`); "You're on track. Keep adding $X a month and your plan gets you there by <date>" (`:76`), a projection not labelled hypothetical. **Step 2:** the on-track line is now "At $X a month, the projection reaches your goal by <date>. Hypothetical, not a promise." The "close the gap" line is unchanged (Consider). |
+| C2 | Storm note ("Weather on the trail") and "What storms have looked like" | `storms.py`, `views/kit.py:243-301` | Descriptive | L0; wording **L3** | **Yes (soft).** "Nothing needs doing today. If your goal is years away, the plan you set still holds" (`views/kit.py:279-281`) is a hold message to this person during a drop. "Holding steady through a storm earns the storm cloak" (`views/kit.py:289`) rewards not selling - a trading behaviour, not learning or a habit (principle 5). The history table itself is general education. **Step 2:** the hold message is now "Drops like this are part of investing. Your plan's target and dates haven't changed; they're on the Plan page." The storm cloak (earned for not selling) is unchanged - still open (gear logic, not copy). |
+| C3 | The Monthly Walk (update, drift, one read, verdict; streak; next walk date) | `checkin.py`, `views/checkin.py` | Descriptive | L0 + its feature flag; the verdict **L3** | **Yes (soft, by design).** See section 4. **Step 2:** where the target came from is recorded (`checkin.PREF_TARGET_FROM`: own, advisor, or Northwend's example mix taken untouched - possible only with L3 on). While it is still the example mix, the verdict adds "This target started as Northwend's example mix and hasn't changed since. Is it the one you want? You can keep it as yours, or change it on the Plan." with a "Keep it as mine" button. The verdict wording itself is unchanged (section 4, points 1 and 4). |
 | C4 | The walk's reminder email (off unless turned on) | `checkin_email.py` | Account | L0 | No. No figures. Still needs an unsubscribe header (audit 1.7c). |
 | C5 | Your kit: milestones and gear | `gear.py`, `views/kit.py:113-221` | Education | L0 | Borderline only through the storm cloak (C2). The rest rewards learning and habits. |
 | C6 | "Your money, checked" card (one line each for C7-C9) | `views/cash_check.py:112` | Descriptive | L0 | No |
@@ -154,13 +164,13 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 
 | # | Feature | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|---|
-| D1 | Goal form and goal status, with "Suggested starting point for your answers" lines | `views/plan.py:193-300`, `learn.suggestions` `learn.py:287` | Calculator | L0; the suggestion label **L3** | **Borderline.** The monthly amount is arithmetic. The goal date from age and the 6% return are typical values. The label "Suggested starting point for your answers" says Northwend suggests something for them. |
+| D1 | Goal form and goal status, with "Suggested starting point for your answers" lines | `views/plan.py:193-300`, `learn.suggestions` `learn.py:287` | Calculator | L0; the suggestion label **L3** | **Borderline.** The monthly amount is arithmetic. The goal date from age and the 6% return are typical values. The label "Suggested starting point for your answers" says Northwend suggests something for them. **Step 2: No** - each line says what kind of number it is: "What reaches your goal: $X a month, at 6% a year", "From your own timeline answer: by <date>", "A typical value people use: 6% a year" (`views/plan.py` `SUGGEST_LEADS`); the button reads "Use this". |
 | D2 | How it's going (the range to the goal) | `views/plan.py:345` | Calculator | L0 | No |
 | D3 | Money going out: planned expenses, a regular withdrawal, how long it lasts | `views/plan.py:130-183`, `views/plan.py:467`, `plans.py` | Calculator | L0 | No. "About $Z more a month gets you back on track" and "taking $X less a month or starting N years later makes it last" are arithmetic on their own items, labelled "Arithmetic on the plan's numbers, not advice". R11 (Pay Yourself) would go further. |
-| D4 | What if | `views/plan.py:783` | Calculator | L0; its suggestion **L3** | **Borderline.** "Use the suggestion" fills the example mix's % in stocks (`views/plan.py:815-820`). |
+| D4 | What if | `views/plan.py:783` | Calculator | L0; its suggestion **L3** | **Borderline.** "Use the suggestion" fills the example mix's % in stocks (`views/plan.py:815-820`). **Step 2 (L3 off): No** - "From your own plan: $X a month · N years" only; the % in stocks starts from their own mix or target, else 60% for everyone. |
 | D5 | Contributions (log money added or taken out; Free money check link) | `views/plan.py:587` | Calculator | L0 | No |
 | D6 | Money in vs growth | `views/plan.py:656` | Descriptive | L0 | No |
-| D7 | Target mix: edit targets and the band | `views/plan.py:685-768` | Calculator | L0; its suggestion **L3** | **Yes, for the suggestion.** "Use the suggestion: 60% stocks, 40% bonds - the example mix for your answers" (`views/plan.py:744-747`) sets their target in one tap. ("Apply a model portfolio" is the advisor's - H5.) |
+| D7 | Target mix: edit targets and the band | `views/plan.py:685-768` | Calculator | L0; its suggestion **L3** | **Yes, for the suggestion.** "Use the suggestion: 60% stocks, 40% bonds - the example mix for your answers" (`views/plan.py:744-747`) sets their target in one tap. ("Apply a model portfolio" is the advisor's - H5.) **Step 2 (L3 off): No** - no button; "Your target is yours to choose" and the common starting points table. L3 on keeps "The example mix from your timeline and comfort answers: ... Use this", and saving it untouched is recorded as the example's (C3). |
 | D8 | Where could your next deposit go? | `next_deposit.py`, `views/next_deposit.py:23-73` | Calculator | L0 | No - brief 3.1 keeps it. Its copy should say the target is theirs. It inherits the target-origin problem. |
 | D9 | Stress test (2008, 2020, 2022 on the mix now and the target) | `stress.py`, `views/stress_test.py` | Calculator | L0 | No |
 | D10 | Retirement income: what it pays now, 3/4/5% a year, how long a yearly amount lasts | `views/plan.py:897-997`, `plans.py:767-784` | Calculator | L0; review **L3** | **Borderline.** Three rules of thumb, labelled "not a promise", applied to their own value. "A yearly amount to try" starts at 4% of their value (`views/plan.py:973-974`) - Northwend picks the starting number. |
@@ -187,10 +197,10 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 
 | # | Feature | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|---|
-| G1 | Ask Northwend chat (with memory and profile tools) | `advisor.py`, `views/assistant.py` | Education | **L3** | **Yes, in part.** See section 5. |
-| G2 | Ready-made questions: quick starts, route and waypoint "Ask Northwend" buttons | `dashboard.py:2054-2069`, `views/dashboard_page.py:9-27`, `views/get_started.py:62-80`, `views/get_started.py:954-959`, `views/start_home.py:30` | Education | **L3** | **Yes.** Northwend writes these questions, and several ask the model for a conclusion about the person that it must then refuse: "Which account type fits me?", "anything I'm too concentrated in", "Review my portfolio", "Looking at my situation, what should I take care of ... and in what order?", "why a mix ... might fit my time horizon", "what's a sensible next step for me", "what that means for someone like me". |
+| G1 | Ask Northwend chat (with memory and profile tools) | `advisor.py`, `views/assistant.py` | Education | **L3** | **Yes, in part.** See section 5. **Step 2:** the stricter rules and the output check are built (`ai_policy.py`, for the gateway to wire), and the 64-case eval (`evals/`) - see section 5. |
+| G2 | Ready-made questions: quick starts, route and waypoint "Ask Northwend" buttons | `dashboard.py:2054-2069`, `views/dashboard_page.py:9-27`, `views/get_started.py:62-80`, `views/get_started.py:954-959`, `views/start_home.py:30` | Education | **L3** | **Yes.** Northwend writes these questions, and several ask the model for a conclusion about the person that it must then refuse: "Which account type fits me?", "anything I'm too concentrated in", "Review my portfolio", "Looking at my situation, what should I take care of ... and in what order?", "why a mix ... might fit my time horizon", "what's a sensible next step for me", "what that means for someone like me". **Step 2:** rewritten to general forms - "What do people do before investing?", "What kinds of accounts are there?", "...show how much of the portfolio is in any one holding", "What do people usually take care of before they start investing, and in what order?", "How do people usually think about splitting money ... for different timelines?", "Explain the \"{type}\" description in general terms". Still open (Consider): "Review my portfolio", "what's a sensible next step for me to learn about?", "What should I keep an eye on from here?". |
 | G3 | Your investing profile window | `views/assistant.py:30`, `views/profile.py:49` | Calculator | L0 | No. Its copy "so Northwend's answers fit your timeline and comfort with ups and downs" (`views/assistant.py:75-78`) promises tailored answers. |
-| G4 | Printable plan (PDF) with "Suggested next steps" written by AI | `client_plan.py:35-46`, `client_plan.py:288-311`, `views/profile.py:100-140` | Descriptive (+AI) | **L3** | **Yes.** The model is asked for "3 to 6 concrete, educational steps tied to their goals and risk tolerance", printed as "Suggested next steps" in a document called a plan. Also prints "Things to watch" with the 15% line (C17). |
+| G4 | Printable plan (PDF) with "Suggested next steps" written by AI | `client_plan.py:35-46`, `client_plan.py:288-311`, `views/profile.py:100-140` | Descriptive (+AI) | **L3** | **Yes.** The model is asked for "3 to 6 concrete, educational steps tied to their goals and risk tolerance", printed as "Suggested next steps" in a document called a plan. Also prints "Things to watch" with the 15% line (C17). **Step 2: No** - no AI: "Questions to look into" from fixed rules over their own answers and figures (drift beyond their band, a fee from 0.50%, cash from 20%, the goal's projection, open answers, emergency fund, debt, match), each a question, plus two asked of everyone (`client_plan.questions`). "Things to watch" is unchanged. |
 
 ### 3.8 Advisor side
 
@@ -232,7 +242,7 @@ All carry no figures today. None is prescriptive.
 
 | PDF | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|
-| Client plan with AI "Suggested next steps" | `client_plan.py` | Descriptive (+AI) | **L3** | **Yes** (G4) |
+| Client plan with rule-based "Questions to look into" (was AI "Suggested next steps") | `client_plan.py` | Descriptive | **L3** | No since step 2 (G4) |
 | Proposal | `proposals.py` | Advisor tool | L1 | No |
 | Progress report | `reports.py` | Advisor tool | L1 | No |
 | Year in review, to share | `recap.py:425` | Descriptive | L0 | No |
@@ -243,7 +253,7 @@ All carry no figures today. None is prescriptive.
 | # | Page | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|---|
 | W1 | Home | `website/templates/home.html` | Education | L0 | No |
-| W2 | New to investing | `website/templates/new-to-investing.html` | Education | L0; two lines **L3** | **Borderline.** "An example mix: What a simple portfolio looks like for someone with your answers" (`:39`). "for each part of your mix, examples from three different providers" (`:119`) ties named funds to "your mix". |
+| W2 | New to investing | `website/templates/new-to-investing.html` | Education | L0; two lines **L3** | **Borderline.** "An example mix: What a simple portfolio looks like for someone with your answers" (`:39`). "for each part of your mix, examples from three different providers" (`:119`) ties named funds to "your mix". **Step 2: No** - "Common starting points: What simple mixes look like for different timelines - the same for everyone."; "for each kind of fund, examples from three different providers". |
 | W3 | For advisors | `website/templates/advisors.html` | Advisor tool | L0; pricing copy **L1**; any directory mention **L2** | No |
 | W4 | About (from `disclosures.py`) | `website/build.py` | Education | L0 | No |
 | W5 | 404 | `website/templates/404.html` | Education | L0 | No |
@@ -268,6 +278,13 @@ empty because none of it exists yet (section 6).
 Prescriptive today: **Yes** - 11 rows (B2, B6, B9, B10, B14, C2, C3, D7, G1,
 G2, G4). **Borderline** - 11 rows (B5, B11, B16, C1, C5, C14, C17, D1, D4,
 D10, W2), and C7 is worth a glance.
+
+**After step 2, with L3 off (production):** of the 11 "Yes" rows, B2, B6,
+B9, B10, B14, D7 and G4 are No. Still open: C2 (the storm cloak, earned for
+not selling), C3 (the verdict's wording; where the target came from is now
+recorded and asked about), G1 (until the gateway wires `ai_policy`) and G2
+(three Consider-level ready-made questions). Of the Borderline rows, B11,
+B16, D1, D4 and W2 are No; B5 and C1 are reworded but stay Borderline.
 
 ---
 
@@ -296,6 +313,11 @@ plan" is honest *if* the plan is really theirs.
    Northwend's mix, then Northwend's verdict, said as "your plan". Options: no
    pre-fill; the person types or confirms each number; record where the target
    came from (typed, suggestion, advisor) and show it under the verdict.
+   *Step 2 did both:* with L3 off nothing is pre-filled or copied (they type
+   it); with L3 on, a target taken from the example mix untouched is
+   recorded (`checkin.PREF_TARGET_FROM`, "example"), and the verdict says so
+   and asks, with "Keep it as mine" (`checkin.TARGET_FROM_NOTE`). Targets set
+   by an advisor are recorded as the advisor's.
 3. **The band is Northwend's number** unless they change it: 5 points
    (`dashboard.py:2441`). The rule line still says "Your rule: ... a band of 5
    points".
@@ -354,11 +376,22 @@ projections labelled hypothetical.
 | Not: **rate the person's choices** | Not covered. The prompt *asks* for "overall risk ... next to their stated comfort with risk" | Remove that instruction; describe, don't compare against what suits them. |
 | Not: **recommend an advisor** | Suggests "a fee-only fiduciary adviser" | With a directory live this reads as steering (brief 3.3: never suggest the person needs an advisor). Change to "questions to ask a professional, if you ever choose to work with one". |
 | Not: predict markets | Covered (`no_guarantees`) | - |
-| Eval: 60+ cases, 15 on prescriptive phrasing, fail the build | `scripts/ai_guardrail_eval.py` exists, run by hand | Grow it and run it in CI (AI plan) |
+| Eval: 60+ cases, 15 on prescriptive phrasing, fail the build | `evals/`: 64 cases, the offline checker in Tests; the real-model run by hand (step 2) | Run it on the eval workspace and keep the result as L3's evidence |
 
 Also outside 5.3 but close: the model sees tickers and weights
 (`advisor.py:6-8`, `portfolio_summary`). Brief 5.1 says models never see
 individual holdings. That belongs to the AI plan's `ContextCard` work.
+
+**Step 2 (Oct 6).** The conclusion policy is built as `ai_policy.py`:
+`rules()` (AI_PLAN 7.1's ten rules - soft forms, no ratings, no advisor or
+kind of adviser, calm, client mode - plus `situation_general` while L3 is
+off) and `check()`, a sentence-level output check with the fixed fallback
+line. The gateway (built separately) wires both into every call; until then
+the prompt still uses `advisor.GUARDRAILS`. The eval set is `evals/`: 64
+cases in groups A-J, the 15 prescriptive cases each with three good and
+three bad canned answers; its checker runs in Tests, the real-model run by
+hand on the eval workspace (`python -m evals.run --samples 3`, RUNBOOK "The
+AI eval").
 
 **Client mode (brief 5.2).** For an advisor's client, the ready-made
 questions already point back to the advisor (`views/start_home.py:158-176`).
@@ -384,8 +417,8 @@ The chat itself has no client-mode rule yet.
 | Advisor access log, visible to the client (append-only) | 4.3.5 | Advisor tool | L2 | |
 | The standing "advice is the advisor's, not Northwend's" line, with name and firm, on every advisor artefact | 4.4 | Advisor tool | L2 | Today only on the proposal PDF |
 | State-coverage handling | 6 (L2) | Directory | L2 | |
-| Common starting points (the example-mix rewrite) | 3.1 | Education | L3 | Replaces B9, B10's mix, the suggestion buttons |
-| Conclusion policy, `ContextCard`, figures opt-in, 60+ case eval in CI | 5 | Education | L3 | |
+| Common starting points (the example-mix rewrite) | 3.1 | Education | L3 | Replaces B9, B10's mix, the suggestion buttons. **Built in step 2** (what L3 off shows) |
+| Conclusion policy, `ContextCard`, figures opt-in, 60+ case eval | 5 | Education | L3 | Step 2 built the policy (`ai_policy.py`) and the eval (`evals/`, 64 cases); the gateway wires the policy |
 | Do-Nothing Ledger (R2) | 3.2 | Descriptive | L0 + flag; L3 review | Must show both directions (ROADMAP risk list) |
 | Expedition Log (R3) | 3.2 | Descriptive | L0 + flag | |
 | Storm Drill / Storm Shelter (R4) | 3.2 | Descriptive | L0 + flag | |

@@ -59,7 +59,8 @@ class HelperSpec:
     timeout: float         # seconds, for a client the gateway makes itself
 
 
-# The register. carries_dollars is False for all six today: the chat, plan
+# The register (the plan PDF has no AI call any more, AI_PLAN step 15).
+# carries_dollars is False for all five today: the chat
 # and prep send percentages only (context_card.py, advisor.portfolio_summary,
 # meeting.facts_for_ai) and the column guesses send column names and cell
 # kinds. Screenshot reads are the exception the policy has to settle (PLAN
@@ -69,7 +70,6 @@ class HelperSpec:
 # them off on hosted copies until AI_ZDR is set.
 HELPERS = {
     "chat": HelperSpec("chat", SONNET, 2500, "medium", True, "chat", "chat", False, 600.0),
-    "plan": HelperSpec("plan", SONNET, 4000, "medium", True, "plan", "chat", False, 600.0),
     "prep": HelperSpec("prep", SONNET, 2000, "low", True, "prep", "chat", False, 600.0),
     "screenshot": HelperSpec("screenshot", SONNET, 4000, None, False, "screenshot", "decode",
                              False, 90.0),

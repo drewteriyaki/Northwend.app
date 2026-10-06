@@ -73,8 +73,9 @@ def _route_words(step, gp, monthly, plan):
     if k == "reached":
         return ("You've reached your goal", "Well done. Set your next goal whenever you're "
                 "ready.", "Set the next goal", ("page", "Plan"))
-    return ("You're on track", f"Keep adding {fmt_money0(monthly)} a month and your plan gets "
-            f"you there by {when}.", "Open your plan", ("page", "Plan"))
+    return ("You're on track", f"At {fmt_money0(monthly)} a month, the projection reaches "
+            f"your goal by {when}. Hypothetical, not a promise.", "Open your plan",
+            ("page", "Plan"))
 
 
 def _route_go(action):
@@ -116,10 +117,10 @@ def _render_route():
                                    _route_words(step, gp, monthly, plan))
 
     with st.container(border=True, key="pt_route_reached" if reached else "pt_route"):
-        # the investor type comes with an example mix - not beside an advisor's
-        kind = None if CLIENT_MODE else learn.investor_type(
-            state["profile"], learn.starter_mix(state["profile"], state["horizon"]),
-            state["items"])
+        # the investor type comes with an example mix - not beside an advisor's,
+        # and only with gate L3 on (views/get_started.py _direction_kind)
+        kind = None if CLIENT_MODE else _direction_kind(state["profile"], state["horizon"],
+                                                         state["items"])
         head = ("<div class='pt-route-label'>"
                 + ("Your next step, with your advisor" if CLIENT_MODE else "Your route")
                 + (f" · {html.escape(kind['name'])}" if kind else "") + "</div>")

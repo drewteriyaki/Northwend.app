@@ -1191,6 +1191,43 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         listed on Account with Delete and "Forget everything", saved by
         `ai_gateway.save_memory` only in the person's own account; an advisor
         in a client's account never reads or writes the client's notes
+  - [x] 2.1 Eval set (AI_PLAN 10 step 1) - done: `evals/` (a package in
+        pyproject): `cases.py` 64 cases in groups A-J (AI_PLAN 8.1), the 15
+        prescriptive cases each with three good and three bad canned answers;
+        `checker.py` (ai_policy's check plus named funds, says it's an AI,
+        hypothetical labels, client mode, over-refusal, case patterns);
+        `canned.py` good/bad answers per rule; `tests/test_evals.py` runs it
+        all offline. `python -m evals.run --samples 3 [--rules policy]` asks
+        the real model - by hand only, on the eval workspace with
+        `ANTHROPIC_API_KEY_EVAL` (RUNBOOK "The AI eval"); never in CI.
+        `scripts/ai_guardrail_eval.py` now runs it. Owner: run the baseline
+        and keep the summary for L3
+  - [x] 2.11 Conclusion policy as `ai_policy.py` (AI_PLAN 10 step 11) -
+        done: `rules()` (AI_PLAN 7.1, always the stricter text; client mode;
+        `situation_general` while L3 is off), `check(text) -> (ok,
+        replacement)` sentence by sentence with the fixed `FALLBACK`,
+        `RETRY_REMINDER`, `SentenceBuffer`, `kinds()` for counting. Not wired
+        into advisor.py: the gateway does that (the module says how)
+  - [x] 2.15 Plan PDF (AI_PLAN 10 step 15) - done: no AI in `client_plan.py`;
+        "Questions to look into" from fixed rules (`client_plan.questions`:
+        drift beyond their band, a fee from 0.50%, cash from 20%,
+        concentration, the goal's projection, open answers, emergency fund,
+        debt, match, money needed soon), always questions; the pinned AI-call
+        list no longer has client_plan; disclosures and the legal drafts no
+        longer list "plan next steps" as an AI use. (`ai_usage`/`ai_spend`
+        still list a "plan" kind - the gateway work can drop it)
+  - [x] 2.R Example-mix rewrite behind L3 (brief 3.1) - done:
+        `flags.GATE_CHECKS["L3"]`, `dashboard.TAILORED_MIX`. L3 off: Learn's
+        mix waypoint, Home, the first steps' screen and Plan show "Common
+        starting points" (`learn.common_starting_points`, one table for
+        everyone, "Illustrations, not a plan for you"); no investor type; no
+        "Use this" copying Northwend's mix into a target - they type it;
+        practice mixes the same for everyone. L3 on keeps the tailored mix,
+        reworded. Your first investments never shows their direction or mix
+        (B14). The Walk asks when a target is still Northwend's example mix,
+        untouched (`checkin.PREF_TARGET_FROM`, C3). COPY_AUDIT's 13 Rewrites
+        and 19 of 21 "Same problem" Rewrites done (open: the chat page's
+        profile line, the storm cloak); website rebuilt
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
       decoder, the no-account decoder route
   - [x] Storm Drill field (R4) - done Oct 6, behind flag `storm_drill`: "What will

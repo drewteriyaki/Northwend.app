@@ -363,6 +363,10 @@ class _WalkApp(unittest.TestCase):
         cls.wren = cls._investor(c, "wren", {"Stocks": 75.0, "Bonds": 25.0})     # within
         cls.bea = cls._investor(c, "bea", {"Stocks": 50.0, "Bonds": 50.0})       # outside
         cls.ola = cls._investor(c, "ola")                                        # no target
+        # outside, and the target is still Northwend's example mix, untouched
+        cls.eve = cls._investor(c, "eve", {"Stocks": 50.0, "Bonds": 50.0}, **{
+            checkin.PREF_TARGET_FROM: {"by": "example",
+                                       "mix": {"Stocks": 50.0, "Bonds": 50.0}}})
         # an advisor and her client, who finished this month's walk herself
         cls.carol = auth.create_user(c, "carol", "pw-123456789")
         auth.set_advisor(c, "carol", True)
@@ -463,6 +467,31 @@ class AppTests(_WalkApp):
         self.assertEqual(checkin.verdict_of(self._prefs(self.bea), checkin.month_of(today)),
                          {"kind": "next", "class": "Bonds", "how": "all",
                           "on": today.isoformat()})
+
+    def test_a_target_still_northwends_example_is_asked_about(self):
+        # LEGAL_GATES C3: the verdict says, once and calmly, where the target came from
+        with self._run(self.eve, "eve") as at:
+            text = self._walk_to_verdict(at)
+            self.assertIn(TO_BONDS, text)
+            self.assertIn(checkin.TARGET_FROM_NOTE, text)
+            _calm(self, checkin.TARGET_FROM_NOTE)
+            at.button(key="walk_target_mine").click().run()
+            self.assertNotIn(checkin.TARGET_FROM_NOTE, self._text(at))
+            self.assertNotIn("walk_target_mine", self._keys(at))
+        self.assertEqual(self._prefs(self.eve)[checkin.PREF_TARGET_FROM]["by"], "own")
+        with self._run(self.eve, "eve", checkin_open=True) as at:   # hers now: nothing asked
+            self.assertNotIn(checkin.TARGET_FROM_NOTE, self._text(at))
+
+    def test_target_origin_rules(self):
+        p = {}
+        checkin.note_target(p, checkin.TARGET_EXAMPLE, {"Stocks": 60, "Bonds": 40, "Cash": 0})
+        self.assertTrue(checkin.target_from_example(p, {"Stocks": 60.0, "Bonds": 40.0}))
+        # changed since: theirs
+        self.assertFalse(checkin.target_from_example(p, {"Stocks": 65.0, "Bonds": 35.0}))
+        self.assertFalse(checkin.target_from_example(p, {}))
+        checkin.note_target(p, checkin.TARGET_OWN, {"Stocks": 60, "Bonds": 40})
+        self.assertFalse(checkin.target_from_example(p, {"Stocks": 60.0, "Bonds": 40.0}))
+        self.assertFalse(checkin.target_from_example({}, {"Stocks": 60.0}))
 
     def test_no_target_no_verdict_and_a_link_to_the_plan(self):
         with self._run(self.ola, "ola") as at:

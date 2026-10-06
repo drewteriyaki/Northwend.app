@@ -178,11 +178,27 @@ def _render_walk_verdict():
                           else "Your advisor set these with you - ask them about a change.")
                        + " By asset class only: which funds, and whether to add money at "
                          "all, is up to you.")
-        if CAN_MANAGE or v["kind"] != checkin.NONE:
-            st.button("Set a target mix" if v["kind"] == checkin.NONE else "Open my target mix",
-                      key="walk_plan", type="tertiary", icon=":material/tune:",
-                      on_click=_walk_to_target_mix)
+        # still Northwend's example mix, untouched: say so, and ask (LEGAL_GATES C3)
+        from_example = (CAN_MANAGE and v["kind"] != checkin.NONE
+                        and checkin.target_from_example(_read_prefs(), targets))
+        if from_example:
+            st.caption(":material/help: " + checkin.TARGET_FROM_NOTE)
+        with st.container(horizontal=True):
+            if from_example:
+                st.button("Keep it as mine", key="walk_target_mine", type="tertiary",
+                          icon=":material/check:", on_click=_walk_target_mine)
+            if CAN_MANAGE or v["kind"] != checkin.NONE:
+                st.button("Set a target mix" if v["kind"] == checkin.NONE
+                          else "Open my target mix", key="walk_plan", type="tertiary",
+                          icon=":material/tune:", on_click=_walk_to_target_mix)
     return v
+
+
+def _walk_target_mine():
+    """"Keep it as mine": the target mix is theirs from now on."""
+    p = _read_prefs()
+    checkin.note_target(p, checkin.TARGET_OWN, load_alloc_targets())
+    _write_prefs(p)
 
 
 def _render_checkin_steps(state):

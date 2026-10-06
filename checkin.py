@@ -293,6 +293,36 @@ def verdict_past(v: dict | None) -> str:
     return ""
 
 
+# ---- where the target came from (LEGAL_GATES.md C3) ------------------------- #
+# Kept beside the target in the account's settings: {"by": TARGET_*, "mix":
+# {class: %}}. When the target is still exactly Northwend's example mix (gate
+# L3 on, "Use this" or the slider left where it started), the verdict would be
+# Northwend's mix speaking as "your plan" - so the Walk says so, once, and
+# asks whether it's theirs.
+PREF_TARGET_FROM = "target_from"
+TARGET_OWN, TARGET_ADVISOR, TARGET_EXAMPLE = "own", "advisor", "example"
+TARGET_FROM_NOTE = ("This target started as Northwend's example mix and hasn't changed since. "
+                    "Is it the one you want? You can keep it as yours, or change it on the "
+                    "Plan.")
+
+
+def _mix(targets: dict | None) -> dict:
+    return {k: round(float(v), 1) for k, v in (targets or {}).items() if v}
+
+
+def note_target(p: dict, by: str, targets: dict) -> None:
+    """Note who chose the target mix just saved into the settings `p`."""
+    p[PREF_TARGET_FROM] = {"by": by, "mix": _mix(targets)}
+
+
+def target_from_example(p: dict, targets: dict) -> bool:
+    """The target is still Northwend's example mix, untouched since it was
+    taken (a target changed or confirmed since then is theirs)."""
+    rec = (p or {}).get(PREF_TARGET_FROM) or {}
+    return rec.get("by") == TARGET_EXAMPLE and bool(_mix(targets)) \
+        and rec.get("mix") == _mix(targets)
+
+
 def rule_text(targets: dict, band: float) -> str:
     """'Your rule: a target mix of 60% stocks, 35% bonds and 5% cash, and a
     band of 5 points either way.' - shown under every verdict."""

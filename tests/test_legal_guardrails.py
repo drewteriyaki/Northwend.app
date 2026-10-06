@@ -106,7 +106,9 @@ class _Base(unittest.TestCase):
         shutil.rmtree(cls.dir, ignore_errors=True)
 
     @contextlib.contextmanager
-    def _run(self, uid, name, page, **state):
+    def _run(self, uid, name, page, gates="", **state):
+        """`gates`: NORTHWEND_GATES - "" (gate L3 off: common starting points,
+        the same for everyone) unless "L3" (the tailored example mix)."""
         import yfinance
         from streamlit.testing.v1 import AppTest
 
@@ -117,7 +119,8 @@ class _Base(unittest.TestCase):
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
                if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
-        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused",
+                   NORTHWEND_GATES=gates)
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
                 unittest.mock.patch("socket.socket.connect", offline):
@@ -144,6 +147,12 @@ class PersonalizedViewsTests(_Base):
         cls.fay = auth.create_user(c, "fay", "pw-123456789")
         advisor.save_profile(c, cls.fay, PROFILE)
         prefs.save(c, cls.fay, {"first_steps": {"step": 6}})
+        # very different answers: money needed in two years, a calm ride
+        cls.max = auth.create_user(c, "max", "pw-123456789")
+        advisor.save_profile(c, cls.max, {**PROFILE, "time_horizon_years": 2,
+                                          "risk_tolerance": "conservative",
+                                          "drawdown_reaction": "Sell everything"})
+        prefs.save(c, cls.max, DONE)
         # ten years of weekly prices for the practice funds, up to today
         today = date.today()
         for t, p0 in learn.PRACTICE_TICKERS.items():
@@ -154,17 +163,48 @@ class PersonalizedViewsTests(_Base):
         c.commit()
 
     def test_the_example_mix_speaks_in_kinds_of_funds(self):
-        with self._run(self.ivy, "ivy", "Get started", gs_at="mix") as at:
+        # gate L3 on: the example mix worked out from their answers
+        with self._run(self.ivy, "ivy", "Get started", gates="L3", gs_at="mix") as at:
             texts = _texts(at)
             self.assertNoTickers(texts, "An example mix")
             body = " ".join(texts)
-            self.assertIn("An example for someone with your answers", body)
+            self.assertIn("An example worked out from your timeline and comfort answers", body)
+            self.assertNotIn("for someone with your answers", body)
             for kind in learn.KINDS.values():
                 self.assertIn(kind, body)                  # each part's kind of fund
             self.assertIn("target-date fund", body)        # the preferences, as kinds
             self.assertIn("ESG versions of broad index funds", body)
             self.assertIn("dividend-focused funds", body)
             self.assertNotIn("gs_watch", [b.key for b in at.button])
+
+    def test_with_l3_off_nothing_is_worked_out_from_their_answers(self):
+        """Gate L3 off (production today): the mix waypoint, Home and Plan show
+        common starting points - the same table for everyone - and no copy
+        says "for you", "your answers" or names a type for them (PLAN step 2,
+        "done when")."""
+        table = None
+        for page, state in (("Get started", {"gs_at": "mix"}), ("Dashboard", {}),
+                            ("Plan", {}), ("Get started", {"gs_at": "practice"}),
+                            ("Get started", {"gs_at": "first"})):
+            with self._run(self.ivy, "ivy", page, **state) as at:
+                body = " ".join(_texts(at))
+                for words in ("for your answers", "with your answers", "for someone like you",
+                              "could look like for you", "Your direction",
+                              "An example mix for this type", "Use the suggestion",
+                              "Suggested starting point", "Example mix"):
+                    self.assertNotIn(words, body, (page, state, words))
+                for kind in learn.INVESTOR_TYPES.values():
+                    self.assertNotIn(kind["name"], body, (page, state))
+                if state.get("gs_at") == "mix":
+                    self.assertIn(learn.COMMON_POINTS_NOTE, body)
+                    tables = [h.proto.body for h in at.get("html")
+                              if "pt-common-points" in h.proto.body]
+                    self.assertEqual(len(tables), 1)
+                    table = tables[0]
+                    self.assertNoTickers(_texts(at), "Common starting points")
+        # the table is identical for someone with very different answers
+        with self._run(self.max, "max", "Get started", gs_at="mix") as at:
+            self.assertIn(table, [h.proto.body for h in at.get("html")])
 
     def test_practice_money_names_kinds_not_funds(self):
         with self._run(self.ivy, "ivy", "Get started", gs_at="practice") as at:
@@ -174,12 +214,19 @@ class PersonalizedViewsTests(_Base):
             self.assertIn("international stocks", " ".join(texts))
 
     def test_first_investments_name_funds_only_in_the_general_card(self):
+        # never beside their direction or their mix (LEGAL_GATES B14), with
+        # gate L3 on or off
+        for gates in ("", "L3"):
+            with self._run(self.ivy, "ivy", "Get started", gates=gates, gs_at="first") as at:
+                body = " ".join(_texts(at))
+                for words in ("Your direction", "from your answers", "the target mix you set",
+                              "% stocks"):
+                    self.assertNotIn(words, body, (gates, words))
         with self._run(self.ivy, "ivy", "Get started", gs_at="first") as at:
             card = _block(at._tree, "gs_starter_card")   # the general card
             general = _texts(card)
             outside = [t for t in _texts(at) if t not in general]
             self.assertNoTickers(outside, "Your first investments")
-            self.assertIn("Your direction:", " ".join(outside))
             # the card: examples of each kind, never this person's percentages
             self.assertTrue(TICKER_RE.search(" ".join(general)))
             self.assertIn(starter_funds.FOOTER, general)
@@ -201,18 +248,26 @@ class PersonalizedViewsTests(_Base):
             self.assertIn("Nothing is bought.", " ".join(s.value for s in at.success))
 
     def test_their_direction_home_and_plan_name_no_fund(self):
-        with self._run(self.ivy, "ivy", "Dashboard") as at:
+        # gate L3 on: their direction (the investor type and its example mix)
+        with self._run(self.ivy, "ivy", "Dashboard", gates="L3") as at:
             self.assertNoTickers(_texts(at), "Home")
             at.button(key="start_direction").click().run()
             body = " ".join(_texts(at))
             self.assertIn("Kinds of funds that usually fill it", body)   # the window opened
             self.assertNoTickers(_texts(at), "Your direction")
-        with self._run(self.ivy, "ivy", "Plan") as at:
+        with self._run(self.ivy, "ivy", "Plan", gates="L3") as at:
             self.assertNoTickers(_texts(at), "Plan")
-        with self._run(self.fay, "fay", "Get started") as at:
+        with self._run(self.fay, "fay", "Get started", gates="L3") as at:
             body = " ".join(_texts(at))
             self.assertIn("Usually held through a broad US stock index fund", body)
             self.assertNoTickers(_texts(at), "First steps: Your direction")
+        # off: the first steps' screen is the common starting points table
+        with self._run(self.fay, "fay", "Get started") as at:
+            self.assertTrue([h for h in at.get("html") if "pt-common-points" in h.proto.body])
+            self.assertNotIn("Your direction", " ".join(_texts(at)))
+            self.assertNoTickers(_texts(at), "First steps: Common starting points")
+        with self._run(self.ivy, "ivy", "Plan") as at:
+            self.assertNoTickers(_texts(at), "Plan")
 
 
 class PriceSourceTests(_Base):
@@ -310,24 +365,26 @@ class AIGuardrailTests(unittest.TestCase):
         self.assertIn("don't recommend buying, selling or holding a specific security",
                       call["messages"][0]["content"])
 
-    def test_plan_pdf_next_steps(self):
-        client = _FakeClient()
-        self.assertEqual(client_plan.next_steps(client, self.FULL, "No holdings yet"),
-                         ["One point"])
-        call, = client.calls
-        self.assertRules(call["system"], "The plan PDF's next steps")
-        self.assertIn("no step may recommend buying, selling or holding a specific security",
-                      call["messages"][0]["content"])
-        self.assertIn("not a recommendation", client_plan.AI_STEPS_NOTE)
+    def test_plan_pdf_has_no_ai(self):
+        # AI_PLAN step 15: rule-based "Questions to look into", no AI call
+        with open(os.path.join(REPO, "client_plan.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotRegex(src, r"\.messages\.|anthropic|ai_spend|advisor\.system_prompt")
+        with open(os.path.join(REPO, "views", "profile.py"), encoding="utf-8") as fh:
+            view = fh.read().split("def _render_plan_export")[1]
+        for gone in ("anthropic", "_ai_status", "_ai_record", "next_steps"):
+            self.assertNotIn(gone, view)
+        self.assertIn("not recommendations", client_plan.QUESTIONS_NOTE)
 
     def test_every_ai_call_is_known(self):
-        # only the gateway calls the API (AI_PLAN 4, steps 4-5): every other
+        # only the gateway calls the API (AI_PLAN 4, steps 4-5; the plan PDF
+        # has no AI call any more, step 15): every other
         # module asks ai_gateway.call() for a registered helper. A new AI
         # feature that writes for people must use advisor.system_prompt or
         # the chat's shared block (and so the rules); the others only read
         # files into rows
         import ai_gateway
-        advice = {"advisor.py": "chat", "meeting.py": "prep", "client_plan.py": "plan"}
+        advice = {"advisor.py": "chat", "meeting.py": "prep"}
         reading = {"csv_import.py": "csv", "txn_import.py": "txn",
                    "screenshot_read.py": "screenshot"}
         callers, helpers = {}, set()

@@ -93,6 +93,11 @@ class BeginnerPathTests(unittest.TestCase):
             advisor.save_profile(c, cls.walt, READY)
             prefs.save(c, cls.walt, STEPS_DONE)
             plans.save_plan(c, cls.walt, GOAL, set_by=cls.walt)
+            # a goal, its first parts walked: the target mix part is next
+            cls.tess = auth.create_user(c, "tess", "pw-123456789")
+            advisor.save_profile(c, cls.tess, READY)
+            prefs.save(c, cls.tess, {**STEPS_DONE, "goal_parts": ["how", "monthly"]})
+            plans.save_plan(c, cls.tess, GOAL, set_by=cls.tess)
         finally:
             c.close()
 
@@ -102,7 +107,10 @@ class BeginnerPathTests(unittest.TestCase):
         shutil.rmtree(cls.dir, ignore_errors=True)
 
     @contextlib.contextmanager
-    def _run(self, uid, name, page, **state):
+    def _run(self, uid, name, page, gates="", **state):
+        """`gates`: NORTHWEND_GATES for the run - "" (gate L3 off, the
+        common starting points) unless a test asks for "L3" (the tailored
+        example mix)."""
         import yfinance
         from streamlit.testing.v1 import AppTest
 
@@ -113,7 +121,8 @@ class BeginnerPathTests(unittest.TestCase):
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
                if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
-        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused",
+                   NORTHWEND_GATES=gates)
         # no prices from the internet: Yahoo and any socket fail at once
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
@@ -150,12 +159,21 @@ class BeginnerPathTests(unittest.TestCase):
                 self.assertIn(k, keys)
             self.assertEqual(len(at.get("file_uploader")), 0)
             self.assertNotIn("no data yet", self._md(at))
-            # the direction, one line
-            self.assertIn("start_direction", keys)
+            # gate L3 off: common starting points in one line, no type named for them
+            self.assertIn("start_common_points", keys)
+            self.assertNotIn("start_direction", keys)
+            self.assertNotIn("Your direction", self._html(at))
+            at.button(key="start_common_points").click().run()   # the table, in a window
+            self.assertIn("pt-common-points", self._html(at))
             # "I already invest" shows the existing ways in
             at.button(key="start_bring").click().run()
             self.assertIn("start_manual", self._keys(at))
             self.assertIn("start_import", self._keys(at))
+
+    def test_home_with_l3_on_shows_their_direction(self):
+        with self._run(self.nina, "nina", "Dashboard", gates="L3") as at:
+            self.assertIn("start_direction", self._keys(at))
+            self.assertNotIn("start_common_points", self._keys(at))
 
     def test_more_pages_without_holdings(self):
         for page, words in (("Income", "the dividends it pays"),
@@ -269,7 +287,7 @@ class BeginnerPathTests(unittest.TestCase):
     def test_ask_offers_beginner_questions_without_holdings(self):
         with self._run(self.nina, "nina", "AI Assistant") as at:
             labels = [b.label for b in at.button]
-            self.assertIn("What should I do before I invest?", labels)
+            self.assertIn("What do people do before investing?", labels)
             self.assertNotIn("Review my portfolio", labels)
             # the profile count includes the two readiness questions still open
             self.assertTrue(any("(8/10)" in b for b in labels), labels)
@@ -331,8 +349,9 @@ class BeginnerPathTests(unittest.TestCase):
             self.assertNotEqual(at.session_state["gs_at"], "ready")
 
     def test_goal_parts_save_a_plan_without_leaving_learn(self):
+        # gate L3 on: the target mix part starts at the example mix
         today = date.today()
-        with self._run(self.gary, "gary", "Get started", gs_at="goal") as at:
+        with self._run(self.gary, "gary", "Get started", gates="L3", gs_at="goal") as at:
             self.assertNotIn("gs_set_goal", self._keys(at))     # no trip to Plan
             self.assertIn("Part 1 of 4", " ".join(c.value for c in at.caption))
             # part 1: the date starts at the suggestion from their timeline
@@ -363,6 +382,23 @@ class BeginnerPathTests(unittest.TestCase):
                          {"Stocks": float(tip["stocks_pct"]),
                           "Bonds": float(100 - tip["stocks_pct"])})
         self.assertIn("goal", self._prefs(self.gary)["get_started_done"])
+        # taken untouched: noted, so the Walk asks whether it's theirs (LEGAL_GATES C3)
+        self.assertEqual(self._prefs(self.gary)["target_from"]["by"], "example")
+
+    def test_goal_mix_with_l3_off_is_typed_not_filled_in(self):
+        # gate L3 off: nothing from Northwend in the box, the common starting
+        # points beside it, and the number they type is theirs
+        with self._run(self.tess, "tess", "Get started", gs_at="goal") as at:
+            self.assertIsNone(at.session_state["gs_goal_stocks"])
+            self.assertNotIn("gs_goal_stocks_use", self._keys(at))
+            self.assertIn("pt-common-points", self._html(at))
+            self.assertNotIn("your answers", self._md(at) + " ".join(c.value for c in at.caption))
+            at.button(key="gs_goal_save").click().run()          # nothing typed yet
+            self.assertIn("Type how much you'd like in stocks", " ".join(e.value for e in at.error))
+            at.number_input(key="gs_goal_stocks").set_value(70)
+            at.button(key="gs_goal_save").click().run()
+        self.assertEqual(self._plan(self.tess)["target_alloc"], {"Stocks": 70.0, "Bonds": 30.0})
+        self.assertEqual(self._prefs(self.tess)["target_from"]["by"], "own")
 
     def test_a_goal_from_before_the_walk_keeps_its_compass(self):
         # olga's compass was shown: Set a goal stays complete. walt's wasn't:
@@ -377,23 +413,40 @@ class BeginnerPathTests(unittest.TestCase):
     def test_suggestions_match_the_helper(self):
         today = date.today()
         tip = learn.suggestions(PROFILE, GOAL, today=today)
-        with self._run(self.nina, "nina", "Plan") as at:
-            # What if: pre-filled from the plan, with the suggestion offered
+        with self._run(self.nina, "nina", "Plan", gates="L3") as at:
+            # What if: pre-filled from the plan, with its numbers offered
             self.assertEqual(at.session_state["wi_years"], tip["years"])
             self.assertIn(f"${tip['monthly']:,.0f} a month · {tip['years']} years · "
-                          f"{tip['stocks_pct']}% in stocks", " ".join(c.value for c in at.caption)
-                          .replace("\\$", "$"))
+                          f"{tip['stocks_pct']}% in stocks (the example mix)",
+                          " ".join(c.value for c in at.caption).replace("\\$", "$"))
             at.slider(key="wi_years").set_value(30).run()
             at.button(key="wi_use_tip").click().run()
             self.assertEqual(at.session_state["wi_years"], tip["years"])
             self.assertEqual(at.session_state["wi_monthly"], tip["monthly"])
             self.assertEqual(at.session_state["wi_stocks"], tip["stocks_pct"])
-        # the target mix: the example mix for their answers
+        # gate L3 on: the target mix can take the example mix from their answers
         mix = learn.suggestions(PROFILE, None, today=today)["target_mix"]
-        with self._run(self.ezra, "ezra", "Plan") as at:
+        with self._run(self.ezra, "ezra", "Plan", gates="L3") as at:
             at.button(key="plan_target_use").click().run()
             self.assertEqual(at.session_state["plan_target_Stocks"], mix["Stocks"])
             self.assertEqual(at.session_state["plan_target_Bonds"], mix["Bonds"])
+
+    def test_plan_with_l3_off_offers_no_mix_from_their_answers(self):
+        today = date.today()
+        tip = learn.suggestions(PROFILE, GOAL, today=today, tailored=False)
+        self.assertIsNone(tip["target_mix"])
+        with self._run(self.nina, "nina", "Plan") as at:
+            captions = " ".join(c.value for c in at.caption).replace("\\$", "$")
+            self.assertIn(f"${tip['monthly']:,.0f} a month · {tip['years']} years", captions)
+            self.assertNotIn("% in stocks", captions)
+            before = at.session_state["wi_stocks"]
+            at.button(key="wi_use_tip").click().run()
+            self.assertEqual(at.session_state["wi_stocks"], before)   # left alone
+            self.assertNotIn("Suggested starting point", captions)
+            self.assertNotIn("for your answers", captions)
+        with self._run(self.ezra, "ezra", "Plan") as at:
+            self.assertNotIn("plan_target_use", self._keys(at))
+            self.assertIn("pt-common-points", self._html(at))
 
     def test_plan_has_a_way_back_to_the_route(self):
         with self._run(self.nina, "nina", "Plan") as at:

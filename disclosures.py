@@ -7,15 +7,12 @@ Each statement about data here must stay true to the code:
 - The AI guide (Ask Northwend): the person's ContextCard (context_card.py -
   profile answers from fixed choices without "Other notes", tickers, market
   data's fund names, what each holds and whole-% weights, the mix, their own
-  target mix, band and drift, the route stage, the guide's typed notes), the
-  chat; every call through ai_gateway.py. Plan next steps:
-  advisor.portfolio_summary() (tickers, names, % of portfolio, asset type and
-  class, sector, gain/loss %, dividend yield, beta, P/E - no dollar amounts,
-  share counts or account names), the profile answers and the notes
-  (advisor.system_prompt). advisor.scrub_memory takes amounts and account
-  numbers out of the notes before they're saved and before they're sent; the
-  notes are listed (and deletable) on the Account page and never read or
-  written in an advisor's session in a client's account
+  target mix, band and drift, the route stage, the guide's typed notes) and
+  the chat; every call through ai_gateway.py. The plan PDF has no AI call
+  (client_plan.questions, by fixed rules). advisor.scrub_memory takes amounts
+  and account numbers out of the notes before they're saved and before
+  they're sent; the notes are listed (and deletable) on the Account page and
+  never read or written in an advisor's session in a client's account
   (ai_gateway.may_keep_memory).
 - CSV column guess (only when asked): column names and cell kinds only
   (csv_import.ai_mapping / sample_shapes).
@@ -304,8 +301,8 @@ feature counts** on the **Account** page.
 Each has its own privacy policy.
 """),
     ("What's sent to the AI", """
-The app's AI guide (Ask Northwend) and the plan's suggested next steps use Claude,
-an AI model from Anthropic. When you use them, the app sends:
+The app's AI guide (Ask Northwend) uses Claude, an AI model from Anthropic. When
+you use it, the app sends:
 
 - your investing-profile answers (goals, time horizon, risk tolerance and so on;
   the chat leaves out your "Other notes" box),

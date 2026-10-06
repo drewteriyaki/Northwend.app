@@ -111,7 +111,7 @@ def _prop_act(action, pid, mix=None):
         _prop_msg("success", "Shared with your client." + (_prop_tell_client(*tell)
                                                            if tell else ""))
     if action == "target":
-        save_alloc_targets(mix)
+        save_alloc_targets(mix, by="advisor")
         _prop_msg("success", "That mix is now this client's target mix.")
 
 

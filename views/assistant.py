@@ -194,10 +194,13 @@ def _render_assistant(contexts, cash_by_account):
 
         with chat_box, st.chat_message("assistant", avatar=SAGE_AVATAR):
             try:
-                reply = st.write_stream(advisor.stream_reply(
+                # the conclusion policy's output check, sentence by sentence
+                # (advisor.policed): their own holdings and question may name funds
+                reply = st.write_stream(advisor.policed(advisor.stream_reply(
                     anthropic.Anthropic(api_key=api_key), history, card, suggested.append,
                     kept.append if _chat_keeps_notes() else None, user_id=LOGIN_ID,
-                    **ai_spend.chat_settings(quota["level"])))
+                    **ai_spend.chat_settings(quota["level"])),
+                    allowed_tickers=ai_policy.tickers_in(str(card)) | ai_policy.tickers_in(prompt)))
             except anthropic.AnthropicError as exc:
                 # one calm sentence, never the error's text (_ai_failed); the
                 # question leaves the history so the next try asks it afresh,

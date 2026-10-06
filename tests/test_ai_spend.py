@@ -24,7 +24,6 @@ import advisor  # noqa: E402
 import ai_spend  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
-import client_plan  # noqa: E402
 import csv_import  # noqa: E402
 import mailer  # noqa: E402
 import meeting  # noqa: E402
@@ -182,7 +181,8 @@ class LoggingTests(_DB):
         self.assertEqual((s["spent"], s["calls"], len(s["rows"])), (3240, 3, 2))
 
     def test_every_ai_module_notes_its_answer(self):
-        # the six AI calls each record their token counts once they've answered
+        # the AI calls each record their token counts once they've answered
+        # (the plan PDF has none since AI_PLAN step 15)
         ai_spend.use_db(self.db)
         resp = types.SimpleNamespace(stop_reason="end_turn", usage=_usage(i=100, o=10),
                                      content=[types.SimpleNamespace(type="text",
@@ -196,18 +196,17 @@ class LoggingTests(_DB):
                 return resp
         profile = {f: None for f in advisor.PROFILE_FIELDS}
         meeting.talking_points(_Client(), profile, "No holdings yet", "facts")
-        client_plan.next_steps(_Client(), profile, "No holdings yet")
         csv_import.ai_mapping(["Symbol"], ["text"], "k", client=_Client())
         txn_import.ai_mapping(["Date"], ["text"], "k", client=_Client())
         screenshot_read.read([(b"x", "image/png")], "k", client=_Client())
         got = {r["helper"]: r["calls"] for r in self.conn.execute(
             "SELECT helper, calls FROM ai_spend")}
-        self.assertEqual(got, {"prep": 1, "plan": 1, "csv": 1, "txn": 1, "screenshot": 1})
+        self.assertEqual(got, {"prep": 1, "csv": 1, "txn": 1, "screenshot": 1})
         # without a database set, nothing is written and nothing fails
         ai_spend.use_db(None)
         meeting.talking_points(_Client(), profile, "No holdings yet", "facts")
         self.assertEqual(self.conn.execute("SELECT SUM(calls) AS n FROM ai_spend").fetchone()["n"],
-                         5)
+                         4)
 
     def test_a_failing_count_never_breaks_the_feature(self):
         ai_spend.use_db(os.path.join(self.dir, "missing", "nope.db"))

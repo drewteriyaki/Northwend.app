@@ -24,6 +24,7 @@ _OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
 import accounts
 import advising
 import ai_spend
+import ai_policy
 import ai_usage
 import alerts
 import asset_classes
@@ -1334,6 +1335,12 @@ ON_CLIENT = IS_ADVISOR and USER_ID != LOGIN_ID   # an advisor working on a clien
 # it, Learn is never required, and Home's next step speaks for the advisor
 # (route.advisor_step). Milestones and gear stay: learning and habits only.
 CLIENT_MODE = IS_MANAGED_CLIENT or ON_CLIENT
+# Gate L3 (docs/LEGAL_GATES.md, flags.GATE_CHECKS): anything worked out from a
+# person's own answers. Off (the default): Learn, Home and Plan show common
+# starting points - one table, the same for everyone (learn.common_starting_points)
+# - instead of an example mix or investor type picked for them, and nothing
+# copies Northwend's mix into their target. On: the tailored example mix.
+TAILORED_MIX = flags.gate("L3")
 # The investor experience: investors, clients, and an advisor looking at a
 # client's account (they see what the client sees). An advisor's own
 # portfolio is the advisor experience.
@@ -2123,18 +2130,19 @@ QUICK_STARTS = {
     "Help me get started": "I'm new to investing. Help me figure out how to get started.",
     "Review my portfolio": "Walk me through how my current portfolio compares with my goals, "
                            "and what people usually look at in a mix like mine.",
-    "Check for overlap and concentration": "Check my holdings for overlap between funds and "
-                                           "for anything I'm too concentrated in.",
+    "Check for overlap and concentration": "Check my holdings for overlap between funds, and "
+                                           "show how much of the portfolio is in any one "
+                                           "holding.",
 }
-# ...and before anything is invested: nothing to review yet
+# ...and before anything is invested: nothing to review yet. Each asks for
+# general education, never a conclusion about the person (COPY_AUDIT.md)
 QUICK_STARTS_NEW = {
     "Help me get started": QUICK_STARTS["Help me get started"],
-    "What should I do before I invest?": "I haven't started investing yet. Looking at my "
-                                         "situation, what do people usually take care of "
-                                         "first, and in what order?",
-    "Which account type fits me?": "What's the difference between a regular brokerage "
-                                   "account, a Roth IRA and a 401(k)? Which questions should I "
-                                   "ask myself to pick one?",
+    "What do people do before investing?": "I haven't started investing yet. What do people "
+                                           "usually take care of first, and in what order?",
+    "What kinds of accounts are there?": "What's the difference between a regular brokerage "
+                                         "account, a Roth IRA and a 401(k)? Which questions "
+                                         "should I ask myself to pick one?",
 }
 
 
@@ -2577,8 +2585,17 @@ def load_alloc_targets():
     return {k: float(v) for k, v in (saved or {}).items() if v}
 
 
-def save_alloc_targets(targets: dict):
+def save_alloc_targets(targets: dict, by: str = "own"):
+    """The plan's target mix, and where it came from (checkin.note_target:
+    "own", "advisor", or "example" - Northwend's example mix taken untouched,
+    which the Walk then asks about, LEGAL_GATES.md C3)."""
+    import checkin
     save_plan_fields({"target_alloc": {k: v for k, v in targets.items() if v}})
+    if ON_CLIENT and by == checkin.TARGET_OWN:
+        by = checkin.TARGET_ADVISOR   # an advisor saving in a client's account
+    p = _read_prefs()
+    checkin.note_target(p, by, targets)
+    _write_prefs(p)
 
 
 def load_drift_threshold():

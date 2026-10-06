@@ -62,7 +62,10 @@ py-modules = [
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)
+    "ai_policy",   # the conclusion policy: the AI's rules and the output check (AI_PLAN 7)
 ]
+# the AI eval set (docs/AI_PLAN.md 8): cases, the offline checker, the runner
+packages = ["evals"]
 
 # `ruff check` (the Tests workflow's lint job; requirements-dev.txt has the
 # version). A small rule set the code passes today: pyflakes (F: unused or

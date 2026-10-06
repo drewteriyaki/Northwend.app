@@ -55,6 +55,57 @@ above).
 
 ---
 
+## Status after step 2 (Oct 6)
+
+All 13 Rewrite hits are done. Of the 21 "Same problem" Rewrites, 19 are
+done; #13 (`views/assistant.py`, the AI chat page, being rebuilt on the
+gateway in the same step) and #18 (the storm cloak's earning rule - gear
+logic, not copy) are open. Where gate L3 changes what shows, "L3 off" is
+production today; "L3 on" keeps the tailored example mix with reworded copy.
+Disclaimers were kept (never remove a disclosure).
+
+| Item | Status | Now reads |
+|---|---|---|
+| Rewrite 1 | Done | L3 off: no button, nothing filled in; "% in stocks" typed, then "Your target is yours to choose. Common starting points for different timelines - the same for everyone - are here for reference:" and the table. L3 on: "The example mix from your timeline and comfort answers: 60% stocks, 40% bonds (An example mix shows how it adds up)" + Use this |
+| Rewrite 2 | Done | L3 off: "Your target is yours to choose: how much you'd like in stocks, bonds and cash." + the table. L3 on: "The example mix from your timeline and comfort answers: ..." + Use this |
+| Rewrite 3 | Done | "What reaches your goal: $X a month, at 6% a year"; "From your own timeline answer: by <date> - N years from now, the timeline you gave"; "A typical value people use: 6% a year, a middle value"; help "Arithmetic on your own numbers, or a typical value people use - not advice..."; button "Use this" |
+| Rewrite 4 | Done | "Once the base is in place, the mix below shows what investing can look like." (the type shows only with L3 on) |
+| Rewrite 5 | Done | "What do people usually take care of before they start investing, and in what order?" |
+| Rewrite 6 | Done | "I'm new to investing. What do people usually do before they invest, and in what order?" |
+| Rewrite 7 | Done | Label "What do people do before investing?" |
+| Rewrite 8 | Done | "Explain the \"{type}\" description in general terms, what common starting points are built from, and what people usually learn before investing. ..." |
+| Rewrite 9-11 | Done | "An employer match adds money on top of what you put in - often 50% or 100% of it, up to a limit. Many people check what they'd need to put in to get all of it. The Free money check does the sums." |
+| Rewrite 12 | Done | L3 on only (the card isn't shown with L3 off): "A common rule of thumb for learning, worked out from your timeline and comfort answers - not a recommendation to buy anything. ..." |
+| Rewrite 13 | Done | L3 off: "Common starting points for different timelines - the same for everyone, not a plan for you." L3 on: "An example mix worked out from your timeline and comfort answers - an example, not a recommendation." |
+| Consider 5 | Done | "No employer match to collect. Many people without one look at an IRA - Learn explains the kinds of accounts." |
+| Consider 6 | Kept | L3 off the waypoint's caption is "Common rules of thumb for learning - not a recommendation. ..." |
+| Same 1 | Done | L3 off: "So you can see what simple mixes look like - common starting points for different timelines, the same for everyone." L3 on: "...an example split worked out from your timeline and comfort answers." |
+| Same 2, 3 | Done | L3 off: the Common starting points waypoint (one table, "How a mix usually moves", in general). L3 on: "An example worked out from your timeline and comfort answers: ..." |
+| Same 4 | Done | Removed from Your first investments (L3 on or off) |
+| Same 5, 6 | Done (L3 off) | No type or "example mix for this type" with L3 off; unchanged with L3 on |
+| Same 7 | Done | "Ask Northwend about this" |
+| Same 8 | Done | "How do people usually think about splitting money between US stocks, international stocks and bonds for different timelines? ..." |
+| Same 9 | Done | "What kinds of accounts are there?" |
+| Same 11 | Done | "Check my holdings for overlap between funds, and show how much of the portfolio is in any one holding." |
+| Same 13 | Open | `views/assistant.py` - left to the gateway work in step 2 |
+| Same 14 | Done | "...it shows common starting points and a route to follow, one waypoint at a time." |
+| Same 15 | Done | "Many people build a base first: savings, then investing." |
+| Same 16 | Done | "Many people start by putting a little aside for emergencies and paying down high-interest debt. It protects against surprises, and credit-card interest often costs more than investing tends to earn." |
+| Same 17 | Done | "With many years ahead, a mix that is mostly stocks is a common starting point: ..." |
+| Same 18 | Open | The storm cloak is still earned for not selling; the gear rule needs its own change |
+| Same 19 | Done | "Drops like this are part of investing. Your plan's target and dates haven't changed; they're on the Plan page." |
+| Same 22 | Done | "At $X a month, the projection reaches your goal by <date>. Hypothetical, not a promise." |
+| Same 24 | Done | "Many people keep 3-6 months of expenses in savings before investing money they might need soon."; "Many people start with an emergency fund - even $500-$1,000 in savings - ..."; "Credit card interest is often 20% a year or more - more than investing usually earns - which is why many people pay it down first." |
+| Same 25 | Done (L3 off) | The "Sell everything" line shows only with L3 on |
+| Same 28 | Done | PDF heading "Questions to look into" (rule-based, no AI); the window says "...questions to look into - worked out from your own answers and figures by fixed rules" |
+| Same 29 | Done | "Common starting points: What simple mixes look like for different timelines - the same for everyone." |
+| Same 30 | Done | "...for each kind of fund, examples from three different providers..." |
+
+The remaining Consider items (Consider 1-4; Same 10, 12, 20, 21, 23, 26, 27)
+are unchanged.
+
+---
+
 ## Rewrite (13 hits)
 
 | # | Where | In context | Why | Suggested rewrite |

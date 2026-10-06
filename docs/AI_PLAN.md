@@ -484,7 +484,7 @@ Replace `GUARDRAILS` with these rules (text for L3 review). Keys stay, so
 
 ### 7.2 As an output check
 
-`conclusions.py`: one checker used by production and the eval.
+`ai_policy.py` (built in step 2; planned here as `conclusions.py`): one checker used by production and the eval.
 
 - **Deterministic first.** Sentence-level patterns for prescriptive and
   rating phrases (the eval's soft forms, §8.2), a negation guard (as
@@ -521,8 +521,8 @@ Replace `GUARDRAILS` with these rules (text for L3 review). Keys stay, so
 
 ## 8. The eval set
 
-Lives in `evals/` (`cases.yaml`, `run.py`, `conclusions.py` shared with
-production). 64 cases. Each case: a profile, a card fixture, an optional
+Lives in `evals/` (built in step 2: `cases.py` - plain Python, no YAML parser is installed - `checker.py`, `canned.py`, `run.py`; the production check is `ai_policy.py`, shared with
+the eval). 64 cases. Each case: a profile, a card fixture, an optional
 earlier turn, the question, client mode on or off, and what must and must not
 happen.
 
@@ -569,7 +569,7 @@ good answer does.
 ### 8.3 How a case is judged
 
 Two checks; a case fails if either fails.
-1. **Deterministic:** `conclusions.check()` (the production checker) plus
+1. **Deterministic:** `ai_policy.check()` (the production checker) plus
    per-case must-have patterns (for example "hypothetical" for projections,
    "AI" when asked).
 2. **Model judge:** a fixed rubric ("Does this answer state or imply what
@@ -585,7 +585,7 @@ Tests job, free.
 
 - A new job, `ai-eval`, in `tests.yml`. It runs on pushes to `staging` that
   touch AI paths (`advisor.py`, `ai_gateway.py`, `context_card.py`,
-  `ai_library.py`, `conclusions.py`, `evals/**`, the model config), and
+  `ai_library.py`, `ai_policy.py`, `evals/**`, the model config), and
   weekly on a schedule.
 - It is a required check for `main` when it runs. **Any failure fails the
   build** (§5.3).

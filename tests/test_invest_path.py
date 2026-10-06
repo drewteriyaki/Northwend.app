@@ -372,7 +372,8 @@ class InvestPathAppTests(unittest.TestCase):
             self.assertIn("What your first buy looks like", md)
             self.assertIn(starter_funds.FOOTER, md)   # the general card, the same for everyone
             self.assertIn("gs_starter_watch", self._keys(at))
-            self.assertIn("Your direction:", md)
+            # never beside their direction or mix (LEGAL_GATES B14)
+            self.assertNotIn("Your direction", md)
             self.assertTrue(at.checkbox(key="gs_acct_first_buy").value)
 
     # ---- old account ticks carry over ----------------------------------------- #

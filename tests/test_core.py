@@ -2796,25 +2796,59 @@ class ClientPlanTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(len(facts["alerts"]), summary["n_alerts"])
         self.assertIn("experience", facts["missing"])
 
-    def test_next_steps_parses_bullets_and_sends_no_dollars(self):
-        _, _, ctxs, cash = self._facts()
-        client = _FakeCreateClient("Here you go:\n- Add a bond fund\n- Trim CCC\n")
-        steps = client_plan.next_steps(client, {"goal": "retire"},
-                                       advisor.portfolio_summary(ctxs, cash),
-                                       "User: how am I doing?", "- house ~2029")
-        self.assertEqual(steps, ["Add a bond fund", "Trim CCC"])
-        sent = json.dumps({"system": client.kwargs["system"], "messages": client.kwargs["messages"]})
-        self.assertNotIn("$", sent)
-        self.assertNotIn("Individual", sent)
-        self.assertIn("how am I doing", sent)
-        self.assertIn("house ~2029", sent)  # the assistant's notes inform the plan
+    def _assert_questions(self, asks):
+        import ai_policy
+        self.assertLessEqual(len(asks), client_plan.MAX_QUESTIONS)
+        self.assertEqual(asks[-len(client_plan.GENERAL_QUESTIONS):],
+                         list(client_plan.GENERAL_QUESTIONS))
+        for q in asks:
+            self.assertTrue(q.endswith("?"), q)              # questions, never instructions
+            self.assertEqual(ai_policy.findings(q), [], q)   # nothing prescriptive in them
+            self.assertNotIn("$", q)
 
-    def test_next_steps_refusal_and_plain_text(self):
-        refusing = _Obj(messages=_Obj(create=lambda **kw: _Obj(stop_reason="refusal", content=[])))
-        self.assertIsNone(client_plan.next_steps(refusing, {}, "summary"))
-        plain = _Obj(messages=_Obj(create=lambda **kw: _Obj(
-            stop_reason="end_turn", content=[_Obj(type="text", text="Just diversify.")])))
-        self.assertEqual(client_plan.next_steps(plain, {}, "summary"), ["Just diversify."])
+    def test_questions_from_their_own_answers_and_figures(self):
+        # AI_PLAN step 15: rule-based "Questions to look into", no AI
+        self.assertFalse(hasattr(client_plan, "next_steps"))
+        facts = self._facts()[0]
+        asks = client_plan.questions(facts)
+        self._assert_questions(asks)
+        text = " ".join(asks)
+        self.assertIn("Some questions about you are still open", text)
+        self.assertIn("What split between stocks, bonds and cash would you choose", text)
+        self.assertIn("CCC is 47% of the portfolio", text)
+        self.assertIn("What are you investing for, and by when?", text)
+
+    def test_questions_drift_fees_cash_and_goal(self):
+        facts = {"profile": {"emergency_fund": "None", "withdrawal_needs": "A large amount"},
+                 "missing": [], "summary": {"has_data": True}, "band": 5.0,
+                 "plan": {"target_alloc": {"Stocks": 60.0, "Bonds": 40.0}},
+                 "by_asset_class": [{"label": "Stocks", "pct": 75.0},
+                                    {"label": "Bonds", "pct": 5.0},
+                                    {"label": "Cash", "pct": 20.0}],
+                 "fees": [{"symbol": "LOWX", "ratio": 0.0003},
+                          {"symbol": "ACTVX", "ratio": 0.009}],
+                 "concentration": [], "goal": {"status": "behind"}}
+        asks = client_plan.questions(facts)
+        self._assert_questions(asks)
+        text = " ".join(asks)
+        self.assertIn("Bonds: 35 points below the 40% target you set, outside your 5-point "
+                      "band. Your mix has moved from your target - what would you like to do "
+                      "about that", text)
+        self.assertIn("Stocks: 15 points above", text)
+        self.assertIn("20% of the portfolio is cash", text)
+        self.assertIn("ACTVX charges 0.90% a year", text)
+        self.assertNotIn("LOWX", text)
+        self.assertIn("You answered \"None\" for emergency savings", text)
+        self.assertIn("doesn't reach your goal by its date (hypothetical)", text)
+        self.assertEqual(client_plan.questions(facts), asks)   # the same numbers, the same asks
+        # within the band, a fee under the line and little cash: none of those
+        facts.update(by_asset_class=[{"label": "Stocks", "pct": 62.0},
+                                     {"label": "Bonds", "pct": 37.0},
+                                     {"label": "Cash", "pct": 1.0}],
+                     fees=[{"symbol": "LOWX", "ratio": 0.0003}])
+        text = " ".join(client_plan.questions(facts))
+        for gone in ("points below", "points above", "is cash", "charges"):
+            self.assertNotIn(gone, text)
 
     def test_render_pdf_handles_unicode_empty_account_and_no_steps(self):
         facts, _, _, _ = self._facts()

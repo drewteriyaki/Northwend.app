@@ -189,47 +189,70 @@ def _show_lasting(value, plan, today, rp):
         st.info(found[1].replace("$", r"\$"), icon=":material/hourglass_bottom:")
 
 
-# ---- suggested starting points (learn.suggestions) - Plan and Learn ---------- #
-SUGGEST_LEAD = "Suggested starting point for your answers"
-SUGGEST_HELP = ("Worked out from your answers as a place to start - not advice. Pick whatever "
-                "suits you; you can change it any time.")
+# ---- numbers to start from (learn.suggestions) - Plan and Learn -------------- #
+# Each line says what kind of number it is (COPY_AUDIT.md Rewrite 3): arithmetic
+# on their own goal, their own answer, a typical value people use - or, with
+# gate L3 on only, the example mix worked out from their answers. Never
+# "suggested for your answers".
+SUGGEST_LEADS = {
+    "sum": "What reaches your goal",
+    "answer": "From your own timeline answer",
+    "typical": "A typical value people use",
+    "plan": "From your own plan",
+    "example": "The example mix from your timeline and comfort answers",
+}
+SUGGEST_HELP = ("Arithmetic on your own numbers, or a typical value people use - not advice. "
+                "Pick whatever suits you; you can change it any time.")
 
 
 def _suggest(value=None, plan=None):
     """learn.suggestions() for this account: its answers, its plan (`plan`
     when the caller has a fresher one), what's invested now, and the plan's
-    assumed yearly return."""
+    assumed yearly return. The share in stocks comes from their answers only
+    with gate L3 on (TAILORED_MIX)."""
     return learn.suggestions(_profile(), plan if plan is not None else load_plan(),
                              today=datetime.now().date(), present=float(value or 0.0),
-                             return_pct=_plan_return_pct())
+                             return_pct=_plan_return_pct(), tailored=TAILORED_MIX)
 
 
 def _set_state(**values):
-    """A "Use the suggestion" button: put the suggestion in its fields
-    (a callback, so it lands before they're drawn again)."""
+    """A "Use this" button: put the number in its fields (a callback, so it
+    lands before they're drawn again)."""
     st.session_state.update(values)
 
 
-def _suggestion_line(text, key=None, values=None):
-    """"Suggested starting point for your answers: X" and, with `values`
-    ({widget key: value}), a small Use the suggestion button that fills them
-    in - shown as in use when they already hold it."""
+def _suggestion_line(text, key=None, values=None, lead="typical", on_use=None):
+    """"<what kind of number it is>: X" (SUGGEST_LEADS) and, with `values`
+    ({widget key: value}), a small Use this button that fills them in -
+    shown as in use when they already hold it. `on_use`: also called when
+    it's pressed."""
     in_use = bool(values) and all(st.session_state.get(k) == v for k, v in values.items())
     with st.container(horizontal=True, vertical_alignment="center", gap="small",
                       key=f"pt_suggest_{key}" if key else None):
-        st.caption(f":material/lightbulb: {SUGGEST_LEAD}: **{text}**".replace("$", r"\$"),
+        st.caption(f":material/lightbulb: {SUGGEST_LEADS[lead]}: **{text}**".replace("$", r"\$"),
                    help=SUGGEST_HELP, width="stretch")
         if values:
-            st.button("In use" if in_use else "Use the suggestion", key=key, type="tertiary",
+            st.button("In use" if in_use else "Use this", key=key, type="tertiary",
                       icon=":material/check:" if in_use else None, disabled=in_use,
-                      on_click=_set_state, kwargs=values)
+                      on_click=_use_suggestion, args=(values, on_use))
+
+
+def _use_suggestion(values, on_use=None):
+    _set_state(**values)
+    if on_use:
+        on_use()
+
+
+def _goal_lead(tip):
+    """What kind of number a goal date is (learn.suggestions' goal_why)."""
+    return "answer" if tip.get("goal_why") == "timeline" else "typical"
 
 
 def _goal_why(tip):
-    """Where a suggested goal date came from (learn.suggestions' goal_why)."""
-    return {"age": f"around {plans.RETIRE_AGE}, from your age",
-            "timeline": "from your timeline"}.get(tip.get("goal_why"),
-                                                  "a usual timeline for this kind of goal")
+    """Where a goal date came from (learn.suggestions' goal_why)."""
+    return {"age": f"retiring around {plans.RETIRE_AGE}, from your age range",
+            "timeline": "the timeline you gave"}.get(tip.get("goal_why"),
+                                                     "a usual timeline for this kind of goal")
 
 
 def _years_text(n):
@@ -268,15 +291,16 @@ def _render_plan_form(plan, today, value=None):
                              max_value=date(today.year + 80, 12, 31))
         if not plan.get("target_date"):
             _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
-                             f"{_years_text(tip['goal_years'])} from now, {_goal_why(tip)}")
+                             f"{_years_text(tip['goal_years'])} from now, {_goal_why(tip)}",
+                             lead=_goal_lead(tip))
         monthly = c1.number_input("I'll invest each month ($)", min_value=0.0, step=50.0,
                                   format="%.0f",
                                   value=float(plan.get("monthly_contribution") or 0.0))
         if plans.has_goal(plan):
             need = _suggest(value, plan)["monthly"]
             if need:
-                _suggestion_line(f"{fmt_money0(need)} a month - what reaches this goal at "
-                                 f"{_plan_return_pct():g}% a year")
+                _suggestion_line(f"{fmt_money0(need)} a month, at {_plan_return_pct():g}% a "
+                                 "year", lead="sum")
         notes = st.text_area("Notes (optional)", value=plan.get("notes") or "",
                              placeholder="Anything worth remembering about this goal")
         with st.container(horizontal=True):
@@ -387,7 +411,7 @@ def _render_projection(plan, value, today):
                          RETURN_CHOICES, key="plan_return", format_func=lambda v: f"{v:g}%",
                          help="Nobody knows future returns. Long-run averages for a mix of "
                               "stocks and bonds have been somewhere in this range.")
-        _suggestion_line(f"{learn.SUGGESTED_RETURN_PCT:g}% a year - a typical middle value",
+        _suggestion_line(f"{learn.SUGGESTED_RETURN_PCT:g}% a year, a middle value",
                          key="plan_return_use",
                          values={"plan_return": learn.SUGGESTED_RETURN_PCT})
         if st.session_state["plan_return"] != _read_prefs().get("plan_return_pct"):
@@ -732,19 +756,24 @@ def _render_target_mix(alloc_rows):
                                 format_func=lambda i: f"{by_id[i]['name']} - "
                                                       f"{advising.mix_text(by_id[i]['target_alloc'])}")
             if c2.button("Apply", disabled=pick is None, width="stretch", key="apply_model"):
-                save_alloc_targets(by_id[pick]["target_alloc"])
+                save_alloc_targets(by_id[pick]["target_alloc"], by="advisor")
                 for lbl in asset_classes.CLASSES:   # the form below shows the new targets
                     st.session_state.pop(f"plan_target_{lbl}", None)
                 st.rerun(scope="fragment")
     if CAN_MANAGE:
         with st.expander("Edit target mix", expanded=not targets):
-            tip = _suggest()["target_mix"]
+            tip = _suggest()["target_mix"]   # None unless gate L3 is on
             for lbl in asset_classes.CLASSES:
                 st.session_state.setdefault(f"plan_target_{lbl}", float(targets.get(lbl, 0.0)))
-            _suggestion_line(", ".join(f"{v:g}% {k.lower()}" for k, v in tip.items())
-                             + " - the example mix for your answers", key="plan_target_use",
-                             values={f"plan_target_{lbl}": float(tip.get(lbl, 0.0))
-                                     for lbl in asset_classes.CLASSES})
+            if tip:
+                _suggestion_line(", ".join(f"{v:g}% {k.lower()}" for k, v in tip.items()),
+                                 key="plan_target_use", lead="example",
+                                 values={f"plan_target_{lbl}": float(tip.get(lbl, 0.0))
+                                         for lbl in asset_classes.CLASSES})
+            else:
+                st.caption("Your target is yours to choose: how much you'd like in stocks, "
+                           "bonds and cash.")
+                render_common_points()   # the same for everyone
             with st.form("target_mix_form", border=False):
                 cols = st.columns(len(asset_classes.CLASSES))
                 new = {lbl: cols[i].number_input(
@@ -762,7 +791,11 @@ def _render_target_mix(alloc_rows):
                     if total and abs(total - 100) > 0.5:
                         st.error(f"The targets add up to {total:g}% - make them total 100%.")
                     else:
-                        save_alloc_targets(new)
+                        # Northwend's example mix taken untouched (gate L3 on
+                        # only) is noted, so the Walk can ask if it's theirs
+                        taken = bool(tip) and {k: v for k, v in new.items() if v} == \
+                            {k: v for k, v in tip.items() if v}
+                        save_alloc_targets(new, by="example" if taken else "own")
                         if band != load_drift_threshold():
                             save_drift_threshold(band)
                         st.rerun(scope="fragment")
@@ -812,12 +845,13 @@ def _render_what_if(plan, value, alloc_rows, today):
         c3.slider("% in stocks (the rest in bonds)", 0, 100, step=5, key="wi_stocks")
         c4.number_input("Add a one-off amount now ($)", min_value=0.0, step=500.0,
                         key="wi_extra", format="%.0f")
-        _suggestion_line(" · ".join(
-            ([f"{fmt_money0(tip_monthly)} a month"] if tip_monthly else [])
-            + [_years_text(tip["years"]), f"{tip['stocks_pct']}% in stocks"]),
-            key="wi_use_tip",
-            values={**({"wi_monthly": tip_monthly} if tip_monthly else {}),
-                    "wi_years": tip["years"], "wi_stocks": tip["stocks_pct"]})
+        parts = (([f"{fmt_money0(tip_monthly)} a month"] if tip_monthly else [])
+                 + [_years_text(tip["years"])])
+        use = {**({"wi_monthly": tip_monthly} if tip_monthly else {}), "wi_years": tip["years"]}
+        if TAILORED_MIX:   # the example mix's share, from their answers (gate L3 on only)
+            parts.append(f"{tip['stocks_pct']}% in stocks (the example mix)")
+            use["wi_stocks"] = tip["stocks_pct"]
+        _suggestion_line(" · ".join(parts), key="wi_use_tip", lead="plan", values=use)
         monthly, months = st.session_state["wi_monthly"], 12 * st.session_state["wi_years"]
         stocks, start = st.session_state["wi_stocks"], present + st.session_state["wi_extra"]
         ret, base_ret = plans.mix_return(stocks), plans.mix_return(base_stocks)
