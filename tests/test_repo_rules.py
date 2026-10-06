@@ -90,7 +90,8 @@ class LiveBillingKeyTests(unittest.TestCase):
 # welcome; taking a module off is not.
 CALCULATION_MODULES = (
     "allocation", "alerts", "asset_classes", "cash_check", "changes", "checkin",
-    "employer_match", "feature_counts", "fees", "income", "menu_decoder", "metrics",
+    "employer_match", "feature_counts", "fees", "income", "lost_found", "menu_decoder",
+    "metrics",
     "next_deposit",
     "storms", "stress",
 )

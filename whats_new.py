@@ -22,6 +22,15 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "Lost & Found",
+     "items": [
+         {"text": "Lost & Found, under your account map on the Account page, shows the free, "
+                  "official places to look for money you may have left behind: a 401(k) from "
+                  "an old job, a state's unclaimed property, an old HSA or IRA, savings bonds. "
+                  "If you find an old 401(k), it lays out the usual choices side by side, with "
+                  "questions to ask - it never picks one for you. You can tick off the places "
+                  "you've looked; only you see your list.", "flag": "lost_found"},
+     ]},
     {"date": "2026-10-06", "title": "A new home: go.northwend.app",
      "items": [
          "Northwend now lives at go.northwend.app, on its own hosting with extra protection "

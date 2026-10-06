@@ -141,7 +141,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Recaps and records: `recap.py` + `views/year_review.py` (Year in review, a window from
   Home; the share version never has dollars), `account_map.py` + `views/account_map.py`
   (the "if something happens to me" map on Account - only the login's own, never an
-  advisor's view or the AI), `checkin.py` + `views/checkin.py` (the monthly check-in;
+  advisor's view or the AI), `lost_found.py` + `views/lost_found.py` (Lost & Found, R9, flag
+  `lost_found`: under the account map, where to look for old 401(k)s and unclaimed money -
+  official links only (`OFFICIAL_SITES`), an old 401(k)'s choices side by side, never which;
+  the "places I've looked" list in the login's own prefs; never in a client's account), `checkin.py` + `views/checkin.py` (the monthly check-in;
   `checkin_email.py` its no-figures reminder), `future_notes.py` (notes to future you).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:

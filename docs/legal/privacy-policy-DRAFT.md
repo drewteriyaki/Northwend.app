@@ -67,6 +67,10 @@ account, contact us and we will delete it.
 - If you make one, your account map: for each account, its kind, who to call,
   whether a beneficiary is named, where the paperwork is, and your notes for
   family (accounts you add by hand keep at most their last 3 digits).
+- Where Lost & Found is offered, if you keep its list: for each place to look
+  for old accounts, whether you're still looking, found something or found
+  nothing there, and the day you last changed it - never an amount, an account
+  number or a name. Only you see it.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -160,8 +164,9 @@ It is shared only as needed to run the service, with:
 | **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to go.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
 
 Your advisor, if you have one, sees everything in your account except your notes
-to your future self, your monthly walks and your account map, which only you
-see (the account map is never emailed, and its PDF is only downloaded by you);
+to your future self, your monthly walks, your account map and your Lost & Found
+list, which only you see (the account map is never emailed, and its PDF is only
+downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
 

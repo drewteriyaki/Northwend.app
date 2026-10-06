@@ -452,6 +452,9 @@ def _render_account():
 
     # ---- the account map: private to this login (views/account_map.py) ----- #
     render_account_map()
+    # ---- Lost & Found: finding old accounts (views/lost_found.py) ----------- #
+    if flags.on("lost_found"):
+        render_lost_found()
 
     # ---- delete the account ------------------------------------------------ #
     st.subheader("Delete your account", anchor=False)

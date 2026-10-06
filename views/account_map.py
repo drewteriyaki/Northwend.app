@@ -8,7 +8,8 @@
 # so an advisor looking at a client's account never sees the client's map.
 # Each account brought in, what the person fills in for it, accounts added
 # by hand, notes for family, a PDF only they download, and a short guide to
-# finding old accounts. Home shows one line (render_account_map_nudge) when
+# finding old accounts (with flag lost_found on, Lost & Found just below -
+# views/lost_found.py - takes its place; the PDF keeps the short guide). Home shows one line (render_account_map_nudge) when
 # there are 2+ accounts and no map yet, until it's made or put away.
 # ruff: noqa: F821
 
@@ -232,6 +233,11 @@ def render_account_map():
         st.caption(f"Last changed {_fmt_date(m['updated_at'][:10])}. Worth a look once a year, "
                    "or when something changes.")
 
+    if flags.on("lost_found") and USER_ID == LOGIN_ID:
+        # Lost & Found, just below, goes further (views/lost_found.py)
+        st.caption(":material/travel_explore: Looking for an old 401(k) or forgotten "
+                   "account? **Lost & Found**, just below, shows where to look.")
+        return
     with st.expander("Finding old accounts", icon=":material/travel_explore:"):
         st.caption("Money can get left behind when you change jobs, move or a company "
                    "changes hands. These free places help you look - none of them ever "

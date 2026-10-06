@@ -1497,6 +1497,22 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
 - [ ] **Step 7 - Remaining AI helpers** (most as rules, not AI)
 - [ ] **Step 8 - Service seams** (no new frontend now)
 - [ ] **Step 9 - Ritual R6-R12**
+  - [x] Lost & Found (R9), flag `lost_found` (no gate: education) - done Oct 6:
+        `lost_found.py`, `views/lost_found.py`, under the account map on Account (it
+        replaces the map's short "Finding old accounts" guide while on; the PDF keeps
+        it). Old workplace plans (HR, old statements and W-2s, the Department of Labor's
+        Retirement Savings Lost and Found, PBGC), state unclaimed property (unclaimed.org,
+        MissingMoney.com, USA.gov; "searching and claiming is free"), old HSAs, FSAs and
+        IRAs, savings bonds (Treasury Hunt) - official links only
+        (`lost_found.OFFICIAL_SITES`), what to have ready, no deadlines or figures. The
+        employer match opens the Free money check. An old 401(k)'s four common choices
+        in no particular order with questions for the plan administrator or a tax
+        professional, never which one; brokerages from `brokerages.py` (a managed client
+        sees a line about their advisor instead). "Places I've looked" in the login's
+        own settings (prefs `lost_found`: statuses and a day only); a found one offers
+        the account map and Add holdings. Never while an advisor is in a client's
+        account, never in the client record or the AI. Privacy text says so.
+        `tests/test_lost_found.py`
 
 Owner, done Oct 6: GitHub secret scanning, the Anthropic console spend
 limit and a staging workspace, the zero-data-retention request, the Neon
@@ -1771,6 +1787,7 @@ Receiving brokerages are listed alphabetically.
 **Principle risk:** low; rollover choices are advice-adjacent.
 **Mitigation:** explain the options (leave it, roll to an IRA, roll to the new
 plan) neutrally, with what to ask; never recommend one.
+-> built (Oct 6), flag `lost_found`: see Step 9 above.
 
 ### R10. Explain It To Someone - S/M
 **User problem:** partners and adult children don't understand the plan, and

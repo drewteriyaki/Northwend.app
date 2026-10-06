@@ -167,6 +167,13 @@ Each statement about data here must stay true to the code:
   to an advisor, never emailed or sent to the AI; its PDF only downloaded.
   Year in review (recap.py): read from data already kept; the share version
   has no dollar figures.
+- Lost & Found (lost_found.py, views/lost_found.py, flag lost_found): under the
+  account map on Account; education with official links only. Its checklist is
+  kept in the login's own settings (prefs lost_found: each place's status -
+  still looking / found something / nothing there - and the day of the last
+  change; never an amount, account number or name); never drawn while an
+  advisor is in a client's account, not in an advisor's client record, never
+  sent to the AI. In the person's own export (settings).
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -298,8 +305,8 @@ licensing, record-keeping and compliance, and for having your clients' consent
 to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
-except what's theirs alone: their notes to future you, their monthly walks and
-their account map.
+except what's theirs alone: their notes to future you, their monthly walks,
+their account map and their Lost & Found list.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
@@ -308,7 +315,7 @@ their account map.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), your account map if you make one, and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails

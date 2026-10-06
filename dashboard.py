@@ -2350,6 +2350,9 @@ _view("year_review")
 # Account page: the account map, and its line on Home (account_map.py)
 _view("account_map")
 
+# just under it: Lost & Found, flag lost_found (lost_found.py)
+_view("lost_found")
+
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")
 _view("get_started")

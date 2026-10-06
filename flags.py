@@ -101,6 +101,14 @@ FEATURES = {
     # only after step 4's hosting move (Render behind Cloudflare, so the limit
     # sees each visitor's real address - CLIENT_IP_HEADER). Staging may have it on.
     "decoder_public": {"gates": ("L0",), "view": "decoder_public"},
+    # Lost & Found (ROADMAP R9, lost_found.py): where to look for old 401(k)s,
+    # unclaimed property, old HSAs, FSAs and IRAs and savings bonds (official
+    # links only), an old 401(k)'s common choices side by side with questions
+    # to ask - never which one - and the person's own "places I've looked"
+    # list in their settings. Education (LEGAL_GATES.md section 6): no gate.
+    # Under the account map on Account (views/account.py checks on("lost_found")),
+    # the login's own only - never while an advisor is in a client's account.
+    "lost_found": {"gates": (), "view": "lost_found"},
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not
