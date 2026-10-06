@@ -33,6 +33,8 @@ import threading
 import traceback
 from datetime import datetime, timedelta, timezone
 
+import settings
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TO = "support@northwend.app"
 EVERY = timedelta(hours=1)   # at most one email per kind of error in this time
@@ -49,7 +51,7 @@ def alert_to() -> str:
         import mailer
         return mailer._setting("ALERT_EMAIL") or DEFAULT_TO
     except Exception:
-        return (os.environ.get("ALERT_EMAIL") or "").strip() or DEFAULT_TO
+        return settings.get("ALERT_EMAIL", DEFAULT_TO)
 
 
 # ---- what failed, and where ------------------------------------------------ #
@@ -241,10 +243,10 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     j = sub.add_parser("job", help="a scheduled job failed")
     j.add_argument("name", help="the job's name, as the email should say it")
-    j.add_argument("--db", default=os.environ.get("DATABASE_URL")
-                   or os.environ.get("PORTFOLIO_DB") or "")
+    j.add_argument("--db", default=settings.get("DATABASE_URL")
+                   or settings.get("PORTFOLIO_DB"))
     j.add_argument("--run-url", default="", help="link to the failed run")
-    j.add_argument("--copy", default=os.environ.get("NORTHWEND_ENV") or "",
+    j.add_argument("--copy", default=settings.get("NORTHWEND_ENV"),
                    help="which copy of the app, e.g. staging")
     args = ap.parse_args(argv)
     if not args.db:

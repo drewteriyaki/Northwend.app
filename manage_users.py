@@ -31,6 +31,7 @@ import secrets
 import sys
 
 import auth
+import settings
 from portfolio import DBError, DEFAULT_DB, connect
 
 
@@ -319,7 +320,7 @@ def cmd_clients(args) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Manage portfolio-tracker login accounts.")
-    default_db = os.environ.get("PORTFOLIO_DB") or DEFAULT_DB
+    default_db = settings.get("PORTFOLIO_DB", DEFAULT_DB)
     ap.add_argument("--db", default=default_db,
                     help="database: a file or a Postgres connection string (default: "
                          "PORTFOLIO_DB if set, else ./portfolio.db)")

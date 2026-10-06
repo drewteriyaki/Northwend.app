@@ -112,7 +112,8 @@ def _render_assistant(contexts, cash_by_account):
     # snapped it straight back down.
     with st.container():
         typed = st.chat_input(f"Ask {GUIDE} about investing or your portfolio...",
-                              disabled=at_limit)
+                              disabled=at_limit, max_chars=CHAT_MAX_CHARS)
+    typed = (typed or "")[:CHAT_MAX_CHARS] or None   # the box's limit, checked here too
     # a question handed over from a Get started step
     prompt = typed or prompt or st.session_state.pop("coach_prompt", None)
 

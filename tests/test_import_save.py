@@ -633,7 +633,7 @@ class AppSaveTests(_AppBase):
             return {"holdings": [{"Symbol": "SCHD", "Shares": 3.0, "Total cost": None,
                                   "Percent": None, "Type": None}],
                     "cash": None, "mode": "Shares", "error": None, "answered": True}
-        shot = types.SimpleNamespace(name="holdings.png", getvalue=lambda: b"png-bytes")
+        shot = types.SimpleNamespace(name="holdings.png", getvalue=lambda: b"\x89PNG\r\n\x1a\npng-bytes")
         real_uploader = streamlit.file_uploader
 
         def uploader(label, *a, key=None, **kw):

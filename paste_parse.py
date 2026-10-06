@@ -112,11 +112,20 @@ def _cash(lines: list[str]) -> float | None:
     return round(total, 2) if found else None
 
 
+MAX_CHARS = 50_000   # the paste box's limit (audit 1.3b); a positions table is far less
+TOO_LONG = ("That's more text than Northwend reads at once (50,000 characters). Copy just "
+            "the positions table, or paste one account at a time.")
+
+
 def parse(text: str) -> dict:
     """{"holdings": [{"Symbol", "Shares", "Total cost", "Percent"}], "cash":
     float | None, "mode": "Shares" | "Percentages", "ignored_lines": int}.
-    The same symbol twice (in two accounts) is combined."""
-    lines = [ln.replace(" ", " ").rstrip() for ln in (text or "").replace("\r", "").split("\n")]
+    The same symbol twice (in two accounts) is combined. Text longer than
+    MAX_CHARS isn't read at all ("too_long": True), rather than cut mid-row."""
+    if len(text or "") > MAX_CHARS:
+        return {"holdings": [], "cash": None, "mode": "Shares", "ignored_lines": 0,
+                "too_long": True}
+    lines =[ln.replace(" ", " ").rstrip() for ln in (text or "").replace("\r", "").split("\n")]
     lines = [ln for ln in lines if ln.strip()]
     table = _as_table(lines)
     rows = table["holdings"] if table else _scan(lines)

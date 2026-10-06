@@ -20,9 +20,11 @@ from __future__ import annotations
 import os
 from urllib.parse import urlencode
 
+import settings
+
 
 def _setting(name: str) -> str:
-    return (os.environ.get(name) or "").strip()
+    return settings.get(name)
 
 
 def client_ip(headers, fallback: str | None, header: str | None = None) -> str | None:
@@ -58,11 +60,7 @@ def moved_link(new_base: str, query: dict) -> str:
 
 def host_name() -> str:
     """Where this copy runs, for the Admin page's System panel."""
-    if os.environ.get("RENDER"):
-        return "Render"
-    if os.environ.get("HOSTNAME", "").startswith("streamlit") or os.path.isdir("/mount/src"):
-        return "Streamlit Community Cloud"
-    return "this computer"
+    return settings.host() or "this computer"
 
 
 def version(repo: str) -> str:

@@ -42,6 +42,7 @@ import manual_entry
 import paste_parse
 import screenshot_read
 import sample_data
+import settings
 import metrics as M
 import news
 import perf
@@ -60,13 +61,16 @@ codefresh.carry_over(_OLD_MODULES)
 codefresh.mark_loaded(os.path.dirname(os.path.abspath(__file__)))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# Defaults to ./portfolio.db; set PORTFOLIO_DB to point at another file (handy for
-# trying the importer against a throwaway copy).
-DB = os.environ.get("PORTFOLIO_DB") or os.path.join(HERE, "portfolio.db")
+# Running locally, defaults to ./portfolio.db; set PORTFOLIO_DB to point at another
+# file (handy for trying the importer against a throwaway copy). A hosted copy
+# never falls back to a local file: it stops below the page setup without a
+# Postgres PORTFOLIO_DB (settings.py).
+DB = settings.database(os.path.join(HERE, "portfolio.db"))
+HOSTED = settings.hosted()   # live or staging, not someone's own computer
 # The staging app (its own Streamlit Cloud app on the `staging` branch, with
 # its own database) sets NORTHWEND_ENV = "staging" in its Secrets: every page
 # then says so, so it is never mistaken for the live app.
-STAGING = (os.environ.get("NORTHWEND_ENV") or "").strip().lower() == "staging"
+STAGING = settings.staging()
 
 
 def _view(name):
@@ -81,10 +85,10 @@ def _view(name):
 # traceback goes to the log. Details show on screen only for a local run. The
 # hosted copies (live, staging) also email the admin about it (error_alerts.py,
 # once an hour per kind); every copy lists it on Admin > System.
-friendly_errors.install(show_details=not pgcompat.is_postgres_dsn(DB)
+friendly_errors.install(show_details=settings.show_error_details()
                         and st.get_option("client.showErrorDetails") in ("full", True, "true"),
-                        alert_db=DB, copy="Staging" if STAGING else "Live",
-                        send_alerts=pgcompat.is_postgres_dsn(DB))
+                        alert_db=DB or None, copy="Staging" if STAGING else "Live",
+                        send_alerts=settings.send_error_alerts())
 
 # said wherever people decide what to share (import, hand entry, paste)
 TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts and cost "
@@ -635,9 +639,21 @@ if hosting.moved_to():
         st.caption(f"Worth updating your bookmark: {hosting.moved_to()}")
     st.stop()
 
+# Fail closed (settings.py): a hosted copy without a Postgres PORTFOLIO_DB stops
+# here, before anything reads or writes data - never a local file on the server.
+if settings.config_problem():
+    _, _mid, _ = st.columns([1, 1.4, 1])
+    with _mid:
+        st.title(f"{APP_ICON} {APP_NAME}")
+        st.error(settings.config_problem(), icon=":material/settings:")
+        st.caption("For the admin: add the database's connection string as PORTFOLIO_DB in "
+                   "this host's settings (Environment on Render, Secrets on Streamlit "
+                   "Community Cloud), then restart the app. Nobody's data was touched.")
+    st.stop()
+
 
 def _visitor_ip():
-    """The visitor's address for sign-up and email limits - from the proxy's
+    """The visitor's address for sign-in, sign-up and email limits - from the proxy's
     header on our own host (hosting.CLIENT_IP_HEADER)."""
     return hosting.client_ip(st.context.headers, st.context.ip_address)
 
@@ -1149,8 +1165,9 @@ def _login() -> bool:
             return False
         conn = connect(DB)
         try:
-            # behind the lockout: too many wrong passwords locks the username
-            result = auth.attempt_login(conn, user, pw)
+            # behind the lockout: too many wrong passwords locks the username,
+            # and too many from one internet address pause sign-in from there
+            result = auth.attempt_login(conn, user, pw, ip=_visitor_ip())
             user_id = result["user_id"]
             token = auth.create_session(conn, user_id) if user_id is not None and remember else None
             # as stored, not as typed (an email works in any letter case)
@@ -1164,7 +1181,9 @@ def _login() -> bool:
             st.session_state["username"] = username
             st.session_state["session_token"] = token
             st.rerun()
-        if result["locked_minutes"]:
+        if result.get("from_here"):
+            mid.error(auth.TOO_MANY_FROM_HERE)
+        elif result["locked_minutes"]:
             m = result["locked_minutes"]
             mid.error(f"Too many attempts. Try again in {m} minute{'s' if m != 1 else ''}, "
                       "or choose a new one with Forgot password? (if an advisor manages your "
@@ -2005,9 +2024,7 @@ def _anthropic_key() -> str | None:
     Community Cloud exposes its Secrets UI entries). None if unset -
     every AI-assisted-parsing call site treats that as "skip the AI
     fallback, strict parsing only," today's exact behavior."""
-    return (load_env(ENV_PATH).get("ANTHROPIC_API_KEY")
-            or os.environ.get("ANTHROPIC_API_KEY")
-            or "").strip() or None
+    return settings.get("ANTHROPIC_API_KEY", env_file=True) or None
 
 
 def _ai_status(kind, *, full_run=False):
@@ -2044,13 +2061,14 @@ def _ai_failed(exc, kind, feature=""):
         try:
             import error_alerts
             error_alerts.report(DB, exc, copy="Staging" if STAGING else "Live",
-                                send=pgcompat.is_postgres_dsn(DB))
+                                send=settings.send_error_alerts())
         except Exception:
             pass
     return ai_usage.failure_text(exc, GUIDE, feature)
 
 
 CHAT_MESSAGE_LIMIT = 40  # per conversation - keeps each one a sensible length
+CHAT_MAX_CHARS = 2000    # one question's length (audit 1.3b)
 QUICK_STARTS = {
     "Help me get started": "I'm new to investing. Help me figure out how to get started.",
     "Review my portfolio": "Walk me through how my current portfolio compares with my goals, "

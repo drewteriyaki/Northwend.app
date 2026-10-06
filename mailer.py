@@ -12,13 +12,12 @@ when it isn't.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import urllib.error
 import urllib.request
 from html import escape as html_escape
 
-from update_prices import ENV_PATH, load_env
+import settings
 
 API_URL = "https://api.resend.com/emails"
 SENDER = "Northwend <hello@northwend.app>"
@@ -28,7 +27,7 @@ TIMEOUT = 10  # seconds
 
 
 def _setting(name: str) -> str:
-    return (load_env(ENV_PATH).get(name) or os.environ.get(name) or "").strip()
+    return settings.get(name, env_file=True)   # .env first, then the environment
 
 
 def dry_run() -> bool:

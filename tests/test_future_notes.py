@@ -322,7 +322,7 @@ class CheckinEmailTests(_DB):
         env = {k: v for k, v in os.environ.items()
                if k not in ("RESEND_API_KEY", "MAIL_DRY_RUN")}
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
-                unittest.mock.patch("mailer.load_env", lambda *a: {}), \
+                unittest.mock.patch("settings.load_env", lambda *a: {}), \
                 contextlib.redirect_stdout(out):
             self.assertEqual(checkin_email.main(["--db", self.db, "--app-url", "https://x/"]), 0)
         self.assertIn("isn't set up", out.getvalue())

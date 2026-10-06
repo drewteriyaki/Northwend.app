@@ -235,8 +235,7 @@ def _render_system(c):
     mail = {"sending": "sending (Resend)", "dry run": "dry run - written to the log, not sent",
             "off": "off - RESEND_API_KEY isn't set"}[mailer.status()]
     rows = [
-        ("This copy", "Staging" if STAGING else "Live" if pgcompat.is_postgres_dsn(DB)
-         else "Local"),
+        ("This copy", "Staging" if STAGING else "Live" if HOSTED else "Local"),
         ("Runs on", hosting.host_name()),
         ("Version", f"[{sha}](https://github.com/drewteriyaki/portfolio_tracker/commit/{sha})"
          if sha else "unknown"),
@@ -244,7 +243,7 @@ def _render_system(c):
         ("Database", where(DB)),
         ("Email", mail),
         ("Error alerts", f"emailed to {error_alerts.alert_to()}, at most once an hour per kind"
-         if pgcompat.is_postgres_dsn(DB) else "listed below only - a local copy doesn't email"),
+         if HOSTED else "listed below only - a local copy doesn't email"),
         ("AI (Anthropic key)", "set" if _anthropic_key() else "not set - AI features are off"),
         ("Live prices (Finnhub key)", "set" if resolve_key(None) else "not set"),
         ("Last price update", _admin_when(last_price)),

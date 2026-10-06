@@ -18,6 +18,7 @@ import secrets
 from datetime import datetime, timezone
 
 import auth
+import settings
 import two_step
 
 # Every table that holds one account's data, and the columns that point at an
@@ -46,7 +47,7 @@ ACCOUNT_REFERENCES = {"plans": ("set_by",), "money_out": ("set_by",)}
 
 def listed_admins() -> set[str]:
     """Logins named in NORTHWEND_ADMINS (commas or spaces), lower-cased."""
-    raw = (os.environ.get("NORTHWEND_ADMINS") or "").replace(",", " ")
+    raw = settings.get("NORTHWEND_ADMINS").replace(",", " ")
     return {x.strip().lower() for x in raw.split() if x.strip()}
 
 

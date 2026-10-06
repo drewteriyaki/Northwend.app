@@ -503,6 +503,7 @@ from portfolio import connect
 HERE = {repo!r}
 DB = {db!r}
 STAGING = False
+HOSTED = False
 LOGIN_ID = {uid}
 IS_ADVISOR = False
 path = os.path.join(HERE, "views", "admin.py")

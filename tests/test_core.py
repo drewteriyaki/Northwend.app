@@ -3492,12 +3492,31 @@ class ScreenshotReadTests(unittest.TestCase):
 
     def test_images_are_checked_before_anything_is_sent(self):
         import screenshot_read as sr
-        ok, errors = sr.check_images([("a.PNG", b"x"), ("b.jpg", b"y")])
+        png, jpg = b"\x89PNG\r\n\x1a\n" + b"x" * 20, b"\xff\xd8\xff\xe0" + b"y" * 20
+        ok, errors = sr.check_images([("a.PNG", png), ("b.jpg", jpg)])
         self.assertEqual(([mt for _, mt in ok], errors), (["image/png", "image/jpeg"], []))
-        _, errors = sr.check_images([("doc.pdf", b"x"), ("big.png", b"x" * (sr.MAX_BYTES + 1))])
+        _, errors = sr.check_images([("doc.pdf", b"%PDF-1.7"),
+                                     ("big.png", png + b"x" * sr.MAX_BYTES)])
         self.assertEqual(len(errors), 2)
-        _, errors = sr.check_images([(f"{i}.png", b"x") for i in range(sr.MAX_IMAGES + 1)])
+        self.assertIn("over 5 MB", errors[1])
+        _, errors = sr.check_images([(f"{i}.png", png) for i in range(sr.MAX_IMAGES + 1)])
         self.assertIn("Up to", errors[0])
+
+    def test_screenshot_type_comes_from_the_first_bytes(self):
+        # (audit 1.3b) a file's name doesn't decide what it is: a PNG named
+        # .jpg is sent as a PNG, and a renamed PDF, GIF or text file is refused
+        import screenshot_read as sr
+        webp = b"RIFF\x24\x00\x00\x00WEBPVP8 " + b"z" * 20
+        png = b"\x89PNG\r\n\x1a\n" + b"x" * 20
+        ok, errors = sr.check_images([("a.webp", webp), ("b.jpg", png)])
+        self.assertEqual(([mt for _, mt in ok], errors), (["image/webp", "image/png"], []))
+        for name, data in (("c.png", b"%PDF-1.7 ..."), ("d.png", b"GIF89a......"),
+                           ("e.jpeg", b"hello"), ("f.webp", b"RIFF\x00\x00\x00\x00WAVE"),
+                           ("g.png", b"")):
+            ok, errors = sr.check_images([(name, data)])
+            self.assertEqual(ok, [], name)
+            self.assertIn("use a PNG, JPG or WEBP image", errors[0])
+        self.assertNotIn("gif", sr.MEDIA_TYPES)   # the uploader offers what's accepted
 
     def test_answer_is_rechecked_and_overlaps_counted_once(self):
         import screenshot_read as sr

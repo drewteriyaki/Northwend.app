@@ -14,6 +14,9 @@ gatherUsageStats = false
 # Serves ./static at app/static/ - the two typefaces below, so no font is
 # fetched from Google (nothing about visitors leaves for a font).
 enableStaticServing = true
+# The largest file anyone can upload, in MB (Streamlit's default is 200).
+# A brokerage export or a screenshot is far smaller (audit 1.3b).
+maxUploadSize = 10
 
 # The Northwend design system: Figtree for everything people read, Newsreader for page and section titles,
 # 8px corners. Colors per theme below; dashboard.py's styles carry the same

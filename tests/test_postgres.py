@@ -278,6 +278,24 @@ class SignInTests(_PG):
         auth.end_session(c, changed["token"])
         self.assertEqual(self.seen("SELECT * FROM login_sessions WHERE user_id = ?", (uid,)), [])
 
+    def test_wrong_passwords_from_one_address_pause_sign_in_there(self):
+        # audit 1.1c: counted per address across usernames, key "addr:" + hash
+        c = self.conn
+        uid = self.user("addy")
+        ip = "203.0.113.9"
+        for i in range(auth.MAX_FAILED_LOGINS_PER_ADDRESS):
+            r = auth.attempt_login(c, f"guess{i}", "wrong", ip=ip, now=NOW)
+        self.assertTrue(r["from_here"])
+        r = auth.attempt_login(c, "addy", PW, ip=ip, now=NOW + timedelta(minutes=1))
+        self.assertEqual((r["user_id"], r["from_here"]), (None, True))
+        self.assertEqual(auth.attempt_login(c, "addy", PW, ip="198.51.100.1",
+                                            now=NOW + timedelta(minutes=1))["user_id"], uid)
+        key = "addr:" + auth._address_key(ip)
+        self.assertEqual(self.one("SELECT failures FROM login_failures WHERE username_key = ?",
+                                  (key,))["failures"], auth.MAX_FAILED_LOGINS_PER_ADDRESS)
+        later = NOW + timedelta(minutes=auth.LOCKOUT_MINUTES + 1)
+        self.assertEqual(auth.attempt_login(c, "addy", PW, ip=ip, now=later)["user_id"], uid)
+
     def test_quoted_text_percent_signs_and_casts_reach_postgres_as_written(self):
         c = self.conn
         uid = self.user("quinn")
@@ -1328,7 +1346,7 @@ class AppTests(_KeepModules):
         real = streamlit.file_uploader
 
         def uploader(label, *a, key=None, **kw):
-            if key == "csv_upload":
+            if (key or "").startswith("csv_upload_"):   # csv_upload_<n>: new after a save
                 return files.get("up")
             return real(label, *a, key=key, **kw)
         p = unittest.mock.patch.object(streamlit, "file_uploader", uploader)

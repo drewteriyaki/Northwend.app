@@ -25,7 +25,16 @@ PBKDF2_ITERATIONS = 200_000
 SESSION_DAYS = 30  # how long "stay signed in" lasts before the password is needed again
 MAX_FAILED_LOGINS = 5   # wrong passwords for one username within LOCKOUT_MINUTES...
 LOCKOUT_MINUTES = 15    # ...lock that username for this long
+# One internet address, any usernames (audit 1.1c): this many wrong passwords
+# within LOCKOUT_MINUTES pause sign-in from that address for LOCKOUT_MINUTES.
+# High enough for a family or an office sharing one address; low enough that
+# trying one common password against many usernames gets nowhere.
+MAX_FAILED_LOGINS_PER_ADDRESS = 20
+TOO_MANY_FROM_HERE = "Too many tries from here - please wait a few minutes and try again."
 MIN_PASSWORD_LENGTH = 8
+# an unknown username still takes one full hash (against this), so how long a
+# wrong sign-in takes doesn't say whether the account exists
+_DUMMY_SALT = bytes(16)
 
 
 def _hash_password(password: str, salt: bytes) -> str:
@@ -56,7 +65,9 @@ def verify_login(conn: sqlite3.Connection, username: str, password: str) -> int 
     """The user's id on a correct username/password, else None. Never
     reveals whether the username or the password was wrong (avoids
     username enumeration) - both a missing user and a wrong password just
-    return None. A self-serve account's email works in any letter case."""
+    return None, after the same one hash (against a dummy salt for a
+    missing user, so the time taken doesn't tell them apart either). A
+    self-serve account's email works in any letter case."""
     row = conn.execute(
         "SELECT id, password_hash, password_salt FROM users WHERE username = ?",
         (username,)).fetchone()
@@ -65,6 +76,7 @@ def verify_login(conn: sqlite3.Connection, username: str, password: str) -> int 
             "SELECT id, password_hash, password_salt FROM users WHERE email = ?",
             (normalize_email(username),)).fetchone()
     if row is None:
+        hmac.compare_digest(_hash_password(password or "", _DUMMY_SALT), "0" * 64)
         return None
     salt = bytes.fromhex(row["password_salt"])
     candidate = _hash_password(password, salt)
@@ -230,45 +242,85 @@ def _login_key(username: str | None) -> str:
     return hashlib.sha256((username or "").strip().casefold().encode("utf-8")).hexdigest()
 
 
-def attempt_login(conn, username: str, password: str, *, now: datetime | None = None) -> dict:
+def _failures_row(conn, key: str):
+    return conn.execute("SELECT failures, window_start, locked_until FROM login_failures "
+                        "WHERE username_key = ?", (key,)).fetchone()
+
+
+def _minutes_locked(row, now: datetime) -> int:
+    """Minutes left on a login_failures row's lock (0 when it has none)."""
+    if not (row and row["locked_until"] and row["locked_until"] > _utc(now)):
+        return 0
+    left = datetime.strptime(row["locked_until"], "%Y-%m-%d %H:%M:%S").replace(
+        tzinfo=timezone.utc) - now
+    return max(1, -(-int(left.total_seconds()) // 60))
+
+
+def _count_failure(conn, key: str, row, now: datetime, limit: int) -> tuple[int, bool]:
+    """One more wrong password on `key` (a login_failures row, `row` as read):
+    (failures in this window, whether that reached `limit` and locked it)."""
+    stamp = _utc(now)
+    window_open = _utc(now - timedelta(minutes=LOCKOUT_MINUTES))
+    fresh = row is None or row["window_start"] <= window_open or row["locked_until"]
+    failures = 1 if fresh else row["failures"] + 1
+    locked_until = (_utc(now + timedelta(minutes=LOCKOUT_MINUTES))
+                    if failures >= limit else None)
+    conn.execute("DELETE FROM login_failures WHERE username_key = ?", (key,))
+    conn.execute("INSERT INTO login_failures (username_key, failures, window_start, locked_until) "
+                 "VALUES (?, ?, ?, ?)",
+                 (key, failures, stamp if fresh else row["window_start"], locked_until))
+    return failures, locked_until is not None
+
+
+def attempt_login(conn, username: str, password: str, *, ip: str | None = None,
+                  now: datetime | None = None) -> dict:
     """verify_login() behind the lockout. Returns {"user_id": id or None,
     "locked_minutes": minutes left on a lock (0 if none), "attempts_left":
-    wrong passwords left before a lock}. A locked username is refused
+    wrong passwords left before a lock, "from_here": True when it's the
+    visitor's address that's paused}. A locked username is refused
     without checking the password - even the right one. Unknown usernames
-    are counted and locked exactly like real ones."""
+    are counted and locked exactly like real ones.
+
+    `ip` (the sign-in form's visitor) also counts wrong passwords per
+    internet address, across any usernames: MAX_FAILED_LOGINS_PER_ADDRESS
+    within LOCKOUT_MINUTES pause sign-in from there (key "addr:" + the
+    hashed address, as the sign-up limits keep it). A right password doesn't
+    clear that count. Without an address (a local run) only the username
+    lock applies - nobody is locked out together."""
     now = now or datetime.now(timezone.utc)
     key, stamp = _login_key(username), _utc(now)
-    row = conn.execute("SELECT failures, window_start, locked_until FROM login_failures "
-                       "WHERE username_key = ?", (key,)).fetchone()
-    if row and row["locked_until"] and row["locked_until"] > stamp:
-        left = datetime.strptime(row["locked_until"], "%Y-%m-%d %H:%M:%S").replace(
-            tzinfo=timezone.utc) - now
-        return {"user_id": None, "locked_minutes": max(1, -(-int(left.total_seconds()) // 60)),
-                "attempts_left": 0}
+    addr = ("addr:" + _address_key(ip)) if ip else ""
+    addr_row = _failures_row(conn, addr) if addr else None
+    if _minutes_locked(addr_row, now):
+        return {"user_id": None, "locked_minutes": _minutes_locked(addr_row, now),
+                "attempts_left": 0, "from_here": True}
+    row = _failures_row(conn, key)
+    if _minutes_locked(row, now):
+        return {"user_id": None, "locked_minutes": _minutes_locked(row, now),
+                "attempts_left": 0, "from_here": False}
 
     user_id = verify_login(conn, username, password) if username and password else None
     if user_id is not None:
         conn.execute("DELETE FROM login_failures WHERE username_key = ?", (key,))
         conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (stamp, user_id))
         conn.commit()
-        return {"user_id": user_id, "locked_minutes": 0, "attempts_left": MAX_FAILED_LOGINS}
+        return {"user_id": user_id, "locked_minutes": 0, "attempts_left": MAX_FAILED_LOGINS,
+                "from_here": False}
 
-    window_open = _utc(now - timedelta(minutes=LOCKOUT_MINUTES))
-    fresh = row is None or row["window_start"] <= window_open or row["locked_until"]
-    failures = 1 if fresh else row["failures"] + 1
-    locked_until = (_utc(now + timedelta(minutes=LOCKOUT_MINUTES))
-                    if failures >= MAX_FAILED_LOGINS else None)
-    conn.execute("DELETE FROM login_failures WHERE username_key = ?", (key,))
-    conn.execute("INSERT INTO login_failures (username_key, failures, window_start, locked_until) "
-                 "VALUES (?, ?, ?, ?)",
-                 (key, failures, stamp if fresh else row["window_start"], locked_until))
+    failures, locked = _count_failure(conn, key, row, now, MAX_FAILED_LOGINS)
+    from_here = False
+    if addr:
+        _, from_here = _count_failure(conn, addr, addr_row, now, MAX_FAILED_LOGINS_PER_ADDRESS)
     # tidy: counts nobody has added to in a day, and locks that have run out
     conn.execute("DELETE FROM login_failures WHERE window_start < ? "
                  "AND (locked_until IS NULL OR locked_until < ?)",
                  (_utc(now - timedelta(days=1)), stamp))
     conn.commit()
-    return {"user_id": None, "locked_minutes": LOCKOUT_MINUTES if locked_until else 0,
-            "attempts_left": max(0, MAX_FAILED_LOGINS - failures)}
+    if from_here:
+        return {"user_id": None, "locked_minutes": LOCKOUT_MINUTES, "attempts_left": 0,
+                "from_here": True}
+    return {"user_id": None, "locked_minutes": LOCKOUT_MINUTES if locked else 0,
+            "attempts_left": max(0, MAX_FAILED_LOGINS - failures), "from_here": False}
 
 
 def unlock_login(conn, username: str) -> bool:

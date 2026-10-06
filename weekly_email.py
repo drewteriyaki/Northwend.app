@@ -25,6 +25,7 @@ from datetime import date
 import advising
 import mailer
 import prefs
+import settings
 from portfolio import DEFAULT_DB, connect
 
 PREF_OFF = "weekly_email_off"      # the advisor turned it off
@@ -106,8 +107,8 @@ def run(conn, app_url: str, today: date, *, send=mailer.advisor_week) -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Send advisors their Monday summary email.")
-    ap.add_argument("--db", default=os.environ.get("PORTFOLIO_DB") or DEFAULT_DB)
-    ap.add_argument("--app-url", default=os.environ.get("APP_URL") or "",
+    ap.add_argument("--db", default=settings.get("PORTFOLIO_DB", DEFAULT_DB))
+    ap.add_argument("--app-url", default=settings.get("APP_URL"),
                     help="the app's address, for the link in the email")
     args = ap.parse_args(argv)
     if not args.app_url:

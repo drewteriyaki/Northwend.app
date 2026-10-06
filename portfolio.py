@@ -91,8 +91,11 @@ def parse_csv(path: str):
     or a transactions export. A layout whose columns can't be matched by name
     also raises; the dashboard asks which column is which instead."""
     import csv_import
-    with open(path, "rb") as fh:
-        rows = csv_import.read_rows(fh.read())
+    try:
+        with open(path, "rb") as fh:
+            rows = csv_import.read_rows(fh.read())
+    except csv_import.TooManyRows as exc:
+        raise SystemExit(str(exc)) from None
     header_i, problem = csv_import.find_header(rows)
     if problem == "transactions":
         raise SystemExit("This looks like transaction history, not current holdings.")

@@ -168,8 +168,20 @@ def shape(cell) -> str:
     return "TEXT"
 
 
+MAX_ROWS = 5_000   # a positions or activity file longer than this is refused (audit 1.3b)
+TOO_MANY_ROWS = ("This file has more than 5,000 rows - more than Northwend reads at once. "
+                 "Try exporting one account at a time, or a shorter date range.")
+
+
+class TooManyRows(ValueError):
+    """The file has more than MAX_ROWS rows. Refused whole rather than cut
+    short: part of a positions file would look like sales, and part of an
+    activity file would leave gaps nobody sees."""
+
+
 def read_rows(data: bytes) -> list[list[str]]:
-    """The file's rows, whatever its encoding and delimiter."""
+    """The file's rows, whatever its encoding and delimiter. Raises
+    TooManyRows (its message is TOO_MANY_ROWS) past MAX_ROWS."""
     for enc in ("utf-8-sig", "cp1252", "latin-1"):
         try:
             text = data.decode(enc)
@@ -181,7 +193,12 @@ def read_rows(data: bytes) -> list[list[str]]:
         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
     except csv.Error:
         dialect = csv.excel
-    return [[c.strip() for c in row] for row in csv.reader(io.StringIO(text), dialect)]
+    rows = []
+    for row in csv.reader(io.StringIO(text), dialect):
+        if len(rows) >= MAX_ROWS:
+            raise TooManyRows(TOO_MANY_ROWS)
+        rows.append([c.strip() for c in row])
+    return rows
 
 
 def signature(header: list[str]) -> str:

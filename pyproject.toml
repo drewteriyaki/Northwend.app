@@ -46,7 +46,7 @@ py-modules = [
     "friendly_errors", "fund_holdings", "future_notes", "gear", "hosting", "income", "learn", "live_prices",
     "mailer", "manage_users", "manual_entry", "meeting", "metrics", "news", "overview",
     "paste_parse", "perf", "pgcompat", "plans", "portfolio", "prefs", "proposals",
-    "reports", "route", "sample_data", "screenshot_read", "starter_funds", "storms",
+    "reports", "route", "sample_data", "screenshot_read", "settings", "starter_funds", "storms",
     "sync_history", "ticker_search", "two_step", "txn_import", "update_prices", "watchlist",
     "weekly_email",
     # the investor tools: stress test, next deposit, cash check, employer match

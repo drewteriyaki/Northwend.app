@@ -23,8 +23,10 @@ from csv_import import _is_ticker
 
 MAX_IMAGES = 5
 MAX_BYTES = 5 * 1024 * 1024        # per image, the API's limit
+# the file names the uploader accepts; what an image really is comes from its
+# first bytes (image_type), never from its name
 MEDIA_TYPES = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-               "webp": "image/webp", "gif": "image/gif"}
+               "webp": "image/webp"}
 MAX_TOKENS = 4000
 
 PROMPT = """These are screenshots of someone's brokerage holdings (positions) screen.
@@ -52,20 +54,34 @@ Rules:
 If there are no holdings in the images, return {"holdings": [], "cash": null}."""
 
 
+def image_type(data: bytes) -> str | None:
+    """The media type from a file's first bytes - PNG, JPEG or WEBP - or None
+    for anything else (whatever its name says). No image library needed."""
+    head = bytes(data[:12])
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 def check_images(files) -> tuple[list[tuple[bytes, str]], list[str]]:
-    """[(bytes, media type)] for uploaded files, and problems with them.
-    `files` are (filename, bytes) pairs."""
+    """[(bytes, media type)] for uploaded files, and problems with them -
+    before anything is sent. `files` are (filename, bytes) pairs. The type is
+    judged from the file's first bytes, not its name."""
     images, errors = [], []
     if len(files) > MAX_IMAGES:
         errors.append(f"Up to {MAX_IMAGES} screenshots at a time.")
     for name, data in files[:MAX_IMAGES]:
-        ext = (name or "").rsplit(".", 1)[-1].lower()
-        if ext not in MEDIA_TYPES:
+        kind = image_type(data)
+        if kind is None:
             errors.append(f"{name}: use a PNG, JPG or WEBP image.")
         elif len(data) > MAX_BYTES:
             errors.append(f"{name}: the image is over 5 MB - crop it or take a smaller one.")
         else:
-            images.append((data, MEDIA_TYPES[ext]))
+            images.append((data, kind))
     return images, errors
 
 

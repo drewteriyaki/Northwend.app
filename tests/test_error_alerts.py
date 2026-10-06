@@ -24,6 +24,7 @@ import auth  # noqa: E402
 import error_alerts  # noqa: E402
 import mailer  # noqa: E402
 import portfolio  # noqa: E402
+import settings  # noqa: E402
 
 T0 = datetime(2026, 10, 1, 14, 0, tzinfo=timezone.utc)
 
@@ -145,7 +146,7 @@ class NotifyTests(_DB):
         f = error_alerts.fingerprint(_caught())
         with unittest.mock.patch.object(mailer, "send", return_value=True) as send, \
                 unittest.mock.patch.dict(os.environ, {"ALERT_EMAIL": "ops@example.com"}), \
-                unittest.mock.patch.object(mailer, "load_env", return_value={}):
+                unittest.mock.patch.object(settings, "load_env", return_value={}):
             self.assertTrue(error_alerts.notify(self.conn, f, copy="Staging", ref="abc123",
                                                 now=T0))
             self.assertFalse(error_alerts.notify(self.conn, f, now=T0 + timedelta(minutes=2)))
@@ -161,7 +162,7 @@ class NotifyTests(_DB):
 
     def test_default_address(self):
         with unittest.mock.patch.dict(os.environ, {"ALERT_EMAIL": ""}), \
-                unittest.mock.patch.object(mailer, "load_env", return_value={}):
+                unittest.mock.patch.object(settings, "load_env", return_value={}):
             self.assertEqual(error_alerts.alert_to(), "support@northwend.app")
 
     def test_a_failed_send_lets_the_next_one_try(self):
@@ -284,6 +285,7 @@ from portfolio import connect
 HERE = {repo!r}
 DB = {db!r}
 STAGING = False
+HOSTED = False
 APP_NAME = "Northwend"
 LOGIN_ID = {uid}
 IS_ADVISOR = False

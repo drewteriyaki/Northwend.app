@@ -1024,9 +1024,15 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
 
 - [ ] **Step 1 - Hardening Phase 0 and Phase 1** (PLAN 1a and 1b, about 3 weeks)
   - [ ] 1a.1 `flags.py`, the Walk behind its flag; Admin lists flags
-  - [ ] 1a.3 Fail closed on configuration (`settings.py`)
-  - [ ] 1a.4 Size limits (uploads, CSV rows, pasted text, chat box)
-  - [ ] 1a.5 Sign-in limits per address; timing-safe unknown usernames
+  - [x] 1a.3 Fail closed on configuration (`settings.py`) - hosted = RENDER, /mount/src
+    or NORTHWEND_ENV production/staging; no Postgres PORTFOLIO_DB there = a calm stop
+    page; path box, error details and alerts key on "hosted"; env reads moved in
+  - [x] 1a.4 Size limits (uploads, CSV rows, pasted text, chat box) - 10 MB uploads,
+    over 5,000 CSV rows refused whole, 50,000-character paste, 2,000-character
+    question, screenshots typed by their first bytes, CSV uploader emptied after a save
+  - [x] 1a.5 Sign-in limits per address; timing-safe unknown usernames - 20 wrong
+    passwords per address in 15 minutes pause it (`addr:` + hashed address); none
+    without an address; an unknown username hashes against a dummy salt
   - [ ] 1a.6 AI ceiling, first slice (app-wide monthly cap, alerts)
   - [ ] 1a.7 Privacy wording made true; screenshot AI behind a flag; memory
         keeps no amounts (D9); a former client's delete keeps the old advisor's

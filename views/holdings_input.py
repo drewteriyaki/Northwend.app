@@ -19,6 +19,9 @@ def _after_import():
     on the next run instead of waiting for the scheduled jobs."""
     st.session_state.pop("auto_backfilled", None)
     st.session_state["dialog_open"] = False  # saved: the dialog is closing
+    # a new key empties the CSV uploader (like the screenshot one): the file
+    # just read isn't held on in the server's memory
+    st.session_state["csv_upload_n"] = st.session_state.get("csv_upload_n", 0) + 1
     for k in ("last_open_snapshot", "value_logged", "export_zip"):  # it changed: start afresh
         st.session_state.pop(k, None)
     # "Since your last visit" starts again from the holdings just saved: the
@@ -275,6 +278,9 @@ def _manual_from_paste(existing):
     acct = _paste_account(text, existing)
     found = paste_parse.parse(text)
     ss["me_paste"] = ""  # the pasted text isn't kept, even in this session
+    if found.get("too_long"):
+        ss["me_paste_msg"] = ("warning", paste_parse.TOO_LONG)
+        return
     if not found["holdings"]:
         ss["me_paste_msg"] = ("warning", "Couldn't find any holdings in that text. Try copying "
                               "just the positions table from your brokerage's site - or add "
@@ -650,7 +656,7 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
                    "table, copy it, and paste it here. The app reads it itself - no AI - and "
                    "keeps only symbols, share counts and cost. The pasted text isn't saved.")
         st.text_area("Pasted positions", key="me_paste", height=140,
-                     label_visibility="collapsed",
+                     label_visibility="collapsed", max_chars=paste_parse.MAX_CHARS,
                      placeholder="Paste the positions table copied from your brokerage's site")
         _account_choice("Which account are these from?", "me_paste_acct", existing,
                         _paste_account(ss.get("me_paste") or "", existing),
@@ -836,8 +842,12 @@ def _import_csv_file(src_path, source_name):
     if not os.path.isfile(src_path):
         st.error(f"No file at: {src_path}")
         return
-    with open(src_path, "rb") as fh:
-        rows = csv_import.read_rows(fh.read())
+    try:
+        with open(src_path, "rb") as fh:
+            rows = csv_import.read_rows(fh.read())
+    except csv_import.TooManyRows as exc:   # (5,000 rows - refused whole, not cut short)
+        st.warning(str(exc))
+        return
     header_i, problem = csv_import.find_header(rows)
     if problem == "transactions" or (txn_import.find_header(rows) is not None
                                      and header_i is None):
@@ -1105,10 +1115,14 @@ def _import_dialog():
                "hold, or its **Activity** (transaction history) export for your real buys, "
                "sells and dividends - any brokerage. You'll check it before anything is saved.")
     st.caption(":material/lock: " + TRUST_LINE)
-    up = st.file_uploader("Positions or activity export (.csv)", type=["csv"], key="csv_upload")
+    # keyed by csv_upload_n: a save starts it afresh (empty), so the file's
+    # bytes aren't held in the server's memory after it's been read and saved
+    up = st.file_uploader("Positions or activity export (.csv)", type=["csv"],
+                          key=f"csv_upload_{st.session_state.get('csv_upload_n', 0)}")
     # A path on "this machine" is only meaningful running locally - on the
-    # hosted app it would be a path on the server, which users must not read.
-    path_in = "" if pgcompat.is_postgres_dsn(DB) else st.text_input(
+    # hosted app it would be a path on the server, which users must not read
+    # (settings.server_files_ok: decided by "hosted", not by the database).
+    path_in = "" if not settings.server_files_ok() else st.text_input(
         "…or a path to a CSV on this machine",
         key="csv_path",
         placeholder="C:\\Users\\you\\Downloads\\positions.csv",

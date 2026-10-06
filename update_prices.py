@@ -35,36 +35,22 @@ except Exception:
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import pgcompat  # noqa: E402  (local module)
+import settings  # noqa: E402  (local module)
 from portfolio import DEFAULT_DB, connect, money, pct  # noqa: E402  (local module)
+# the .env reader lives in settings.py now; these names stay for older callers
+from settings import ENV_PATH, load_env  # noqa: E402,F401  (local module)
 
 FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote"
-ENV_PATH = os.path.join(HERE, ".env")
 
 
 # --------------------------------------------------------------------------- #
 # config / small helpers
 # --------------------------------------------------------------------------- #
-def load_env(path: str) -> dict:
-    env = {}
-    try:
-        with open(path, encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                env[key.strip()] = value.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return env
-
-
 def resolve_key(cli_key: str | None, env_path: str = ENV_PATH) -> str:
     if cli_key:
         return cli_key.strip()
     return (load_env(env_path).get("FINNHUB_API_KEY")
-            or os.environ.get("FINNHUB_API_KEY")
-            or "").strip()
+            or settings.get("FINNHUB_API_KEY")).strip()
 
 
 def utc_now_iso() -> str:
