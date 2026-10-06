@@ -18,14 +18,14 @@ description = "Northwend - bring holdings from any brokerage and get a plan, inc
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "streamlit==1.62.0",
-    "pandas==2.2.3",
+    "streamlit==1.65.0",
+    "pandas==2.3.3",
     "altair==6.2.2",
     "yfinance==1.7.0",
-    "psycopg[binary]==3.2.3",
-    "psycopg-pool==3.2.4",
-    "anthropic==1.8.0",
-    "fpdf2==2.8.8",
+    "psycopg[binary]==3.3.6",
+    "psycopg-pool==3.3.3",
+    "anthropic==1.11.0",
+    "fpdf2==2.8.9",
     "segno==1.6.6",
     "cryptography==50.0.2",
 ]
