@@ -22,9 +22,11 @@ and a page whose feature is off leaves PAGES and the menu. A feature drawn
 inside an existing view checks on("name") where it's drawn - a test checks
 every name in FEATURES is checked somewhere.
 
-No gate switches off anything people use today yet: the "when it is off"
-column of LEGAL_GATES.md is wired in with each gate's own work (L0's invite
-codes, step 1a.9; L3's careful wording, step 2).
+A gate can also be checked on its own, with gate("L0"), for what it changes
+in something people already use (LEGAL_GATES.md's "when it is off" column).
+GATE_CHECKS lists each such check; a test makes sure each one is really
+checked somewhere. The rest are wired in with each gate's own work (L3's
+careful wording, step 2).
 """
 
 from __future__ import annotations
@@ -34,6 +36,15 @@ import os
 GATES = ("L0", "L1", "L2", "L3")   # never an L4 (LEGAL_GATES.md: no flag, nothing built toward it)
 GATES_SETTING = "NORTHWEND_GATES"
 FLAGS_SETTING = "NORTHWEND_FLAGS"
+
+# gate -> what checking it on its own (gate(...)) changes, and where
+GATE_CHECKS = {
+    # PLAN 1a.9, decision B7: open self-serve sign-up. Off, Create account asks
+    # for an invite code the admin made (auth.invite_only, invite_codes.py).
+    # Signing in, setup links and admin-made accounts never change. The live
+    # copy needs NORTHWEND_GATES = "L0" to keep sign-up open.
+    "L0": "open self-serve sign-up - off, Create account needs an invite code",
+}
 
 # name -> {"gates": the gates it needs besides its flag, "view": the view it
 # owns or None, and "page": that view's page, when it's one of PAGES}

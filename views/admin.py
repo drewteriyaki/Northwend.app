@@ -4,7 +4,8 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # The Admin page (ROADMAP A1): accounts and logins, advisor requests, AI use,
-# feature tests (totals only, feature_counts.py),
+# feature tests (totals only, feature_counts.py), invite codes for sign-up
+# while gate L0 is off (invite_codes.py),
 # and which experience the admin's own account shows. Only admins see it
 # (admin.is_admin, set from the command line). Logins only - never anyone's
 # holdings or plans. Every action re-checks admin rights in the database.
@@ -18,6 +19,7 @@ import error_alerts
 import feature_counts
 import flags
 import hosting
+import invite_codes
 import two_step
 
 
@@ -178,6 +180,70 @@ def _admin_create():
         return ("success", f"Created {res['username']}. Its temporary password is shown below "
                            "once - pass it on privately.")
     _admin_do(act)
+
+
+def _admin_make_codes():
+    how_many = st.session_state.get("admin_codes_n") or 1
+    note = st.session_state.get("admin_codes_note") or ""
+
+    def act(c):
+        made = invite_codes.make(c, how_many, by=LOGIN_ID, note=note)
+        st.session_state["admin_codes_note"] = ""
+        st.session_state["admin_codes_made"] = [invite_codes.shown(x) for x in made]
+        return ("success", f"Made {len(made)} invite code{'s' if len(made) != 1 else ''}. "
+                           "Each works once.")
+    _admin_do(act)
+
+
+def _admin_revoke_code(code):
+    _admin_do(lambda c: ("success", f"{invite_codes.shown(code)} won't work any more.")
+              if invite_codes.revoke(c, code) else
+              ("info", f"{invite_codes.shown(code)} was already used or stopped."))
+
+
+def _render_invite_codes(c):
+    """Invite codes (invite_codes.py): what Create account asks for while
+    gate L0 is off. Make a few, see which were used and when, stop one."""
+    with st.expander(":material/key: Invite codes"):
+        if auth.invite_only():
+            st.caption("Sign-up is by invite code for now (gate L0 is off). Each code works "
+                       "once. Setup links from advisors and accounts made here never need one.")
+        else:
+            st.caption("Sign-up is open (gate L0 is on), so no code is asked for. Codes made "
+                       "here start working if L0 is turned off.")
+        with st.container(horizontal=True, vertical_alignment="bottom"):
+            st.number_input("How many", min_value=1, max_value=invite_codes.MAX_AT_ONCE,
+                            value=1, step=1, key="admin_codes_n")
+            st.text_input("Note (optional)", key="admin_codes_note",
+                          max_chars=invite_codes.MAX_NOTE, placeholder="Who they're for")
+            st.button("Make codes", key="admin_codes_make", type="primary",
+                      on_click=_admin_make_codes)
+        made = st.session_state.pop("admin_codes_made", None)
+        if made:
+            st.code("\n".join(made), language=None)
+        codes = invite_codes.listing(c)
+        if not codes:
+            st.caption("No codes yet.")
+            return
+        unused = [r for r in codes if r["status"] == "unused"]
+        st.markdown(f"**Unused ({len(unused)})**")
+        for r in unused:
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown(f"`{invite_codes.shown(r['code'])}` - made "
+                            f"{_admin_when(r['created_at'])}"
+                            + (f" - {r['note']}" if r["note"] else ""), width="stretch")
+                st.button("Revoke", key=f"admin_code_revoke_{r['code']}", type="tertiary",
+                          on_click=_admin_revoke_code, args=(r["code"],))
+        done = [r for r in codes if r["status"] != "unused"]
+        if done:
+            st.markdown(f"**Used or revoked ({len(done)})**")
+            st.dataframe(pd.DataFrame([{
+                "Code": invite_codes.shown(r["code"]), "Note": r["note"] or "",
+                "Made": _admin_when(r["created_at"]),
+                "Status": ("Used " + _admin_when(r["used_at"])) if r["status"] == "used"
+                else ("Revoked " + _admin_when(r["revoked_at"])),
+                "Account": r["used_by"] or ("(deleted)" if r["status"] == "used" else ""),
+            } for r in done]), hide_index=True, width="stretch")
 
 
 def _admin_clear_cache():
@@ -459,6 +525,13 @@ def _render_admin():
                          key="admin_new_client_of", format_func=lambda i: by_id[i]["username"],
                          placeholder="No advisor")
         st.button("Create account", key="admin_create", type="primary", on_click=_admin_create)
+
+    # ---- invite codes (sign-up while gate L0 is off) ---------------------- #
+    c = connect(DB)
+    try:
+        _render_invite_codes(c)
+    finally:
+        c.close()
 
     # ---- AI use ---------------------------------------------------------- #
     st.subheader(f"AI use in {ai_usage.month_of()}", anchor=False)

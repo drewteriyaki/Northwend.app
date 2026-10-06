@@ -1059,8 +1059,13 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         the advisors' Monday email - done: `unsubscribe.py`, a hashed token per email
         in `email_tokens` (`unsub_walk` / `unsub_weekly`, a year), `?unsubscribe=`
         before sign-in. The RFC 8058 POST waits for step 4's hosting
-  - [ ] 1a.9 L0 basics: US-residency box, both attestations timestamped; invite
-        codes while L0 is off
+  - [x] 1a.9 L0 basics: US-residency box, both attestations timestamped; invite
+        codes while L0 is off - done: "I live in the United States" beside the 18+
+        box at sign-up, the setup link and the one-time ask; `users.age_confirmed_at`
+        / `us_resident_at` (NULL for accounts that agreed before, not asked again);
+        `invite_codes.py` + Admin > Invite codes (8 characters, once each, revoke);
+        `flags.gate("L0")` on keeps sign-up open - the live copy needs
+        `NORTHWEND_GATES = "L0"` before this is released
   - [ ] 1a.10 Principle tests (emails, two-step gate, `?client=`, the A/B matrix)
   - [x] 1a.12 Friendly save errors - the three "nothing was changed: {exc}"
         messages are `friendly_errors.save_failed`: the calm message, an error

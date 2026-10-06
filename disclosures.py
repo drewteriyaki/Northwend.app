@@ -29,7 +29,10 @@ Each statement about data here must stay true to the code:
   date on the stay-signed-in session (login_sessions.two_step_until).
 - Sign-up: the email is the login, not shown to others or sent to the AI; only
   Resend gets it, to deliver the confirm / reset emails (mailer.py, auth.sign_up);
-  bot checks keep only a SHA-256 of the internet address for a day (signups table); the version agreed to is stored (users.terms_version).
+  bot checks keep only a SHA-256 of the internet address for a day (signups table); the version agreed to is stored (users.terms_version), with
+  the 18+ and US-residency boxes each kept with its time (age_confirmed_at,
+  us_resident_at). While gate L0 is off, sign-up needs a one-time invite code
+  (invite_codes: the code, when and by which account it was used).
   Email links: hashed, one-time, confirm 3 days / reset 60 minutes; email-send
   limits keep only hashes for a day (email_tokens / email_sends). Unconfirmed
   self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI). Advisor

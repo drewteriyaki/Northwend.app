@@ -43,7 +43,10 @@ ACCOUNT_TABLES = {
 # them when it closes an account nobody could open)
 ADVISOR_RECORD_TABLES = ("advisor_notes", "proposals", "progress_reports", "former_clients")
 # columns that only record who last changed something - cleared, not deleted
-ACCOUNT_REFERENCES = {"plans": ("set_by",), "money_out": ("set_by",)}
+ACCOUNT_REFERENCES = {"plans": ("set_by",), "money_out": ("set_by",),
+                      # who made and who used an invite code: cleared, so the
+                      # code stays used (invite_codes.py)
+                      "invite_codes": ("created_by", "used_by")}
 
 
 def listed_admins() -> set[str]:

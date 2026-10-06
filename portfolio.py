@@ -197,6 +197,9 @@ def _ensure_schema(conn) -> None:
                            ("terms_version", "TEXT"), ("terms_accepted_at", "TEXT"),
                            # agreed somewhere other than sign-up (auth.record_agreement)
                            ("terms_via", "TEXT"),
+                           # the two confirmations asked with it, each with
+                           # its time (D10); NULL for accounts that agreed before
+                           ("age_confirmed_at", "TEXT"), ("us_resident_at", "TEXT"),
                            # the admin portal (admin.py)
                            ("is_admin", "INTEGER"), ("last_login_at", "TEXT"),
                            # the Account page (auth.set_display_name)

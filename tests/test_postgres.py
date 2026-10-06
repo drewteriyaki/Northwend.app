@@ -73,7 +73,8 @@ FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 BROKERS = os.path.join(FIXTURES, "brokers")
 OLD_SCHEMA = os.path.join(FIXTURES, "schema_pg_2026-09-30.sql")   # schema_pg.sql at 7a43922
 PW = "pw-123456789"
-AGREE = dict(agreed=True, adult=True, terms_version="October 1, 2026")
+AGREE = dict(agreed=True, adult=True, us_resident=True, terms_version="October 1, 2026")
+SIGNUP = dict(AGREE, needs_code=False)   # (open sign-up: gate L0 on)
 NOW = datetime.now(timezone.utc).replace(microsecond=0)
 TODAY = NOW.date()
 
@@ -210,7 +211,7 @@ class SignInTests(_PG):
 
     def test_sign_up_confirm_reset_and_change_email(self):
         c = self.conn
-        made = auth.sign_up(c, "Sam@Example.com", PW, seconds_open=10, ip="203.0.113.5", **AGREE)
+        made = auth.sign_up(c, "Sam@Example.com", PW, seconds_open=10, ip="203.0.113.5", **SIGNUP)
         self.assertTrue(made["ok"], made)
         uid = made["user_id"]
         row = self.one("SELECT username, email, terms_version, terms_via FROM users WHERE id = ?",
@@ -218,7 +219,7 @@ class SignInTests(_PG):
         self.assertEqual(row, {"username": "sam@example.com", "email": "sam@example.com",
                                "terms_version": "October 1, 2026", "terms_via": None})
         self.assertEqual(self.one("SELECT COUNT(*) AS n FROM signups WHERE ok = 1")["n"], 1)
-        again = auth.sign_up(c, "sam@example.com", PW, seconds_open=10, ip="203.0.113.5", **AGREE)
+        again = auth.sign_up(c, "sam@example.com", PW, seconds_open=10, ip="203.0.113.5", **SIGNUP)
         self.assertIn("already an account", again["error"])
 
         sent = auth.start_confirmation(c, uid, ip="203.0.113.5")
@@ -251,6 +252,41 @@ class SignInTests(_PG):
         auth.set_display_name(c, uid, "  Sam   Lee ")
         self.assertEqual(self.one("SELECT display_name FROM users WHERE id = ?", (uid,)),
                          {"display_name": "Sam Lee"})
+
+    def test_invite_codes_and_the_two_confirmations(self):
+        """PLAN 1a.9: with gate L0 off a code is needed and works once; the 18+
+        and US-residency confirmations are kept with their own times."""
+        import invite_codes
+        c = self.conn
+        boss = self.user("boss.l0")
+        first, second = invite_codes.make(c, 2, by=boss, note="beta")
+        signup = dict(AGREE, seconds_open=10, needs_code=True)
+        self.assertEqual(auth.sign_up(c, "kim@example.com", PW, **signup)["error"],
+                         invite_codes.NEED_CODE)
+        made = auth.sign_up(c, "kim@example.com", PW, invite_code=invite_codes.shown(first)
+                            .lower(), **signup)
+        self.assertTrue(made["ok"], made)
+        again = auth.sign_up(c, "lou@example.com", PW, invite_code=first, **signup)
+        self.assertEqual(again["error"], invite_codes.NOT_WORKING)
+        self.assertTrue(invite_codes.revoke(c, second))
+        self.assertEqual(auth.sign_up(c, "lou@example.com", PW, invite_code=second,
+                                      **signup)["error"], invite_codes.NOT_WORKING)
+        rows = {r["code"]: r for r in invite_codes.listing(c)}
+        self.assertEqual((rows[first]["status"], rows[first]["used_by"]),
+                         ("used", "kim@example.com"))
+        self.assertEqual(rows[second]["status"], "revoked")
+        row = self.one("SELECT terms_accepted_at, age_confirmed_at, us_resident_at FROM users "
+                       "WHERE id = ?", (made["user_id"],))
+        self.assertTrue(row["age_confirmed_at"])
+        self.assertEqual(len({row["terms_accepted_at"], row["age_confirmed_at"],
+                              row["us_resident_at"]}), 1)
+        # deleting the account clears who used it; the code stays used
+        self.assertTrue(admin.delete_own(c, made["user_id"], PW)["ok"])
+        (left,) = [r for r in invite_codes.listing(c) if r["code"] == first]
+        self.assertEqual((left["status"], left["used_by"]), ("used", None))
+        self.assertFalse(invite_codes.usable(c, first))
+        c.execute("DELETE FROM signups")   # (this class shares one schema: the next
+        c.commit()                         # test counts sign-ups from zero)
 
     def test_lockout_sessions_and_changing_the_password(self):
         c = self.conn
@@ -371,8 +407,8 @@ class AdvisorTests(_PG):
     def test_asking_for_advisor_access_approved_or_declined(self):
         c = self.conn
         box = _mail(self)
-        nia = auth.sign_up(c, "nia@example.com", PW, seconds_open=10, **AGREE)["user_id"]
-        omar = auth.sign_up(c, "omar@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        nia = auth.sign_up(c, "nia@example.com", PW, seconds_open=10, **SIGNUP)["user_id"]
+        omar = auth.sign_up(c, "omar@example.com", PW, seconds_open=10, **SIGNUP)["user_id"]
         auth.request_advisor(c, nia, "Nia Wealth", "1234567")
         auth.request_advisor(c, omar, "Omar Capital", "7654321")
         self.assertEqual([r["username"] for r in auth.pending_advisor_requests(c)],
@@ -908,7 +944,7 @@ class HoldingsTests(_PG):
 
     def test_ai_allowances_and_error_events(self):
         c = self.conn
-        uid = auth.sign_up(c, "ada@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        uid = auth.sign_up(c, "ada@example.com", PW, seconds_open=10, **SIGNUP)["user_id"]
         self.assertFalse(ai_usage.status(c, uid, "chat")["ok"])   # email not confirmed yet
         c.execute("UPDATE users SET email_verified_at = '2026-10-01 10:00:00' WHERE id = ?",
                   (uid,))
@@ -1161,7 +1197,7 @@ class YearAndMapTests(_PG):
         import account_map
         from tests.test_year_map import seed
         c = self.conn
-        uid = auth.sign_up(c, "map@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        uid = auth.sign_up(c, "map@example.com", PW, seconds_open=10, **SIGNUP)["user_id"]
         seed(c, uid)
         account_map.save_account(c, uid, "Roth IRA ...641", {
             "kind": "Roth IRA", "contact": "Help line", "phone": "800-555-0101",
@@ -1198,7 +1234,7 @@ class DeleteAccountTests(_PG):
 
     def test_delete_own_and_admin_delete_clear_every_table(self):
         c = self.conn
-        uid = auth.sign_up(c, "del@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        uid = auth.sign_up(c, "del@example.com", PW, seconds_open=10, **SIGNUP)["user_id"]
         sample_data.load(c, uid)
         watchlist.add(c, uid, "VTI")
         prefs.save(c, uid, {"a": 1})
@@ -1263,7 +1299,7 @@ class DeleteAccountTests(_PG):
         self.assertIn("Kept note", record.read("notes.csv").decode())
 
         # someone never linked to an advisor: everything goes
-        eve = auth.sign_up(c, "eve.d7@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        eve = auth.sign_up(c, "eve.d7@example.com", PW, seconds_open=10, **SIGNUP)["user_id"]
         sample_data.load(c, eve)
         self.assertTrue(admin.delete_own(c, eve, PW)["ok"])
         for table, cols in admin.ACCOUNT_TABLES.items():
@@ -1516,6 +1552,7 @@ class AppTests(_KeepModules):
             c.close()
         at = self.run_app(app(self, self.dsn, uma, "uma", "Dashboard"))
         at.checkbox(key="terms_adult").check()
+        at.checkbox(key="terms_us").check()
         at.checkbox(key="terms_agree").check()
         self.run_app(at)
         at.button(key="terms_ok").click()
@@ -1614,7 +1651,8 @@ class UpgradeTests(_KeepModules):
                     "table_schema = current_schema() AND table_name = ?", (table,))}
             users = cols("users")
             for col in ("is_advisor", "email", "terms_version", "terms_via", "is_admin",
-                        "display_name", "ai_unlimited", "last_login_at"):
+                        "display_name", "ai_unlimited", "last_login_at", "age_confirmed_at",
+                        "us_resident_at"):
                 self.assertIn(col, users)
             self.assertIn("client_name", cols("advisor_clients"))
             self.assertTrue({"archived_at", "edited_at", "history", "is_message"}
@@ -1626,7 +1664,7 @@ class UpgradeTests(_KeepModules):
             self.assertEqual(cols("daily_bars")["volume"], "bigint")
             for table in ("fund_top_holdings", "proposals", "progress_reports", "two_step",
                           "error_events", "email_tokens", "advisor_requests", "csv_layouts",
-                          "former_clients"):
+                          "former_clients", "invite_codes"):
                 self.assertTrue(cols(table), table)
             self.assertEqual([r["account"] for r in conn.execute(
                 "SELECT account FROM positions UNION ALL SELECT account FROM transactions")],

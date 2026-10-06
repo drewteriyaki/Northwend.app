@@ -538,6 +538,17 @@ CREATE TABLE IF NOT EXISTS future_notes (
 );
 CREATE INDEX IF NOT EXISTS idx_future_notes_user ON future_notes (user_id, symbol);
 
+-- Invite codes - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS invite_codes (
+    code        TEXT    PRIMARY KEY,
+    note        TEXT,
+    created_by  INTEGER,
+    created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
+    used_at     TEXT,
+    used_by     INTEGER,
+    revoked_at  TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

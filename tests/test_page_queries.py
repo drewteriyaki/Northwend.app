@@ -168,7 +168,7 @@ class OneReadHelperTests(unittest.TestCase):
         import two_step
         c = self.c
         uid = auth.sign_up(c, "ann@example.com", "pw-123456789", agreed=True, adult=True,
-                           terms_version="2026-01-01", seconds_open=30)["user_id"]
+                           us_resident=True, needs_code=False, terms_version="2026-01-01", seconds_open=30)["user_id"]
         auth.set_display_name(c, uid, "Ann")
         for step in ("unconfirmed", "confirmed", "advisor", "unlimited"):
             if step == "confirmed":

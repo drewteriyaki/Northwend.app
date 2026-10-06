@@ -602,6 +602,20 @@ CREATE TABLE IF NOT EXISTS future_notes (
 );
 CREATE INDEX IF NOT EXISTS idx_future_notes_user ON future_notes (user_id, symbol);
 
+-- Invite codes (invite_codes.py): while gate L0 is off, Create account needs one.
+-- Made by an admin, each works once. Kept as typed (single-use, low value; the
+-- admin hands unused ones out again). Deleting an account clears created_by /
+-- used_by (admin.ACCOUNT_REFERENCES); a used code stays used.
+CREATE TABLE IF NOT EXISTS invite_codes (
+    code        TEXT    PRIMARY KEY,             -- 8 characters, no look-alikes
+    note        TEXT,                            -- the admin's note: who it's for
+    created_by  INTEGER,                         -- the admin who made it
+    created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
+    used_at     TEXT,                            -- NULL until it's used
+    used_by     INTEGER,                         -- the account it made
+    revoked_at  TEXT                             -- NULL unless the admin stopped it
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);

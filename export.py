@@ -60,7 +60,8 @@ OWN = [
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
 ACCOUNT_COLUMNS = ("username", "email", "email_verified_at", "created_at", "last_login_at",
-                   "terms_version", "terms_accepted_at", "terms_via", "is_advisor")
+                   "terms_version", "terms_accepted_at", "terms_via", "age_confirmed_at",
+                   "us_resident_at", "is_advisor")
 # the advisor's working record, not part of what the client was shown
 LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"}}
 
@@ -69,7 +70,9 @@ README = """Everything Northwend holds for your account, exported {when} UTC.
 One CSV file per kind of data; a file is left out when there's nothing in it.
 Open them in any spreadsheet. Dates are UTC.
 
-- account.csv: your login and email, and when the account was made
+- account.csv: your login and email, when the account was made, and when you
+  agreed to the About and disclosures and confirmed you're 18 or older and
+  live in the United States
 - holdings.csv, snapshots.csv, cash.csv: what you imported or entered
 - activity.csv, value_history.csv: buys, sells and value over time
 - plan.csv, contributions.csv, profile.csv: your goals and answers
@@ -175,7 +178,9 @@ Open them in any spreadsheet. Times are UTC.
 
 - client.csv: who the client is, and when they agreed to Northwend's About and
   disclosures (terms_version, terms_accepted_at; terms_via says where, when it
-  wasn't at sign-up)
+  wasn't at sign-up) and confirmed they're 18 or older and live in the United
+  States (age_confirmed_at, us_resident_at - empty if they agreed before these
+  were kept on their own)
 - notes.csv: your reviews, notes, next steps and messages - archived ones too
   (archived_at), private ones marked (private = 1), messages sent with Message
   clients marked (is_message = 1)
@@ -194,7 +199,8 @@ Only what you recorded for this client in Northwend. Keep it with your firm's
 own records: Northwend isn't a record-keeping system for advisers.
 """
 CLIENT_COLUMNS = ("username", "display_name", "email", "email_verified_at", "created_at",
-                  "last_login_at", "terms_version", "terms_accepted_at", "terms_via")
+                  "last_login_at", "terms_version", "terms_accepted_at", "terms_via",
+                  "age_confirmed_at", "us_resident_at")
 NOTE_COLUMNS = ("id", "kind", "note_date", "body", "private", "done", "is_message",
                 "created_at", "edited_at", "archived_at")
 PROPOSAL_COLUMNS = ("id", "title", "mix_json", "note", "status", "created_at", "updated_at",

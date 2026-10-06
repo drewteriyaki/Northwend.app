@@ -37,6 +37,7 @@ import friendly_errors
 import fund_holdings
 import hosting
 import income
+import invite_codes
 import learn
 import live_prices
 import mailer
@@ -738,6 +739,10 @@ def _toggle_about():
     st.session_state["show_about"] = not st.session_state.get("show_about")
 
 
+# asked beside "I'm 18 or older" wherever that box is (decision D10)
+US_RESIDENT_BOX = "I live in the United States"
+
+
 def _invite_setup(token: str) -> bool:
     """The page a client's setup link opens: choose a password for the
     account their advisor made, then they're signed in. False until then."""
@@ -765,8 +770,9 @@ def _invite_setup(token: str) -> bool:
             pw = st.text_input("Choose a password", type="password", key="invite_pw",
                                help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
             again = st.text_input("Type it again", type="password", key="invite_pw_again")
-            # the same two boxes as Create account: a client agrees here, once
+            # the same boxes as Create account: a client agrees here, once
             adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="invite_adult")
+            us_resident = st.checkbox(US_RESIDENT_BOX, key="invite_us")
             agreed = st.checkbox("I've read and agree to the About and disclosures",
                                  key="invite_agree",
                                  help="What the app is, what's stored and what's sent to the "
@@ -791,6 +797,7 @@ def _invite_setup(token: str) -> bool:
     conn = connect(DB)
     try:
         result = auth.accept_invite(conn, token, pw, agreed=agreed, adult=adult,
+                                    us_resident=us_resident,
                                     terms_version=disclosures.LAST_UPDATED)
         if result["ok"]:
             # they just agreed to this version, so no "worth a quick read"
@@ -839,6 +846,7 @@ def _signup() -> bool:
     ?signup=advisor to start on the advisor choice. False until it's made."""
     # when the form first appeared - one sent sooner than a person could is asked again
     st.session_state.setdefault("signup_opened", time.time())
+    need_code = auth.invite_only()   # while gate L0 is off (setup links never need one)
     st.session_state.setdefault("signup_role", "advisor" if st.query_params.get("signup")
                                 == "advisor" else "investor")
     _, mid, _ = st.columns([1, 1.4, 1])
@@ -852,8 +860,12 @@ def _signup() -> bool:
         role = st.segmented_control("How will you use Northwend?", list(SIGNUP_ROLES),
                                     format_func=SIGNUP_ROLES.get, key="signup_role",
                                     width="stretch") or "investor"
-        firm = licence = ""
+        firm = licence = code = ""
         with st.form("signup_form", border=True):
+            if need_code:   # gate L0 off: a small beta, by invite code (invite_codes.py)
+                st.markdown(invite_codes.BETA_LINE)
+                code = st.text_input("Invite code", key="signup_code", max_chars=20,
+                                     placeholder="ABCD-EFGH")
             email = st.text_input("Email", key="signup_email", autocomplete="email",
                                   placeholder="name@example.com")
             pw = st.text_input("Choose a password", type="password", key="signup_pw",
@@ -873,6 +885,7 @@ def _signup() -> bool:
                                         help="Your individual CRD number (FINRA BrokerCheck) or "
                                              "the licence number where you're registered.")
             adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="signup_adult")
+            us_resident = st.checkbox(US_RESIDENT_BOX, key="signup_us")
             agreed = st.checkbox("I've read and agree to the About and disclosures",
                                  key="signup_agree",
                                  help="What the app is, what's stored and what's sent to the "
@@ -903,6 +916,8 @@ def _signup() -> bool:
     conn = connect(DB)
     try:
         result = auth.sign_up(conn, email, pw, agreed=agreed, adult=adult,
+                              us_resident=us_resident, invite_code=code,
+                              needs_code=need_code,
                               terms_version=disclosures.LAST_UPDATED,
                               ip=_visitor_ip(),
                               seconds_open=time.time() - st.session_state["signup_opened"],
@@ -1956,7 +1971,8 @@ if PAGE == "About" and st.session_state["disclosures_seen"] != disclosures.LAST_
 
 def _agree_now():
     """The one-time ask below: keep that this login agreed, and to which version."""
-    if not (st.session_state.get("terms_adult") and st.session_state.get("terms_agree")):
+    if not (st.session_state.get("terms_adult") and st.session_state.get("terms_us")
+            and st.session_state.get("terms_agree")):
         return
     c = connect(DB)
     try:
@@ -1978,10 +1994,12 @@ if not _me["agreed"] and not IS_ADMIN:
                     "and disclosures - what it is, how your data is used and what's sent to "
                     "the AI - and agree to them. You only need to do this once.")
         st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="terms_adult")
+        st.checkbox(US_RESIDENT_BOX, key="terms_us")
         st.checkbox("I've read and agree to the About and disclosures", key="terms_agree")
         with st.container(horizontal=True):
             st.button("Agree", key="terms_ok", type="primary", on_click=_agree_now,
                       disabled=not (st.session_state.get("terms_adult")
+                                    and st.session_state.get("terms_us")
                                     and st.session_state.get("terms_agree")))
             if PAGE != "About":
                 st.button("Read it", key="terms_read", type="tertiary", on_click=_go,

@@ -38,7 +38,8 @@ account, contact us and we will delete it.
 - A one-way hash of your password (never the password itself).
 - The name you'd like to be called, if you give one.
 - When the account was made and when you last signed in; which version of the
-  terms you agreed to, and when.
+  terms you agreed to, and when; when you confirmed you're 18 or older and live
+  in the United States. If you joined with an invite code: which code, and when.
 - If you turn on two-step sign-in: the key your authenticator app uses (stored so
   codes can be checked) and your backup codes as hashes.
 - "Stay signed in": a random token in a cookie on your device; we store only a hash.

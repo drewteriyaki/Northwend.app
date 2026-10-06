@@ -101,6 +101,7 @@ class ApprovalEmailTests(_DB, unittest.TestCase):
     def setUp(self):
         super().setUp()
         made = auth.sign_up(self.conn, "dana@example.com", "goodpass1", agreed=True, adult=True,
+                            us_resident=True, needs_code=False,
                             terms_version="v", seconds_open=10)
         self.uid = made["user_id"]
         auth.request_advisor(self.conn, self.uid, "Ruiz Wealth", "1234567")
@@ -143,6 +144,7 @@ class ApprovalEmailTests(_DB, unittest.TestCase):
         (mail,) = self.outbox.to("dana@example.com")
         self.assertIn(admin.DEFAULT_APP_URL, mail["text"])   # no APP_URL set here
         other = auth.sign_up(self.conn, "lee@example.com", "goodpass1", agreed=True, adult=True,
+                             us_resident=True, needs_code=False,
                              terms_version="v", seconds_open=10)
         auth.request_advisor(self.conn, other["user_id"], "Lee & Co", "7654321")
         code, out = self._cli("decline-advisor", "lee@example.com")
@@ -238,7 +240,8 @@ class LogicTests(_DB, unittest.TestCase):
         self.assertFalse(auth.has_signed_in(self.conn, cid))
         token = auth.create_invite(self.conn, carol, cid)
         self.assertTrue(auth.accept_invite(self.conn, token, "clientpass1", agreed=True,
-                                           adult=True, terms_version="v")["ok"])
+                                           adult=True, us_resident=True,
+                                           terms_version="v")["ok"])
         self.assertTrue(auth.has_signed_in(self.conn, cid))
 
     def test_report_email_says_sign_in_and_carries_no_figures(self):

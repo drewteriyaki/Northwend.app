@@ -360,7 +360,8 @@ class AccountMapTests(_DB):
     def test_in_export_everything_never_in_an_advisors_record_and_deleted(self):
         c = self.conn
         uid = auth.sign_up(c, "fay.map@example.com", PW, seconds_open=10, agreed=True,
-                           adult=True, terms_version="October 1, 2026")["user_id"]
+                           adult=True, us_resident=True, needs_code=False,
+                           terms_version="October 1, 2026")["user_id"]
         account_map.save_family(c, uid, "Call our lawyer first")
         z = zipfile.ZipFile(io.BytesIO(export.export_zip(c, uid)))
         self.assertIn("account_map.csv", z.namelist())

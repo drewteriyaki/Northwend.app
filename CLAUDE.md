@@ -62,7 +62,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   holdings from Yahoo, fetched only when the window opens, kept a week in the shared
   `fund_top_holdings` table; yield on cost is `income.yield_on_cost`).
 - People: `auth.py` (logins, sessions, client setup links, self-serve sign-up,
-  confirm / reset links, advisor requests), `two_step.py` + `views/two_step.py`
+  confirm / reset links, advisor requests; sign-up needs an invite code from `invite_codes.py`
+  while gate L0 is off - the live app sets `NORTHWEND_GATES = "L0"`), `two_step.py` + `views/two_step.py`
   (two-step sign-in: `_two_step_gate()` runs inside `_login()` after any way in;
   required for advisors and admins - an AppTest signing one in sets
   `two_step_ok`, see tests/test_menu.py; `manage_users.py reset-two-step`), `admin.py` + `views/admin.py` (the

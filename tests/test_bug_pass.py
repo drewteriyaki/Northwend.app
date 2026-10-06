@@ -289,7 +289,7 @@ class ConfirmLinkAgainTests(_DB):
     def test_reopened_link(self):
         c = self.conn
         made = auth.sign_up(c, "sam@example.com", "pw-123456789", agreed=True, adult=True,
-                            terms_version="v", seconds_open=10, now=NOW)
+                            us_resident=True, needs_code=False, terms_version="v", seconds_open=10, now=NOW)
         token = auth.start_confirmation(c, made["user_id"], now=NOW)["token"]
         first = auth.confirm_email(c, token, now=NOW)
         self.assertEqual((first["ok"], first["already"]), (True, False))

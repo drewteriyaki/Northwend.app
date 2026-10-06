@@ -186,12 +186,17 @@ def login_facts_of(row) -> dict:
 # agreeing to the About and disclosures
 # --------------------------------------------------------------------------- #
 # Everyone agrees once, and the version agreed to is kept with the time
-# (users.terms_version, terms_accepted_at): at sign-up (sign_up), at a client's
+# (users.terms_version, terms_accepted_at), next to the two confirmations
+# asked with it, each with its own time (decision D10): 18 or older
+# (age_confirmed_at) and living in the United States (us_resident_at). At sign-up (sign_up), at a client's
 # setup link (accept_invite), or - for an account an advisor or admin made
 # that got in some other way - once at their next sign-in (record_agreement).
 # terms_via says where when it wasn't sign-up. NULL means sign-up, so an
 # account that made itself is still told apart from one an admin or advisor
 # made (made_by_themselves: admin.py, proposals.who_to_tell, weekly_email).
+# Accounts that agreed before the two confirmations had fields of their own
+# have them NULL (their 18+ box was part of that agreement) and aren't asked
+# again.
 TERMS_VIA_SETUP_LINK = "setup link"
 TERMS_VIA_SIGN_IN = "sign-in"
 
@@ -208,10 +213,13 @@ def has_agreed(conn, user_id: int) -> bool:
     return bool(row and row["terms_version"])
 
 
-def agreement_error(*, agreed: bool, adult: bool) -> str | None:
-    """What's missing from the two checkboxes (as at sign-up), or None."""
+def agreement_error(*, agreed: bool, adult: bool, us_resident: bool) -> str | None:
+    """What's missing from the three checkboxes (as at sign-up), or None."""
     if not adult:
         return "Accounts are for people 18 and over - tick the box to confirm."
+    if not us_resident:
+        return ("For now Northwend is for people who live in the United States - tick the "
+                "box to confirm.")
     if not agreed:
         return "Tick the box to agree to the About and disclosures."
     return None
@@ -222,13 +230,16 @@ def record_agreement(conn, user_id: int, terms_version: str, *, via: str,
     """Keep that this login agreed to `terms_version` of the disclosures, and
     when - for an account that didn't come through sign-up (`via`:
     TERMS_VIA_SETUP_LINK or TERMS_VIA_SIGN_IN). An account that had already
-    agreed keeps where it first did."""
+    agreed keeps where it first did. The caller asked all three boxes
+    (agreement_error), so the 18+ and US-residency confirmations are kept
+    with the same time (age_confirmed_at, us_resident_at - D10)."""
     if not terms_version:
         raise ValueError("which version of the disclosures was agreed to?")
     stamp = _utc(now or datetime.now(timezone.utc))
     conn.execute("UPDATE users SET terms_via = CASE WHEN terms_version IS NULL THEN ? "
-                 "ELSE terms_via END, terms_version = ?, terms_accepted_at = ? WHERE id = ?",
-                 (via, terms_version, stamp, user_id))
+                 "ELSE terms_via END, terms_version = ?, terms_accepted_at = ?, "
+                 "age_confirmed_at = ?, us_resident_at = ? WHERE id = ?",
+                 (via, terms_version, stamp, stamp, stamp, user_id))
     if commit:
         conn.commit()
 
@@ -430,11 +441,12 @@ def cancel_invite(conn, client_id: int) -> None:
 
 
 def accept_invite(conn, token: str, password: str, *, agreed: bool = False,
-                  adult: bool = False, terms_version: str | None = None,
+                  adult: bool = False, us_resident: bool = False,
+                  terms_version: str | None = None,
                   now: datetime | None = None) -> dict:
     """The client sets their password from a setup link and agrees to the
-    About and disclosures, as at sign-up: `agreed` / `adult` are the form's
-    two checkboxes and `terms_version` the version agreed to (kept with the
+    About and disclosures, as at sign-up: `agreed` / `adult` / `us_resident`
+    are the form's three checkboxes and `terms_version` the version agreed to (kept with the
     time - record_agreement), all required. The link is used up (it can't
     set the password again), and any other sign-ins of that account end.
     Returns {"ok", "error", "user_id", "username"}."""
@@ -445,7 +457,8 @@ def accept_invite(conn, token: str, password: str, *, agreed: bool = False,
     if len(password) < MIN_PASSWORD_LENGTH:
         return {"ok": False, "error": f"Use a password of at least {MIN_PASSWORD_LENGTH} "
                 "characters.", "user_id": None, "username": None}
-    missing = agreement_error(agreed=agreed and bool(terms_version), adult=adult)
+    missing = agreement_error(agreed=agreed and bool(terms_version), adult=adult,
+                              us_resident=us_resident)
     if missing:
         return {"ok": False, "error": missing, "user_id": None, "username": None}
     record_agreement(conn, info["user_id"], terms_version, via=TERMS_VIA_SETUP_LINK,
@@ -489,15 +502,28 @@ def _address_key(ip: str | None) -> str:
     return hashlib.sha256(ip.encode("utf-8")).hexdigest() if ip else ""
 
 
+def invite_only() -> bool:
+    """Whether Create account needs an invite code: while gate L0 is off
+    (flags.py; docs/LEGAL_GATES.md). Setup links, admin-made accounts and
+    signing in never do."""
+    import flags
+    return not flags.gate("L0")
+
+
 def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
-            terms_version: str, ip: str | None = None, seconds_open: float = 0,
-            honeypot: str = "", now: datetime | None = None) -> dict:
+            us_resident: bool = False, terms_version: str, ip: str | None = None,
+            seconds_open: float = 0, honeypot: str = "", invite_code: str | None = None,
+            needs_code: bool | None = None, now: datetime | None = None) -> dict:
     """Create an account from the sign-up form: the email (lower-cased) is
-    both the login and the address, not yet confirmed. `agreed` / `adult` are
-    the form's two checkboxes; `terms_version` is the disclosures version
-    agreed to (stored with the time). `seconds_open` is how long the form was
-    on screen and `honeypot` the hidden field. Returns {"ok", "error",
-    "user_id", "username"}."""
+    both the login and the address, not yet confirmed. `agreed` / `adult` /
+    `us_resident` are the form's three checkboxes; `terms_version` is the
+    disclosures version agreed to (stored with the time, as are the two
+    confirmations). `seconds_open` is how long the form was on screen and
+    `honeypot` the hidden field. `needs_code` (default invite_only(): gate
+    L0 off) asks for `invite_code`, one the admin made (invite_codes.py),
+    used up with the account. Returns {"ok", "error", "user_id",
+    "username"}."""
+    import invite_codes
     def fail(msg):
         return {"ok": False, "error": msg, "user_id": None, "username": None}
 
@@ -513,8 +539,13 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
         return fail("Enter your email address, like name@example.com.")
     if len(password or "") < MIN_PASSWORD_LENGTH:
         return fail(f"Use a password of at least {MIN_PASSWORD_LENGTH} characters.")
-    if agreement_error(agreed=agreed, adult=adult):
-        return fail(agreement_error(agreed=agreed, adult=adult))
+    if needs_code is None:
+        needs_code = invite_only()
+    if needs_code and not invite_codes.normalize(invite_code):
+        return fail(invite_codes.NEED_CODE)
+    missing = agreement_error(agreed=agreed, adult=adult, us_resident=us_resident)
+    if missing:
+        return fail(missing)
 
     hour_ago, day_ago = _utc(now - timedelta(hours=1)), _utc(now - timedelta(days=1))
     if key:
@@ -531,14 +562,25 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
     if seconds_open < SIGNUP_MIN_SECONDS:
         return fail("That was quick! Check your details and press Create account again.")
 
+    # a wrong code counts as a try, so codes can't be guessed quickly
+    if needs_code and not invite_codes.usable(conn, invite_code):
+        _note_signup(conn, key, stamp, ok=False)
+        return fail(invite_codes.NOT_WORKING)
     taken = conn.execute("SELECT 1 FROM users WHERE lower(username) = ? OR email = ?",
                          (email, email)).fetchone()
     if taken:  # counted, so the form can't be used to check many emails quickly
         _note_signup(conn, key, stamp, ok=False)
         return fail("There's already an account with this email. Sign in instead.")
-    user_id = create_user(conn, email, password)
-    conn.execute("UPDATE users SET email = ?, terms_version = ?, terms_accepted_at = ? "
-                 "WHERE id = ?", (email, terms_version, stamp, user_id))
+    if needs_code and not invite_codes.claim(conn, invite_code, stamp):
+        conn.rollback()   # used by someone else a moment ago
+        _note_signup(conn, key, stamp, ok=False)
+        return fail(invite_codes.NOT_WORKING)
+    user_id = create_user(conn, email, password)   # commits the claim with it
+    conn.execute("UPDATE users SET email = ?, terms_version = ?, terms_accepted_at = ?, "
+                 "age_confirmed_at = ?, us_resident_at = ? WHERE id = ?",
+                 (email, terms_version, stamp, stamp, stamp, user_id))
+    if needs_code:
+        invite_codes.record_user(conn, invite_code, user_id, stamp)
     _note_signup(conn, key, stamp, ok=True)
     return {"ok": True, "error": None, "user_id": user_id, "username": email}
 

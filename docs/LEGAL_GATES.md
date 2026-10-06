@@ -26,7 +26,7 @@ data.
 
 | Gate | What the lawyer signs off | Proposed flag | When it is off |
 |---|---|---|---|
-| **L0** Beta baseline | Terms, Privacy Policy, the "educational, not advice" disclosure, 18+ and US-residency attestation, account deletion and export | `NORTHWEND_GATE_L0` | No open self-serve sign-up. Existing accounts, setup links and admin-made accounts work as today. |
+| **L0** Beta baseline | Terms, Privacy Policy, the "educational, not advice" disclosure, 18+ and US-residency attestation, account deletion and export | `NORTHWEND_GATE_L0` (built as `L0` in `NORTHWEND_GATES`, `flags.gate("L0")`) | No open self-serve sign-up: Create account asks for an invite code first ("Northwend is in a small beta. If you have an invite code, enter it here."). The admin makes codes in Admin > Invite codes; each works once (`invite_codes.py`, step 1a.9). Signing in, setup links and admin-made accounts work as today. |
 | **L1** Advisor seats and billing | Advisor agreement text, billing copy, the flat-fee-only structure, seat lapse | `NORTHWEND_GATE_L1` (and a separate `NORTHWEND_BILLING` feature flag, as the brief asks for both) | Advisor seats are free beta seats. The agreement is shown marked "beta". No price, checkout or billing screen. No call to the payment provider. |
 | **L2** Directory and intro flow | Directory copy, filters, ordering rule, the two-step consent text, the standing "advice is the advisor's" line, state coverage | `NORTHWEND_GATE_L2` | No directory, no "Find a guide" link, no intro requests. Advisors add clients by setup link, as today. The standing line uses interim text. |
 | **L3** Conclusion policy | The example-mix rewrite and Ask Northwend's conclusion policy, with the eval set as evidence | `NORTHWEND_GATE_L3` | Anything worked out from a person's answers shows its most careful form (see below). |
@@ -49,7 +49,9 @@ gate needs both to be on.
 **Today's live copy has open sign-up.** With L0 off by default, the next
 deploy would close self-serve sign-up unless the secret is set. That matches
 the brief (the Terms and Privacy Policy are still drafts - audit 1.10a). It is
-an owner decision to make before the flag ships.
+an owner decision to make before the flag ships. *(Step 1a.9 built it: to keep
+sign-up open, set `NORTHWEND_GATES = "L0"` in the live app's secrets before
+that release; without it, sign-up there needs an invite code.)*
 
 **Standing rules (brief 9.5) that touch this file:** never build toward L4;
 never add usage-based billing; never rank the directory; never let a helper
@@ -87,7 +89,7 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 | # | Feature | Where | Class | Gate | Prescriptive today? |
 |---|---|---|---|---|---|
 | A1 | Sign in, stay signed in, sessions | `dashboard.py` `_login`, `auth.py` | Account | L0 | No |
-| A2 | Self-serve sign-up ("I'm 18 or older" box, agreeing to the disclosures) | `dashboard.py:818`, `auth.py:199-222` | Account | L0 | No. No US-residency question yet (L0 needs one). |
+| A2 | Self-serve sign-up ("I'm 18 or older" box, agreeing to the disclosures) | `dashboard.py:818`, `auth.py:199-222` | Account | L0 | No. "I live in the United States" is asked beside the 18+ box, both kept with their times (step 1a.9). |
 | A3 | Setup link from an advisor or admin | `dashboard.py:730`, `auth.py` | Account | L0 | No |
 | A4 | Confirm email, change email, reset password | `auth.py`, `mailer.py:112-144`, `mailer.py:314` | Account | L0 | No |
 | A5 | Two-step sign-in (required for advisors and admins) | `two_step.py`, `views/two_step.py` | Account | L0 | No |

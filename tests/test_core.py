@@ -1145,7 +1145,8 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(auth.invite_info(self.conn, token, now=now)["username"], "jsmith")
         self.assertEqual(auth.pending_invite(self.conn, cid, now=now), "2026-10-07 12:00:00")
 
-        agree = dict(agreed=True, adult=True, terms_version="October 1, 2026")
+        agree = dict(agreed=True, adult=True, us_resident=True,
+                     terms_version="October 1, 2026")
         short = auth.accept_invite(self.conn, token, "short", now=now, **agree)
         self.assertFalse(short["ok"])                               # still usable after this
         ok = auth.accept_invite(self.conn, token, "clientpass1", now=now, **agree)
@@ -1242,8 +1243,8 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         super().tearDown()
 
     def _sign_up(self, email="New.Person@Example.com", password="goodpass1", **kw):
-        args = dict(agreed=True, adult=True, terms_version="October 1, 2026",
-                    ip="203.0.113.7", seconds_open=10, now=self.NOW)
+        args = dict(agreed=True, adult=True, us_resident=True, terms_version="October 1, 2026",
+                    ip="203.0.113.7", seconds_open=10, now=self.NOW, needs_code=False)
         args.update(kw)
         return auth.sign_up(self.conn, email, password, **args)
 
@@ -1590,7 +1591,7 @@ class ClientOnboardingTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(sent["from_name"], "Sam Advisor, Acme")
         self.assertIn(f"?invite={token}", sent["text"])
         self.assertTrue(auth.accept_invite(conn, token, "clientpass1", agreed=True, adult=True,
-                                           terms_version="v")["ok"])
+                                           us_resident=True, terms_version="v")["ok"])
         self.assertTrue(auth.email_status(conn, cid)["confirmed"])   # the advisor vouched
         self.assertEqual(auth.verify_login(conn, "Pat.Client@example.com", "clientpass1"), cid)
         conn.close()
@@ -1928,6 +1929,7 @@ class AdvisorRequestTests(TempDBMixin, unittest.TestCase):
         super().setUp()
         self.conn = portfolio.connect(self.db)
         made = auth.sign_up(self.conn, "adv@example.com", "goodpass1", agreed=True, adult=True,
+                            us_resident=True, needs_code=False,
                             terms_version="v", seconds_open=10)
         self.uid = made["user_id"]
 
@@ -1996,7 +1998,7 @@ class EmailLinkTests(TempDBMixin, unittest.TestCase):
         super().setUp()
         self.conn = portfolio.connect(self.db)
         made = auth.sign_up(self.conn, "Pat@Example.com", "firstpass1", agreed=True, adult=True,
-                            terms_version="v", ip="203.0.113.9", seconds_open=10, now=self.NOW)
+                            us_resident=True, needs_code=False, terms_version="v", ip="203.0.113.9", seconds_open=10, now=self.NOW)
         self.uid = made["user_id"]
 
     def tearDown(self):

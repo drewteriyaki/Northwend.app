@@ -34,7 +34,8 @@ import two_step  # noqa: E402
 import weekly_email  # noqa: E402
 
 NOW = datetime(2026, 10, 4, 12, tzinfo=timezone.utc)
-AGREE = dict(agreed=True, adult=True, terms_version="October 1, 2026")
+AGREE = dict(agreed=True, adult=True, us_resident=True, terms_version="October 1, 2026")
+SIGNUP = dict(AGREE, needs_code=False)   # (open sign-up: gate L0 on)
 
 
 class _DB(unittest.TestCase):
@@ -68,11 +69,16 @@ class ConsentTests(_DB):
                                     terms_version="v", now=NOW)
         self.assertEqual((no_age["ok"], no_age["error"]), (False, "Accounts are for people 18 "
                                                            "and over - tick the box to confirm."))
+        no_us = auth.accept_invite(self.conn, token, "clientpass1", agreed=True, adult=True,
+                                   terms_version="v", now=NOW)
+        self.assertEqual((no_us["ok"], no_us["error"]),
+                         (False, "For now Northwend is for people who live in the United "
+                                 "States - tick the box to confirm."))
         no_agree = auth.accept_invite(self.conn, token, "clientpass1", adult=True,
-                                      terms_version="v", now=NOW)
+                                      us_resident=True, terms_version="v", now=NOW)
         self.assertEqual(no_agree["error"], "Tick the box to agree to the About and disclosures.")
         no_version = auth.accept_invite(self.conn, token, "clientpass1", agreed=True, adult=True,
-                                        now=NOW)
+                                        us_resident=True, now=NOW)
         self.assertFalse(no_version["ok"])
         # none of those used the link up or set anything
         self.assertIsNotNone(auth.invite_info(self.conn, token, now=NOW))
@@ -109,12 +115,12 @@ class ConsentTests(_DB):
         row = self._row(self.carol)
         self.assertEqual((row["terms_version"], row["terms_via"]), ("v2", auth.TERMS_VIA_SIGN_IN))
         # a real sign-up is still told apart
-        made = auth.sign_up(self.conn, "sam@example.com", "pw-123456789", seconds_open=10, **AGREE)
+        made = auth.sign_up(self.conn, "sam@example.com", "pw-123456789", seconds_open=10, **SIGNUP)
         self.assertTrue(auth.made_by_themselves(self._row(made["user_id"])))
 
     def test_licence_checked_is_what_the_admin_sees(self):
         nia = auth.sign_up(self.conn, "nia@example.com", "pw-123456789", seconds_open=10,
-                           **AGREE)["user_id"]
+                           **SIGNUP)["user_id"]
         auth.request_advisor(self.conn, nia, "Nia Wealth", "1234567")
         admin.approve_advisor(self.conn, "nia@example.com")
         rows = {a["id"]: a for a in admin.list_accounts(self.conn)}
@@ -383,6 +389,7 @@ class PageTests(unittest.TestCase):
             finally:
                 c.close()
             at.checkbox(key="invite_adult").check()
+            at.checkbox(key="invite_us").check()
             at.checkbox(key="invite_agree").check()
             at.text_input(key="invite_pw").input("clientpass1")
             at.text_input(key="invite_pw_again").input("clientpass1")
@@ -410,6 +417,7 @@ class PageTests(unittest.TestCase):
             self.assertNotIn("Archived note", text)
             self.assertNotIn("note_archive_", " ".join(b.key or "" for b in at.button))
             at.checkbox(key="terms_adult").check().run()
+            at.checkbox(key="terms_us").check().run()
             at.checkbox(key="terms_agree").check().run()
             at.button(key="terms_ok").click().run()
             self.assertNotIn("terms_ok", [b.key for b in at.button])

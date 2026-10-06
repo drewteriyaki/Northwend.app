@@ -30,7 +30,9 @@ for your brokerage login.
 
 - You must be **18 or older**.
 - Northwend is offered **only to people in the United States**. [OWNER: confirm
-  US-only; the app does not currently check location.] [LAWYER: whether to state
+  US-only; people confirm "I live in the United States" next to "I'm 18 or
+  older" when they agree, and both are kept with their date, but the app does
+  not check location.] [LAWYER: whether to state
   that use from outside the US is at the user's own risk and not permitted.]
 - You must be able to agree to these terms. If you use Northwend for a business
   (for example an advisory firm), you agree for that business too.
