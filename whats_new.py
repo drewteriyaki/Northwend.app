@@ -29,6 +29,8 @@ ENTRIES = [
          "Agreeing to share your account with an advisor, and stopping, is now noted with "
          "the words you were shown. You'll find it under Your sharing record, and in your "
          "data download.",
+         "Proposals, progress reports and messages from an advisor now say plainly whose "
+         "advice it is: theirs, with their name and firm - not Northwend's.",
      ]},
     {"date": "2026-10-06", "title": "Our Terms of Use and Privacy Policy",
      "items": [
