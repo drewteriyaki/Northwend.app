@@ -2128,7 +2128,7 @@ class AdvisorRequestTests(TempDBMixin, unittest.TestCase):
                                         lambda to, subject, text, html=None: sent.update(
                                             to=to, subject=subject, text=text) or True):
             mailer.advisor_request("adv@example.com", "Acme Wealth", "1234567")
-        self.assertEqual(sent["to"], mailer.REPLY_TO)
+        self.assertEqual(sent["to"], mailer._admin_to())   # the admin, not support@
         self.assertIn("Acme Wealth", sent["subject"])
         self.assertIn("make-advisor adv@example.com", sent["text"])
 

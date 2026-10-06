@@ -17,7 +17,7 @@ name: Scheduled sync (hosted Postgres)
 #   APP_URL           the app's address, for the link in the email
 #   NORTHWEND_FLAGS   the walk reminders go out only when it lists "walk" (flags.py)
 # A job that fails emails the admin (error_alerts.py, at most once an hour per
-# job) with RESEND_API_KEY, to the ALERT_EMAIL secret or support@northwend.app.
+# job) with RESEND_API_KEY, to the ALERT_EMAIL secret or admin@northwend.app.
 # The refresh job covers every account (--all-users, each ticker fetched
 # once); sync_history.py is account-agnostic too, since market data is
 # shared across accounts.

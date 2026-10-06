@@ -119,3 +119,19 @@ All in `flags.py`, read from `NORTHWEND_FLAGS` and `NORTHWEND_GATES`
 
 Tests check that every name in `flags.FEATURES` is checked somewhere, and
 that no L4 exists.
+
+## Limits, and when something goes wrong
+
+Each kind of abuse has a limit next to the thing it guards: sign-in and
+sign-up per address and per username, and email sends (`auth.py`), AI
+allowances and the app-wide AI ceiling (`ai_usage.py`, `ai_spend.py`), and
+how often one login reads uploaded files, saves holdings or activity and
+builds ZIP or PDF downloads (`rate_limits.py`, checked through dashboard
+`_limit_ok` / `_upload_ok`; an advisor in a client's account counts as the
+advisor). They keep counts, never what was typed, uploaded or saved, and say
+something calm when one is reached. Admin > System lists the upload and save limits.
+
+If data may have been exposed, changed or lost, follow the RUNBOOK's
+[incident and breach response](RUNBOOK.md#if-something-goes-wrong-incident-and-breach-response):
+how to tell what happened, the first hour, who to tell and how fast, the
+email to affected people, and the checklist afterwards.

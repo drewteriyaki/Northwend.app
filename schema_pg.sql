@@ -487,7 +487,8 @@ CREATE TABLE IF NOT EXISTS former_clients (
     PRIMARY KEY (advisor_id, client_id)
 );
 
--- Emails asked for - see the matching comment in schema.sql.
+-- Emails asked for, and the other day-long limit counts (rate_limits.py) - see
+-- the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS email_sends (
     email_key    TEXT NOT NULL,
     address_key  TEXT NOT NULL,                  -- '' if unknown

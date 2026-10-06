@@ -550,7 +550,11 @@ CREATE TABLE IF NOT EXISTS former_clients (
 );
 
 -- Emails asked for, for the limits on them (auth._email_limit). Hashes of the
--- email typed and the internet address only; kept for a day.
+-- email typed and the internet address only; kept for a day. The same day-long
+-- counts serve the other per-account limits: advisors' client checks
+-- ('client_check') and how often a login uploads, saves and builds downloads
+-- (rate_limits.py: 'limit_upload' / 'limit_save' / 'limit_export', keyed by a
+-- hash of the login's id) - counts only, never what was done.
 CREATE TABLE IF NOT EXISTS email_sends (
     email_key    TEXT NOT NULL,
     address_key  TEXT NOT NULL,                  -- '' if unknown

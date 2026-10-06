@@ -19,7 +19,9 @@ What goes:
 - Wrong-password counts (login_failures) not added to for a day whose lock has
   run out, and the day-old sign-up and email-send counts (signups,
   email_sends) - the app clears these only when the next one comes in. The
-  no-account decoder's counts are signups rows too (decoder_public.py).
+  no-account decoder's counts are signups rows too (decoder_public.py), and
+  the upload, save and download counts per login are email_sends rows
+  (rate_limits.py).
 - One-minute price bars (intraday_bars '1m') older than 8 days: Yahoo serves
   7 days of them (perf.INTRADAY_INTERVALS); daily bars stay. The quote table's
   minute rows are trimmed by the history sync (live_prices.trim_history).
@@ -47,7 +49,7 @@ from portfolio import connect
 
 UNCONFIRMED_DAYS = 30     # D5: self-made accounts never confirmed
 ERROR_EVENT_DAYS = 90     # D5: error records
-COUNT_DAYS = 1            # D5: wrong-password, sign-up and email-send counts
+COUNT_DAYS = 1            # D5: wrong-password, sign-up, email-send and upload/save counts
 MINUTE_BAR_DAYS = 8       # D5: minute-by-minute prices, a week (+1 day of slack)
 ADMIN_LOG_DAYS = 365      # D5: the admin action log
 SYSTEM = -1               # `by` for admin.delete_account: no person, the nightly job

@@ -128,6 +128,11 @@ Each statement about data here must stay true to the code:
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
   manual_entry.PCT_SOURCE. Pasted text: paste_parse / csv_import, no AI.
+- Upload, save and download limits (rate_limits.py, audit 1.8d): per login
+  (an advisor in a client's account counts as the advisor), files read, saves
+  and ZIP / PDF downloads built, rate_limits.LIMITS an hour and a day. Kept:
+  only a count per action - a SHA-256 of the login's id, the action word and
+  the time, in email_sends - for a day; never what was uploaded or saved.
 - Delete my account: admin.delete_own; a former client's delete keeps each
   former advisor's own records (admin.ADVISOR_RECORD_TABLES, for every
   former_clients row) - everything else of theirs goes. Consent records
@@ -148,7 +153,8 @@ Each statement about data here must stay true to the code:
   without a sign-in (tidy.UNCONFIRMED_DAYS, through admin.delete_account),
   error_events 90 days, expired email links / setup links / sessions, the
   login_failures / signups / email_sends counts after a day (signups also
-  holds the no-account decoder's hourly counts, decoder_public.py). Session and
+  holds the no-account decoder's hourly counts, decoder_public.py; email_sends
+  the upload / save / download counts, rate_limits.py). Session and
   link lengths: auth.py, two_step.py.
 - Hosts (hosting_lines, PLAN step 4.7): named from where this copy runs
   (settings.host(); Cloudflare in front when CLIENT_IP_HEADER is
@@ -386,6 +392,10 @@ their account map.
 - **New accounts:** to stop automated sign-ups, only a few accounts can be
   made from one internet address each day. For that, a scrambled copy of the
   address (not the address itself) is kept for one day.
+- **Uploads and saves:** so the app stays quick for everyone, an account can
+  only read so many files, save so many times and make so many downloads in an
+  hour or a day - far more than anyone needs. For that, only a count is kept,
+  for one day - never what was in the file or what was saved.
 - **"Stay signed in"** keeps a random token in a cookie on your device; only a
   scrambled copy of it is stored. Changing your password or logging out ends it,
   and a password change signs out your other devices too.

@@ -8,6 +8,7 @@
 # ruff: noqa: F821
 
 import flags
+import rate_limits
 import starter_funds
 import ticker_search
 import txn_import
@@ -399,6 +400,9 @@ def _render_screenshot_reader(existing=()):
             st.caption(ai_usage.left_text(quota, "screenshot").capitalize() + ".")
         if st.button("Read screenshots", key="me_shots_btn",
                      disabled=not (shots and agreed and quota["ok"])):
+            if not _limit_ok(rate_limits.UPLOAD):   # many reads in a short time
+                st.info(LIMIT_TEXT)
+                return
             images, errors = screenshot_read.check_images([(f.name, f.getvalue()) for f in shots])
             if errors:
                 st.error("  \n".join(errors))
@@ -506,6 +510,9 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
     if st.button("Save holdings", type="primary", key=key):
         # a first save of real holdings: offer a note to future you after it
         first = not HAS_REAL_HOLDINGS and source != SAMPLE_SOURCE and USER_ID == LOGIN_ID
+        if not _limit_ok(rate_limits.SAVE):   # many saves in a short time: nothing saved
+            st.info(LIMIT_TEXT)
+            return
         try:
             _manual_save(p, source)
         except DBError as exc:   # the calm message and a code, never the error's text
@@ -532,6 +539,9 @@ def _remove_account(account):
     """Remove on Home's Accounts: a new snapshot without `account` (its saved
     name); the others are kept as they are (portfolio.remove_account)."""
     ss = st.session_state
+    if not _limit_ok(rate_limits.SAVE):
+        ss["refresh_msg"] = ("info", LIMIT_TEXT)
+        return
     conn = connect(DB)
     try:
         done = remove_account(conn, USER_ID, account)
@@ -808,6 +818,9 @@ def _manual_type_tab(current_positions, current_source, saved_rows, saved_cash, 
 
 
 def _load_sample():
+    if not _limit_ok(rate_limits.SAVE):
+        st.session_state["refresh_msg"] = ("info", LIMIT_TEXT)
+        return
     c = connect(DB)
     try:
         sample_data.load(c, USER_ID)
@@ -1120,6 +1133,9 @@ def _import_txn_file(rows, source_name):
                "For each account, this replaces activity worked out from your updates up to "
                f"{_fmt_date(s['last'])}.")
     if st.button("Save activity", type="primary", key="txn_save"):
+        if not _limit_ok(rate_limits.SAVE):   # many saves in a short time: nothing saved
+            st.info(LIMIT_TEXT)
+            return
         _save_txns(found["rows"], source_name, header, chosen)
         st.rerun()
 
@@ -1146,6 +1162,9 @@ def _import_dialog():
     ).strip().strip('"')
 
     if up is not None:
+        if not _upload_ok(up):   # many files in a short time (rate_limits.py)
+            st.info(LIMIT_TEXT)
+            return
         with temp_upload(up.name, up.getbuffer()) as src_path:  # deleted right after
             _import_csv_file(src_path, upload_label(up.name))
     elif path_in:

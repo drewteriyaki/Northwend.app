@@ -245,6 +245,9 @@ def _prop_card(p, cmp, *, as_advisor):
                                    key=f"prop_dl_{p['id']}")
             elif st.button("PDF", key=f"prop_mkpdf_{p['id']}", type="tertiary",
                            help="A one-page PDF of this proposal to share or print."):
+                if not _limit_ok(rate_limits.EXPORT):   # many PDFs in a short time
+                    st.info(LIMIT_TEXT)
+                    return
                 # the names as each side knows them - the advisor's name for
                 # the client, the advisor's name and firm - not their logins
                 c = connect(DB)

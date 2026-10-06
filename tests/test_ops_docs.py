@@ -114,13 +114,28 @@ class EnvExampleTests(unittest.TestCase):
 class RunbookTests(unittest.TestCase):
     PAGES = ("Deploy", "Roll back", "Restore", "Rotate a key", "Sign everyone out",
              "Turn off AI or email", "Turn a feature or gate on or off", "Shut down",
-             "After a breach", "Owner prerequisites", "Before turning on a gate",
-             "Monthly budget")
+             "If something goes wrong: incident and breach response", "Owner prerequisites",
+             "Before turning on a gate", "Monthly budget")
 
     def test_every_page_is_there(self):
         heads = re.findall(r"^##+ (.+)$", _read("docs/RUNBOOK.md"), re.M)
         for page in self.PAGES:
             self.assertTrue(any(h.startswith(page) for h in heads), page)
+
+    def test_the_incident_plan_covers_the_first_hour_and_the_notices(self):
+        text = _read("docs/RUNBOOK.md")
+        self.assertIn("(#if-something-goes-wrong-incident-and-breach-response)", text)  # contents
+        plan = text.split("## If something goes wrong: incident and breach response", 1)[1]
+        plan = plan.split("\n## ", 1)[0]
+        for must in ("Sign everyone out", "ANTHROPIC_API_KEY", "RESEND_API_KEY",
+                     "FINNHUB_API_KEY", "PORTFOLIO_DB", "NORTHWEND_TOTP_KEY", "MOVED_TO",
+                     "Neon branch", "admin action log", "without unreasonable delay",
+                     "attorney general", "check with a lawyer", "insurer", "Subject:",
+                     "post-incident checklist"):
+            self.assertIn(must, plan, must)
+        # the Privacy Policy's promise the plan quotes is still the published one
+        self.assertIn("without unreasonable delay", _read("docs/legal/privacy-policy.md"))
+        self.assertIn("incident-and-breach-response", _read("docs/ARCHITECTURE.md"))
 
     def test_a_checklist_for_every_gate_and_none_for_l4(self):
         text = _read("docs/RUNBOOK.md")

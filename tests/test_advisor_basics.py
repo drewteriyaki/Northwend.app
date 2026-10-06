@@ -160,7 +160,7 @@ class ApprovalEmailTests(_DB, unittest.TestCase):
     def test_the_owner_is_pointed_at_the_admin_portal(self):
         mailer.advisor_request("dana@example.com", "Ruiz Wealth", "1234567",
                                "https://app.example/?page=clients")
-        (mail,) = self.outbox.to(mailer.REPLY_TO)
+        (mail,) = self.outbox.to(mailer._admin_to())   # the admin, not the public support address
         self.assertIn("https://app.example/?page=admin", mail["text"])
         self.assertIn("make-advisor dana@example.com", mail["text"])   # still there as a fallback
 

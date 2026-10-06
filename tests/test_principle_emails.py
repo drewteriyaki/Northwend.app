@@ -34,7 +34,7 @@ ADVISOR = "Carol Reyes, Reyes Wealth Partners"
 # the advisor's standing line (standing_line.py, master brief 4.4)
 STANDING = standing_line.text("Carol Reyes", "Reyes Wealth Partners")
 # the CRD or licence number an advisor typed: an identifier the admin looks
-# up, sent only to the support address - not a figure
+# up, sent only to the admin address - not a figure
 LICENCE = "CRD 7012345"
 
 # function name -> one or more sets of arguments (each a realistic email)

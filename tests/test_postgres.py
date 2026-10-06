@@ -530,6 +530,35 @@ class SignOutAndLogTests(_PG):
 # --------------------------------------------------------------------------- #
 # advisors: access, clients, notes, proposals, reports, records
 # --------------------------------------------------------------------------- #
+class RateLimitTests(_PG):
+    """Audit 1.8d on Postgres: rate_limits.allow counts in email_sends,
+    committed, and lets go after the hour."""
+    TAG = "ratelimit"
+
+    def test_saves_trip_at_the_hour_limit_and_reset(self):
+        import rate_limits
+        c = self.conn
+        uid = self.user("rate.a")
+        t0 = NOW
+        per_hour = rate_limits.LIMITS[rate_limits.SAVE][0]
+        with unittest.mock.patch.dict(rate_limits.LIMITS, {rate_limits.SAVE: (per_hour, 500)}):
+            for _ in range(per_hour):
+                self.assertTrue(rate_limits.allow(c, uid, rate_limits.SAVE, now=t0))
+            self.assertFalse(rate_limits.allow(c, uid, rate_limits.SAVE, now=t0))
+            # another connection sees them: committed, hashed, counts only
+            rows = self.seen("SELECT * FROM email_sends WHERE purpose = 'limit_save'")
+            self.assertEqual(len(rows), per_hour)
+            self.assertNotIn(str(uid), {r["email_key"] for r in rows})
+            self.assertTrue(rate_limits.allow(c, uid, rate_limits.SAVE,
+                                              now=t0 + timedelta(hours=1, seconds=1)))
+            # a day on, the first hour's rows are tidied away by the next count
+            # (the one an hour on, and the new one, stay)
+            self.assertTrue(rate_limits.allow(c, uid, rate_limits.SAVE,
+                                              now=t0 + timedelta(days=1, minutes=2)))
+            self.assertEqual(len(self.seen("SELECT * FROM email_sends WHERE purpose = "
+                                           "'limit_save'")), 2)
+
+
 class AdvisorTests(_PG):
     TAG = "advisor"
 

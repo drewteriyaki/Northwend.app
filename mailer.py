@@ -23,11 +23,19 @@ API_URL = "https://api.resend.com/emails"
 SENDER = "Northwend <hello@northwend.app>"
 SENDER_ADDRESS = "hello@northwend.app"   # every email comes from here, whatever the name
 REPLY_TO = "support@northwend.app"
+# Where mail for the person running Northwend goes (advisor requests; error_alerts,
+# ai_spend and licence_check use it too): ALERT_EMAIL when set, else this.
+ADMIN_TO = "admin@northwend.app"
 TIMEOUT = 10  # seconds
 
 
 def _setting(name: str) -> str:
     return settings.get(name, env_file=True)   # .env first, then the environment
+
+
+def _admin_to() -> str:
+    """Where mail for the person running Northwend goes: ALERT_EMAIL, or ADMIN_TO."""
+    return _setting("ALERT_EMAIL") or ADMIN_TO
 
 
 def dry_run() -> bool:
@@ -262,7 +270,7 @@ def advisor_request(email: str, firm: str, licence: str, app_link: str = "") -> 
             + f"  python manage_users.py make-advisor {email}\nor\n"
             f"  python manage_users.py decline-advisor {email}\n"
             "Either way, they get an email saying what was decided.\n")
-    return send(REPLY_TO, f"Advisor request: {firm}", text)
+    return send(_admin_to(), f"Advisor request: {firm}", text)
 
 
 def advisor_approved(to: str, link: str) -> bool:

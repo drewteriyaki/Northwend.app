@@ -181,6 +181,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   name, message and figure-free outline sent (`intros.clean_outline`), only their own;
   full sharing only via `intros.share_account` (two steps, then `consent.grant(how="intro")`
   with the exact words and `auth.link_client` in one transaction).
+- Limits and incidents: `rate_limits.py` (per-login uploads / saves / exports an hour and a
+  day, counted in `email_sends` as hashes; a new heavy action calls `_limit_ok`), the RUNBOOK's
+  "If something goes wrong" (incident and breach response). Mail for the owner goes to
+  `mailer._admin_to()` (ALERT_EMAIL, else admin@northwend.app); support@ is the public contact.
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting move (PLAN step 4): `docs/CLOUDFLARE.md` (headers, proxy, obfuscation off),

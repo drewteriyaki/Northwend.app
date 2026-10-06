@@ -115,7 +115,10 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
         blocked = ("Turn off Hide amounts to create a plan - it includes dollar figures."
                    if _hidden() else
                    "Import positions for this account first." if not contexts else None)
-        if st.button("Create plan", disabled=bool(blocked), help=blocked):
+        made = st.button("Create plan", disabled=bool(blocked), help=blocked)
+        if made and not _limit_ok(rate_limits.EXPORT):   # many plans in a short time
+            st.info(LIMIT_TEXT)
+        elif made:
             conn = connect(DB)
             try:
                 facts = client_plan.build_facts(conn, USER_ID, contexts, cash_by_account,

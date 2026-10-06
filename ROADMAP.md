@@ -1155,6 +1155,17 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
           days, expired links and sessions, day-old counts, 1m bars past 8 days,
           `admin_log.prune` when that module is in); nightly `tidy` job with
           its own failure alert; the About page and the Privacy draft's table
+  - [x] Hardening follow-up: upload and save limits (audit 1.8d) and the incident
+        plan (1.10e) - done: `rate_limits.py`, per login (an advisor in a client's
+        account counts as the advisor): files read 30 an hour / 200 a day, saves
+        60 / 300, ZIP and PDF downloads built 30 / 150; counted in `email_sends`
+        (hashed login key, `limit_*` purposes, a day - no new table); over a limit
+        the calm "You've done a lot of that in a short time" line and nothing is
+        read, saved or built; Admin > System lists the limits. RUNBOOK's "If
+        something goes wrong: incident and breach response" (tell what happened,
+        the first hour, who to tell and how fast - deadlines marked "check with a
+        lawyer" - the email to affected people, the checklist afterwards) replaces
+        "After a breach"; privacy texts and the About page name the counts
 - [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
     - [x] 401(k) decoder text box (B11) - done: `menu_decoder.py` (no AI; reads

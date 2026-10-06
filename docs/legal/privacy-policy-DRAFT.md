@@ -102,6 +102,10 @@ mode work without any.
   the address itself - is kept for one day when you sign up. Email-sending limits
   likewise keep only hashes, for one day.
 - Repeated wrong passwords are counted per username (as a hash) for 15 minutes.
+- How many files your account read, how many times it saved and how many
+  downloads it made in the last day, so the limits on uploads and saves can
+  apply - counts only (with a hash of your account's number), never what was in
+  a file or what was saved, and deleted after a day.
 - How many AI requests your account made each month, per feature, so the monthly
   allowance can be applied (counts only, not what was asked).
 - When something breaks, the admin is emailed the kind of error and where in the
@@ -262,6 +266,7 @@ in step.]
 | An account made through sign-up whose email was never confirmed | Deleted, with everything in it, after 30 days without a sign-in |
 | Sign-in sessions ("stay signed in") and "remember this device" for two-step sign-in | 30 days; ended sooner by logging out or changing your password |
 | Wrong-password, sign-up and email-send counts (a hash of the internet address, never the address) | 1 day |
+| Upload, save and download counts per account (counts only) | 1 day |
 | How often the 401(k) decoder without an account was used from one internet address (a hash of the address, never the address or what was pasted) | 1 day [once the no-account decoder is on - PLAN step 3] |
 | Email links (stored only as hashes, each works once) | Password reset 60 minutes, confirm 3 days, an advisor's setup link 7 days |
 | Unsubscribe links in reminder emails | 1 year |

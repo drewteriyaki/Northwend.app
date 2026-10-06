@@ -72,6 +72,7 @@ py-modules = [
     "advisor_agreement", "licence_check", "standing_line",
     "directory",   # the advisor directory and Find a guide (PLAN step 5)
     "intros",   # introductions and the two-step consent to full sharing (PLAN step 5)
+    "rate_limits",   # how often one login may upload, save and build downloads (audit 1.8d)
 ]
 # the AI eval set (docs/AI_PLAN.md 8): cases, the offline checker, the runner
 packages = ["evals"]

@@ -20,7 +20,7 @@ second error. A scheduled job that fails runs this file from its workflow
   python error_alerts.py job "Refresh live prices" --db "$DATABASE_URL" --run-url URL
 
 Alerts go to ALERT_EMAIL (.env, then the environment / the app's Secrets),
-or support@northwend.app. Email itself is mailer.py: with MAIL_DRY_RUN=1 the
+or admin@northwend.app. Email itself is mailer.py: with MAIL_DRY_RUN=1 the
 alert is written to the log instead.
 """
 
@@ -36,7 +36,7 @@ from datetime import datetime, timedelta, timezone
 import settings
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_TO = "support@northwend.app"
+DEFAULT_TO = "admin@northwend.app"   # mailer.ADMIN_TO
 EVERY = timedelta(hours=1)   # at most one email per kind of error in this time
 LIST_LIMIT = 20              # rows shown on the System panel
 
@@ -46,7 +46,7 @@ def _stamp(t: datetime) -> str:
 
 
 def alert_to() -> str:
-    """Where alerts go: ALERT_EMAIL, or the support address."""
+    """Where alerts go: ALERT_EMAIL, or the admin address."""
     try:
         import mailer
         return mailer._setting("ALERT_EMAIL") or DEFAULT_TO

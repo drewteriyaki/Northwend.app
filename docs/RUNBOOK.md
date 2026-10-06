@@ -19,7 +19,7 @@ Contents:
 - [Turn off AI or email in an emergency](#turn-off-ai-or-email-in-an-emergency)
 - [Turn a feature or gate on or off](#turn-a-feature-or-gate-on-or-off)
 - [Shut down cleanly](#shut-down-cleanly)
-- [After a breach](#after-a-breach)
+- [If something goes wrong: incident and breach response](#if-something-goes-wrong-incident-and-breach-response)
 - [Move to Render](#move-to-render)
 - [Uptime check](#uptime-check)
 - [Owner prerequisites](#owner-prerequisites)
@@ -365,42 +365,176 @@ wider.
 
 ---
 
-## After a breach
+## If something goes wrong: incident and breach response
 
-Stay calm and keep to what's true. Say only what you know.
+For anything that may have exposed, changed or lost people's data: a leaked
+key or password, someone seeing an account that isn't theirs, data sent to
+the wrong person, a stolen laptop with a connection string on it, or a
+provider telling you they were breached. For a plain outage or a bad deploy,
+use [Roll back](#roll-back) or [Restore the database](#restore-the-database)
+instead.
 
-1. **Contain.** Rotate the keys involved (all of them if unsure). Sign
-   everyone out. Turn off whatever is leaking (a flag, AI, email). Disable
-   the jobs if they're involved.
-2. **Keep the evidence.** Write down times as you go. Don't clear error
-   records or logs. If useful, make a Neon branch at the current time; it
-   holds personal data, so delete it once it's no longer needed.
-3. **Work out the facts.** Which accounts, and how many. Which kinds of data.
-   Counts and kinds, not anyone's figures. What Northwend holds: logins and
-   emails, holdings (symbols, shares, cost, value, cash), plans, profile
-   answers, advisor notes. What it never holds: brokerage logins, full
-   account numbers (only the last 3 digits), uploaded files. Passwords are
-   stored only as hashes.
-4. **Tell, in this order:**
-   1. The attorney, the same day.
-   2. The cyber insurer. Policies usually need prompt notice.
-   3. Affected advisors, within the time the advisor security page promises
-      (still a draft: the lawyer sets the number), so they can meet their own
-      duties to their clients.
-   4. Affected people and any regulators, as the law requires. The attorney
-      says which laws and which states. The Privacy Policy draft promises
-      only "we will tell you as the law requires": promise nothing beyond it.
-5. **What to say.** Short and plain:
-   - what happened, and when;
-   - what data was involved, for how many accounts, and what wasn't;
-   - what Northwend has done about it;
-   - what they can do: change their password, turn on two-step sign-in, and
-     ignore any email asking for a password or brokerage login (Northwend
-     never asks);
-   - who to contact: support@northwend.app.
-   Send an update when more is known. Never guess.
-6. **Afterwards.** Write down what happened, how it was found, what fixed it
-   and the test that now guards it. Update this runbook.
+Stay calm and keep to what's true. Say only what you know. Write down times
+(UTC) and what you did as you go, from the first minute: a plain text file
+on your own computer is fine. It becomes the incident record.
+
+### 1. Tell what happened
+
+Look in these places. Read counts, kinds and times - never anyone's
+holdings or figures.
+
+| Where | What it tells you |
+|---|---|
+| Error alert emails (to `ALERT_EMAIL`) | A kind of error and where in the code, at most once an hour per kind (`error_alerts.py`). A sudden new kind, or a failed scheduled job, is often the first sign. |
+| Admin > System | This copy's version, database, email status, which keys are set (never their values), flags and gates, the limits on uploads and saves, recent errors, and the admin action log. |
+| The admin action log (Admin > System, last 100 rows; `admin_log` table) | Every admin action in the app and every changing `manage_users.py` command: when, which admin, which account. An action nobody remembers taking is a red flag. |
+| The host's logs | Streamlit Cloud: the app's "Manage app" log. Render (after the move): the service's Logs and Events. Full error details live here, not in the alerts. |
+| Cloudflare (after the move) | Security > Events and Analytics: unusual traffic, blocked requests, where it came from. |
+| Neon | The project's Monitoring (connections, load) and its operations list (branches made, passwords reset). |
+| GitHub | Actions run history (a workflow you didn't run or change), Settings > Security log, deploy keys and the apps with access. |
+| Provider consoles | Anthropic usage (a spend spike), Resend's email log (emails you didn't expect), Finnhub usage. |
+
+Then decide: is people's data involved (who could have seen or changed
+what), or is it only a service problem? If unsure, treat it as a breach
+until you know otherwise.
+
+### 2. The first hour: contain
+
+Do what fits; when in doubt, do more.
+
+1. **Sign everyone out.** Admin > System > "Sign everyone out", or
+   `python manage_users.py --db "<live connection string>" sign-out-all`.
+   Every open tab and every "stay signed in" device has to sign in again
+   ([Sign everyone out](#sign-everyone-out)).
+2. **Rotate the keys involved** - all of them if unsure
+   ([Rotate a key](#rotate-a-key)): `ANTHROPIC_API_KEY`, `RESEND_API_KEY`,
+   `FINNHUB_API_KEY`, the Neon database password (inside `PORTFOLIO_DB` and
+   `DATABASE_URL`), and `NORTHWEND_TOTP_KEY` (the key the two-step secrets
+   are locked with - follow its own section in this runbook, since a new key
+   has to re-lock the stored secrets). Staging's keys are separate: rotate
+   them too if staging could be involved.
+3. **Turn off what's leaking.** A feature by flag
+   ([Turn a feature or gate on or off](#turn-a-feature-or-gate-on-or-off)),
+   AI or email ([Turn off AI or email in an emergency](#turn-off-ai-or-email-in-an-emergency)),
+   or the jobs (GitHub Actions > Scheduled sync > Disable workflow). One
+   account: `manage_users.py passwd <login>` or `reset-two-step <login>`.
+4. **Take the app offline if you must.** There is no maintenance page yet.
+   The choices, quickest first: stop the app (Render: the service's
+   Settings > Suspend; Streamlit Cloud: a reboot isn't enough - delete the
+   app from its menu, and deploy it again from GitHub afterwards);
+   or remove `PORTFOLIO_DB` from the app's settings and restart - a hosted
+   copy without its database stops at a calm "isn't set up" page before it
+   touches any data (`settings.config_problem()`). `MOVED_TO` is for a real
+   move, not an outage: it tells people their account is somewhere else.
+5. **Keep the evidence.** Don't clear error records, the admin log or the
+   host's logs. If a database copy helps, make a Neon branch at the current
+   time; it holds personal data, so delete it once the incident is closed.
+6. **Undo damage.** If data was changed or deleted, restore from a Neon
+   branch at a time before it started
+   ([Restore the database](#restore-the-database)). The window is short
+   (about 6 hours today), so start this early.
+
+### 3. Work out the facts
+
+Which accounts, and how many. Which kinds of data, and for how long it was
+open. Counts and kinds, not anyone's figures.
+
+- What Northwend holds: logins and emails, holdings (symbols, shares, cost,
+  value, cash), activity, plans and profile answers, advisor notes,
+  proposals and reports, and two-step secrets (locked with
+  `NORTHWEND_TOTP_KEY`).
+- What it never holds: brokerage logins, full account numbers (only the
+  last 3 digits), uploaded files. Passwords and backup codes are stored only
+  as hashes; "stay signed in" tokens and email links too.
+- Whether advisors' clients are among them, and which advisors.
+
+### 4. Who to tell, and how fast
+
+The legal deadlines below are **check with a lawyer** - this page doesn't
+decide them. Call the lawyer first; they say which laws apply and by when.
+
+1. **The lawyer, the same day.** Every US state has a breach-notification
+   law. Most require telling affected residents, and some set a deadline
+   (often in the range of 30 to 60 days; check with a lawyer for each state
+   involved). Some also require telling the state attorney general, or the
+   credit bureaus, once a number of residents is passed. Which data counts
+   (an email and password together often does) differs by state. Check with
+   a lawyer.
+2. **The cyber insurer, once there is one.** Policies usually need prompt
+   notice, often before you hire anyone; read the policy's notice clause.
+3. **Advisors whose clients are affected**, within the time the advisor
+   security page promises (still a draft: the lawyer sets it), so they can
+   meet their own duties to their clients and their firms (Regulation S-P
+   and state rules; check with a lawyer). Tell the advisor, and their firm's
+   compliance contact if they gave one.
+4. **Affected people, by email, "without unreasonable delay"** - the
+   Privacy Policy's promise (section 9): by email where there's an address,
+   in the app, and as the law requires. Don't wait for every detail; send
+   what's known and follow up. Many state laws allow a delay only when law
+   enforcement asks for one in writing - check with a lawyer.
+5. **Providers involved** (Neon, Streamlit or Render, Resend, Anthropic,
+   Cloudflare) if the problem came through them or they need to act.
+
+Send people's emails from Resend to each person (never one email with
+everyone in To or Cc). No figures, no holdings, no account details in them -
+the same rule as every Northwend email.
+
+### 5. The email to affected people
+
+Plain words, short. Fill in the brackets; cut a line that isn't true.
+
+> **Subject:** About your Northwend account: a security problem
+>
+> Hello,
+>
+> We're writing to tell you about a security problem that affected your
+> Northwend account.
+>
+> **What happened.** On [date], we found that [plain description - e.g.
+> "someone was able to see other people's accounts for about two hours"].
+> It started on [date] and was stopped on [date].
+>
+> **What was involved.** [The kinds of information - e.g. "your email
+> address and the list of investments you entered"]. It did not include
+> [what wasn't involved - e.g. "your password, which we store only in a
+> scrambled form"]. Northwend never holds your brokerage login or full
+> account numbers.
+>
+> **What we've done.** [e.g. "We closed the gap, signed everyone out and
+> changed our keys."]
+>
+> **What you can do.** Sign in again and choose a new password - and change
+> it anywhere else you used the same one. Turn on two-step sign-in on the
+> Account page. Be wary of emails asking for your password or brokerage
+> login: Northwend never asks for them.
+>
+> **Questions.** Reply to this email or write to support@northwend.app.
+> We'll write again if we learn more.
+>
+> We're sorry this happened.
+>
+> [Name], Northwend
+
+Have the lawyer read it before it goes: some states require particular
+content.
+
+### 6. Afterwards: the post-incident checklist
+
+- [ ] Every key that could have been seen is rotated, and the old ones are
+      revoked.
+- [ ] The cause is fixed, on staging first, with a test that would have
+      caught it.
+- [ ] Every notice the lawyer listed is sent, with the date of each.
+- [ ] Any Neon branch made for evidence or restore is deleted (it holds data
+      people may since have deleted).
+- [ ] Anything turned off (a flag, AI, email, the jobs, the app) is back on,
+      or the reason it stays off is written down.
+- [ ] The incident record says what happened, how it was found, how long it
+      was open, who was told and when, and what changed. Keep it with the
+      business records.
+- [ ] This runbook, `docs/SECURITY_AUDIT.md` and, if a promise changed, the
+      Privacy Policy are updated.
+- [ ] A What's new entry if people should know what changed for them.
 
 ---
 

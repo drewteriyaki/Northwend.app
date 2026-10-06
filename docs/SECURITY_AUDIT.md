@@ -588,7 +588,13 @@ Done: sign-up has a hidden field, a too-fast check, 3 accounts per address
 per day, 10 tries per address per hour and 20 accounts app-wide per hour
 (`auth.py:418-492`). Email links have send limits. AI has allowances.
 Advisors can check at most 200 new addresses a day (`auth.py:606-631`).
-Open: no limit on how often someone uploads or saves. A disposable-email
+~~Open: no limit on how often someone uploads or saves.~~ **Done (Oct 6):**
+`rate_limits.py` limits each login (an advisor in a client's account counts
+as the advisor): files read 30 an hour and 200 a day, saves 60 and 300, ZIP
+and PDF downloads built 30 and 150. Over a limit the page says "You've done
+a lot of that in a short time - please try again in a little while." and
+nothing is read, saved or built. Counts only, in `email_sends`, for a day;
+Admin > System lists the numbers. Still open: nothing. A disposable-email
 check isn't worth it now.
 
 **1.8e Dependency hygiene - Partly, P3.**
@@ -672,6 +678,11 @@ that exist: `manage_users.py reset-two-step`, password resets, Admin >
 System. The advisor security draft promises breach notification
 (`docs/legal/security-for-advisors-DRAFT.md:130-137`) without a procedure
 behind it.
+**Update (Oct 6):** the procedure is written: `docs/RUNBOOK.md`, "If something
+goes wrong: incident and breach response" (how to tell what happened, the
+first hour, who to tell and how fast, the email to affected people, the
+checklist afterwards; legal deadlines marked "check with a lawyer"). "Sign
+everyone out" exists since 1b.2 (X5).
 
 **1.10f Advisor agreement and directory disclosures - Not built yet, P1 before L1/L2 (master brief §7).**
 To add to the legal checklist:

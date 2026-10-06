@@ -193,6 +193,9 @@ def _rep_pdf_button(rep, client_name):
                    # a report is its figures: the file has them, hidden here or not
                    help=("The PDF shows the report's real amounts, even while amounts are "
                          "hidden here." if _hidden() else None)):
+        if not _limit_ok(rate_limits.EXPORT):   # many PDFs in a short time
+            st.info(LIMIT_TEXT)
+            return
         c = connect(DB)
         try:   # the advisor's name and firm as their clients know them
             adv = standing_line.who(c, rep["advisor_id"])

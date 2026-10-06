@@ -55,6 +55,7 @@ import perf
 import pgcompat
 import plans
 import prefs
+import rate_limits
 import whats_new
 import route
 import watchlist
@@ -1700,6 +1701,9 @@ def _prepare_export():
     """Profile > Your data: the account's own data as a ZIP (export.py), kept
     in this session for the download button - built only when asked."""
     import export
+    if not _limit_ok(rate_limits.EXPORT):   # many exports in a short time
+        _limit_hit("export")
+        return
     c = connect(DB)
     try:
         data = export.export_zip(c, st.session_state["user_id"])  # own account only
@@ -2181,6 +2185,48 @@ def _ai_failed(exc, kind, feature=""):
         except Exception:
             pass
     return ai_usage.failure_text(exc, GUIDE, feature)
+
+
+LIMIT_TEXT = rate_limits.CALM   # over a limit on uploads, saves or downloads: calm, not an error
+
+
+def _limit_ok(action):
+    """Whether the signed-in login may do `action` (rate_limits.UPLOAD, SAVE,
+    EXPORT) now - True counts it. An advisor in a client's account counts
+    against the advisor (LOGIN_ID), never the client. When it's False the
+    caller shows LIMIT_TEXT and reads, saves or builds nothing (audit 1.8d)."""
+    c = connect(DB)
+    try:
+        return rate_limits.allow(c, LOGIN_ID, action)
+    finally:
+        c.close()
+
+
+def _upload_ok(up):
+    """An uploaded file (st.file_uploader's) may be read: each new file counts
+    once against rate_limits.UPLOAD - not each time the page redraws while it
+    sits in the uploader."""
+    seen = st.session_state.setdefault("limit_uploads_seen", [])
+    fid = getattr(up, "file_id", None) or f"{up.name}:{up.size}"
+    if fid in seen:
+        return True
+    if not _limit_ok(rate_limits.UPLOAD):
+        return False
+    seen[:] = (seen + [fid])[-20:]   # the last few files only
+    return True
+
+
+def _limit_hit(where):
+    """A button callback was over a limit: say so (LIMIT_TEXT) next to that
+    button on the next run - see _limit_note."""
+    st.session_state["limit_hit"] = where
+
+
+def _limit_note(where):
+    """Show LIMIT_TEXT here if the click at `where` was over a limit."""
+    if st.session_state.get("limit_hit") == where:
+        st.session_state.pop("limit_hit", None)
+        st.info(LIMIT_TEXT)
 
 
 CHAT_MESSAGE_LIMIT = 30  # per conversation - keeps each one a sensible length (AI_PLAN 10.2)

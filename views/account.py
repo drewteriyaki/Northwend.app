@@ -431,6 +431,7 @@ def _render_account():
     st.subheader("Your data", anchor=False)
     st.caption("Download a copy of everything Northwend holds for your account, as "
                "spreadsheet (CSV) files in one ZIP.")
+    _limit_note("export")
     _export = st.session_state.get("export_zip")
     if _export:
         st.download_button("Download my data", _export[1], file_name=_export[0],

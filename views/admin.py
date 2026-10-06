@@ -24,6 +24,7 @@ import flags
 import hosting
 import invite_codes
 import licence_check
+import rate_limits
 import two_step
 
 
@@ -530,6 +531,8 @@ def _render_system(c):
         ("Newest daily price history", last_bar or "none"),
         ("Admins", "; ".join(admins)),
         *_admin_flag_rows(),
+        # the limits as set in rate_limits.py - never anyone's counts (audit 1.8d)
+        *((f"Limit - {what}", how) for what, how in rate_limits.rows_for_admin()),
     ]
     st.markdown("\n".join(f"- **{k}:** {v}" for k, v in rows))
     with st.container(horizontal=True):

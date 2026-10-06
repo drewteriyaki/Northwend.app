@@ -163,7 +163,8 @@ class NotifyTests(_DB):
     def test_default_address(self):
         with unittest.mock.patch.dict(os.environ, {"ALERT_EMAIL": ""}), \
                 unittest.mock.patch.object(settings, "load_env", return_value={}):
-            self.assertEqual(error_alerts.alert_to(), "support@northwend.app")
+            self.assertEqual(error_alerts.alert_to(), "admin@northwend.app")
+            self.assertEqual(mailer._admin_to(), "admin@northwend.app")
 
     def test_a_failed_send_lets_the_next_one_try(self):
         f = error_alerts.fingerprint(_caught())

@@ -7,6 +7,7 @@
 # the Clients page, and the weekly summary notice.
 # ruff: noqa: F821
 
+import rate_limits
 import standing_line
 
 # ---- advisor notes, the advisor card, the clients page ------------------------ #
@@ -198,6 +199,9 @@ def _prepare_client_record():
     earlier text too), proposals, reports and the client's answers, as a ZIP
     kept for the download button."""
     import export
+    if not _limit_ok(rate_limits.EXPORT):
+        _limit_hit("client_record")
+        return
     c = connect(DB)
     try:
         data = export.client_record_zip(c, LOGIN_ID, USER_ID)
@@ -213,6 +217,9 @@ def _prepare_client_record():
 def _prepare_all_records():
     """Your clients: every client's record in one ZIP (a folder each)."""
     import export
+    if not _limit_ok(rate_limits.EXPORT):
+        _limit_hit("all_records")
+        return
     c = connect(DB)
     try:
         data = export.all_client_records_zip(c, LOGIN_ID)
@@ -229,6 +236,7 @@ def _render_all_records():
                    "steps and messages (archived ones and earlier text too), proposals and "
                    "their answers, progress reports sent, and their profile answers. Keep it "
                    "with your firm's records. Only your own clients and your own records.")
+        _limit_note("all_records")
         ready = st.session_state.get("all_records")
         if ready:
             with st.container(horizontal=True, vertical_alignment="center"):
@@ -250,6 +258,7 @@ def _render_client_record():
                    "text too), proposals and their answers, progress reports sent, and their "
                    "profile answers. Only your own records - never their password or sign-in "
                    "details.")
+        _limit_note("client_record")
         ready = st.session_state.get("client_record")
         if ready and ready[0] == USER_ID:
             with st.container(horizontal=True, vertical_alignment="center"):
@@ -403,6 +412,9 @@ def _render_stop_sharing():
 
 def _prepare_former_record(client_id, name):
     import export
+    if not _limit_ok(rate_limits.EXPORT):
+        _limit_hit("former_record")
+        return
     c = connect(DB)
     try:
         data = export.client_record_zip(c, LOGIN_ID, client_id)
@@ -427,6 +439,7 @@ def _render_former_clients():
         st.caption("Clients whose relationship with you ended. You no longer see their "
                    "accounts; your notes, proposals and reports about them are kept here, and "
                    "in Export all client records.")
+        _limit_note("former_record")
         ready = st.session_state.get("former_record")
         for f in former:
             name = f["client_name"] or f"Client {f['client_id']}"
@@ -732,6 +745,9 @@ def _add_clients_from_file():
     invite = bool(st.session_state.get("bulk_invite", True))
     if not review:
         return
+    if not _limit_ok(rate_limits.SAVE):   # many adds in a short time: nothing added
+        st.session_state["bulk_msg"] = ("info", LIMIT_TEXT)
+        return
     ready = [r for r in review[1] if r["state"] == "ok"]
     added, invited, not_sent, failed = [], 0, {}, 0
     c = connect(DB)
@@ -797,6 +813,9 @@ def _render_add_from_file():
         sig = (up.name, len(data), hashlib.sha256(data).hexdigest())
         review = st.session_state.get("bulk_review")
         if not review or review[0] != sig:
+            if not _upload_ok(up):   # many files in a short time (rate_limits.py)
+                st.info(LIMIT_TEXT)
+                return
             parsed = client_csv.parse(data)
             if not parsed["ok"]:
                 st.warning(parsed["error"])
