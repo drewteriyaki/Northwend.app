@@ -66,9 +66,10 @@ account, contact us and we will delete it.
   family (accounts you add by hand keep at most their last 3 digits).
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
-- Short notes the AI guide saves between conversations (not shown in the app):
-  goals, dates and decisions. Dollar amounts and account numbers are taken out
-  before a note is saved.
+- Short notes the AI guide saves between conversations, listed on your Account
+  page where you can delete any or all of them: goals, dates and decisions.
+  Dollar amounts and account numbers are taken out before a note is saved. An
+  advisor working in your account never sees or changes them.
 - For advisors and their clients: advisor notes, proposals, progress reports,
   model portfolios, and the advisor's own name for each client.
 
@@ -171,10 +172,12 @@ safety, or as part of a transfer of the service (we'd tell you first).
 When you use the AI guide or a plan's suggested next steps, Northwend sends
 Anthropic:
 
-- your investing-profile answers;
-- your holdings as tickers, fund names, types and sectors, each one's share of the
-  portfolio, its gain or loss as a percentage, and figures like dividend yield,
-  beta and P/E - **never dollar amounts, share counts, account names or numbers**;
+- your investing-profile answers (the chat leaves out your "Other notes" box);
+- your holdings: in the chat, as tickers, fund names from market data, what each
+  fund holds and each one's share of the portfolio in whole percents, with your mix
+  and your own target mix; for a plan's suggested next steps, also types and
+  sectors, gains or losses as percentages, and figures like dividend yield, beta
+  and P/E - **never dollar amounts, share counts, account names or numbers**;
 - what you type in the chat, and the guide's short notes from earlier
   conversations (goals, dates and decisions - dollar amounts and account numbers
   are taken out before a note is saved). A note to your future self is sent only

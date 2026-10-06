@@ -55,6 +55,10 @@ def _api_error(cls, status):
 
 class PureTests(unittest.TestCase):
 
+    def setUp(self):
+        import ai_spend
+        ai_spend.use_db(None)   # no AI checks or counts here (an earlier app run's db is gone)
+
     def test_proposal_emails_carry_no_figures(self):
         sent = []
         with unittest.mock.patch.object(mailer, "send",
@@ -134,7 +138,7 @@ class PureTests(unittest.TestCase):
             def create(self, **kw):
                 raise self.exc
         exc = _api_error(anthropic.AuthenticationError, 401)
-        out = screenshot_read.read([(b"x", "image/png")], "key", client=_Raises(exc), model="m")
+        out = screenshot_read.read([(b"x", "image/png")], "key", client=_Raises(exc))
         self.assertFalse(out["answered"])        # not counted
         self.assertIs(out["failure"], exc)       # for the server log
         self.assertEqual(out["error"], "Reading screenshots isn't available right now.")
@@ -143,8 +147,7 @@ class PureTests(unittest.TestCase):
         # (and not count it); an answer that doesn't help is None
         for mod in (csv_import, txn_import):
             with self.assertRaises(anthropic.AuthenticationError):
-                mod.ai_mapping(["A", "B"], [["TEXT", "NUMBER"]], "key", client=_Raises(exc),
-                               model="m")
+                mod.ai_mapping(["A", "B"], [["TEXT", "NUMBER"]], "key", client=_Raises(exc))
 
 
 class _AppBase(unittest.TestCase):

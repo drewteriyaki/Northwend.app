@@ -131,7 +131,9 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
                         steps = client_plan.next_steps(
                             anthropic.Anthropic(api_key=api_key), profile,
                             advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
-                            client_plan.chat_transcript(display), memory)
+                            client_plan.chat_transcript(display),
+                            # the guide's notes stay the person's own (AI_PLAN 6)
+                            memory if USER_ID == LOGIN_ID else "", user_id=LOGIN_ID)
                     except anthropic.AnthropicError as exc:
                         st.warning(_ai_failed(exc, "plan", "Writing suggested next steps")
                                    + " This plan was made without suggested next steps.")

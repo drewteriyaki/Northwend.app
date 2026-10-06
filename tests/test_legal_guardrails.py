@@ -259,9 +259,19 @@ class _FakeClient:
         self.messages = _Messages()
 
 
+def _no_ai_sink():
+    """No database for the AI gateway's checks and counts here (an app run
+    earlier in the process may have left its own, since deleted)."""
+    import ai_spend
+    ai_spend.use_db(None)
+
+
 class AIGuardrailTests(unittest.TestCase):
     FULL = {**{f: None for f in advisor.PROFILE_FIELDS}, **PROFILE}
     EMPTY = {f: None for f in advisor.PROFILE_FIELDS}
+
+    def setUp(self):
+        _no_ai_sink()
 
     def assertRules(self, system, where):
         for key, rule in advisor.GUARDRAILS:
@@ -283,9 +293,13 @@ class AIGuardrailTests(unittest.TestCase):
             self.assertNotIn("recommendations", prompt.split("## Their profile")[0]
                              .replace("nothing you say is a recommendation", "")
                              .replace("not a recommendation", ""))
-        # the chat page builds its prompt with it
+        # the chat's own prompt: the shared first block carries every rule, and
+        # stream_reply sends it (with the person's card second) through the gateway
+        self.assertRules(advisor.chat_rules(), "Ask Northwend's shared block")
+        with open(os.path.join(REPO, "advisor.py"), encoding="utf-8") as fh:
+            self.assertIn("shared=chat_rules(), card=card", fh.read())
         with open(os.path.join(REPO, "views", "assistant.py"), encoding="utf-8") as fh:
-            self.assertIn("system = advisor.system_prompt(", fh.read())
+            self.assertIn("advisor.stream_reply(", fh.read())
 
     def test_meeting_prep(self):
         client = _FakeClient()
@@ -307,10 +321,16 @@ class AIGuardrailTests(unittest.TestCase):
         self.assertIn("not a recommendation", client_plan.AI_STEPS_NOTE)
 
     def test_every_ai_call_is_known(self):
-        # a new AI feature that writes for people must use advisor.system_prompt
-        # (and so the rules); the others only read files into rows
-        advice = {"advisor.py", "meeting.py", "client_plan.py"}
-        reading = {"csv_import.py", "txn_import.py", "screenshot_read.py"}
+        # only the gateway calls the API (AI_PLAN 4, steps 4-5): every other
+        # module asks ai_gateway.call() for a registered helper. A new AI
+        # feature that writes for people must use advisor.system_prompt or
+        # the chat's shared block (and so the rules); the others only read
+        # files into rows
+        import ai_gateway
+        advice = {"advisor.py": "chat", "meeting.py": "prep", "client_plan.py": "plan"}
+        reading = {"csv_import.py": "csv", "txn_import.py": "txn",
+                   "screenshot_read.py": "screenshot"}
+        callers, helpers = {}, set()
         found = set()
         for path in glob.glob(os.path.join(REPO, "*.py")) + glob.glob(
                 os.path.join(REPO, "views", "*.py")):
@@ -318,10 +338,54 @@ class AIGuardrailTests(unittest.TestCase):
                 src = fh.read()
             if re.search(r"\.messages\.(create|stream|parse)\(", src):
                 found.add(os.path.basename(path))
-        self.assertEqual(found, advice | reading)
-        for name in advice - {"advisor.py"}:
+            for helper in re.findall(r"ai_gateway\.call\(\s*\"(\w+)\"", src):
+                callers[helper] = os.path.basename(path)
+                helpers.add(helper)
+        self.assertEqual(found, {"ai_gateway.py"})
+        self.assertEqual(helpers, set(ai_gateway.HELPERS))   # every helper registered, and used
+        for name, helper in {**advice, **reading}.items():
+            self.assertEqual(callers.get(helper), name, helper)
+        for name in set(advice) - {"advisor.py"}:
             with open(os.path.join(REPO, name), encoding="utf-8") as fh:
                 self.assertIn("system=advisor.system_prompt(", fh.read(), name)
+        # the API's own client is still made elsewhere (a key, a timeout), but
+        # never asked anything outside the gateway; and the gateway logs nothing
+        with open(os.path.join(REPO, "ai_gateway.py"), encoding="utf-8") as fh:
+            gateway = fh.read()
+        self.assertNotIn("print(", gateway)
+        self.assertNotRegex(gateway, r"import logging|logging\.|sys\.std|\.write\(")
+
+    def test_no_helper_carries_dollars_without_zdr(self):
+        # AI_PLAN 3.3 / 4.2: a helper that could carry a dollar figure is
+        # refused on a hosted copy until AI_ZDR is set; none is marked today
+        import ai_gateway
+        import settings
+        self.assertEqual([s.name for s in ai_gateway.HELPERS.values() if s.carries_dollars], [])
+        spec = ai_gateway.HelperSpec("dollars", "claude-sonnet-5", 100, None, False, "chat",
+                                     "chat", True, 10.0)
+        with unittest.mock.patch.dict(ai_gateway.HELPERS, {"dollars": spec}), \
+                unittest.mock.patch.object(settings, "hosted", return_value=True):
+            for zdr, refused in (("", True), ("1", False)):
+                client = _FakeClient()
+                with unittest.mock.patch.dict(os.environ, {"AI_ZDR": zdr}):
+                    if refused:
+                        with self.assertRaises(ai_gateway.Refused) as cm:
+                            ai_gateway.call("dollars", client=client,
+                                            messages=[{"role": "user", "content": "x"}])
+                        self.assertEqual(cm.exception.why, "zdr")
+                        self.assertEqual(cm.exception.calm_text,
+                                         "Ask Northwend isn't available right now.")
+                        self.assertEqual(client.calls, [])
+                    else:
+                        ai_gateway.call("dollars", client=client,
+                                        messages=[{"role": "user", "content": "x"}])
+                        self.assertEqual(len(client.calls), 1)
+        # a local copy (not hosted) may run it
+        with unittest.mock.patch.dict(ai_gateway.HELPERS, {"dollars": spec}), \
+                unittest.mock.patch.object(settings, "hosted", return_value=False):
+            client = _FakeClient()
+            ai_gateway.call("dollars", client=client, messages=[{"role": "user", "content": "x"}])
+            self.assertEqual(len(client.calls), 1)
 
     def test_no_kind_of_adviser_is_suggested(self):
         # Northwend never suggests a person needs an advisor, or names a kind to find
@@ -381,6 +445,9 @@ class MemoryFiguresTests(unittest.TestCase):
     """PLAN D9 / audit 1.4b: Ask Northwend's notes keep goals, dates and
     decisions - never dollar amounts, account names or numbers."""
 
+    def setUp(self):
+        _no_ai_sink()
+
     def test_the_instruction_keeps_no_amounts(self):
         prompt = advisor.system_prompt({f: None for f in advisor.PROFILE_FIELDS}, "No holdings")
         notes = prompt.split("## Your notes from earlier conversations")[1].split("##")[0]
@@ -388,6 +455,9 @@ class MemoryFiguresTests(unittest.TestCase):
         self.assertIn("Never keep dollar amounts", notes)
         self.assertIn("account names or account numbers", notes)
         self.assertIn("never dollar amounts", advisor.MEMORY_TOOL["description"])
+        notes = advisor.chat_rules().split("## Your notes")[1].split("##")[0]
+        self.assertIn("Never keep dollar amounts", notes)
+        self.assertIn("account names or account numbers", notes)
 
     def test_figures_are_taken_out_before_saving(self):
         cases = {
@@ -399,15 +469,26 @@ class MemoryFiguresTests(unittest.TestCase):
             "- goal 1.5m, or 5 million dollars": "- goal [amount], or [amount]",
             "- USD 5000 / 250 bucks / $500/month": "- [amount] / [amount] / [amount]/month",
             "- account #98765, acct x4321": "- account [number], acct [number]",
+            "- the Schwab one, Z12345678": "- the Schwab one, [number]",
         }
         for raw, clean in cases.items():
-            self.assertEqual(advisor.validate_memory_input({"notes": raw}), (clean, ""), raw)
+            notes, error = advisor.validate_memory_input(
+                {"notes": [{"kind": "context", "text": raw}]})
+            self.assertEqual(error, "", raw)
+            self.assertEqual([n.text for n in notes], [clean[2:]], raw)   # one line, no bullet
+        # a note can't even be made holding a figure (the type checks itself)
+        with self.assertRaises(ValueError):
+            advisor.MemoryNote("context", "saving $12,000 for a car")
+        with self.assertRaises(ValueError):
+            advisor.MemoryNote("amounts", "a kind that isn't one")
+        self.assertEqual(advisor.note("worry", "Acct 1234 is the Roth").text,
+                         "Acct [number] is the Roth")
 
     def test_dates_ages_and_account_types_stay(self):
         for keep in ("- house ~2029\n- avoid crypto", "- retire at 60 in 2045, 7% return",
                      "- maxes 401(k), 401k match, 403b", "- sold on 2026-03-14",
                      "- years 2025-2030", "- S&P 500 fund, a 2050 target date fund",
-                     "- brokerage account 2"):
+                     "- brokerage account 2", "- FY2026 bonus, a 2050s goal"):
             self.assertEqual(advisor.scrub_memory(keep), keep)
 
     def test_notes_already_saved_are_scrubbed_before_the_prompt(self):
@@ -420,7 +501,7 @@ class MemoryFiguresTests(unittest.TestCase):
     def test_the_model_is_told_when_figures_were_taken_out(self):
         ns = types.SimpleNamespace
         block = ns(type="tool_use", id="tu_m", name="save_memory",
-                   input={"notes": "- down payment $60k by 2028"})
+                   input={"notes": [{"kind": "context", "text": "down payment $60k by 2028"}]})
         turns = [ns(stop_reason="tool_use", content=[block]), ns(stop_reason="end_turn",
                                                                   content=[])]
 
@@ -454,7 +535,7 @@ class MemoryFiguresTests(unittest.TestCase):
         saved = []
         list(advisor.stream_reply(client, [{"role": "user", "content": "x"}], "sys",
                                   lambda f: None, saved.append))
-        self.assertEqual(saved, ["- down payment [amount] by 2028"])
+        self.assertEqual(saved, [(advisor.MemoryNote("context", "down payment [amount] by 2028"),)])
         result = client.calls[1]["messages"][-1]["content"][0]["content"]
         self.assertIn("amounts and account numbers taken out", result)
 

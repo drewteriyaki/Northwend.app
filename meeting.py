@@ -125,23 +125,20 @@ def facts_for_ai(p: dict) -> str:
     return "\n".join(lines)
 
 
-def talking_points(client, profile: dict, summary: str, facts: str) -> list[str] | None:
+def talking_points(client, profile: dict, summary: str, facts: str, *,
+                   user_id: int | None = None) -> list[str] | None:
     """Draft talking points (a list of lines), or None if the model declined.
-    API errors propagate for the caller to report. `summary` is
-    advisor.portfolio_summary() output (weights only)."""
+    API errors (and the gateway's Refused) propagate for the caller to
+    report. `summary` is advisor.portfolio_summary() output (weights only);
+    `user_id` the advisor, whose allowance it uses (ai_gateway.py)."""
     import advisor
+    import ai_gateway
 
-    message = client.messages.create(
-        model=advisor.MODEL,
-        max_tokens=2000,
+    message = ai_gateway.call(
+        "prep", client=client, user_id=user_id,
         system=advisor.system_prompt(profile, summary, ""),
         messages=[{"role": "user", "content": "## Since the last review\n" + facts + "\n\n"
-                   + TALKING_POINTS_REQUEST}],
-        thinking={"type": "adaptive"},
-        output_config={"effort": "low"},
-    )
-    import ai_spend
-    ai_spend.note(message, "prep", advisor.MODEL)   # token counts only
+                   + TALKING_POINTS_REQUEST}])
     if message.stop_reason == "refusal":
         return None
     text = "".join(b.text for b in message.content if b.type == "text").strip()

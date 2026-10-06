@@ -328,13 +328,17 @@ CREATE TABLE IF NOT EXISTS invites (
     expires_at  TEXT    NOT NULL
 );
 
--- How many AI requests each account made per month, per feature (ai_usage.py
--- enforces the monthly allowances). Counts only - never what was asked.
+-- How many AI requests each account made per month, per feature, and what
+-- they cost (ai_usage.py enforces the daily and monthly allowances in cost).
+-- Counts and costs only - never what was asked.
 CREATE TABLE IF NOT EXISTS ai_usage (
     user_id  INTEGER NOT NULL,
     month    TEXT    NOT NULL,                       -- 'YYYY-MM' (UTC)
-    kind     TEXT    NOT NULL,                       -- chat / screenshot / csv / plan
+    kind     TEXT    NOT NULL,                       -- chat / screenshot / csv / plan / prep
     used     INTEGER NOT NULL,
+    cost_micro     INTEGER NOT NULL DEFAULT 0,       -- this month, micro-dollars
+    day            TEXT,                             -- 'YYYY-MM-DD' (UTC) last used
+    day_cost_micro INTEGER NOT NULL DEFAULT 0,       -- on that day, micro-dollars
     PRIMARY KEY (user_id, month, kind)
 );
 

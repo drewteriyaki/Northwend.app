@@ -2088,8 +2088,10 @@ def _ai_status(kind, *, full_run=False, conversation_open=False):
 
 
 def _ai_record(kind):
-    """Count one AI request against the signed-in account - only once it has
-    succeeded, so a failed one doesn't use up the month's allowance."""
+    """Count one AI use against the signed-in account - only once it has
+    succeeded, so a failed one doesn't use up the allowance. (Its cost is
+    added by the AI gateway itself, ai_gateway._record; this count is what
+    turns cost left into "about N left".)"""
     c = connect(DB)
     try:
         ai_usage.record(c, LOGIN_ID, kind)
@@ -2098,10 +2100,12 @@ def _ai_record(kind):
 
 
 def _ai_failed(exc, kind, feature=""):
-    """An AI request (`kind`, ai_usage.LIMITS) failed: the details go to the
+    """An AI request (`kind`, ai_usage.KINDS) failed: the details go to the
     server log, a key or set-up problem is noted for the admin like any other
     error (error_alerts.py: its type and place only), and what to show comes
-    back - one calm sentence per kind of failure, never the error's text."""
+    back - one calm sentence per kind of failure, never the error's text. A
+    call the gateway didn't make (ai_gateway.Refused: an allowance or the
+    month's level) brings its own calm sentence and alerts no one."""
     ai_usage.log_failure(exc, kind)
     if ai_usage.failure_kind(exc) == ai_usage.UNAVAILABLE:
         try:

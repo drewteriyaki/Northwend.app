@@ -131,6 +131,13 @@ def ai_ceiling_usd(default: float = 100) -> float:
     return value if value >= 0 else default
 
 
+def ai_zdr() -> bool:
+    """AI_ZDR: zero data retention is confirmed with Anthropic for this
+    copy's key (AI_PLAN 3.3, 4.2). Until it is, a hosted copy refuses any AI
+    helper that could carry a dollar figure (ai_gateway.py)."""
+    return get("AI_ZDR").strip().lower() in ("1", "true", "yes", "on")
+
+
 def server_files_ok() -> bool:
     """The "path to a CSV on this machine" box may show: local runs only -
     hosted, the path would be on the server's own disk."""

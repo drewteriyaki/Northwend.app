@@ -173,8 +173,8 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # (and `northwend-migrate`). Bump it in the same change as any change to the
 # schema: a new table or column in schema.sql / schema_pg.sql, the back-fill
 # list below, or a one-time clean-up. 1 = the schema when versions began
-# (October 2026).
-SCHEMA_VERSION = 1
+# (October 2026); 2 = ai_usage's cost columns (cost-based AI allowances).
+SCHEMA_VERSION = 2
 
 
 def _ensure_schema(conn) -> None:
@@ -231,6 +231,9 @@ def _ensure_schema(conn) -> None:
                                    # a fund's yearly fee, a fraction (fees.py)
                                    ("expense_ratio", "REAL")]),
                 ("plans", [("targets_cleared", "INTEGER")]),
+                # AI allowances in cost, per day and month (ai_usage.py)
+                ("ai_usage", [("cost_micro", "INTEGER NOT NULL DEFAULT 0"), ("day", "TEXT"),
+                              ("day_cost_micro", "INTEGER NOT NULL DEFAULT 0")]),
                 # "remember this device" for two-step sign-in (two_step.py)
                 ("login_sessions", [("two_step_until", "TEXT")]),
                 ("investor_profiles", PROFILE_EXTRA_COLS))

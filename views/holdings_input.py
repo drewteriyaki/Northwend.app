@@ -404,7 +404,7 @@ def _render_screenshot_reader(existing=()):
                 st.error("  \n".join(errors))
                 return
             with st.spinner("Reading your screenshots..."):
-                found = screenshot_read.read(images, key)
+                found = screenshot_read.read(images, key, user_id=LOGIN_ID)
             if found.get("answered"):
                 _ai_record("screenshot")  # counted once the AI has read them
             elif found.get("failure") is not None:
@@ -842,7 +842,7 @@ def _ai_guess_columns(ai_key, ai_mapping, header, shapes):
 
     with st.spinner("Working out the columns..."):
         try:
-            guess = ai_mapping(header, shapes, _anthropic_key())
+            guess = ai_mapping(header, shapes, _anthropic_key(), user_id=LOGIN_ID)
         except anthropic.AnthropicError as exc:
             return _ai_failed(exc, "csv", "Guessing the columns")
     _ai_record("csv")  # counted once it has answered

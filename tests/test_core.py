@@ -52,8 +52,17 @@ import prefs  # noqa: E402
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "sample_positions.csv")
 
 
+def _no_ai_sink():
+    """An app run (AppTest) earlier in the process leaves ai_spend pointed at
+    its own scratch database, long deleted; the AI gateway checks and counts
+    there, so a test that calls it without a database of its own clears it."""
+    import ai_spend
+    ai_spend.use_db(None)
+
+
 class TempDBMixin:
     def setUp(self):
+        _no_ai_sink()
         self.dir = tempfile.mkdtemp(prefix="pt_test_")
         self.db = os.path.join(self.dir, "test.db")
         portfolio._SCHEMA_READY.discard(os.path.abspath(self.db))
@@ -986,8 +995,8 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
         self.assertIn("- saving for a boat",
                       advisor.system_prompt(full, "No holdings yet", "- saving for a boat"))
 
-    def test_stream_reply_saves_profile_then_continues(self):
-        tool_block = _Obj(type="tool_use", id="tu_1", name="update_investor_profile",
+    def test_stream_reply_suggests_profile_then_continues(self):
+        tool_block = _Obj(type="tool_use", id="tu_1", name="suggest_profile_answers",
                           input={**{f: None for f in advisor.TOOL_PROFILE_FIELDS},
                                  "goal": ["Retirement"], "risk_tolerance": "moderate"})
         client = _FakeClient([
@@ -1001,14 +1010,19 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
         self.assertEqual(text, "Got it. How long until you retire?")
         self.assertEqual(saved, [{"goal": "Retirement", "risk_tolerance": "moderate"}])
         self.assertEqual(len(client.calls), 2)
-        # second call carries the assistant tool_use turn and its tool_result
-        self.assertEqual(client.calls[1]["messages"][-1]["content"][0]["tool_use_id"], "tu_1")
+        # second call carries the assistant tool_use turn and its tool_result,
+        # which tells the model it's only a suggestion
+        result = client.calls[1]["messages"][-1]["content"][0]
+        self.assertEqual(result["tool_use_id"], "tu_1")
+        self.assertIn("saved only if they tap it", result["content"])
 
-    def test_stream_reply_saves_memory(self):
+    def test_stream_reply_hands_over_typed_notes(self):
         mem_block = _Obj(type="tool_use", id="tu_m", name="save_memory",
-                         input={"notes": "- house ~2029\n- avoid crypto"})
+                         input={"notes": [{"kind": "context", "text": "- house ~2029"},
+                                          {"kind": "context", "text": "avoid crypto"}]})
         too_long = _Obj(type="tool_use", id="tu_x", name="save_memory",
-                        input={"notes": "x" * (advisor.MEMORY_MAX_CHARS + 1)})
+                        input={"notes": [{"kind": "worry",
+                                          "text": "x" * (advisor.MEMORY_NOTE_MAX + 1)}]})
         client = _FakeClient([
             _FakeStream(["Noted."], _Obj(stop_reason="tool_use", content=[mem_block, too_long])),
             _FakeStream([], _Obj(stop_reason="end_turn", content=[])),
@@ -1017,13 +1031,42 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
         text = "".join(advisor.stream_reply(client, [{"role": "user", "content": "x"}], "sys",
                                             profile.append, notes.append))
         self.assertEqual(text, "Noted.")
-        self.assertEqual(notes, ["- house ~2029\n- avoid crypto"])  # the too-long one isn't saved
+        # typed and scrubbed; the too-long one isn't handed over
+        self.assertEqual(notes, [(advisor.MemoryNote("context", "house ~2029"),
+                                  advisor.MemoryNote("context", "avoid crypto"))])
         self.assertEqual(profile, [])
         results = client.calls[1]["messages"][-1]["content"]
         self.assertFalse(results[0].get("is_error"))
         self.assertTrue(results[1]["is_error"])
         self.assertEqual({t["name"] for t in client.calls[0]["tools"]},
-                         {"update_investor_profile", "save_memory"})
+                         {"suggest_profile_answers", "save_memory"})
+        # without on_memory (an advisor in a client's account) nothing is
+        # handed over, and the model is told notes aren't kept here
+        client = _FakeClient([
+            _FakeStream([], _Obj(stop_reason="tool_use", content=[mem_block])),
+            _FakeStream([], _Obj(stop_reason="end_turn", content=[])),
+        ])
+        list(advisor.stream_reply(client, [{"role": "user", "content": "x"}], "sys",
+                                  profile.append, None))
+        self.assertEqual(client.calls[1]["messages"][-1]["content"][0]["content"],
+                         advisor.NOTES_OFF)
+
+    def test_notes_round_trip_typed(self):
+        notes = advisor.parse_notes("context: house ~2029\nworry: market drops\n"
+                                    "- an old free-text note with $5,000\nnonsense: kind")
+        self.assertEqual([(n.kind, n.text) for n in notes],
+                         [("context", "house ~2029"), ("worry", "market drops"),
+                          ("context", "an old free-text note with [amount]"),
+                          ("context", "nonsense: kind")])
+        self.assertEqual(advisor.parse_notes(advisor.dump_notes(notes)), notes)
+        conn = portfolio.connect(self.db)
+        advisor.save_notes(conn, self.user_id, notes)
+        advisor.forget_note(conn, self.user_id, 1)
+        self.assertEqual([n.text for n in advisor.get_notes(conn, self.user_id)],
+                         ["house ~2029", "an old free-text note with [amount]", "nonsense: kind"])
+        advisor.forget_all(conn, self.user_id)
+        self.assertEqual(advisor.get_notes(conn, self.user_id), ())
+        conn.close()
 
     def test_memory_round_trip_is_separate_from_profile(self):
         conn = portfolio.connect(self.db)
@@ -1202,44 +1245,119 @@ class AdvisorModeTests(TempDBMixin, unittest.TestCase):
 
 
 class AiUsageTests(TempDBMixin, unittest.TestCase):
-    """Monthly AI allowances (ai_usage.py)."""
+    """AI allowances in cost, per day and month (ai_usage.py, AI_PLAN step 7),
+    shown as approximate counts."""
 
-    def test_counts_per_month_and_feature_until_the_limit(self):
+    def test_the_month_by_cost_per_bucket_until_its_used_up(self):
         import ai_usage
         conn = portfolio.connect(self.db)
         sep = datetime(2026, 9, 30, 23, tzinfo=timezone.utc)
-        limit = ai_usage.LIMITS["screenshot"]
-        for _ in range(limit - 1):
-            ai_usage.record(conn, self.user_id, "screenshot", now=sep)
         st_ = ai_usage.status(conn, self.user_id, "screenshot", now=sep)
-        self.assertEqual((st_["used"], st_["left"], st_["ok"]), (limit - 1, 1, True))
+        # $0.30 of decode at a typical $0.026 a read: about 11
+        self.assertEqual((st_["used"], st_["left"], st_["limit"], st_["ok"], st_["period"]),
+                         (0, 11, 11, True, "month"))
         self.assertEqual(ai_usage.left_text(st_, "screenshot"),
-                         f"1 of {limit} screenshot reads left this month")
-        ai_usage.record(conn, self.user_id, "screenshot", now=sep)
+                         "About 11 screenshot reads left this month")
+        ai_usage.add_cost(conn, self.user_id, "screenshot", 260_000, now=sep)
+        st_ = ai_usage.status(conn, self.user_id, "screenshot", now=sep)
+        self.assertEqual((st_["left"], st_["cost_left"]), (1, 40_000))
+        self.assertEqual(ai_usage.left_text(st_, "screenshot"),
+                         "About 1 screenshot read left this month")
+        # column guesses share the decode bucket, and cost far less
+        self.assertEqual(ai_usage.status(conn, self.user_id, "csv", now=sep)["left"], 57)
+        ai_usage.add_cost(conn, self.user_id, "csv", 30_000, now=sep)
         st_ = ai_usage.status(conn, self.user_id, "screenshot", now=sep)
         self.assertFalse(st_["ok"])
-        self.assertIn("start again on October 1", ai_usage.used_up_text(st_, "screenshot"))
-        self.assertTrue(ai_usage.status(conn, self.user_id, "chat", now=sep)["ok"])  # own count
+        self.assertEqual(ai_usage.used_up_text(st_, "screenshot"),
+                         "You've used this month's screenshot reads. They start again on "
+                         "October 1.")
+        self.assertTrue(ai_usage.status(conn, self.user_id, "chat", now=sep)["ok"])  # own bucket
         octo = datetime(2026, 10, 1, 0, 1, tzinfo=timezone.utc)
-        self.assertEqual(ai_usage.status(conn, self.user_id, "screenshot", now=octo)["used"], 0)
+        st_ = ai_usage.status(conn, self.user_id, "screenshot", now=octo)
+        self.assertEqual((st_["used"], st_["cost_used"], st_["ok"]), (0, 0, True))
         self.assertEqual(ai_usage.resets_on(datetime(2026, 12, 5)), date(2027, 1, 1))
+        conn.close()
+
+    def test_a_day_and_a_month_of_chat(self):
+        import ai_usage
+        conn = portfolio.connect(self.db)
+        day1 = datetime(2026, 10, 6, 9, tzinfo=timezone.utc)
+        st_ = ai_usage.status(conn, self.user_id, "chat", now=day1)
+        self.assertEqual((st_["left"], st_["period"]), (19, "day"))   # $0.25 / $0.013
+        self.assertEqual(ai_usage.left_text(st_, "chat"), "About 19 messages left today")
+        for _ in range(3):   # their own average counts once they have a few
+            ai_usage.record(conn, self.user_id, "chat", now=day1)
+            ai_usage.add_cost(conn, self.user_id, "chat", 30_000, now=day1)
+        st_ = ai_usage.status(conn, self.user_id, "chat", now=day1)
+        self.assertEqual((st_["left"], st_["cost_left"]), (5, 160_000))   # 160k / 30k
+        ai_usage.add_cost(conn, self.user_id, "chat", 160_000, now=day1)
+        st_ = ai_usage.status(conn, self.user_id, "chat", now=day1)
+        self.assertFalse(st_["ok"])
+        self.assertEqual(ai_usage.used_up_text(st_, "chat"),
+                         "You've used today's messages. They start again tomorrow.")
+        # the next day starts afresh - until the month runs out
+        day = day1
+        for _ in range(3):
+            day = day + timedelta(days=1)
+            self.assertTrue(ai_usage.status(conn, self.user_id, "chat", now=day)["ok"])
+            ai_usage.add_cost(conn, self.user_id, "chat", 250_000, now=day)
+        st_ = ai_usage.status(conn, self.user_id, "chat", now=day + timedelta(days=1))
+        self.assertEqual((st_["ok"], st_["period"], st_["cost_used"]), (False, "month", 1_000_000))
+        self.assertIn("this month's messages", ai_usage.used_up_text(st_, "chat"))
+        # an individual's plan write-up comes out of the same chat bucket
+        self.assertFalse(ai_usage.status(conn, self.user_id, "plan",
+                                         now=day + timedelta(days=1))["ok"])
+        conn.close()
+
+    def test_the_habit_bonus_is_earned_by_walks_only(self):
+        import ai_usage
+        import checkin
+        import prefs
+        conn = portfolio.connect(self.db)
+        now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+        self.assertEqual(ai_usage.habit_bonus({}, now), 0)
+        # walks this month and the four before count: June, September, October
+        walks = {checkin.PREF_LOG: ["2026-05", "2026-06", "2026-09", "2026-10"]}
+        self.assertEqual(ai_usage.habit_bonus(walks, now), 300_000)
+        many = {checkin.PREF_LOG: [f"2026-{m:02d}" for m in range(1, 11)] + ["junk", 7]}
+        self.assertEqual(ai_usage.habit_bonus(many, now), ai_usage.HABIT_BONUS_MAX)   # $0.50
+        january = datetime(2027, 1, 3, tzinfo=timezone.utc)   # across the year's end
+        self.assertEqual(ai_usage.habit_bonus({checkin.PREF_LOG: ["2026-09", "2026-08"]},
+                                              january), 100_000)
+        prefs.save(conn, self.user_id, walks)
+        st_ = ai_usage.status(conn, self.user_id, "chat", now=now)
+        self.assertEqual(st_["cost_limit"], 1_300_000)
+        # never for decode, and never for advisors
+        self.assertEqual(ai_usage.status(conn, self.user_id, "csv", now=now)["cost_limit"],
+                         300_000)
+        auth.set_advisor(conn, "testuser", True)
+        self.assertEqual(ai_usage.status(conn, self.user_id, "chat", now=now)["cost_limit"],
+                         8_000_000)
         conn.close()
 
     def test_advisors_get_more_and_unlimited_accounts_have_no_limit(self):
         import ai_usage
         conn = portfolio.connect(self.db)
-        base = ai_usage.LIMITS["chat"]
-        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"), base)
+        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"), 1_000_000)
+        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "prep"), 1_000_000)
         auth.set_advisor(conn, "testuser", True)
-        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"),
-                         base * ai_usage.ADVISOR_SCALE)
+        # $17 a month in all: chat $8, drafts $6, decode $3
+        self.assertEqual({k: ai_usage.limit_for(conn, self.user_id, k) for k in ai_usage.KINDS},
+                         {"chat": 8_000_000, "plan": 6_000_000, "prep": 6_000_000,
+                          "screenshot": 3_000_000, "csv": 3_000_000})
+        self.assertEqual(sum(b["month"] for b in ai_usage.ALLOWANCES["advisor"].values()),
+                         17_000_000)
         manage_users.main(["--db", self.db, "ai-unlimited", "testuser"])
         st_ = ai_usage.status(conn, self.user_id, "chat")
         self.assertEqual((st_["limit"], st_["left"], st_["ok"]), (None, None, True))
         self.assertEqual(ai_usage.left_text(st_, "chat"), "")
         manage_users.main(["--db", self.db, "ai-limited", "testuser"])
-        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"),
-                         base * ai_usage.ADVISOR_SCALE)
+        self.assertEqual(ai_usage.limit_for(conn, self.user_id, "chat"), 8_000_000)
+        out = io.StringIO()
+        ai_usage.add_cost(conn, self.user_id, "chat", 123_456)
+        with contextlib.redirect_stdout(out):
+            manage_users.main(["--db", self.db, "ai-usage"])
+        self.assertIn("$0.12 of $8.00", out.getvalue())
         conn.close()
 
 
@@ -1278,8 +1396,10 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         for typed in ("new.person@example.com", "NEW.Person@example.COM"):
             self.assertEqual(auth.verify_login(self.conn, typed, "goodpass1"), result["user_id"])
         self.assertIsNone(auth.verify_login(self.conn, "new.person@example.com", "wrong"))
-        for kind, base in ai_usage.LIMITS.items():
-            self.assertEqual(ai_usage.limit_for(self.conn, result["user_id"], kind), base)
+        for kind in ai_usage.KINDS:
+            self.assertEqual(ai_usage.limit_for(self.conn, result["user_id"], kind),
+                             ai_usage.ALLOWANCES["individual"][
+                                 ai_usage.bucket_of(kind, False)]["month"])
         # only a hash of the address is kept
         keys = [r["address_key"] for r in self.conn.execute("SELECT address_key FROM signups")]
         self.assertTrue(keys and all("203.0.113.7" not in k for k in keys))
@@ -3243,7 +3363,7 @@ class AnyBrokerCsvTests(TempDBMixin, unittest.TestCase):
         client = ScreenshotReadTests._Client(
             '{"symbol": 0, "quantity": 1, "cost": 2, "value": 3, "percent": 9, "bogus": 1}')
         m = ci.ai_mapping(header, [["SHORT_CODE", "NUMBER", "NUMBER", "NUMBER"]], "key",
-                          client=client, model="m")
+                          client=client)
         self.assertEqual(m, {"symbol": 0, "quantity": 1, "cost": 2, "value": 3})  # 9 is out of range
         prompt = client.sent["messages"][0]["content"]
         self.assertIn("SHORT_CODE", prompt)
@@ -3497,6 +3617,9 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
 class ScreenshotReadTests(unittest.TestCase):
     """Roadmap 9d: holdings from screenshots, read by the AI (a fake client here)."""
 
+    def setUp(self):
+        _no_ai_sink()
+
     class _Client:
         def __init__(self, reply=None, exc=None):
             self.reply, self.exc, self.sent = reply, exc, None
@@ -3550,7 +3673,7 @@ class ScreenshotReadTests(unittest.TestCase):
             {"symbol": "AAPL", "shares": 0}, {"symbol": "MSFT", "shares": True}],
             "cash": "$120.50", "balance": 99999})
         client = self._Client("Here you go:\n" + reply)
-        out = sr.read([(b"png-bytes", "image/png")], "key", client=client, model="m")
+        out = sr.read([(b"png-bytes", "image/png")], "key", client=client)
         self.assertIsNone(out["error"])
         self.assertEqual([(h["Symbol"], h["Shares"], h["Total cost"]) for h in out["holdings"]],
                          [("VTI", 10.0, 2500.0), ("BND", 1861.5, None)])
@@ -3578,10 +3701,10 @@ class ScreenshotReadTests(unittest.TestCase):
                                      {"symbol": "XX", "percent": 250}]})
         self.assertEqual((pct["mode"], [h["Percent"] for h in pct["holdings"]]),
                          ("Percentages", [60.0, 40.0]))
-        out = sr.read([(b"x", "image/png")], "key", client=self._Client("I can't read that"), model="m")
+        out = sr.read([(b"x", "image/png")], "key", client=self._Client("I can't read that"))
         self.assertIn("couldn't be understood", out["error"])
         err = anthropic.APIConnectionError(request=None)  # a network failure
-        out = sr.read([(b"x", "image/png")], "key", client=self._Client(exc=err), model="m")
+        out = sr.read([(b"x", "image/png")], "key", client=self._Client(exc=err))
         self.assertEqual((out["holdings"], bool(out["error"])), ([], True))
 
 

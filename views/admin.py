@@ -462,7 +462,8 @@ def _render_admin():
             return
         accounts = admin.list_accounts(c)
         requests = auth.pending_advisor_requests(c)
-        usage = c.execute("SELECT u.username, a.kind, a.used FROM ai_usage a JOIN users u "
+        usage = c.execute("SELECT u.username, a.kind, a.used, a.cost_micro FROM ai_usage a "
+                          "JOIN users u "
                           "ON u.id = a.user_id WHERE a.month = ? ORDER BY u.username, a.kind",
                           (ai_usage.month_of(),)).fetchall()
         spend = ai_spend.summary(c)   # the app-wide month total, counts only
@@ -635,7 +636,9 @@ def _render_admin():
     _render_ai_spend(spend)
     if usage:
         st.dataframe(pd.DataFrame([{"Account": r["username"], "Feature": r["kind"],
-                                    "Used": r["used"]} for r in usage]),
+                                    "Used": r["used"],
+                                    "Estimated": ai_spend.dollars(r["cost_micro"] or 0)}
+                                   for r in usage]),
                      hide_index=True, width="stretch")
     else:
         st.caption("No AI use yet this month.")

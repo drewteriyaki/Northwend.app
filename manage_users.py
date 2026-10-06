@@ -325,21 +325,24 @@ def cmd_set_ai_unlimited(args, flag: bool) -> int:
 
 
 def cmd_ai_usage(args) -> int:
-    """This month's AI use per account, against each allowance."""
+    """This month's AI use per account: uses and estimated cost per feature,
+    against the monthly allowance of the feature's bucket (ai_usage.py)."""
     import ai_usage
     conn = connect(args.db)
     month = ai_usage.month_of()
-    rows = conn.execute("SELECT u.id, u.username, a.kind, a.used FROM ai_usage a "
+    rows = conn.execute("SELECT u.id, u.username, a.kind, a.used, a.cost_micro FROM ai_usage a "
                         "JOIN users u ON u.id = a.user_id WHERE a.month = ? "
                         "ORDER BY u.username, a.kind", (month,)).fetchall()
     if not rows:
         print(f"No AI use yet in {month}.")
         return 0
-    print(f"AI use in {month}:")
+    print(f"AI use in {month} (estimated cost; the allowance is the month's for that kind's "
+          "bucket, before any habit bonus):")
     for r in rows:
         limit = ai_usage.limit_for(conn, r["id"], r["kind"])
-        print(f"  {r['username']:<20} {r['kind']:<11} {r['used']:>4} of "
-              f"{'unlimited' if limit is None else limit}")
+        print(f"  {r['username']:<20} {r['kind']:<11} {r['used']:>4} uses  "
+              f"${(r['cost_micro'] or 0) / 1e6:,.2f} of "
+              f"{'unlimited' if limit is None else f'${limit / 1e6:,.2f}'}")
     return 0
 
 

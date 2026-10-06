@@ -4,12 +4,19 @@ reviewed by someone qualified before launch (ROADMAP.md, item 5). Fill in
 OPERATOR_NAME and CONTACT first; placeholders() lists what's still missing.
 
 Each statement about data here must stay true to the code:
-- The AI guide (Ask Northwend) / plan next steps: advisor.portfolio_summary() (tickers, names, % of
-  portfolio, asset type and class, sector, gain/loss %, dividend yield, beta,
-  P/E - no dollar amounts, share counts or account names), the profile
-  answers, the chat, and the guide's saved notes (advisor.system_prompt;
-  advisor.scrub_memory takes amounts and account numbers out of the notes
-  before they're saved and before they're sent).
+- The AI guide (Ask Northwend): the person's ContextCard (context_card.py -
+  profile answers from fixed choices without "Other notes", tickers, market
+  data's fund names, what each holds and whole-% weights, the mix, their own
+  target mix, band and drift, the route stage, the guide's typed notes), the
+  chat; every call through ai_gateway.py. Plan next steps:
+  advisor.portfolio_summary() (tickers, names, % of portfolio, asset type and
+  class, sector, gain/loss %, dividend yield, beta, P/E - no dollar amounts,
+  share counts or account names), the profile answers and the notes
+  (advisor.system_prompt). advisor.scrub_memory takes amounts and account
+  numbers out of the notes before they're saved and before they're sent; the
+  notes are listed (and deletable) on the Account page and never read or
+  written in an advisor's session in a client's account
+  (ai_gateway.may_keep_memory).
 - CSV column guess (only when asked): column names and cell kinds only
   (csv_import.ai_mapping / sample_shapes).
 - Screenshots: only where offered (the screenshot_ai flag, off in
@@ -300,13 +307,18 @@ Each has its own privacy policy.
 The app's AI guide (Ask Northwend) and the plan's suggested next steps use Claude,
 an AI model from Anthropic. When you use them, the app sends:
 
-- your investing-profile answers (goals, time horizon, risk tolerance and so on),
-- your holdings as **tickers, fund names, types and sectors, each one's share of the
-  portfolio, its gain or loss as a percentage, and figures like dividend yield,
-  beta and P/E** - never dollar amounts, share counts, account names or numbers,
+- your investing-profile answers (goals, time horizon, risk tolerance and so on;
+  the chat leaves out your "Other notes" box),
+- your holdings: in the chat as **tickers, fund names from market data, what each
+  fund holds and each one's share of the portfolio in whole percents**, with your
+  mix and your own target mix; for the plan's suggested next steps also types and
+  sectors, gains or losses as percentages, and figures like dividend yield, beta
+  and P/E - never dollar amounts, share counts, account names or numbers,
 - what you type in the chat, and short notes the guide saved from earlier
   conversations - goals, dates and decisions, never dollar amounts or account
-  numbers (the app takes those out before a note is saved).
+  numbers (the app takes those out before a note is saved). You can read and
+  delete the notes on your Account page; an advisor working in your account never
+  sees or changes them.
 
 If you have an advisor, they can ask the AI to draft **talking points** before
 a meeting. That sends the same profile answers and holdings summary, plus facts

@@ -5,8 +5,9 @@ Every AI answer's token counts are added to one row per (month, helper,
 model) in `ai_spend`, with an estimated cost in micro-dollars from PRICES.
 Counts only: never the question, the answer, a name or an account - the
 table has no user_id and no text column (so it isn't account data: not in
-admin.ACCOUNT_TABLES or export.OWN). The AI modules call note() right after
-each successful answer; it writes only once the app has called use_db().
+admin.ACCOUNT_TABLES or export.OWN). The AI gateway (ai_gateway.py) calls
+note() right after each successful answer; it writes only once the app has
+called use_db().
 
 The month's total against the ceiling (NORTHWEND_AI_CEILING_USD, default
 100) sets the level everything AI follows:
@@ -78,23 +79,35 @@ def _stamp(now: datetime) -> str:
 
 # ---- what one answer used --------------------------------------------------- #
 
+def _count(v) -> int:
+    return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else 0
+
+
 def usage_of(response) -> dict:
     """{"input_tokens", "output_tokens", "cache_write_tokens",
     "cache_read_tokens"} from an API response's `usage` - 0 for anything
-    missing (a test's stand-in has none). Numbers only, nothing else of it."""
+    missing (a test's stand-in has none). Numbers only, nothing else of it.
+    When some of the cache writes were for the 1-hour cache (the shared
+    first block, ai_gateway.build_request), "cache_write_1h_tokens" says how
+    many of them - they cost twice the input price, not 1.25 times."""
     usage = getattr(response, "usage", None)
     out = {}
     for name, attr in USAGE_FIELDS:
-        v = getattr(usage, attr, None) if usage is not None else None
-        out[name] = v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else 0
+        out[name] = _count(getattr(usage, attr, None) if usage is not None else None)
+    long_writes = _count(getattr(getattr(usage, "cache_creation", None),
+                                 "ephemeral_1h_input_tokens", None))
+    if long_writes:
+        out["cache_write_1h_tokens"] = min(long_writes, out["cache_write_tokens"])
     return out
 
 
 def cost_micro(model: str, usage: dict) -> int:
     """The estimated cost of `usage` on `model`, in micro-dollars."""
     inp, out, write, read = PRICES.get(model, FALLBACK_PRICE)
+    long_writes = usage.get("cache_write_1h_tokens", 0)
     return round(usage.get("input_tokens", 0) * inp + usage.get("output_tokens", 0) * out
-                 + usage.get("cache_write_tokens", 0) * write
+                 + (usage.get("cache_write_tokens", 0) - long_writes) * write
+                 + long_writes * inp * 2
                  + usage.get("cache_read_tokens", 0) * read)
 
 
@@ -284,9 +297,18 @@ def use_db(db: str | None, *, send: bool = False, copy: str = "") -> None:
     _SINK.update(db=db, send=send, copy=copy)
 
 
-def note(response, helper: str, model: str) -> None:
+def sink_db() -> str | None:
+    """The database use_db() named (None until then) - the AI gateway checks
+    allowances and the level there too."""
+    return _SINK["db"]
+
+
+def note(response, helper: str, model: str, *, also=None) -> None:
     """Record one successful answer's token counts - never raises, so a
-    failing count can't break the feature. Does nothing until use_db()."""
+    failing count can't break the feature. Does nothing until use_db().
+    `also(conn, cost)`: run on the same connection with the answer's cost in
+    micro-dollars (ai_gateway adds it to the person's own allowance there -
+    this table itself never holds who asked)."""
     db = _SINK["db"]
     if not db:
         return
@@ -295,7 +317,9 @@ def note(response, helper: str, model: str) -> None:
         usage = usage_of(response)
         conn = connect(db)
         try:
-            record(conn, helper, model, usage)
+            cost = record(conn, helper, model, usage)
+            if also is not None:
+                also(conn, cost)
             maybe_alert(conn, send=_SINK["send"], copy=_SINK["copy"])
         finally:
             conn.close()

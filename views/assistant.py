@@ -9,9 +9,10 @@
 # for advisors and for Show everything (_show_everything).
 # ruff: noqa: F821
 
-ASSIST_PROFILE_NOTE = (f"{GUIDE} also fills this in from what you tell it in the chat, and "
-                       "keeps short notes of its own so the next conversation picks up where "
-                       "this one left off.")
+ASSIST_PROFILE_NOTE = (f"When you tell {GUIDE} something that belongs here, it offers to save "
+                       "it - nothing changes until you tap Save. It also keeps short notes so "
+                       "the next conversation picks up where this one left off; you can read "
+                       "and delete them on your Account page.")
 ASSIST_DISCLAIMER = (f"Educational information only - not financial advice. {GUIDE} is an AI, "
                      "not a licensed financial advisor, and can be wrong; it won't recommend "
                      "what to buy or sell. Any projection is hypothetical. Do your own research "
@@ -41,11 +42,67 @@ def _assist_plan_window(api_key, contexts, cash_by_account):
                         st.session_state.get("chat_display", []), in_window=True)
 
 
+def _chat_keeps_notes():
+    """The guide reads and keeps its notes only in the person's own account -
+    never an advisor's conversation in a client's (AI_PLAN section 6)."""
+    import ai_gateway
+    return ai_gateway.may_keep_memory(LOGIN_ID, USER_ID)
+
+
+def _chat_card(contexts, cash_by_account, profile, memory):
+    """This conversation's ContextCard, rendered (context_card.py): made at
+    its first message, then the same text every turn - live prices moving
+    don't change it, so the cached prompt keeps working."""
+    import context_card
+
+    def make():
+        return context_card.build(
+            profile=profile, contexts=contexts, cash_by_account=cash_by_account,
+            splits=CLASS_SPLITS, targets=load_alloc_targets(), band=load_drift_threshold(),
+            stage=context_card.stage_of(has_real_holdings=HAS_REAL_HOLDINGS,
+                                        experience=profile.get("experience"),
+                                        managed=CLIENT_MODE),
+            memory=memory if _chat_keeps_notes() else "",
+            scope=context_card.SELF if _chat_keeps_notes() else context_card.ADVISOR_FULL)
+    return context_card.for_conversation(st.session_state, USER_ID, make)[0]
+
+
+def _new_conversation():
+    import context_card
+    st.session_state["chat_display"] = []
+    st.session_state["chat_api"] = []
+    st.session_state.pop("chat_suggest", None)
+    context_card.forget(st.session_state)
+
+
+def _chat_save_suggestion():
+    """The person tapped Save under a profile suggestion: only now is it
+    written (the write rule - the model's tool only suggests)."""
+    import advisor
+    sug = st.session_state.pop("chat_suggest", None)
+    if not sug or sug.get("for") != USER_ID:
+        return
+    # checked when it was suggested (advisor.validate_profile_input); never notes
+    fields = {k: v for k, v in sug["fields"].items() if k in advisor.TOOL_PROFILE_FIELDS}
+    if not fields:
+        return
+    c = connect(DB)
+    try:
+        advisor.save_profile(c, USER_ID, fields)
+    finally:
+        c.close()
+    st.session_state["profile_toast"] = True
+
+
+def _chat_skip_suggestion():
+    st.session_state.pop("chat_suggest", None)
+
+
 def _render_assistant(contexts, cash_by_account):
     import advisor
 
     if st.session_state.pop("profile_toast", False):
-        st.toast("Profile updated from the conversation.")
+        st.toast("Saved to the profile.")
     api_key = _anthropic_key()
     if not api_key:
         # the set-up detail (no ANTHROPIC_API_KEY) is on Admin > System
@@ -53,6 +110,8 @@ def _render_assistant(contexts, cash_by_account):
         return
 
     profile, memory = _assist_profile()
+    if (st.session_state.get("chat_card") or {}).get("for", USER_ID) != USER_ID:
+        _new_conversation()   # another account now: its own conversation and card
 
     # the count covers the readiness questions too (debt, employer match), so
     # it never says every question is answered while some are still open
@@ -128,30 +187,17 @@ def _render_assistant(contexts, cash_by_account):
         with chat_box, st.chat_message("user"):
             st.markdown(prompt)
 
-        system = advisor.system_prompt(profile, advisor.portfolio_summary(contexts, cash_by_account, CLASS_SPLITS),
-                                       memory)
-        updated = []
-
-        def on_update(fields):
-            c = connect(DB)
-            try:
-                advisor.save_profile(c, USER_ID, fields)
-            finally:
-                c.close()
-            updated.append(fields)
-
-        def on_memory(text):
-            c = connect(DB)
-            try:
-                advisor.save_memory(c, USER_ID, text)
-            finally:
-                c.close()
+        # the person's card, made at the conversation's first message and kept
+        # (context_card.py); the rules and tools are the gateway's shared block
+        card = _chat_card(contexts, cash_by_account, profile, memory)
+        suggested, kept = [], []   # the write rule: nothing is saved from inside the answer
 
         with chat_box, st.chat_message("assistant", avatar=SAGE_AVATAR):
             try:
                 reply = st.write_stream(advisor.stream_reply(
-                    anthropic.Anthropic(api_key=api_key), history, system, on_update,
-                    on_memory, **ai_spend.chat_settings(quota["level"])))
+                    anthropic.Anthropic(api_key=api_key), history, card, suggested.append,
+                    kept.append if _chat_keeps_notes() else None, user_id=LOGIN_ID,
+                    **ai_spend.chat_settings(quota["level"])))
             except anthropic.AnthropicError as exc:
                 # one calm sentence, never the error's text (_ai_failed); the
                 # question leaves the history so the next try asks it afresh,
@@ -159,25 +205,44 @@ def _render_assistant(contexts, cash_by_account):
                 reply = _ai_failed(exc, "chat")
                 del history[n_history - 1:]
                 st.warning(reply)
+                suggested, kept = [], []
             else:
                 _ai_record("chat")  # counted once it has answered
                 if quota["left"] is not None:
-                    quota["left"] -= 1
+                    quota["left"] = max(0, quota["left"] - 1)
         display.append({"role": "assistant", "text": reply if isinstance(reply, str) else "".join(reply)})
-        if updated:
-            # rerun so the profile form shows the new values; the toast is
-            # carried across the rerun, since one fired right before it is lost
-            st.session_state["profile_toast"] = True
-            st.rerun()
+        if kept:
+            # the guide's notes - typed and scrubbed (advisor.MemoryNote) - kept
+            # on the person's behalf by the gateway, only in their own account
+            import ai_gateway
+            c = connect(DB)
+            try:
+                ai_gateway.save_memory(c, login_id=LOGIN_ID, account_id=USER_ID, notes=kept[-1])
+            finally:
+                c.close()
+        if suggested:
+            # a profile suggestion: a button under the answer, saved only on a tap
+            merged = {}
+            for fields in suggested:
+                merged.update(fields)
+            st.session_state["chat_suggest"] = {"for": USER_ID, "fields": merged}
+
+    _sug = st.session_state.get("chat_suggest")
+    if _sug and _sug.get("for") == USER_ID and _sug.get("fields"):
+        with st.container(border=True, horizontal=True, vertical_alignment="center",
+                          key="chat_suggest_box"):
+            st.caption(f"Save to {'your' if USER_ID == LOGIN_ID else 'their'} profile? "
+                       + advisor.describe_answers(_sug["fields"]), width="stretch")
+            st.button("Save", key="chat_suggest_save", type="primary",
+                      on_click=_chat_save_suggestion, icon=":material/check:")
+            st.button("Not now", key="chat_suggest_skip", type="tertiary",
+                      on_click=_chat_skip_suggestion)
 
     if not quota["ok"]:
         st.info(ai_usage.used_up_text(quota, "chat", GUIDE))
     elif at_limit:
         st.info(f"This conversation hit the {CHAT_MESSAGE_LIMIT}-message limit. Start a new one "
                 "to keep going.")
-    def _new_conversation():
-        st.session_state["chat_display"] = []
-        st.session_state["chat_api"] = []
     if full:
         if display:
             st.button("New conversation", on_click=_new_conversation)

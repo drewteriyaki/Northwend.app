@@ -27,7 +27,7 @@ MAX_BYTES = 5 * 1024 * 1024        # per image, the API's limit
 # first bytes (image_type), never from its name
 MEDIA_TYPES = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
                "webp": "image/webp"}
-MAX_TOKENS = 4000
+# the answer's length, model and the rest: ai_gateway.HELPERS["screenshot"]
 
 PROMPT = """These are screenshots of someone's brokerage holdings (positions) screen.
 List every holding you can see. Return ONLY a JSON object, no other text:
@@ -134,15 +134,16 @@ def _extract_json(text: str):
     return json.loads(m.group(0)) if m else None
 
 
-def read(images: list[tuple[bytes, str]], api_key: str, *, client=None, model=None) -> dict:
-    """Ask the AI to read `images`; returns clean()'s shape plus "error"
-    (a message, or None) and "answered" (the AI replied, so the read counts
-    against the month's allowance; False when the request failed - then
-    "failure" holds the exception, for the server log). `client` is for
-    tests."""
+def read(images: list[tuple[bytes, str]], api_key: str, *, client=None,
+         user_id: int | None = None) -> dict:
+    """Ask the AI to read `images` (through ai_gateway - `user_id`: whose
+    allowance); returns clean()'s shape plus "error" (a message, or None)
+    and "answered" (the AI replied, so the read counts against the month's
+    allowance; False when the request failed - then "failure" holds the
+    exception, for the server log). `client` is for tests."""
     import anthropic
-    if model is None:
-        from advisor import MODEL as model
+
+    import ai_gateway
     client = client or anthropic.Anthropic(api_key=api_key, timeout=90.0)
     content = [{"type": "image", "source": {"type": "base64", "media_type": mt,
                                             "data": base64.standard_b64encode(data).decode()}}
@@ -150,17 +151,15 @@ def read(images: list[tuple[bytes, str]], api_key: str, *, client=None, model=No
     content.append({"type": "text", "text": PROMPT})
     empty = {"holdings": [], "cash": None, "mode": "Shares", "answered": False}
     try:
-        resp = client.messages.create(model=model, max_tokens=MAX_TOKENS,
-                                      messages=[{"role": "user", "content": content}])
+        resp = ai_gateway.call("screenshot", client=client, user_id=user_id,
+                               messages=[{"role": "user", "content": content}])
     except anthropic.AnthropicError as exc:
         # one calm sentence per kind of failure, never the error's own text;
         # the caller logs `failure` (dashboard._ai_failed)
         import ai_usage
         return {**empty, "failure": exc,
                 "error": ai_usage.failure_text(exc, feature="Reading screenshots")}
-    import ai_spend
-    ai_spend.note(resp, "screenshot", model)   # token counts only
-    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    text ="".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     try:
         answer = _extract_json(text)
     except ValueError:

@@ -197,6 +197,55 @@ def _acct_delete():
                                         f"Thank you for trying {APP_NAME}.")
 
 
+def _acct_forget_note(index):
+    """Delete one of the guide's notes - the login's own only."""
+    import advisor
+    c = connect(DB)
+    try:
+        advisor.forget_note(c, LOGIN_ID, index)
+    finally:
+        c.close()
+    _acct_msg("success", f"{GUIDE} won't remember that any more.")
+
+
+def _acct_forget_all():
+    import advisor
+    c = connect(DB)
+    try:
+        advisor.forget_all(c, LOGIN_ID)
+    finally:
+        c.close()
+    _acct_msg("success", f"{GUIDE}'s notes are gone - the next conversation starts fresh.")
+
+
+def _render_guide_notes():
+    """What Ask Northwend remembers (AI_PLAN section 6): the guide's notes
+    from earlier conversations, each with Delete, and Forget everything. The
+    login's own notes only - an advisor's conversations in a client's account
+    never keep any."""
+    import advisor
+    c = connect(DB)
+    try:
+        notes = advisor.get_notes(c, LOGIN_ID)
+    finally:
+        c.close()
+    st.subheader(f"What {GUIDE} remembers", anchor=False)
+    if not notes:
+        st.caption(f"Nothing yet. {GUIDE} keeps a few short notes between conversations - "
+                   "your goals and dates, what it has explained - and they'll show here.")
+        return
+    st.caption(f"Short notes {GUIDE} keeps between conversations, so the next one picks up "
+               "where you left off. Never dollar amounts or account numbers. Delete any you'd "
+               "rather it forgot.")
+    for i, n in enumerate(notes):
+        with st.container(horizontal=True, vertical_alignment="center"):
+            st.markdown(f"**{advisor.MEMORY_KINDS[n.kind]}:** {_md_name(n.text)}",
+                        width="stretch")
+            st.button("Delete", key=f"acct_note_del_{i}", type="tertiary",
+                      on_click=_acct_forget_note, args=(i,), icon=":material/delete:")
+    st.button("Forget everything", key="acct_notes_forget", on_click=_acct_forget_all)
+
+
 def _acct_facts(c):
     # the login's row and two-step state as the sign-in gate read them at the
     # top of this run (this page is drawn in the full run; its changes are
@@ -314,6 +363,9 @@ def _render_account():
         st.button("Sign out other devices", key="acct_sign_out_others",
                   on_click=_acct_sign_out_others)
     _render_two_step(two_step_state)
+
+    # ---- the guide's notes (the write rule: visible and deletable) -------------- #
+    _render_guide_notes()
 
     # ---- your data ------------------------------------------------------------ #
     st.subheader("Your data", anchor=False)

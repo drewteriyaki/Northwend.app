@@ -471,19 +471,20 @@ description (security name). Use null when no column holds a field.
 Return ONLY a JSON object like {{"symbol": 0, "quantity": 3, "cost": null, ...}}."""
 
 
-def ai_mapping(header, shapes, api_key, *, client=None, model=None) -> dict | None:
-    """Ask the AI to map columns from their names and cell kinds only. None
-    when its answer doesn't give a usable mapping; a failed request raises
-    (anthropic's errors), so the caller can say so and not count it."""
+def ai_mapping(header, shapes, api_key, *, client=None, user_id=None) -> dict | None:
+    """Ask the AI to map columns from their names and cell kinds only,
+    through ai_gateway (`user_id`: whose allowance; the model is the
+    register's, AI_MODEL). None when its answer doesn't give a usable
+    mapping; a failed request raises (anthropic's errors, the gateway's
+    Refused), so the caller can say so and not count it."""
     import anthropic
+
+    import ai_gateway
     client = client or anthropic.Anthropic(api_key=api_key, timeout=30.0)
-    model = model or AI_MODEL
     prompt = AI_PROMPT.format(header=json.dumps(header), shapes=json.dumps(shapes))
-    resp = client.messages.create(model=model, max_tokens=400,
-                                  messages=[{"role": "user", "content": prompt}])
-    import ai_spend
-    ai_spend.note(resp, "csv", model)   # token counts only
-    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    resp = ai_gateway.call("csv", client=client, user_id=user_id,
+                           messages=[{"role": "user", "content": prompt}])
+    text ="".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     m = re.search(r"\{.*\}", text, re.S)
     try:
         raw = json.loads(m.group(0)) if m else None

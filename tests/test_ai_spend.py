@@ -51,6 +51,7 @@ def _ceiling(usd="100"):
 
 class _DB(unittest.TestCase):
     def setUp(self):
+        ai_spend.use_db(None)   # an earlier app run's database is long gone
         self.dir = tempfile.mkdtemp(prefix="pt_aispend_")
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.db = os.path.join(self.dir, "t.db")
@@ -69,6 +70,9 @@ class _DB(unittest.TestCase):
 # the hard caps (AI_PLAN 10 step 2)
 # --------------------------------------------------------------------------- #
 class CapTests(unittest.TestCase):
+
+    def setUp(self):
+        ai_spend.use_db(None)   # an earlier app run's database is long gone
 
     def test_the_caps(self):
         self.assertEqual(advisor.MAX_TOKENS, 2500)
@@ -195,7 +199,7 @@ class LoggingTests(_DB):
         client_plan.next_steps(_Client(), profile, "No holdings yet")
         csv_import.ai_mapping(["Symbol"], ["text"], "k", client=_Client())
         txn_import.ai_mapping(["Date"], ["text"], "k", client=_Client())
-        screenshot_read.read([(b"x", "image/png")], "k", client=_Client(), model=SONNET)
+        screenshot_read.read([(b"x", "image/png")], "k", client=_Client())
         got = {r["helper"]: r["calls"] for r in self.conn.execute(
             "SELECT helper, calls FROM ai_spend")}
         self.assertEqual(got, {"prep": 1, "plan": 1, "csv": 1, "txn": 1, "screenshot": 1})
@@ -276,7 +280,7 @@ class CeilingTests(_DB):
                                      want, level)
                 else:
                     self.assertEqual(ai_spend.gate(level, kind), want, (level, kind))
-        self.assertEqual(set(ai_usage.LIMITS), set(table[ai_spend.NORMAL]))   # every kind
+        self.assertEqual(set(ai_usage.KINDS), set(table[ai_spend.NORMAL]))   # every kind
 
     def test_the_resting_words_are_calm(self):
         status = {"ok": True, "used": 0, "limit": 100, "left": 100,
@@ -288,7 +292,7 @@ class CeilingTests(_DB):
                          "Northwend works as usual.")
         texts = [ai_usage.used_up_text(ai_spend.apply(status, lvl, k), k)
                  for lvl in (ai_spend.REDUCED, ai_spend.CLOSING, ai_spend.RESTING)
-                 for k in ai_usage.LIMITS
+                 for k in ai_usage.KINDS
                  if ai_spend.gate(lvl, k)]
         self.assertIn("Ask Northwend isn't starting new conversations until November 1. "
                       "Everything else in Northwend works as usual.", texts)

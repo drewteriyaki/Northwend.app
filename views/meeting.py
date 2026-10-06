@@ -24,7 +24,8 @@ def _prep_draft(profile, summary, facts):
         st.session_state["prep_msg"] = ("info", ai_usage.used_up_text(quota, "prep"))
         return
     try:
-        pts = meeting.talking_points(anthropic.Anthropic(api_key=key), profile, summary, facts)
+        pts = meeting.talking_points(anthropic.Anthropic(api_key=key), profile, summary, facts,
+                                     user_id=LOGIN_ID)
     except anthropic.AnthropicError as exc:
         st.session_state["prep_msg"] = ("warning", _ai_failed(exc, "prep",
                                                               "Drafting talking points"))

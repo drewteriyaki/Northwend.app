@@ -109,24 +109,19 @@ def build_facts(conn, user_id: int, contexts: list[dict], cash_by_account: dict,
 # the one API call (percentages only)
 # --------------------------------------------------------------------------- #
 def next_steps(client, profile: dict, summary: str, chat_text: str = "",
-               memory: str = "") -> list[str] | None:
+               memory: str = "", *, user_id: int | None = None) -> list[str] | None:
     """Suggested next steps as a list of short lines, or None if the model
     declined. API errors propagate so the caller can say what went wrong.
     `summary` must be advisor.portfolio_summary() output (weights only);
-    `memory` is the assistant's saved notes (advisor.get_memory)."""
+    `memory` is the assistant's saved notes (advisor.get_memory); the call
+    goes through ai_gateway (`user_id`: whose allowance)."""
+    import ai_gateway
     content = _NEXT_STEPS_REQUEST
     if chat_text.strip():
         content = "## Conversation so far\n" + chat_text.strip() + "\n\n" + content
-    message = client.messages.create(
-        model=advisor.MODEL,
-        max_tokens=MAX_TOKENS,
-        system=advisor.system_prompt(profile, summary, memory),
-        messages=[{"role": "user", "content": content}],
-        thinking={"type": "adaptive"},
-        output_config={"effort": "medium"},
-    )
-    import ai_spend
-    ai_spend.note(message, "plan", advisor.MODEL)   # token counts only
+    message = ai_gateway.call("plan", client=client, user_id=user_id,
+                              system=advisor.system_prompt(profile, summary, memory),
+                              messages=[{"role": "user", "content": content}])
     if message.stop_reason == "refusal":
         return None
     text = "".join(b.text for b in message.content if b.type == "text").strip()

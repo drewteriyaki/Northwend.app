@@ -1163,6 +1163,34 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
           `st.table`; nothing saved but three numbers in prefs for R5's metric
           (`feature_counts.decoder`, Admin > Feature tests; privacy text first);
           optional Fund overlap behind a button. `tests/test_menu_decoder.py`
+  - [x] AI_PLAN 4-5 One gateway (`ai_gateway.py`) - done: `call()` for all six
+        helpers (chat streaming, meeting prep, plan steps, screenshots, both
+        column guesses) from the `HELPERS` register (model, max_tokens, effort,
+        allowance bucket, `carries_dollars` - none marked; screenshots are the
+        open case, D1); it checks the allowance and the month's level, records
+        tokens and cost (`ai_spend.note`), logs no text, fails closed when the
+        allowance can't be read; `carries_dollars` refused on a hosted copy
+        without `AI_ZDR`; a "system" bucket held to $10 a month. The pinned-call
+        test now allows only `ai_gateway.py`
+  - [x] AI_PLAN 7 Cost-based allowances (`ai_usage.py`) - done: chat $0.25 a
+        day / $1.00 a month, decode $0.30, advisors chat $2/$8, drafts $6,
+        decode $3 ($17); habit bonus +$0.10 per Monthly Walk finished in this
+        month and the four before (at most +$0.50); people still see "about N
+        messages left" (their own average cost per use, else a typical one);
+        ai-unlimited / ai-limited unchanged; ai_usage gains cost columns
+        (schema version 2)
+  - [x] AI_PLAN 8 ContextCard (`context_card.py`) - done: typed, validated
+        fields only (allowlist, fuzz and builder tests); names from market
+        data; whole-% weights; made at the conversation's first message and
+        kept in the session; replaces the chat's portfolio summary
+  - [x] AI_PLAN 9 Cache layout - done: tools, then the shared block (rules and
+        the `ai_library.block_text()` hook, 1-hour cache, the same for
+        everyone), then the card (5 minutes), then the messages
+  - [x] AI_PLAN 12 The write rule - done: the profile tool only suggests (a
+        Save button under the answer); notes are typed `MemoryNote`s, scrubbed,
+        listed on Account with Delete and "Forget everything", saved by
+        `ai_gateway.save_memory` only in the person's own account; an advisor
+        in a client's account never reads or writes the client's notes
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
       decoder, the no-account decoder route
   - [x] Storm Drill field (R4) - done Oct 6, behind flag `storm_drill`: "What will

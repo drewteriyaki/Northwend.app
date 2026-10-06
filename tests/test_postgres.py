@@ -1042,10 +1042,22 @@ class HoldingsTests(_PG):
         c.commit()
         ai_usage.record(c, uid, "chat")
         ai_usage.record(c, uid, "chat")
+        # cost by month and by day (the upsert's CASE on the day, on Postgres)
+        day1 = datetime(2031, 3, 4, 9, tzinfo=timezone.utc)
+        ai_usage.add_cost(c, uid, "chat", 100_000, now=day1)
+        ai_usage.add_cost(c, uid, "chat", 50_000, now=day1)
+        st = ai_usage.status(c, uid, "chat", now=day1)
+        self.assertEqual((st["cost_used"], st["cost_left"], st["period"]), (150_000, 100_000, "day"))
+        ai_usage.add_cost(c, uid, "chat", 20_000, now=day1 + timedelta(days=1))
+        st = ai_usage.status(c, uid, "chat", now=day1 + timedelta(days=1))
+        self.assertEqual((st["cost_used"], st["cost_left"]), (170_000, 230_000))
+        self.assertEqual(self.one("SELECT cost_micro, day, day_cost_micro FROM ai_usage "
+                                  "WHERE user_id = ? AND month = '2031-03'", (uid,)),
+                         {"cost_micro": 170_000, "day": "2031-03-05", "day_cost_micro": 20_000})
         st = ai_usage.status(c, uid, "chat")
-        self.assertEqual((st["used"], st["left"]), (2, ai_usage.LIMITS["chat"] - 2))
-        self.assertEqual(self.one("SELECT used FROM ai_usage WHERE user_id = ?", (uid,)),
-                         {"used": 2})
+        self.assertEqual(st["used"], 2)
+        self.assertEqual(self.one("SELECT used FROM ai_usage WHERE user_id = ? AND month = ?",
+                                  (uid, ai_usage.month_of())), {"used": 2})
         ai_usage.set_unlimited(c, uid, True)
         self.assertIsNone(ai_usage.status(c, uid, "chat")["limit"])
 
