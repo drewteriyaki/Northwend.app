@@ -1097,11 +1097,22 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
 - [ ] **Step 8 - Service seams** (no new frontend now)
 - [ ] **Step 9 - Ritual R6-R12**
 
-Owner, any time from week 1: GitHub secret scanning, the Anthropic console
-spend limit and a staging workspace, a zero-data-retention request to
-Anthropic, deleting the old Neon branch, a DMARC check, the securities
-attorney (L0, then L3, L1, L2), a business entity and insurance, and the
-payment provider's approval.
+Owner, done Oct 6: GitHub secret scanning, the Anthropic console spend
+limit and a staging workspace, the zero-data-retention request, the Neon
+branch check, DMARC, and the live and staging secrets.
+
+**Business setup is delayed as long as possible (owner, Oct 6).** That means
+the entity, insurance, the attorney and Paddle. Steps 1-4 and the building of
+steps 5-6 don't need any of it: the advisor side and billing are built behind
+their gates, which stay off. Start each one this far ahead of what it unlocks:
+- **Paddle account** (the LLC first): about 4 weeks before billing goes live.
+  It's the last thing step 6 needs.
+- **Attorney:** before any of L1, L2 or L3 is turned on in production. L0 is
+  on today, with open sign-up; turning it off (invite codes only) until the
+  attorney has looked is the cautious middle ground.
+- **LLC and insurance:** before the first paid seat. Ideally also before the
+  directory opens, since that's the first time Northwend connects a person
+  with an advisor.
 
 ## The Ritual - Northwend's primary direction (Oct 5)
 
