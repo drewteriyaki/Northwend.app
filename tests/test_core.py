@@ -4255,8 +4255,9 @@ class WeeklyEmailTests(TempDBMixin, unittest.TestCase):
         self.conn.close()
         super().tearDown()
 
-    def _send(self, to, link, lines):
+    def _send(self, to, link, lines, unsub=""):
         self.sent.append((to, link, lines))
+        self.unsub = unsub
         return True
 
     def test_counts_only_and_once_a_week(self):

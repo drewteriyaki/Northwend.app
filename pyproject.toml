@@ -49,6 +49,7 @@ py-modules = [
     "reports", "route", "sample_data", "screenshot_read", "settings", "starter_funds", "storms",
     "sync_history", "ticker_search", "two_step", "txn_import", "update_prices", "watchlist",
     "weekly_email",
+    "flags", "unsubscribe",   # feature flags and gates; one-click unsubscribe
     # the investor tools: stress test, next deposit, cash check, employer match
     "stress", "next_deposit", "cash_check", "employer_match",
     # year in review and the account map

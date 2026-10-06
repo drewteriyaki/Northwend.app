@@ -15,6 +15,7 @@ import secrets
 import admin
 import error_alerts
 import feature_counts
+import flags
 import hosting
 import two_step
 
@@ -221,6 +222,20 @@ def _render_errors(c):
                    "it happens.")
 
 
+def _admin_flag_rows():
+    """Which legal gates and feature flags are on (flags.py) - not secrets."""
+    s = flags.state()
+    gates = ", ".join(f"{g} {'on' if v else 'off'}" for g, v in s["gates"].items())
+    feats = ", ".join(
+        f"{n} {'on' if f['on'] else 'off'}"
+        + (f" (set, waiting for {' and '.join(f['needs'])})" if f["set"] and not f["on"] else "")
+        for n, f in s["flags"].items())
+    if s["unknown"]:
+        feats += "; not known here: " + ", ".join(s["unknown"])
+    return [("Legal gates (NORTHWEND_GATES)", gates),
+            ("Feature flags (NORTHWEND_FLAGS)", feats)]
+
+
 def _render_system(c):
     """Developer facts about this copy of the app - never a secret's value."""
     from manage_users import where
@@ -249,6 +264,7 @@ def _render_system(c):
         ("Last price update", _admin_when(last_price)),
         ("Newest daily price history", last_bar or "none"),
         ("Admins", "; ".join(admins)),
+        *_admin_flag_rows(),
     ]
     st.markdown("\n".join(f"- **{k}:** {v}" for k, v in rows))
     with st.container(horizontal=True):

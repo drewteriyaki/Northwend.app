@@ -15,6 +15,11 @@ they chose, only while Home has the walk waiting for them
 whose email isn't confirmed gets nothing. Off unless the person turned it
 on. Does nothing when email isn't set up (RESEND_API_KEY) or --app-url is
 missing; --dry-run lists how many would get it without sending anything.
+Sends nothing at all while the walk is off (flags.py: NORTHWEND_FLAGS
+without "walk" - the job's environment, a repository secret).
+
+Each email has a link that turns the reminder off in one click, with no
+sign-in, and the same address in a List-Unsubscribe header (unsubscribe.py).
 """
 
 from __future__ import annotations
@@ -26,8 +31,10 @@ import time
 from datetime import date
 
 import checkin
+import flags
 import mailer
 import prefs
+import unsubscribe
 from portfolio import DEFAULT_DB, connect
 
 SUBJECT = "Time for your monthly walk"
@@ -48,15 +55,22 @@ def recipients(conn) -> list[dict]:
         (f'%"{checkin.PREF_EMAIL}": true%',))]
 
 
-def reminder(to: str, link: str) -> bool:
-    """The email itself: no figures, nothing about their money."""
+def reminder(to: str, link: str, unsub: str = "") -> bool:
+    """The email itself: no figures, nothing about their money. `unsub`: its
+    one-click unsubscribe link (unsubscribe.py)."""
     text = f"{LINES[0]}\n\n{LINES[1]}\n\nOpen Northwend: {link}\n\n{LINES[2]}\n"
-    return mailer.send(to, SUBJECT, text, mailer._html(list(LINES), ("Open Northwend", link)))
+    if unsub:
+        text += f"\n{mailer.UNSUBSCRIBE_LINE}: {unsub}\n"
+    return mailer.send(to, SUBJECT, text,
+                       mailer._html(list(LINES), ("Open Northwend", link), unsubscribe=unsub),
+                       headers=mailer.unsubscribe_headers(unsub))
 
 
 def run(conn, app_url: str, today: date, *, send=reminder, dry_run: bool = False) -> dict:
     link = app_url.rstrip("/") + "/?page=dashboard"
     done = {"sent": 0, "not_due": 0, "failed": 0, "would_send": 0}
+    if not flags.on("walk"):   # the walk is off here: no reminders at all
+        return done
     for r in recipients(conn):
         p = prefs.load(conn, r["id"])
         if not checkin.wants_email(p, today):
@@ -67,7 +81,9 @@ def run(conn, app_url: str, today: date, *, send=reminder, dry_run: bool = False
             continue
         if done["sent"] or done["failed"]:
             time.sleep(0.6)   # the email service takes a couple a second
-        if send(r["email"], link):
+        unsub = unsubscribe.link(app_url, unsubscribe.new_token(conn, r["id"], "walk",
+                                                                r["email"]))
+        if send(r["email"], link, unsub):
             p[checkin.PREF_SENT] = checkin.month_of(today)
             prefs.save(conn, r["id"], p)
             done["sent"] += 1
@@ -87,6 +103,9 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if not args.app_url:
         print("Skipped: no --app-url (or APP_URL) to link to.")
+        return 0
+    if not flags.on("walk"):
+        print("Skipped: the monthly walk isn't turned on here (NORTHWEND_FLAGS).")
         return 0
     if mailer.status() == "off" and not args.dry_run:
         print("Skipped: email isn't set up (RESEND_API_KEY).")

@@ -7,6 +7,7 @@
 # review-and-save step, and the example portfolio.
 # ruff: noqa: F821
 
+import flags
 import starter_funds
 import ticker_search
 import txn_import
@@ -344,6 +345,13 @@ def _manual_fill(found, acct):
                             "each one holds.")
 
 
+# the screenshots tab while reading them with the AI is off (flags.py)
+SCREENSHOTS_OFF = ("Reading screenshots isn't available here. Pasting works just as well: copy "
+                   "the positions list from your brokerage's website and use **Paste a list "
+                   "from your brokerage**. Or upload your brokerage's positions file with "
+                   "**Upload a CSV** under Add holdings.")
+
+
 def _render_screenshot_reader(existing=()):
     """Read from screenshots: opt-in, the images go to Anthropic's AI (see
     screenshot_read.py). They're read from memory and never kept. What's
@@ -352,6 +360,9 @@ def _render_screenshot_reader(existing=()):
     ss = st.session_state
     msg = ss.pop("me_shot_msg", None)
     with st.container():
+        if not flags.on("screenshot_ai"):   # off on the live copy (flags.py, decision D1)
+            st.caption(SCREENSHOTS_OFF)
+            return
         key = _anthropic_key()
         if not key:
             st.caption("Reading screenshots needs the AI, which isn't set up on this site.")

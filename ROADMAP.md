@@ -1023,7 +1023,12 @@ matched", M6 client payments and M7 reviews are out. Every new feature
 ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
 
 - [ ] **Step 1 - Hardening Phase 0 and Phase 1** (PLAN 1a and 1b, about 3 weeks)
-  - [ ] 1a.1 `flags.py`, the Walk behind its flag; Admin lists flags
+  - [x] 1a.1 `flags.py`, the Walk behind its flag; Admin lists flags - done:
+        `NORTHWEND_GATES` (L0-L3, no L4) and `NORTHWEND_FLAGS` (`walk`,
+        `screenshot_ai`), all off unless set; `_view` and `PAGES` check `FEATURES`;
+        the Walk's card, Account section, reminder job and logbook gear follow
+        `walk`; the screenshot AI follows `screenshot_ai`; Admin > System lists
+        them. Staging sets both; the live copy none yet. No gate wired yet
   - [x] 1a.3 Fail closed on configuration (`settings.py`) - hosted = RENDER, /mount/src
     or NORTHWEND_ENV production/staging; no Postgres PORTFOLIO_DB there = a calm stop
     page; path box, error details and alerts key on "hosted"; env reads moved in
@@ -1037,8 +1042,10 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [ ] 1a.7 Privacy wording made true; screenshot AI behind a flag; memory
         keeps no amounts (D9); a former client's delete keeps the old advisor's
         records (D7)
-  - [ ] 1a.8 One-click unsubscribe and `List-Unsubscribe` on the walk reminder and
-        the advisors' Monday email
+  - [x] 1a.8 One-click unsubscribe and `List-Unsubscribe` on the walk reminder and
+        the advisors' Monday email - done: `unsubscribe.py`, a hashed token per email
+        in `email_tokens` (`unsub_walk` / `unsub_weekly`, a year), `?unsubscribe=`
+        before sign-in. The RFC 8058 POST waits for step 4's hosting
   - [ ] 1a.9 L0 basics: US-residency box, both attestations timestamped; invite
         codes while L0 is off
   - [ ] 1a.10 Principle tests (emails, two-step gate, `?client=`, the A/B matrix)

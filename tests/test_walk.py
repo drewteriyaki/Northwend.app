@@ -302,7 +302,10 @@ class PrivacyTextTests(unittest.TestCase):
 # --------------------------------------------------------------------------- #
 # in the app
 # --------------------------------------------------------------------------- #
-class AppTests(unittest.TestCase):
+class _WalkApp(unittest.TestCase):
+    """The app on a scratch database with walkers seeded (no tests of its
+    own: AppTests here, and tests/test_flags.py with the walk's flag off)."""
+    FLAGS = "walk"   # NORTHWEND_FLAGS for the run (flags.py)
 
     @classmethod
     def setUpClass(cls):
@@ -386,7 +389,8 @@ class AppTests(unittest.TestCase):
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
                if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
-        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused",
+                   NORTHWEND_FLAGS=self.FLAGS)
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
                 unittest.mock.patch("socket.socket.connect", offline):
@@ -418,6 +422,10 @@ class AppTests(unittest.TestCase):
         for key in ("walk_holdings_same", "walk_mix", "walk_read"):
             at.button(key=key).click().run()
         return self._text(at)
+
+
+
+class AppTests(_WalkApp):
 
     def test_within_the_band_nothing_to_do(self):
         today = datetime.now().date()

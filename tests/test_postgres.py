@@ -59,6 +59,7 @@ import sample_data  # noqa: E402
 import sync_history  # noqa: E402
 import two_step  # noqa: E402
 import txn_import  # noqa: E402
+import unsubscribe  # noqa: E402
 import watchlist  # noqa: E402
 import weekly_email  # noqa: E402
 
@@ -558,7 +559,7 @@ class AdvisorTests(_PG):
         proposals.respond(c, dana, pid, True)
         sent = []
         done = weekly_email.run(c, "https://app.example/", TODAY,
-                                send=lambda to, link, lines: sent.append(to) or True)
+                                send=lambda to, link, lines, unsub: sent.append(to) or True)
         if sent:
             self.assertEqual(prefs.load(c, carol)[weekly_email.PREF_SENT],
                              advising.week_of(TODAY))
@@ -691,6 +692,9 @@ class FutureNotesTests(_PG):
         self.assertEqual([r["id"] for r in checkin_email.recipients(c)], [yes])
         day = date(2026, 10, 5)
         sent = []
+        on = unittest.mock.patch.dict(os.environ, {"NORTHWEND_FLAGS": "walk"})  # flags.py
+        on.start()
+        self.addCleanup(on.stop)
         dry = checkin_email.run(c, "https://app.example/", day, dry_run=True,
                                 send=lambda *a: sent.append(a) or True)
         self.assertEqual((dry["would_send"], sent), (1, []))
@@ -701,6 +705,33 @@ class FutureNotesTests(_PG):
                                              (yes,))["data"])[checkin.PREF_SENT], "2026-10")
         again = checkin_email.run(c, "https://app.example/", day, send=lambda *a: True)
         self.assertEqual(again["sent"], 0)
+
+    def test_unsubscribe_links_turn_off_one_email_for_one_person(self):
+        c = self.conn
+        ann, bob = self.user("ann.un"), self.user("bob.un", advisor=True)
+        for uid, name in ((ann, "ann.un"), (bob, "bob.un")):
+            c.execute("UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?",
+                      (f"{name}@example.com", "2026-09-01T10:00:00Z", uid))
+            c.commit()
+            prefs.save(c, uid, {checkin.PREF_EMAIL: True})
+        walk = unsubscribe.new_token(c, ann, "walk", "ann.un@example.com")
+        week = unsubscribe.new_token(c, bob, "weekly", "bob.un@example.com")
+        reset = auth.request_password_reset(c, "ann.un@example.com")["token"]
+        for wrong in ("not-a-token", reset, ""):
+            self.assertEqual(unsubscribe.use(c, wrong), {"ok": False, "kind": None})
+        self.assertIs(prefs.load(c, ann)[checkin.PREF_EMAIL], True)
+        self.assertEqual(unsubscribe.use(c, walk), {"ok": True, "kind": "walk"})
+        self.assertEqual(unsubscribe.use(c, walk), {"ok": True, "kind": "walk"})  # again: fine
+        self.assertIs(prefs.load(c, ann)[checkin.PREF_EMAIL], False)
+        self.assertIs(prefs.load(c, bob)[checkin.PREF_EMAIL], True)              # not bob's
+        self.assertEqual(unsubscribe.use(c, week), {"ok": True, "kind": "weekly"})
+        self.assertIs(prefs.load(c, bob)[weekly_email.PREF_OFF], True)
+        self.assertNotIn(weekly_email.PREF_OFF, prefs.load(c, ann))
+        stored = [r["token_hash"] for r in c.execute(
+            "SELECT token_hash FROM email_tokens WHERE purpose IN ('unsub_walk', 'unsub_weekly') "
+            "AND user_id IN (?, ?)", (ann, bob))]
+        self.assertEqual(len(stored), 2)
+        self.assertNotIn(walk, stored)                                           # hashed only
 
 
 # --------------------------------------------------------------------------- #

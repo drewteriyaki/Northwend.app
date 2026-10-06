@@ -61,13 +61,30 @@ def sender(from_name: str | None = None) -> str:
     return f'"{name} via Northwend" <{SENDER_ADDRESS}>' if name else SENDER
 
 
+def unsubscribe_headers(url: str | None) -> dict:
+    """The List-Unsubscribe headers for an email someone can turn off with a
+    link (unsubscribe.py), or {} without one. The https address works for
+    mail apps that open it (a GET). List-Unsubscribe-Post (RFC 8058) is what
+    Gmail and Yahoo look for, but their one-click POST can't be answered yet:
+    Streamlit serves the page, not a POST endpoint, so such a POST changes
+    nothing until the hosting can take it (PLAN step 4). The link in the
+    email itself always works."""
+    if not url:
+        return {}
+    return {"List-Unsubscribe": f"<{url}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+
+
+UNSUBSCRIBE_LINE = "Stop these emails in one click"
+
+
 def send(to: str, subject: str, text: str, html: str | None = None, *,
-         from_name: str | None = None) -> bool:
+         from_name: str | None = None, headers: dict | None = None) -> bool:
     """Send one email. True if Resend accepted it (or it was logged in dry-run
     mode); False on any failure - the reason goes to the server log, never
     to the person, and the caller shows a calm "try again" instead.
     `from_name` puts an advisor's name in the From line (sender()). The
-    subject is made one line (_one_line): some carry a name someone typed."""
+    subject is made one line (_one_line): some carry a name someone typed.
+    `headers`: extra email headers (unsubscribe_headers), each made one line."""
     subject = _one_line(subject, 150)
     if dry_run():
         print(f"[mailer dry run] from={sender(from_name)} to={to} subject={subject!r}\n{text}",
@@ -80,6 +97,8 @@ def send(to: str, subject: str, text: str, html: str | None = None, *,
             "text": text}
     if html:
         body["html"] = html
+    if headers:
+        body["headers"] = {k: _one_line(v, 500) for k, v in headers.items()}
     req = urllib.request.Request(
         API_URL, data=json.dumps(body).encode("utf-8"), method="POST",
         headers={"Authorization": f"Bearer {_setting('RESEND_API_KEY')}",
@@ -95,9 +114,13 @@ def send(to: str, subject: str, text: str, html: str | None = None, *,
         return False
 
 
-def _html(paragraphs: list[str], button: tuple[str, str]) -> str:
-    """A plain, calm email body: a few paragraphs and one button."""
+def _html(paragraphs: list[str], button: tuple[str, str], *, unsubscribe: str = "") -> str:
+    """A plain, calm email body: a few paragraphs and one button - and, with
+    `unsubscribe` (a link, unsubscribe.py), a small line to stop the emails."""
     label, url = button[0], html_escape(button[1])
+    stop = (f'<p style="margin:14px 0 0;font-size:13px;color:#6b7280">'
+            f'<a href="{html_escape(unsubscribe)}" style="color:#6b7280">{UNSUBSCRIBE_LINE}</a>'
+            '</p>' if unsubscribe else "")
     ps ="".join(f'<p style="margin:0 0 14px">{p}</p>' for p in paragraphs)
     return ('<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;'
             'line-height:1.5;color:#1f2937;max-width:480px">'
@@ -105,7 +128,8 @@ def _html(paragraphs: list[str], button: tuple[str, str]) -> str:
             f'<p style="margin:22px 0"><a href="{url}" style="background:#2563eb;color:#ffffff;'
             'padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">'
             f'{label}</a></p>'
-            f'<p style="margin:0;font-size:13px;color:#6b7280">Or open this link: {url}</p></div>')
+            f'<p style="margin:0;font-size:13px;color:#6b7280">Or open this link: {url}</p>'
+            f'{stop}</div>')
 
 
 def confirm_email(to: str, link: str, days: int) -> bool:
@@ -182,16 +206,19 @@ def proposal_answered(to: str, link: str, client_name: str, accepted: bool) -> b
                 _html([html_escape(x) for x in lines], ("Open their plan", link)))
 
 
-def advisor_week(to: str, link: str, lines: list[str]) -> bool:
+def advisor_week(to: str, link: str, lines: list[str], unsubscribe: str = "") -> bool:
     """An advisor's Monday summary (weekly_email.py): counts only - no client
-    names or figures in the email."""
+    names or figures in the email. `unsubscribe`: its one-click link."""
     intro = "Here's your week in Northwend:"
     outro = ("Client names and details are in the app. To stop these emails, turn off "
              "Monday email under Your clients > How clients see you.")
     text = intro + "\n\n" + "\n".join(f"- {x}" for x in lines) + \
         f"\n\nOpen your clients: {link}\n\n{outro}\n"
+    if unsubscribe:
+        text += f"\n{UNSUBSCRIBE_LINE}: {unsubscribe}\n"
     return send(to, "Your week in Northwend", text,
-                _html([intro, *lines, outro], ("Open your clients", link)))
+                _html([intro, *lines, outro], ("Open your clients", link), unsubscribe=unsubscribe),
+                headers=unsubscribe_headers(unsubscribe))
 
 
 def client_invite(to: str, link: str, advisor_name: str, days: int, *,

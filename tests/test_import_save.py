@@ -624,6 +624,7 @@ class AppSaveTests(_AppBase):
     def test_screenshots_are_read_once_and_counted_once(self):
         import streamlit
         at = self._app(open_dialog="manual")
+        os.environ["NORTHWEND_FLAGS"] = "screenshot_ai"   # (flags.py; _app's patch puts it back)
         at.run()
         self.assertEqual([e.message for e in at.exception], [])
         reads = []

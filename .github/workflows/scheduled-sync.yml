@@ -15,6 +15,7 @@ name: Scheduled sync (hosted Postgres)
 # walk reminders people ask for (checkin_email.py; both skipped until set):
 #   RESEND_API_KEY    the same key the app sends email with
 #   APP_URL           the app's address, for the link in the email
+#   NORTHWEND_FLAGS   the walk reminders go out only when it lists "walk" (flags.py)
 # A job that fails emails the admin (error_alerts.py, at most once an hour per
 # job) with RESEND_API_KEY, to the ALERT_EMAIL secret or support@northwend.app.
 # The refresh job covers every account (--all-users, each ticker fetched
@@ -121,6 +122,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           APP_URL: ${{ secrets.APP_URL }}
+          # the walk's feature flag (flags.py): nothing is sent unless it lists "walk"
+          NORTHWEND_FLAGS: ${{ secrets.NORTHWEND_FLAGS }}
         run: python checkin_email.py --db "$DATABASE_URL"
       - name: Tell the admin it failed
         if: failure()

@@ -9,6 +9,7 @@
 # ruff: noqa: F821
 
 import checkin
+import flags
 import gear
 import storms
 
@@ -56,8 +57,10 @@ def _kit_shown():
 
 def _kit_keys():
     """The pieces in this account's kit (gear.kit_keys): an advisor's client's
-    has no rope, as Learn has no practice money for them (CLIENT_MODE)."""
-    return gear.kit_keys(CLIENT_MODE)
+    has no rope, as Learn has no practice money for them (CLIENT_MODE). The
+    logbook only while the walk is on (flags.py) - or once earned: it stays."""
+    return gear.kit_keys(CLIENT_MODE, walk=flags.on("walk")
+                         or checkin.logbook(_read_prefs()))
 
 
 def _milestone_done():

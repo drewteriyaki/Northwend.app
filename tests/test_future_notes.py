@@ -257,6 +257,12 @@ class CheckinRuleTests(unittest.TestCase):
 class CheckinEmailTests(_DB):
     TODAY = date(2026, 10, 5)
 
+    def setUp(self):
+        super().setUp()
+        on = unittest.mock.patch.dict(os.environ, {"NORTHWEND_FLAGS": "walk"})  # flags.py
+        on.start()
+        self.addCleanup(on.stop)
+
     def _person(self, name, *, confirmed=True, on=True, advisor=False):
         c = self.conn
         uid = auth.create_user(c, name, "pw-123456789")
@@ -283,7 +289,7 @@ class CheckinEmailTests(_DB):
 
         sent = []
         done = checkin_email.run(c, "https://app.example/", self.TODAY,
-                                 send=lambda to, link: sent.append((to, link)) or True)
+                                 send=lambda to, link, unsub: sent.append((to, link)) or True)
         self.assertEqual(sent, [("yes@example.com", "https://app.example/?page=dashboard")])
         self.assertEqual(done["sent"], 1)
         self.assertEqual(prefs.load(c, yes)[checkin.PREF_SENT], "2026-10")
@@ -423,7 +429,8 @@ class AppTests(unittest.TestCase):
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
                if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
-        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused",
+                   NORTHWEND_FLAGS="walk")   # the Monthly Walk on (flags.py)
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
                 unittest.mock.patch("socket.socket.connect", offline):

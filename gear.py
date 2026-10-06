@@ -186,11 +186,17 @@ def weathered_storm(values: list[tuple[str, float]], sells: list[str]) -> bool:
     return not any(high[:10] <= (s or "")[:10] <= low[:10] for s in sells)
 
 
-def kit_keys(managed: bool = False) -> tuple[str, ...]:
+def kit_keys(managed: bool = False, walk: bool = True) -> tuple[str, ...]:
     """The pieces in this person's kit. An advisor's client has no practice
     money on Learn (its example funds could cross their advisor's advice), so
-    no rope; the rest - learning and habits - are theirs too."""
-    return tuple(k for k in KEYS if not (managed and k in NOT_FOR_CLIENTS))
+    no rope; the rest - learning and habits - are theirs too. Without the
+    Monthly Walk (`walk` False: its flag is off, flags.py) there's no logbook
+    to earn, so nothing points to a walk that isn't there."""
+    return tuple(k for k in KEYS if not (managed and k in NOT_FOR_CLIENTS)
+                 and (walk or k not in NEEDS_WALK))
+
+
+NEEDS_WALK = ("logbook",)
 
 
 NOT_FOR_CLIENTS = ("rope",)

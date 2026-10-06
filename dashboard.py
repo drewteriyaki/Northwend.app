@@ -31,6 +31,7 @@ import charts
 import csv_import
 import disclosures
 import export
+import flags
 import friendly_errors
 import fund_holdings
 import hosting
@@ -76,7 +77,10 @@ STAGING = settings.staging()
 def _view(name):
     """Run views/<name>.py here, in this script's own namespace - exactly as if
     its code were written at this spot. Each page's code lives in its own file
-    so it can be read and changed on its own; nothing else about it changes."""
+    so it can be read and changed on its own; nothing else about it changes.
+    A view a feature owns (flags.FEATURES) is skipped while that feature is off."""
+    if not flags.view_on(name):
+        return
     path = os.path.join(HERE, "views", f"{name}.py")
     with open(path, encoding="utf-8") as fh:
         exec(compile(fh.read(), path, "exec"), globals())  # noqa: S102
@@ -1103,6 +1107,9 @@ def _login() -> bool:
     A new browser session (a reload, a phone reopening the tab) first tries
     the stay-signed-in cookie; the token is checked against the database
     every time, so logging out or changing the password ends it."""
+    unsub = st.query_params.get("unsubscribe")
+    if unsub:  # an email's one-click unsubscribe link - no sign-in (views/unsubscribe.py)
+        return _unsubscribe_page(str(unsub))
     invite = st.query_params.get("invite")
     if invite:  # a client's setup link (auth.create_invite)
         return _invite_setup(str(invite))
@@ -1222,6 +1229,8 @@ def _logout():
 
 # two-step sign-in: the code / setup pages _login() shows after the password
 _view("two_step")
+# the page an email's one-click unsubscribe link opens (unsubscribe.py)
+_view("unsubscribe")
 
 if not _login():
     st.stop()
@@ -1349,6 +1358,8 @@ if IS_ADMIN:
 ADVISOR_PENDING = bool(ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None)
 if ADVISOR_PENDING:
     PAGES.append("Advisor preview")
+# a page whose feature is off (flags.FEATURES) isn't one this account can open
+PAGES = [p for p in PAGES if flags.page_on(p)]
 
 # The menu: a bar along the top (the phone tab bar below shows the same tabs),
 # everything on it at once - nothing hidden behind a "More". Investors get
@@ -1370,6 +1381,7 @@ if IS_ADVISOR:
 else:
     NAV = ["Dashboard", "Plan", "Get started", "AI Assistant", MONEY,
            *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
+NAV = [p for p in NAV if flags.page_on(p)]
 # (Advisor preview is reached from the name menu's "advisor access requested" note)
 ACCOUNT_MENU = [p for p in ("Account", "About", "Admin") if p in PAGES]
 # the top bar's words where they're shorter than the page's own name (an

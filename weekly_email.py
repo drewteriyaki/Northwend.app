@@ -12,6 +12,8 @@ doesn't send twice), only when there's something to say, only to a
 confirmed email (or one an admin set up), and never to an advisor who
 turned it off (Your clients > How clients see you > Monday email). Does
 nothing when email isn't set up (RESEND_API_KEY) or --app-url is missing.
+Each email has a link that turns it off in one click, with no sign-in, and
+the same address in a List-Unsubscribe header (unsubscribe.py).
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ import advising
 import mailer
 import prefs
 import settings
+import unsubscribe
 from portfolio import DEFAULT_DB, connect
 
 PREF_OFF = "weekly_email_off"      # the advisor turned it off
@@ -96,7 +99,9 @@ def run(conn, app_url: str, today: date, *, send=mailer.advisor_week) -> dict:
             continue
         if done["sent"] or done["failed"]:
             time.sleep(0.6)   # the email service takes a couple a second
-        if send(a["email"], link, said):
+        unsub = unsubscribe.link(app_url, unsubscribe.new_token(conn, a["id"], "weekly",
+                                                                a["email"]))
+        if send(a["email"], link, said, unsub):
             p[PREF_SENT] = week
             prefs.save(conn, a["id"], p)
             done["sent"] += 1

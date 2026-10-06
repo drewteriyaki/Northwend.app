@@ -442,7 +442,7 @@ CREATE TABLE IF NOT EXISTS signups (
 CREATE TABLE IF NOT EXISTS email_tokens (
     token_hash  TEXT    PRIMARY KEY,
     user_id     INTEGER NOT NULL,
-    purpose     TEXT    NOT NULL,                -- 'confirm', 'reset' or 'change' (email = the new one); 'confirmed' = a used confirm link, kept a day
+    purpose     TEXT    NOT NULL,                -- 'confirm', 'reset' or 'change' (email = the new one); 'confirmed' = a used confirm link, kept a day; 'unsub_walk' / 'unsub_weekly' = an email's unsubscribe link (unsubscribe.py, a year)
     email       TEXT    NOT NULL,
     created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
     expires_at  TEXT    NOT NULL

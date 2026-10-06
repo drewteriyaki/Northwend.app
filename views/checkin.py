@@ -16,12 +16,15 @@
 
 import checkin
 import feature_counts
+import flags
 
 
 def _checkin_shown():
     """Investors and advisors' clients on their own account, with real
-    holdings to look at (the kit's rule, views/kit.py _kit_shown)."""
-    return _kit_shown() and HAS_REAL_HOLDINGS
+    holdings to look at (the kit's rule, views/kit.py _kit_shown) - while the
+    walk is on (flags.py; off, Home says nothing about walks and earlier
+    walks stay as they were)."""
+    return flags.on("walk") and _kit_shown() and HAS_REAL_HOLDINGS
 
 
 def _checkin_today():
@@ -278,8 +281,9 @@ def _ordinal(n):
 
 def render_checkin_settings(confirmed_email):
     """The day the walk is offered from, and the reminder email - off
-    unless they turn it on, and only to a confirmed email."""
-    if IS_ADVISOR or USER_ID != LOGIN_ID:
+    unless they turn it on, and only to a confirmed email. Not shown while
+    the walk is off (flags.py)."""
+    if IS_ADVISOR or USER_ID != LOGIN_ID or not flags.on("walk"):
         return
     p = _read_prefs()
     st.subheader("Monthly walk", anchor=False)

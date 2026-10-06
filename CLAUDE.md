@@ -119,6 +119,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature
   tests panel) - any new test metric goes through it and the privacy text first.
+- Flags and settings: `flags.py` (`NORTHWEND_GATES` L0-L3, never L4; `NORTHWEND_FLAGS`;
+  `FEATURES` - a view or page a feature owns is skipped by `_view`/`PAGES`, a feature inside
+  a view checks `flags.on("name")`; a test checks every name is checked; everything is off
+  unless set). `settings.py`: env/secrets reads go through `settings.get`; `settings.hosted()`
+  (a hosted copy with no Postgres `PORTFOLIO_DB` stops). One-click unsubscribe:
+  `unsubscribe.py` + `views/unsubscribe.py` (`?unsubscribe=`, reusable hashed tokens in
+  `email_tokens`). Legal gates and principles: `docs/LEGAL_GATES.md`, `docs/PRINCIPLES.md`.
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
