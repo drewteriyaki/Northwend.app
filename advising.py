@@ -195,8 +195,9 @@ def set_done(conn, client_id: int, note_id: int, done: bool, *,
 # sides (and from the counts - last review, open next steps) but keeps it,
 # Restore brings it back, and an edit keeps each earlier text in the note's
 # own `history` (a JSON list, oldest first). All of it is in the advisor's
-# export of the client's record (export.client_record_zip). Deleting the
-# client's whole account (the Admin portal) still removes them.
+# export of the client's record (export.client_record_zip). A former client
+# deleting their own account keeps them too (admin.delete_own, PLAN D7);
+# deleting the client's whole account from the Admin portal still removes them.
 def _stamp(now: datetime | None = None) -> str:
     return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S")
 

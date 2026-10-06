@@ -12,6 +12,7 @@ import math
 import os
 import re
 import shutil
+import sqlite3
 import sys
 import tempfile
 import types
@@ -792,6 +793,52 @@ class MultiBrokerAppTests(_AppBase):
         by_account, total = self.accounts_now()
         self.assertEqual(sorted(by_account), ["Individual ...678", "ROTH IRA ...321"])
         self.assertEqual(total, round(6097.26 + 4932.15, 2))
+
+    # audit X4: a failed save shows the calm message and an error code, never
+    # the database's own text (it can carry SQL and the row's values)
+    RAW = "UNIQUE constraint failed: positions.symbol VALUES (1861.5, 'Z12345678')"
+
+    def assertCalm(self, at):
+        shown = "\n".join(e.value for e in at.error)
+        self.assertRegex(shown, r"nothing was changed\. .*error code \*\*[0-9a-f]{6}\*\*")
+        everything = "\n".join(str(getattr(e, "value", "")) for e in
+                               [*at.error, *at.success, *at.markdown, *at.caption, *at.toast])
+        for raw in ("UNIQUE", "constraint", "1861.5", "Z12345678", "VALUES"):
+            self.assertNotIn(raw, everything)
+
+    def _failing(self, name):
+        """After a first run: the app may have reloaded portfolio (codefresh)."""
+        def boom(*a, **k):
+            raise sqlite3.OperationalError(self.RAW)
+        p = unittest.mock.patch.object(sys.modules["portfolio"], name, boom)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_a_failed_remove_shows_a_code_not_the_error(self):
+        before = self.accounts_now()
+        at = self._app()
+        at.run()
+        self._failing("remove_account")
+        at.checkbox(key="acct_rm_ok_Brokerage account").check()
+        at.run()
+        at.button(key="acct_rm_btn").click()
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertCalm(at)
+        self.assertIn("Removing it didn't work", at.error[0].value)
+        self.assertEqual(self.accounts_now(), before)
+
+    def test_a_failed_save_shows_a_code_not_the_error(self):
+        before = self.accounts_now()
+        at = self.run_import(MultiBrokerTests.VANGUARD)
+        self._failing("save_prepared")
+        at.button(key="csv_save").click()
+        at.session_state["open_dialog"] = "import"
+        at.run()
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertCalm(at)
+        self.assertIn("Saving didn't work", at.error[0].value)
+        self.assertEqual(self.accounts_now(), before)
 
     def test_pasting_adds_an_account_to_the_form(self):
         at = self._app(open_dialog="manual")

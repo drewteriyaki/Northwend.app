@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import secrets
+from collections.abc import Iterable
 from datetime import datetime, timezone
 
 import auth
@@ -205,15 +206,23 @@ def create_account(conn, login: str) -> dict:
             "temp_password": None if email else temp}
 
 
-def delete_account(conn, user_id: int, *, by: int, keep_records_of: int | None = None) -> dict:
+def delete_account(conn, user_id: int, *, by: int,
+                   keep_records_of: int | Iterable[int] | None = None) -> dict:
     """Delete an account and everything it holds, in one transaction. An
     advisor's clients keep their accounts (they just no longer have an
     advisor). Refuses the admin's own account and other admins. With
-    `keep_records_of` (an advisor's id), that advisor's own notes, proposals,
-    reports and former-client row about this account are kept
-    (ADVISOR_RECORD_TABLES) - an advisor closing a client account nobody
-    could open (advising.end_relationship). Returns {"ok", "error",
+    `keep_records_of` (an advisor's id, or several), those advisors' own
+    notes, proposals, reports and former-client rows about this account are
+    kept (ADVISOR_RECORD_TABLES) - an advisor closing a client account nobody
+    could open (advising.end_relationship), or a former client deleting
+    their own account (delete_own, PLAN D7). Returns {"ok", "error",
     "username", "orphaned_clients"}."""
+    if keep_records_of is None:
+        keep = ()
+    elif isinstance(keep_records_of, int):
+        keep = (keep_records_of,)
+    else:
+        keep = tuple(sorted({int(a) for a in keep_records_of}))
     row = conn.execute("SELECT username, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         return {"ok": False, "error": "No such account.", "username": None,
@@ -228,8 +237,9 @@ def delete_account(conn, user_id: int, *, by: int, keep_records_of: int | None =
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
             params = (user_id,) * len(cols)
-            if keep_records_of is not None and table in ADVISOR_RECORD_TABLES:
-                where, params = f"({where}) AND advisor_id != ?", params + (keep_records_of,)
+            if keep and table in ADVISOR_RECORD_TABLES:
+                where = f"({where}) AND advisor_id NOT IN ({', '.join('?' * len(keep))})"
+                params += keep
             conn.execute(f"DELETE FROM {table} WHERE {where}", params)
         for table, cols in ACCOUNT_REFERENCES.items():
             for c in cols:
@@ -266,5 +276,11 @@ def delete_own(conn, user_id: int, password: str) -> dict:
                     (user_id,)).fetchone():
         return {"ok": False, "error": "Your advisor manages this account - ask them, or "
                                       "contact us."}
-    res = delete_account(conn, user_id, by=-1)
+    # A former client (they stopped sharing, or their advisor ended it): their
+    # old advisors keep their own records - notes, the proposals and reports
+    # they sent, the former-client row - for their record-keeping duties;
+    # everything that's the client's own goes (PLAN D7, brief 2.7)
+    former = [r["advisor_id"] for r in conn.execute(
+        "SELECT advisor_id FROM former_clients WHERE client_id = ?", (user_id,))]
+    res = delete_account(conn, user_id, by=-1, keep_records_of=former or None)
     return {"ok": res["ok"], "error": res["error"]}

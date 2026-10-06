@@ -367,10 +367,14 @@ def _render_screenshot_reader(existing=()):
         if not key:
             st.caption("Reading screenshots needs the AI, which isn't set up on this site.")
             return
-        st.caption("For phone apps and sites where copying is hard. **Crop each screenshot to "
-                   "just your holdings list first** - the whole image is sent to Anthropic's AI "
-                   "to read it. Only symbols, share counts and cost are taken from what it "
-                   "reads, and the images aren't saved.")
+        # the one place the AI sees figures (disclosures "What's sent to the
+        # AI"): say plainly what it sees, and that pasting or typing avoids it
+        st.caption("Optional, for phone apps and sites where copying is hard. **Anthropic's AI "
+                   "sees the whole picture** - including any balances, account names and "
+                   "numbers on screen - so crop each screenshot to just your holdings list "
+                   "first. Only symbols, share counts, cost and cash are taken from what it "
+                   "reads, and the images aren't saved. Pasting or typing sends nothing to "
+                   "the AI.")
         # both keyed by me_shots_n: a read starts them afresh (empty, unticked)
         # with new keys - a drawn widget's own key can't be set in the same run
         n = ss.get("me_shots_n", 0)
@@ -382,7 +386,8 @@ def _render_screenshot_reader(existing=()):
             accounts.suggest_account(None, existing, ACCOUNT_LABELS),
             help="Choose one of your accounts to update it, or type a new name to add one. "
                  "Your other accounts stay as they are.")
-        agreed = st.checkbox("Send these images to Anthropic's AI to read them",
+        agreed = st.checkbox("Send these pictures to Anthropic's AI to read - it sees "
+                             "everything on them, including balances and account names",
                              key=f"me_shots_ok_{n}")
         if msg:
             getattr(st, msg[0])(msg[1])
@@ -503,8 +508,8 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
         first = not HAS_REAL_HOLDINGS and source != SAMPLE_SOURCE and USER_ID == LOGIN_ID
         try:
             _manual_save(p, source)
-        except DBError as exc:
-            st.error(f"Saving failed, nothing was changed: {exc}")
+        except DBError as exc:   # the calm message and a code, never the error's text
+            st.error(friendly_errors.save_failed(exc), icon=":material/error:")
         else:
             n, k = sum(r["account"] in mine for r in p["rows"]), len(p["kept"])
             flash = f"Saved {n} holding{'s' if n != 1 else ''}"
@@ -531,7 +536,7 @@ def _remove_account(account):
     try:
         done = remove_account(conn, USER_ID, account)
     except DBError as exc:
-        ss["import_flash"] = f"Removing it failed, nothing was changed: {exc}"
+        ss["refresh_msg"] = ("error", friendly_errors.save_failed(exc, "Removing it"))
         return
     finally:
         conn.close()
@@ -665,7 +670,8 @@ def _manual_dialog(current_positions, current_cash, current_source=None):
     with t_paste:
         st.caption("Good for a long list. On your brokerage's website, select your positions "
                    "table, copy it, and paste it here. The app reads it itself - no AI - and "
-                   "keeps only symbols, share counts and cost. The pasted text isn't saved.")
+                   "keeps only symbols, share counts, cost and cash. The pasted text isn't "
+                   "saved.")
         st.text_area("Pasted positions", key="me_paste", height=140,
                      label_visibility="collapsed", max_chars=paste_parse.MAX_CHARS,
                      placeholder="Paste the positions table copied from your brokerage's site")
@@ -994,7 +1000,7 @@ def _save_txns(found_rows, source_name, header, chosen):
         res = txn_import.save(c, USER_ID, found_rows, source_name)
         csv_import.remember(c, header, chosen)  # column names only
     except DBError as exc:
-        st.session_state["import_flash"] = f"Saving failed, nothing was changed: {exc}"
+        st.session_state["refresh_msg"] = ("error", friendly_errors.save_failed(exc))
         return
     finally:
         c.close()

@@ -245,6 +245,63 @@ class EndRelationshipTests(_DB):
         self.assertFalse(auth.can_view(c, self.carol, self.dana))
         self.assertEqual(advising.former_clients(c, self.carol)[0]["ended_by"], "client")
 
+    # PLAN D7: a former client deletes their own account - everything that's
+    # theirs goes, each old advisor's own records stay
+    def _report(self, advisor_id, client_id):
+        from datetime import date
+        reports.save(self.conn, advisor_id, client_id, label="Q3 2026", start=date(2026, 7, 1),
+                     end=date(2026, 9, 30), facts={}, message="Steady quarter")
+
+    def test_a_former_clients_own_delete_keeps_each_old_advisors_records(self):
+        c = self.conn
+        self._report(self.carol, self.dana)
+        omar = auth.create_user(c, "omar", PW)
+        auth.set_advisor(c, "omar", True)
+        auth.link_client(c, omar, self.dana)
+        advising.add_note(c, self.dana, omar, "Note", "Omar's note", "2026-09-03")
+        self._report(omar, self.dana)
+        advising.end_relationship(c, self.carol, self.dana, by="client")
+        advising.end_relationship(c, omar, self.dana, by="advisor")
+        kept = {t: self.count(t, "client_id = ?", (self.dana,))
+                for t in admin.ADVISOR_RECORD_TABLES}
+        self.assertEqual(kept, {"advisor_notes": 3, "proposals": 1, "progress_reports": 2,
+                                "former_clients": 2})
+        auth.set_password(c, "dana@x.com", PW)              # her own, chosen since
+        self.assertTrue(admin.delete_own(c, self.dana, PW)["ok"])
+        self.assertIsNone(auth.get_username(c, self.dana))
+        for table, cols in admin.ACCOUNT_TABLES.items():   # the client's own rows: gone
+            if table in admin.ADVISOR_RECORD_TABLES:
+                continue
+            where = " OR ".join(f"{col} = ?" for col in cols)
+            self.assertEqual(self.count(table, where, (self.dana,) * len(cols)), 0, table)
+        for t, n in kept.items():                          # both advisors' records: kept
+            self.assertEqual(self.count(t, "client_id = ?", (self.dana,)), n, t)
+        record = zipfile.ZipFile(io.BytesIO(export.client_record_zip(c, self.carol, self.dana)))
+        self.assertIn("Private note", record.read("notes.csv").decode())
+        self.assertEqual([f["client_id"] for f in advising.former_clients(c, omar)],
+                         [self.dana])
+
+    def test_a_client_never_linked_deletes_everything(self):
+        c = self.conn
+        eve = auth.create_user(c, "eve", PW)
+        sample_data.load(c, eve)
+        advisor.save_profile(c, eve, {"goal": "Retirement"})
+        self.assertTrue(admin.delete_own(c, eve, PW)["ok"])
+        for table, cols in admin.ACCOUNT_TABLES.items():
+            where = " OR ".join(f"{col} = ?" for col in cols)
+            self.assertEqual(self.count(table, where, (eve,) * len(cols)), 0, table)
+        # and Dana's advisor records, about someone else, are untouched
+        self.assertEqual(self.count("advisor_notes", "client_id = ?", (self.dana,)), 2)
+
+    def test_the_admin_delete_still_removes_the_old_advisors_records(self):
+        c = self.conn
+        self._report(self.carol, self.dana)
+        advising.end_relationship(c, self.carol, self.dana, by="client")
+        boss = auth.create_user(c, "boss", PW)
+        self.assertTrue(admin.delete_account(c, self.dana, by=boss)["ok"])
+        for t in admin.ADVISOR_RECORD_TABLES:
+            self.assertEqual(self.count(t, "client_id = ?", (self.dana,)), 0, t)
+
     def test_deleting_the_advisor_clears_former_clients(self):
         advising.end_relationship(self.conn, self.carol, self.dana, by="advisor")
         boss = auth.create_user(self.conn, "boss", PW)

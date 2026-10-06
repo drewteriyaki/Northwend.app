@@ -1039,9 +1039,16 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
     passwords per address in 15 minutes pause it (`addr:` + hashed address); none
     without an address; an unknown username hashes against a dummy salt
   - [ ] 1a.6 AI ceiling, first slice (app-wide monthly cap, alerts)
-  - [ ] 1a.7 Privacy wording made true; screenshot AI behind a flag; memory
+  - [x] 1a.7 Privacy wording made true; screenshot AI behind a flag; memory
         keeps no amounts (D9); a former client's delete keeps the old advisor's
-        records (D7)
+        records (D7). *Done, all but the flag:* `TRUST_LINE`/`NOT_KEPT` say what's
+        kept (holdings with value and cash) and what never is; the screenshot
+        reader's consent line says the AI sees the whole picture; the memory
+        instruction keeps no amounts and `advisor.scrub_memory` takes amounts and
+        account numbers out on save and on read; GUARDRAILS name no kind of
+        adviser; `admin.delete_own` keeps each former advisor's records;
+        disclosures, drafts and the website match (no screenshots on the site).
+        The `screenshot_ai` flag is in (1a.1)
   - [x] 1a.8 One-click unsubscribe and `List-Unsubscribe` on the walk reminder and
         the advisors' Monday email - done: `unsubscribe.py`, a hashed token per email
         in `email_tokens` (`unsub_walk` / `unsub_weekly`, a year), `?unsubscribe=`
@@ -1049,7 +1056,10 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [ ] 1a.9 L0 basics: US-residency box, both attestations timestamped; invite
         codes while L0 is off
   - [ ] 1a.10 Principle tests (emails, two-step gate, `?client=`, the A/B matrix)
-  - [ ] 1a.12 Friendly save errors; 1a.13 first ADRs
+  - [x] 1a.12 Friendly save errors - the three "nothing was changed: {exc}"
+        messages are `friendly_errors.save_failed`: the calm message, an error
+        code, the details in the log, the admin told (X4)
+  - [ ] 1a.13 First ADRs
   - [ ] 1b Phase 1: RUNBOOK, sign out everyone, admin action log, CI additions,
         layer rule test, schema version, password hashing, retention job,
         `.env.example`, ARCHITECTURE.md, staging seed

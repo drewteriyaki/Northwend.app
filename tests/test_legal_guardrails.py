@@ -20,6 +20,7 @@ import re
 import shutil
 import sys
 import tempfile
+import types
 import unittest
 import unittest.mock
 from datetime import date, timedelta
@@ -321,6 +322,141 @@ class AIGuardrailTests(unittest.TestCase):
         for name in advice - {"advisor.py"}:
             with open(os.path.join(REPO, name), encoding="utf-8") as fh:
                 self.assertIn("system=advisor.system_prompt(", fh.read(), name)
+
+    def test_no_kind_of_adviser_is_suggested(self):
+        # Northwend never suggests a person needs an advisor, or names a kind to find
+        # (AI_PLAN.md 2.3): a licensed professional of their choosing, if they want one
+        rules = " ".join(r for _k, r in advisor.GUARDRAILS).lower()
+        self.assertIn("licensed professional of their choosing", rules)
+        for word in ("fee-only", "fiduciary adviser", "such as a"):
+            self.assertNotIn(word, rules)
+
+
+class PrivacyWordingTests(unittest.TestCase):
+    """Audit X3 / 1.3d: what the app says it keeps and sends stays true."""
+
+    def read(self, *path):
+        with open(os.path.join(REPO, *path), encoding="utf-8") as fh:
+            return " ".join(fh.read().split())
+
+    def test_the_trust_lines_say_what_is_saved(self):
+        src = self.read("dashboard.py")
+        lines = src.split("TRUST_LINE = (")[1].split("def ")[0].replace('" "', "")
+        for untrue in ("never balances", "balances and gains", "Only symbols, share counts"):
+            self.assertNotIn(untrue, lines)
+        self.assertIn("symbols, shares, cost, value and cash", lines)
+        self.assertIn("brokerage login", lines.split("NOT_KEPT")[1])
+
+    def test_the_screenshot_reader_says_what_the_ai_sees(self):
+        view = self.read("views", "holdings_input.py").split("def _render_screenshot_reader")[1]
+        view = view.split("\ndef ")[0].replace('" "', "")
+        self.assertIn("sees the whole picture", view)
+        self.assertIn("including balances and account names", view)
+        self.assertIn("Optional", view)
+        import disclosures
+        about = " ".join(" ".join(t for _h, t in disclosures.SECTIONS).split())
+        self.assertIn("sees everything on them - including balances, account names", about)
+        self.assertIn("never dollar amounts or account numbers", about)   # the guide's notes
+        policy = self.read("docs", "legal", "privacy-policy-DRAFT.md")
+        self.assertIn("including balances, account names", policy)
+
+    def test_the_website_promise_is_about_the_holdings(self):
+        home = self.read("website", "templates", "home.html")
+        self.assertIn("Your holdings reach Ask Northwend as percentages - never dollar "
+                      "amounts", home)
+        self.assertNotIn("Only symbols, shares and cost are saved", home)
+        for page in ("home.html", "advisors.html"):   # screenshots are off in production
+            self.assertNotIn("screenshot", self.read("website", "templates", page).lower())
+
+    def test_a_former_clients_delete_is_explained(self):
+        import disclosures
+        about = " ".join(" ".join(t for _h, t in disclosures.SECTIONS).split())
+        self.assertIn("If you used to have an advisor:", about)
+        self.assertIn("their notes, the proposals and reports they sent you", about)
+        self.assertIn("If you used to have an advisor:",
+                      self.read("docs", "legal", "privacy-policy-DRAFT.md"))
+
+
+class MemoryFiguresTests(unittest.TestCase):
+    """PLAN D9 / audit 1.4b: Ask Northwend's notes keep goals, dates and
+    decisions - never dollar amounts, account names or numbers."""
+
+    def test_the_instruction_keeps_no_amounts(self):
+        prompt = advisor.system_prompt({f: None for f in advisor.PROFILE_FIELDS}, "No holdings")
+        notes = prompt.split("## Your notes from earlier conversations")[1].split("##")[0]
+        self.assertNotIn("amounts, life events", notes)
+        self.assertIn("Never keep dollar amounts", notes)
+        self.assertIn("account names or account numbers", notes)
+        self.assertIn("never dollar amounts", advisor.MEMORY_TOOL["description"])
+
+    def test_figures_are_taken_out_before_saving(self):
+        cases = {
+            "- saving $12,000 for a car": "- saving [amount] for a car",
+            "- 12k dollars in savings": "- [amount] in savings",
+            "- Acct 1234 is the Roth": "- Acct [number] is the Roth",
+            "- Roth IRA ...678": "- Roth IRA [number]",
+            "- has 25,000 in cash, 50000 more later": "- has [amount] in cash, [number] more later",
+            "- goal 1.5m, or 5 million dollars": "- goal [amount], or [amount]",
+            "- USD 5000 / 250 bucks / $500/month": "- [amount] / [amount] / [amount]/month",
+            "- account #98765, acct x4321": "- account [number], acct [number]",
+        }
+        for raw, clean in cases.items():
+            self.assertEqual(advisor.validate_memory_input({"notes": raw}), (clean, ""), raw)
+
+    def test_dates_ages_and_account_types_stay(self):
+        for keep in ("- house ~2029\n- avoid crypto", "- retire at 60 in 2045, 7% return",
+                     "- maxes 401(k), 401k match, 403b", "- sold on 2026-03-14",
+                     "- years 2025-2030", "- S&P 500 fund, a 2050 target date fund",
+                     "- brokerage account 2"):
+            self.assertEqual(advisor.scrub_memory(keep), keep)
+
+    def test_notes_already_saved_are_scrubbed_before_the_prompt(self):
+        prompt = advisor.system_prompt({f: None for f in advisor.PROFILE_FIELDS}, "No holdings",
+                                       "- house ~2029, has $40,000 saved in Acct 5521")
+        self.assertIn("house ~2029", prompt)
+        for figure in ("40,000", "5521"):
+            self.assertNotIn(figure, prompt)
+
+    def test_the_model_is_told_when_figures_were_taken_out(self):
+        ns = types.SimpleNamespace
+        block = ns(type="tool_use", id="tu_m", name="save_memory",
+                   input={"notes": "- down payment $60k by 2028"})
+        turns = [ns(stop_reason="tool_use", content=[block]), ns(stop_reason="end_turn",
+                                                                  content=[])]
+
+        class _Stream:
+            def __init__(self, message):
+                self.message = message
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def __iter__(self):
+                return iter(())
+
+            def get_final_message(self):
+                return self.message
+
+        class _Client:
+            calls = []
+
+            @property
+            def messages(self):
+                return self
+
+            def stream(self, **kw):
+                self.calls.append({**kw, "messages": list(kw["messages"])})
+                return _Stream(turns.pop(0))
+        client = _Client()
+        saved = []
+        list(advisor.stream_reply(client, [{"role": "user", "content": "x"}], "sys",
+                                  lambda f: None, saved.append))
+        self.assertEqual(saved, ["- down payment [amount] by 2028"])
+        result = client.calls[1]["messages"][-1]["content"][0]["content"]
+        self.assertIn("amounts and account numbers taken out", result)
 
 
 if __name__ == "__main__":

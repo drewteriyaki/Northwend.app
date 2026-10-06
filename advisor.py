@@ -9,10 +9,14 @@ never includes dollar amounts, share counts, or account names.
 
 Memory: the assistant keeps short notes per account (investor_profiles.
 ai_memory) through its save_memory tool, and gets them back in the system
-prompt next time. The app never displays them.
+prompt next time. The app never displays them. They keep goals, dates and
+decisions, never figures: the model is told so, and scrub_memory() takes out
+amounts and account numbers before a note is saved or sent back.
 """
 
 from __future__ import annotations
+
+import re
 
 import metrics as M
 from allocation import CONCENTRATION_PCT, allocate
@@ -114,9 +118,10 @@ GUARDRAILS = (
      "When asked what to buy, sell or hold, which fund is best, or whether now is a good time: "
      "say kindly and plainly that you can't recommend specific investments, a mix or timing; "
      "explain the considerations people usually weigh (time horizon, comfort with ups and "
-     "downs, fees, diversification, taxes, account type, needing the money soon); and suggest "
-     "talking to a licensed professional, such as a fee-only fiduciary adviser - or, for "
-     "someone who has one, their own advisor. When an advisor uses you to prepare, lay out "
+     "downs, fees, diversification, taxes, account type, needing the money soon); and say the "
+     "choice is theirs, and these are questions people can also take to a licensed "
+     "professional of their choosing - or, for someone who has one, their own advisor. Don't "
+     "name a kind of adviser to look for. When an advisor uses you to prepare, lay out "
      "the considerations; the recommendation is theirs to make."),
     ("say_you_are_ai",
      "You are an AI. If anyone asks whether they're talking to a person or a machine, say "
@@ -268,7 +273,8 @@ MEMORY_TOOL = {
     "name": "save_memory",
     "description": (
         "Replace your private notes about this person, which you'll see at the start of "
-        "future conversations. Pass the complete updated notes, not just what's new."
+        "future conversations. Pass the complete updated notes, not just what's new. Goals, "
+        "dates and decisions only - never dollar amounts, account names or account numbers."
     ),
     "strict": True,
     "eager_input_streaming": True,
@@ -316,11 +322,67 @@ def validate_profile_input(args) -> tuple[dict | None, str]:
     return out, ""
 
 
+# The guide's notes keep goals, dates and decisions - never figures (PLAN D9,
+# AI_PLAN.md section 6). The model is told so; these patterns are the backstop,
+# run on notes before they're saved and on saved notes before they reach a
+# prompt. Years ("house ~2029"), dates, ages, percentages and account types
+# ("401(k)") stay.
+_SUFFIX = r"(?:\s*(?:dollars?|usd|bucks)\b)?"
+_MONEY = re.compile(
+    r"(?:[$€£¥]|\b(?:usd|us\$))\s*\d[\d,]*(?:\.\d+)?"
+    r"(?:\s*(?:k|mm|m|bn|thousand|million|billion|grand)\b)?" + _SUFFIX
+    + r"|\b\d[\d,]*(?:\.\d+)?(?:k|mm|m|bn)\b" + _SUFFIX
+    + r"|\b\d[\d,]*(?:\.\d+)?\s*(?:thousand|million|billion|grand)\b" + _SUFFIX
+    + r"|\b\d[\d,]*(?:\.\d+)?\s*(?:dollars?|usd|bucks)\b", re.I)
+_KEEP = re.compile(r"\b(?:401|403|457)\s*\(?[kb]\)?|\b(?:19|20)\d\d-\d\d(?:-\d\d)?\b", re.I)
+_ACCOUNT_NO = re.compile(
+    r"\b(?P<word>acct|account|acc|a/c)\b\.?(?:\s*(?:no\.?|number|num|ending(?:\s+in)?|#))?"
+    r"\s*[:#]?\s*(?P<num>[xX*.\-]*\d[\d\-]*)", re.I)
+_MASKED_NO = re.compile(r"(?:\.{2,}|[xX*]{2,}|#)\s?\d{2,}\b|\b[xX]\d{3,}\b")
+_GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b")
+_DIGITS = re.compile(r"\b\d+(?:-\d+)*(?:\.\d+)?\b")
+_YEAR = re.compile(r"(?:19|20)\d\d")
+
+
+def _digit_group(m) -> str:
+    """A run of 4+ digits (or a dashed one of 6+) that isn't a year."""
+    s = m.group(0)
+    parts = s.split(".")[0].split("-")
+    digits = sum(len(p) for p in parts)
+    if all(_YEAR.fullmatch(p) for p in parts) and "." not in s:
+        return s
+    if (len(parts) == 1 and len(parts[0]) >= 4) or (len(parts) > 1 and digits >= 6):
+        return "[number]"
+    return s
+
+
+def scrub_memory(text: str) -> str:
+    """The notes with currency amounts ("$12,000", "12k dollars"), account
+    numbers ("Acct 1234", "...678") and other long digit groups replaced by
+    "[amount]" / "[number]"."""
+    if not text:
+        return text or ""
+    held: list[str] = []
+
+    def hold(m):
+        held.append(m.group(0))
+        return chr(0xE000 + len(held) - 1)   # a placeholder no pattern below matches
+    text = _KEEP.sub(hold, text)
+    text = _MONEY.sub("[amount]", text)
+    text = _ACCOUNT_NO.sub(lambda m: (m.group("word") + " [number]"
+                                      if sum(ch.isdigit() for ch in m.group("num")) >= 2
+                                      else m.group(0)), text)
+    text = _MASKED_NO.sub("[number]", text)
+    text = _GROUPED.sub("[amount]", text)
+    text = _DIGITS.sub(_digit_group, text)
+    return re.sub("[-]", lambda m: held[ord(m.group(0)) - 0xE000], text)
+
+
 def validate_memory_input(args) -> tuple[str | None, str]:
-    """(notes_to_save, error)."""
+    """(notes_to_save, error). The notes come back scrubbed (scrub_memory)."""
     if not isinstance(args, dict) or set(args) != {"notes"} or not isinstance(args["notes"], str):
         return None, "input must be {\"notes\": <text>}"
-    text = args["notes"].strip()
+    text = scrub_memory(args["notes"].strip())
     if len(text) > MEMORY_MAX_CHARS:
         return None, (f"notes are {len(text)} characters - shorten them to under "
                       f"{MEMORY_MAX_CHARS} and save again")
@@ -425,13 +487,16 @@ def system_prompt(profile: dict, summary: str, memory: str = "") -> str:
         "update_investor_profile tool so it's saved for next time.",
 
         "## Your notes from earlier conversations\n"
-        +(memory.strip() or "None yet - this is your first conversation with them."),
+        +(scrub_memory(memory).strip()
+          or "None yet - this is your first conversation with them."),
 
         "These notes carry over between conversations; the app doesn't display them. When "
-        "you learn something worth remembering that the profile doesn't hold - specifics "
-        "behind their goals (dates, amounts, life events), worries, decisions they made, "
+        "you learn something worth remembering that the profile doesn't hold - the goals "
+        "behind their plans and their dates, life events, worries, decisions they made, "
         "what you've already explained, things to follow up on - call "
-        "save_memory with the complete updated notes. Keep them terse (fragments, no full "
+        "save_memory with the complete updated notes. Never keep dollar amounts, balances, "
+        "share counts, account names or account numbers, even ones they tell you; the app "
+        "takes them out anyway. Keep them terse (fragments, no full "
         f"sentences), well under {MEMORY_MAX_CHARS} characters; merge and drop outdated "
         "items rather than appending. Leave out profile answers, open profile questions, and "
         "holdings - you get those fresh every time. Skip it for small talk, and don't keep "
@@ -501,7 +566,9 @@ def stream_reply(client, history: list, system: str, on_profile_update, on_memor
                 text, error = validate_memory_input(block.input)
                 if not error and on_memory is not None:
                     on_memory(text)
-                saved = "Notes saved."
+                saved = ("Notes saved." if error or text == block.input["notes"].strip() else
+                         "Notes saved, with amounts and account numbers taken out - keep "
+                         "goals, dates and decisions only.")
             else:
                 fields, error = validate_profile_input(block.input)
                 if not error:

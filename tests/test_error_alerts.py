@@ -211,6 +211,27 @@ class ReportTests(_DB):
             t.join(10)
 
 
+class SaveFailedTests(_DB):
+    """Audit X4: a save the page catches shows the calm message with a code -
+    never the exception's text - and is noted for the admin like any error."""
+
+    def test_the_message_has_a_code_and_none_of_the_error(self):
+        import friendly_errors
+        ex = _caught()
+        with unittest.mock.patch.dict(friendly_errors._alert, {"db": self.db, "copy": "Live",
+                                                               "send": False}), \
+                contextlib.redirect_stderr(io.StringIO()) as err, \
+                unittest.mock.patch.object(error_alerts, "report") as report:
+            msg = friendly_errors.save_failed(ex, "Removing it")
+        ref = re.search(r"error code \*\*([0-9a-f]{6})\*\*", msg).group(1)
+        self.assertTrue(msg.startswith("Removing it didn't work, so nothing was changed."))
+        for raw in ("secret-value", "AAPL", "bob@example.com", "TypeError", "money"):
+            self.assertNotIn(raw, msg)
+        self.assertIn(f"error code {ref}", err.getvalue())     # ties the log to the code
+        self.assertEqual(report.call_args.kwargs["ref"], ref)
+        self.assertEqual(report.call_args.args[0], self.db)
+
+
 class JobTests(_DB):
     URL = "https://github.com/o/r/actions/runs/1"
 

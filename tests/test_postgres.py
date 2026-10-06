@@ -1193,6 +1193,49 @@ class DeleteAccountTests(_PG):
         self.assertEqual(self.one("SELECT set_by FROM money_out WHERE user_id = ?", (dana,)),
                          {"set_by": None})
 
+    def test_a_former_clients_own_delete_keeps_the_old_advisors_records(self):
+        # PLAN D7: the client's own rows go; each former advisor's records stay
+        from datetime import date
+        c = self.conn
+        carol = self.user("carol.d7", advisor=True)
+        omar = self.user("omar.d7", advisor=True)
+        dana = auth.create_client(c, carol, "dana.d7@example.com", name="Dana Lee")
+        auth.link_client(c, omar, dana)
+        auth.set_password(c, "dana.d7@example.com", PW)
+        c.execute("UPDATE users SET last_login_at = ? WHERE id = ?", ("2026-09-01 10:00:00",
+                                                                     dana))
+        c.commit()
+        sample_data.load(c, dana)
+        advisor.save_profile(c, dana, {"goal": "Retirement"})
+        for adv in (carol, omar):
+            advising.add_note(c, dana, adv, "Note", "Kept note", "2026-09-01")
+            proposals.save(c, adv, dana, title="Mix", mix={"Stocks": 60, "Bonds": 40})
+            reports.save(c, adv, dana, label="Q3 2026", start=date(2026, 7, 1),
+                         end=date(2026, 9, 30), facts={}, message="")
+            advising.end_relationship(c, adv, dana, by="client", now=NOW)
+        self.assertTrue(admin.delete_own(c, dana, PW)["ok"])
+        self.assertEqual(self.seen("SELECT * FROM users WHERE id = ?", (dana,)), [])
+        for table, cols in admin.ACCOUNT_TABLES.items():
+            if table not in admin.ADVISOR_RECORD_TABLES:
+                where = " OR ".join(f"{col} = ?" for col in cols)
+                self.assertEqual(self.seen(f"SELECT * FROM {table} WHERE {where}",
+                                           (dana,) * len(cols)), [], table)
+        for table in admin.ADVISOR_RECORD_TABLES:
+            self.assertEqual(sorted(r["advisor_id"] for r in self.seen(
+                f"SELECT advisor_id FROM {table} WHERE client_id = ?", (dana,))),
+                sorted((carol, omar)), table)
+        record = zipfile.ZipFile(io.BytesIO(export.client_record_zip(c, carol, dana)))
+        self.assertIn("Kept note", record.read("notes.csv").decode())
+
+        # someone never linked to an advisor: everything goes
+        eve = auth.sign_up(c, "eve.d7@example.com", PW, seconds_open=10, **AGREE)["user_id"]
+        sample_data.load(c, eve)
+        self.assertTrue(admin.delete_own(c, eve, PW)["ok"])
+        for table, cols in admin.ACCOUNT_TABLES.items():
+            where = " OR ".join(f"{col} = ?" for col in cols)
+            self.assertEqual(self.seen(f"SELECT * FROM {table} WHERE {where}",
+                                       (eve,) * len(cols)), [], table)
+
 
 # --------------------------------------------------------------------------- #
 # the app itself (AppTest): writes made from a page, and every page drawn

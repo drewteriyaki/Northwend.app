@@ -108,8 +108,8 @@ def _render_plan_export(api_key, profile, memory, contexts, cash_by_account, dis
 
     with st.container() if in_window else st.expander("Client plan (PDF)", expanded=False):
         st.caption("A printable plan for this account: profile, allocation, holdings with "
-                   "dollar amounts, things to watch, and AI-suggested next steps. The AI only "
-                   "sees percentages; the dollar figures are added on this machine.")
+                   "dollar amounts, things to watch, and AI-suggested next steps. The AI sees your "
+                   "holdings only as percentages; the dollar figures are added on this machine.")
         blocked = ("Turn off Hide amounts to create a plan - it includes dollar figures."
                    if _hidden() else
                    "Import positions for this account first." if not contexts else None)

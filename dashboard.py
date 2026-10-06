@@ -94,11 +94,15 @@ friendly_errors.install(show_details=settings.show_error_details()
                         alert_db=DB or None, copy="Staging" if STAGING else "Live",
                         send_alerts=settings.send_error_alerts())
 
-# said wherever people decide what to share (import, hand entry, paste)
-TRUST_LINE = ("We never ask for your brokerage login. Only symbols, share counts and cost "
-              "are saved - never balances or full account numbers.")
-NOT_KEPT = ("Not kept: the file, image or pasted text itself, balances and gains, and account "
-            "numbers beyond their last 3 digits.")
+# said wherever people decide what to share (import, hand entry, paste). True
+# to what's saved: each holding's symbol, shares, cost and value, and cash
+# (csv_import.to_snapshot, portfolio.write_snapshot) - never the file itself,
+# a brokerage login, or more than an account number's last 3 digits.
+TRUST_LINE = ("We never ask for your brokerage login. We save your holdings - symbols, "
+              "shares, cost, value and cash - so the app can show them, and never more than "
+              "the last 3 digits of an account number.")
+NOT_KEPT = ("Not kept: the file, screenshot or pasted text itself, your brokerage login, and "
+            "account numbers beyond their last 3 digits.")
 
 
 def learn_more(topic):

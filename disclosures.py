@@ -7,11 +7,16 @@ Each statement about data here must stay true to the code:
 - The AI guide (Ask Northwend) / plan next steps: advisor.portfolio_summary() (tickers, names, % of
   portfolio, asset type and class, sector, gain/loss %, dividend yield, beta,
   P/E - no dollar amounts, share counts or account names), the profile
-  answers, the chat, and the guide's saved notes (advisor.system_prompt).
+  answers, the chat, and the guide's saved notes (advisor.system_prompt;
+  advisor.scrub_memory takes amounts and account numbers out of the notes
+  before they're saved and before they're sent).
 - CSV column guess (only when asked): column names and cell kinds only
   (csv_import.ai_mapping / sample_shapes).
-- Screenshots: opt-in, the images themselves (screenshot_read.read); only
-  symbols / shares / cost / percent / cash survive screenshot_read.clean().
+- Screenshots: only where offered (the screenshot_ai flag, off in
+  production) and opt-in; the images themselves, whole (screenshot_read.read)
+  - the one time the AI sees figures, said in the reader's own consent line
+  (views/holdings_input.py); only symbols / shares / cost / percent / cash
+  survive screenshot_read.clean().
 - Market data: tickers only (update_prices.py / live_prices.py / news.py ->
   Finnhub, sync_history.py / live_prices.py -> Yahoo Finance); the scheduled
   jobs run on GitHub Actions (.github/workflows/scheduled-sync.yml).
@@ -67,6 +72,9 @@ Each statement about data here must stay true to the code:
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
   manual_entry.PCT_SOURCE. Pasted text: paste_parse / csv_import, no AI.
+- Delete my account: admin.delete_own; a former client's delete keeps each
+  former advisor's own records (admin.ADVISOR_RECORD_TABLES, for every
+  former_clients row) - everything else of theirs goes.
 - Delete all my holdings: portfolio.delete_holdings / HOLDINGS_TABLES (keeps
   plans, profile, notes, settings, watchlist, login); only for an account
   that manages itself (dashboard CAN_MANAGE).
@@ -81,7 +89,7 @@ Change this text when any of those change.
 Plain text, no "$" (Streamlit would read a pair of them as math).
 """
 
-LAST_UPDATED = "October 5, 2026"
+LAST_UPDATED = "October 6, 2026"
 MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
@@ -145,7 +153,7 @@ their account map.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
-  cost, value and account names), any activity history you import (each
+  cost, value, cash and account names), so the app can show them; any activity history you import (each
   row's date, kind, symbol, shares, price, amount, fees and description, with
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
@@ -162,8 +170,8 @@ their account map.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
   cut to its last 3 digits before it's saved. Pasted text is read by the app
-  itself (not by AI) and isn't saved; only symbols, share counts and cost are
-  taken from it.
+  itself (not by AI) and isn't saved; only symbols, share counts, cost and cash
+  are taken from it. Screenshots, where they can be read, aren't saved either.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
@@ -182,6 +190,11 @@ their account map.
   (holdings, cash, activity and value history; your goals, profile answers,
   notes and settings stay), or your whole account and everything in it. If an
   advisor manages your account, ask them, or contact **{_CONTACT}**.
+- **If you used to have an advisor:** deleting your account deletes everything
+  that's yours. Your former advisor keeps only their own records about working
+  with you - their notes, the proposals and reports they sent you, and the name
+  and email they had for you - because advisors must keep records of their
+  work. They can't see anything in your account once you've stopped sharing.
 - **Taking a copy:** the **Account** page also downloads everything held for your
   account as spreadsheet (CSV) files - holdings, history, plan, answers,
   settings and what your advisor shared with you. Passwords and sign-in
@@ -221,8 +234,9 @@ feature counts** on the **Account** page.
     ("Services Northwend uses", """
 - **Streamlit Community Cloud** hosts the app.
 - **Neon** runs the database, in the United States.
-- **Anthropic** (Claude) powers the AI guide, screenshot reading and the optional column
-  guess - see the next section for exactly what's sent.
+- **Anthropic** (Claude) powers the AI guide, the optional column guess and,
+  where it's offered, the optional screenshot reader - see the next section for
+  exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
 - **GitHub** runs the scheduled price updates.
@@ -241,7 +255,8 @@ an AI model from Anthropic. When you use them, the app sends:
   portfolio, its gain or loss as a percentage, and figures like dividend yield,
   beta and P/E** - never dollar amounts, share counts, account names or numbers,
 - what you type in the chat, and short notes the guide saved from earlier
-  conversations.
+  conversations - goals, dates and decisions, never dollar amounts or account
+  numbers (the app takes those out before a note is saved).
 
 If you have an advisor, they can ask the AI to draft **talking points** before
 a meeting. That sends the same profile answers and holdings summary, plus facts
@@ -249,11 +264,13 @@ in percentages - how your portfolio and goal have moved since the last review,
 which holdings were added or reduced, and how far the mix is from its target -
 never dollar amounts or your advisor's notes.
 
-If you choose to **read holdings from screenshots**, the images you upload are sent
-to the AI so it can read them - that's the only time an image leaves the app, and
-you're asked first. Crop them to just your holdings list. Only symbols, share
-counts, cost and cash are taken from what it reads, and the images aren't saved.
-(Pasted text is different: the app reads it itself and nothing is sent.)
+**Reading screenshots** is optional and, where it's offered, the one exception:
+the pictures you choose are sent to the AI whole, so it sees everything on
+them - including balances, account names and any account numbers on screen.
+You're asked first each time, and you can crop them to just your holdings list.
+Only symbols, share counts, cost and cash are taken from what it reads, and the
+pictures aren't saved. Pasting or typing your holdings instead sends nothing to
+the AI: the app reads pasted text itself.
 
 Uploaded files are read by the app itself. Only if a file's columns can't be
 matched and you press **Let AI guess the columns** is anything sent: the

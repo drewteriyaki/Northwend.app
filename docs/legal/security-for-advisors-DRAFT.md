@@ -107,7 +107,11 @@ pasted text and screenshots are not kept. Clients can also use an example or
 From the stored data, only profile answers and holdings as percentages and facts go
 to the AI provider (Anthropic) - never dollar amounts, share counts, account names or
 numbers, email addresses or your notes' text. What a person types into the chat is
-sent as typed, and screenshots go only when someone chooses to have them read.
+sent as typed; the guide's own notes between conversations keep goals, dates and
+decisions, with dollar amounts and account numbers taken out before they're saved.
+Screenshot reading is optional and offered only on some copies of the app [OWNER:
+off in production today]; where it is, the whole picture goes to the AI - including
+balances and account names on screen - only when someone chooses it.
 Market data providers (Finnhub, Yahoo Finance) receive ticker symbols only. Resend
 receives only an email address and the message. Full list: Privacy Policy,
 section 4.
@@ -120,6 +124,11 @@ section 4.
   the app; the operator deletes one on request (from the admin portal), and an
   advisor with clients asks the operator to close their own account.
   [OWNER: confirm this is the process you want for advisors and managed clients.]
+- **A former client deleting their account:** once a relationship has ended, the
+  client can delete their own account. Everything that's theirs is deleted; your
+  own records about them stay with you - your notes, the proposals and progress
+  reports you sent, and your former-client entry (the name and email you had for
+  them) - and stay in your client record export.
 - The database provider keeps a rolling backup of about 6 hours; deleted data is
   gone from it after that. [OWNER: confirm Neon's history window on the current plan.]
 - Short-lived security records (sign-up and email-limit hashes) are kept one day.

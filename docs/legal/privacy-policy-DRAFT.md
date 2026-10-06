@@ -45,8 +45,9 @@ account, contact us and we will delete it.
 - For advisors asking for access: your firm's name and your CRD or licence number.
 
 **Your investments and plans** (what you or your advisor add)
-- Holdings: symbols, share counts, cost, value and account names. Account numbers
-  in account names are cut to their last 3 digits before saving.
+- Holdings: symbols, share counts, cost, value, cash and account names, so the
+  app can show them. Account numbers in account names are cut to their last 3
+  digits before saving.
 - Activity history you import: date, kind, symbol, shares, price, amount, fees and
   description, with account and bank numbers cut to the last 3 digits.
 - Your portfolio's value over time, any contributions you record, and nicknames
@@ -61,7 +62,9 @@ account, contact us and we will delete it.
   family (accounts you add by hand keep at most their last 3 digits).
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
-- Short notes the AI guide saves between conversations (not shown in the app).
+- Short notes the AI guide saves between conversations (not shown in the app):
+  goals, dates and decisions. Dollar amounts and account numbers are taken out
+  before a note is saved.
 - For advisors and their clients: advisor notes, proposals, progress reports,
   model portfolios, and the advisor's own name for each client.
 
@@ -72,8 +75,9 @@ mode work without any.
 - Uploaded files are read from a temporary copy that is deleted; the file is never
   stored.
 - Pasted text is read by the app itself (not by AI) and isn't saved; only symbols,
-  share counts and cost are taken from it.
-- Screenshots you choose to have read are not saved.
+  share counts, cost and cash are taken from it.
+- Screenshots you choose to have read (where that's offered) are not saved.
+- Your brokerage username and password: Northwend never asks for them.
 - Your AI chat messages are kept only for your current visit (in the app's
   memory) and are not saved to the database. Only the guide's own short notes
   are saved (see above).
@@ -125,7 +129,7 @@ It is shared only as needed to run the service, with:
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
 | **Streamlit Community Cloud** and/or **Render** | Hosts the app | Requests to the app, your IP address, server logs [OWNER: which host is live; Render serves app.northwend.app] |
-| **Anthropic** (Claude) | The AI guide, plan next steps, advisor talking points; screenshot reading and the column guess only when you choose | See section 5 |
+| **Anthropic** (Claude) | The AI guide, plan next steps, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly walk reminders people turn on | Access to the database to do those jobs |
@@ -156,17 +160,26 @@ Anthropic:
   portfolio, its gain or loss as a percentage, and figures like dividend yield,
   beta and P/E - **never dollar amounts, share counts, account names or numbers**;
 - what you type in the chat, and the guide's short notes from earlier
-  conversations. A note to your future self is sent only when you ask the guide
-  about that note, as part of your question.
+  conversations (goals, dates and decisions - dollar amounts and account numbers
+  are taken out before a note is saved). A note to your future self is sent only
+  when you ask the guide about that note, as part of your question.
 
 An advisor's meeting talking points send the same profile and holdings summary,
 plus facts in percentages (how the portfolio and goal moved since the last review,
 which holdings were added or reduced, drift from target) - never dollar amounts or
 note text.
 
-Screenshots are sent only if you choose to have them read. A file's **column names
-and kinds of cell** ("text", "number") are sent only if you press "Let AI guess the
-columns" - never the values. Your email address is never sent to the AI.
+**Reading screenshots** is optional, offered only on some copies of the app [OWNER:
+off in production today, behind the `screenshot_ai` flag; see PLAN D1], and the one
+exception to the above: the pictures you choose are sent whole, so the AI sees
+everything on them - including balances, account names and any account numbers on
+screen. You're asked first each time; only symbols, share counts, cost and cash are
+taken from what it reads, and the pictures aren't saved. Pasting or typing instead
+sends nothing to the AI.
+
+A file's **column names and kinds of cell** ("text", "number") are sent only if you
+press "Let AI guess the columns" - never the values. Your email address is never
+sent to the AI.
 
 [OWNER/LAWYER: state Anthropic's data handling for API use - retention period and
 that API data isn't used to train models - from the current Anthropic commercial
@@ -221,6 +234,14 @@ terms, and link them.]
   it. If an advisor manages your account, ask them or contact us, and we'll delete
   it; an advisor with clients contacts us so their clients aren't left without
   notice.
+- **If you used to have an advisor:** deleting your account deletes everything
+  that's yours - holdings, history, plan, answers, notes, settings and login. Your
+  former advisor keeps only their own records about working with you: their
+  notes, the proposals and progress reports they sent you, and the name and email
+  they had for you, because advisers must keep records of their advice (for
+  example SEC Rule 204-2). They can't see your account once you've stopped
+  sharing with them. [LAWYER: confirm this split and how long the advisor may
+  keep these records.]
 - **Anything else,** or if you can't sign in: email support@northwend.app. We'll
   answer within [OWNER: number] days.
 - **Emails:** Northwend sends no newsletters or marketing. Advisors can turn off
