@@ -77,6 +77,15 @@ Each statement about data here must stay true to the code:
   Storm Drill (flag storm_drill; its answer is a future_notes row, symbol
   future_notes.DRILL) is counted as how many people wrote one - never the
   words, and nothing about selling.
+  401(k) Menu Decoder adds numbers only to the person's own settings (prefs
+  decoder_401k_counts: decodes, fund lines, identified - menu_decoder.add_counts;
+  not for someone left out, not while an advisor views the account).
+- 401(k) Menu Decoder (menu_decoder.py, views/menu_decoder.py, flag
+  decoder_401k): the pasted fund list and its table live only in the session
+  (st.session_state), never written to the database, logs or the AI; matching
+  reads security_info only. Its optional overlap button fetches the identified
+  funds' public top holdings like Home's Fund overlap (fund_top_holdings,
+  shared market data, no user id).
 - Export everything (export.py): the account's own rows as CSV; never password
   hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
@@ -198,6 +207,7 @@ their account map.
   cut to its last 3 digits before it's saved. Pasted text is read by the app
   itself (not by AI) and isn't saved; only symbols, share counts, cost and cash
   are taken from it. Screenshots, where they can be read, aren't saved either.
+  A fund list pasted into the 401(k) menu decoder isn't saved at all.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
@@ -263,10 +273,12 @@ to run the site.
 
 **Feature counts:** to learn whether features like the monthly walk help,
 Northwend counts in totals only, inside its own database - for example, how many
-people took a second monthly walk within 45 days of their first, or how many
-wrote down on the Stress test what they'd do in a drop (never what they wrote). A count is
-never about one person, is shown only for groups of 20 or more, and is never
-shared, sold or sent to the AI. To leave yourself out, turn on **Leave me out of
+people took a second monthly walk within 45 days of their first, how many wrote
+down on the Stress test what they'd do in a drop (never what they wrote), or
+what share of the funds pasted into the 401(k) menu decoder were recognised
+(numbers only - never the list or a fund's name). A count is never about one
+person, is shown only for groups of 20 or more, and is never shared, sold or
+sent to the AI. To leave yourself out, turn on **Leave me out of
 feature counts** on the **Account** page.
 """),
     ("Services Northwend uses", """

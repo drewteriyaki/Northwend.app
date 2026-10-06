@@ -2212,6 +2212,9 @@ _view("next_deposit")
 # Learn and Plan: the employer match calculator (employer_match.py)
 _view("free_money")
 
+# beside it: the 401(k) Menu Decoder, flag decoder_401k (menu_decoder.py)
+_view("menu_decoder")
+
 # Home: Year in review, private, and a version to share (recap.py)
 _view("year_review")
 

@@ -90,7 +90,8 @@ class LiveBillingKeyTests(unittest.TestCase):
 # welcome; taking a module off is not.
 CALCULATION_MODULES = (
     "allocation", "alerts", "asset_classes", "cash_check", "changes", "checkin",
-    "employer_match", "feature_counts", "fees", "income", "metrics", "next_deposit",
+    "employer_match", "feature_counts", "fees", "income", "menu_decoder", "metrics",
+    "next_deposit",
     "storms", "stress",
 )
 NOT_IN_CALCULATIONS = {"streamlit", "portfolio", "pgcompat", "sqlite3", "psycopg",

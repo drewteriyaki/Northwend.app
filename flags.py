@@ -72,6 +72,12 @@ FEATURES = {
     # back on Home's storm note when a drop comes; counted in totals only
     # (feature_counts.drill_answers, Admin > Feature tests).
     "storm_drill": {"gates": (), "view": None},
+    # The 401(k) Menu Decoder (ROADMAP R5, menu_decoder.py): paste a plan's
+    # fund list, see each fund's kind and fee - descriptive, no AI, nothing
+    # saved (LEGAL_GATES.md section 6: L0 + flag; L3 looks at it). Its window
+    # opens from a card beside the Free money check (Plan's Contributions tab,
+    # Learn's "Are you ready to invest?" step).
+    "decoder_401k": {"gates": (), "view": "menu_decoder"},
 }
 
 

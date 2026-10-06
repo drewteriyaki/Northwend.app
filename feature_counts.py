@@ -22,6 +22,10 @@ closed, so the share isn't pulled down by people still inside it.
 
 R4's, for now: how many people wrote a Storm Drill answer (drill_answers) -
 a count of rows, never the words.
+R5's metric (the 401(k) Menu Decoder): the share of pasted funds that were
+identified - from numbers kept in each person's settings (how many decodes,
+fund lines and identified lines; menu_decoder.add_counts), never the text or
+a fund's name.
 """
 
 from __future__ import annotations
@@ -31,6 +35,7 @@ from datetime import date, timedelta
 
 import checkin
 import future_notes
+import menu_decoder
 
 MIN_GROUP = 20
 SECOND_WITHIN_DAYS = 45
@@ -86,11 +91,11 @@ def walk_totals(all_prefs, today: date) -> dict | None:
     return {"first_walks": len(pairs), "window_closed": len(closed), "second_walks": second}
 
 
-def _all_settings(conn):
-    """Every account's settings that hold a walk - the settings column
-    only, never whose they are."""
+def _all_settings(conn, key: str = checkin.PREF_VERDICTS):
+    """Every account's settings that hold `key` (a walk, by default) - the
+    settings column only, never whose they are."""
     for r in conn.execute("SELECT data FROM user_prefs WHERE data LIKE ?",
-                          (f'%"{checkin.PREF_VERDICTS}"%',)):
+                          (f'%"{key}"%',)):
         try:
             p = json.loads(r["data"])
         except (TypeError, ValueError):
@@ -129,3 +134,19 @@ def drill_answers(conn) -> int | None:
             except (TypeError, ValueError):
                 yield {}
     return drill_total(settings())
+# ---- R5: the 401(k) Menu Decoder ------------------------------------------- #
+def decoder_totals(all_prefs) -> dict | None:
+    """R5's metric, the share of pasted funds identified, from every
+    account's settings (menu_decoder.PREF_COUNTS - numbers only, never a fund
+    name): {"people", "decodes", "lines", "identified"}. None while fewer
+    than MIN_GROUP people (not left out) have used it."""
+    got = [c for c in (menu_decoder.counts_in(p) for p in all_prefs if not left_out(p)) if c]
+    if len(got) < MIN_GROUP:
+        return None
+    return {"people": len(got), **{k: sum(c[k] for c in got)
+                                   for k in ("decodes", "lines", "identified")}}
+
+
+def decoder(conn) -> dict | None:
+    """decoder_totals() from the database - the settings column only."""
+    return decoder_totals(_all_settings(conn, menu_decoder.PREF_COUNTS))

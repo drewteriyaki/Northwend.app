@@ -79,7 +79,8 @@ mode work without any.
 - Uploaded files are read from a temporary copy that is deleted; the file is never
   stored.
 - Pasted text is read by the app itself (not by AI) and isn't saved; only symbols,
-  share counts, cost and cash are taken from it.
+  share counts, cost and cash are taken from it. A fund list pasted into the
+  401(k) menu decoder isn't saved at all - it stays in your current visit only.
 - Screenshots you choose to have read (where that's offered) are not saved.
 - Your brokerage username and password: Northwend never asks for them.
 - Your AI chat messages are kept only for your current visit (in the app's
@@ -104,9 +105,11 @@ mode work without any.
   statistics are turned off, and the website (northwend.app) runs no scripts.
 - **Feature counts.** To learn whether features like the monthly walk help,
   Northwend counts in totals only, inside its own database - for example, how many
-  people took a second monthly walk within 45 days of their first, or how many
+  people took a second monthly walk within 45 days of their first, how many
   wrote down on the Stress test what they'd do in a drop (never what they
-  wrote). The counts are
+  wrote), or what share of the funds pasted into the 401(k) menu decoder were
+  recognised (for that, your settings keep three numbers - how many lists,
+  funds and recognised funds - never the list or a fund's name). The counts are
   worked out by the app's code from what's already stored; nobody looks at one
   person's record to make them. A count is never about one person, is shown only
   for groups of 20 or more (and only on the admin page), and is never shared,

@@ -646,6 +646,7 @@ def _render_admin():
         _render_feature_tests(c)
         if flags.on("storm_drill"):
             _render_drill_count(c)
+        _render_decoder_counts(c)
     finally:
         c.close()
 
@@ -718,3 +719,17 @@ def _render_feature_tests(c):
         lines.append(f"- Walked again within {days} days: {w['second_walks']} of "
                      f"{w['window_closed']} ({share:.0f}%)")
     st.markdown("\n".join(lines))
+
+
+def _render_decoder_counts(c):
+    """R5 in Feature tests: the share of pasted 401(k) funds identified, in
+    totals only (feature_counts.decoder) - never a fund name or a person."""
+    st.markdown("**The 401(k) Menu Decoder** - the share of pasted funds identified")
+    d = feature_counts.decoder(c)
+    if d is None:
+        st.caption(f"Fewer than {feature_counts.MIN_GROUP} people have used it so far - "
+                   "nothing to show yet.")
+        return
+    share = d["identified"] / d["lines"] * 100 if d["lines"] else 0.0
+    st.markdown(f"- People who used it: {d['people']} ({d['decodes']} lists)\n"
+                f"- Funds identified: {d['identified']} of {d['lines']} ({share:.0f}%)")

@@ -1148,6 +1148,21 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
           its own failure alert; the About page and the Privacy draft's table
 - [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
+    - [x] 401(k) decoder text box (B11) - done: `menu_decoder.py` (no AI; reads
+          pasted menus line by line - tickers in brackets, labelled or in their
+          own column, labelled fees only, headings and detail lines; matches by
+          ticker, else by the exact same name words after spelling out
+          abbreviations - a trust, another share class or a cut-short name is
+          "Couldn't identify"; kind from the fund data, or marked "going by its
+          name"; fee as pasted or from `security_info` with its date; fee in
+          dollars = monthly x 12 x fee, said plainly). `views/menu_decoder.py`:
+          a window from a card beside the Free money check (Plan's
+          Contributions, Learn's ready step), flag `decoder_401k`; rows in the
+          pasted order (not R5's kind-then-name: the person's own order is the
+          one Northwend didn't choose), the "doesn't rank them" line, a plain
+          `st.table`; nothing saved but three numbers in prefs for R5's metric
+          (`feature_counts.decoder`, Admin > Feature tests; privacy text first);
+          optional Fund overlap behind a button. `tests/test_menu_decoder.py`
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
       decoder, the no-account decoder route
   - [x] Storm Drill field (R4) - done Oct 6, behind flag `storm_drill`: "What will
