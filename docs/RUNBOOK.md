@@ -705,7 +705,8 @@ plan). With UptimeRobot:
 
 1. Sign up with the address that should get alerts (the same as
    `ALERT_EMAIL` is a good choice). Turn on two-step sign-in for it.
-2. **New monitor** > type **Keyword**, URL
+2. **New monitor** > type **Keyword** (or **HTTP(s)** if the plan has no keyword
+   type - the health check answers 200 only while the app is up), URL
    `https://go.northwend.app/_stcore/health`, keyword `ok` (alert when it's
    missing), every 5 minutes. Name: `Northwend app`.
    `/_stcore/health` is Streamlit's own check - the one Render uses before it
@@ -723,8 +724,8 @@ monitor's requests aren't challenged.
 
 | Monitor | Set up on | Alerts go to |
 |---|---|---|
-| App (`/_stcore/health`) | ____ | ____ |
-| Website | ____ | ____ |
+| App (`/_stcore/health`) | UptimeRobot, October 6, 2026 | the owner's email |
+| Website | UptimeRobot, October 6, 2026 | the owner's email |
 
 ---
 
