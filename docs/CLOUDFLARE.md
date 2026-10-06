@@ -97,7 +97,9 @@ One response-header rule adds them to every page and file the app serves.
 | `X-Frame-Options` | `DENY` | The same for older browsers. |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), interest-cohort=()` | No page of the app can ask for the camera, microphone or location. The website sends the same. |
 
-5. Deploy.
+5. Deploy. Check it's listed under **Response Header Transform Rules**: the
+   same rule under *Request* Header Transform Rules sends the headers to Render
+   instead of the browser, and the scan shows F.
 
 Don't add `preload` to the HSTS value: it can't be undone quickly. The app
 needs nothing the headers block: it has no custom components, and the

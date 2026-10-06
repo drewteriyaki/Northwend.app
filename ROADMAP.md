@@ -1338,7 +1338,7 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         `.env.example` (skip list: DATABASE_URL, ANTHROPIC_API_KEY_EVAL,
         MOVED_TO). Owner: create the Blueprint, check on onrender.com
   - [x] 4.2 Cloudflare in front - **done October 6, 2026** (proxied `go` record, the
-        rules and headers; www.northwend.app redirects to northwend.app). Grade: to note; - prepared: `docs/CLOUDFLARE.md` (proxied
+        rules and headers; www.northwend.app redirects to northwend.app). securityheaders.com: A+; - prepared: `docs/CLOUDFLARE.md` (proxied
         record, Full (strict), WebSockets, a cache-bypass rule for the app so
         `/media/` downloads never sit at the edge, the six headers,
         Email Address Obfuscation / Rocket Loader / Web Analytics / Bot Fight

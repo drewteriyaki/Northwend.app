@@ -633,7 +633,7 @@ and the record in Cloudflare is Proxied.
 ### 5. Check go.northwend.app
 - [ ] `docs/CLOUDFLARE.md` section 8: the pages work, the six headers are
       there, nothing is cached, health says `ok`.
-- [ ] securityheaders.com grade: ____ (aim: A). Date: ____
+- [x] securityheaders.com grade: A+ (aim: A). Date: October 6, 2026
 - [ ] Sign up a test account with an address you own, confirm it, delete it
       (Account > Delete my account): sign-up, email links and the
       per-address limits work through the proxy.
