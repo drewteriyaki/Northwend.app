@@ -76,7 +76,8 @@ class ConsentTests(_DB):
                                  "States - tick the box to confirm."))
         no_agree = auth.accept_invite(self.conn, token, "clientpass1", adult=True,
                                       us_resident=True, terms_version="v", now=NOW)
-        self.assertEqual(no_agree["error"], "Tick the box to agree to the About and disclosures.")
+        self.assertEqual(no_agree["error"], "Tick the box to agree to the Terms of Use, "
+                                            "Privacy Policy and About and disclosures.")
         no_version = auth.accept_invite(self.conn, token, "clientpass1", agreed=True, adult=True,
                                         us_resident=True, now=NOW)
         self.assertFalse(no_version["ok"])

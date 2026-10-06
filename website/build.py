@@ -62,6 +62,14 @@ PAGES = {
     "about.html": ("about.html", "About and disclosures · Northwend",
                    "What Northwend is, what it stores, what's sent to the AI, and who runs it.",
                    "/about"),
+    "terms.html": ("legal.html", "Terms of Use · Northwend",
+                   "The terms for using Northwend: education, not advice; free, with no ads "
+                   "or commissions; what's yours and what we promise.",
+                   "/terms"),
+    "privacy.html": ("legal.html", "Privacy Policy · Northwend",
+                     "What Northwend keeps, what it never keeps, who it's shared with, what's "
+                     "sent to the AI, and how to see, download or delete it.",
+                     "/privacy"),
     "404.html": ("404.html", "Page not found · Northwend",
                  "This page isn't on the map.", "/404"),
 }
@@ -201,6 +209,106 @@ def about_values() -> dict:
             "LAST_UPDATED": html.escape(disclosures.LAST_UPDATED)}
 
 
+# The Terms of Use and the Privacy Policy: markdown in docs/legal/ (the copies
+# people read; the -DRAFT files beside them are the lawyer's working copies,
+# written for after the hosting move). Their {{NAMES}} are filled from
+# disclosures.py, so the operator, the contact, the date (the version people
+# agree to at sign-up is disclosures.LAST_UPDATED) and the app's host stay the
+# same everywhere - the host rows change by themselves when HOST_MOVED does.
+LEGAL = {"terms.html": "terms-of-use.md", "privacy.html": "privacy-policy.md"}
+
+
+def host_rows(moved: bool | None = None) -> str:
+    """The Privacy Policy's table rows for who hosts the app and the website."""
+    moved = disclosures.HOST_MOVED if moved is None else moved
+    if moved:
+        return ("| **Render** | Hosts the app (app.northwend.app), in the United States (Ohio) "
+                "| Requests to the app, your IP address, server logs |\n"
+                "| **Cloudflare** | Serves the website northwend.app (Pages), and sits in front "
+                "of the app: every connection to app.northwend.app passes through it, and it "
+                "adds security settings | Visitors' IP address and browser details; for the "
+                "app, the requests and pages passing through it on their way |")
+    return ("| **Streamlit Community Cloud** | Hosts the app today. It's moving to Render (in "
+            "the United States), with Cloudflare in front of it; this policy will say so "
+            "when it has | Requests to the app, your IP address, server logs |\n"
+            "| **Cloudflare** | Serves the website, northwend.app (Pages) | Visitors' IP "
+            "address and browser details |")
+
+
+def where_app_runs(moved: bool | None = None) -> str:
+    moved = disclosures.HOST_MOVED if moved is None else moved
+    if moved:
+        return "The app runs on Render, in the United States (Ohio)."
+    return ("The app is hosted by Streamlit Community Cloud today, and is moving to Render, "
+            "in the United States.")
+
+
+def legal_text(name: str, moved: bool | None = None) -> str:
+    """A legal page's markdown with its {{NAMES}} filled in."""
+    with open(os.path.join(REPO, "docs", "legal", LEGAL[name]), encoding="utf-8") as fh:
+        text = fh.read()
+    return _fill(text, {"EFFECTIVE": disclosures.LAST_UPDATED,
+                        "OPERATOR": disclosures.OPERATOR_NAME,
+                        "CONTACT": disclosures.CONTACT,
+                        "HOST_ROWS": host_rows(moved), "WHERE_APP_RUNS": where_app_runs(moved)})
+
+
+def _doc_inline(text: str) -> str:
+    """_inline, plus [links](to)."""
+    out = _inline(text)
+    return re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)",
+                  lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>', out)
+
+
+def _doc_table(lines: list[str]) -> str:
+    def cells(line):
+        return [c.strip() for c in line.strip().strip("|").split("|")]
+    head = "".join(f'<th scope="col">{_doc_inline(c)}</th>' for c in cells(lines[0]))
+    body = "".join("<tr>" + "".join(
+        (f'<th scope="row">{_doc_inline(c)}</th>' if i == 0 else f"<td>{_doc_inline(c)}</td>")
+        for i, c in enumerate(cells(line))) + "</tr>" for line in lines[2:])
+    return (f'<div class="calc-wrap"><table class="calc doc-table"><thead><tr>{head}</tr>'
+            f"</thead><tbody>{body}</tbody></table></div>")
+
+
+def legal_html(markdown: str) -> str:
+    """The legal pages' markdown as HTML: a # title, ## sections (with a list
+    of them after the lines under the title), paragraphs, "- " lists, tables,
+    **bold** and [links](to). Lines that each start with **Label:** stay on
+    lines of their own."""
+    parts, toc = [], []
+    for block in re.split(r"\n\s*\n", markdown.strip()):
+        lines = block.split("\n")
+        first = lines[0]
+        if first.startswith("# "):
+            parts.append(f'<h1 id="legal-title" class="display">{_doc_inline(first[2:])}</h1>')
+        elif first.startswith("## "):
+            title = first[3:].strip()
+            sid = slug(re.sub(r"^\d+\.\s*", "", title))
+            toc.append(f'<a href="#{sid}">{html.escape(title)}</a>')
+            parts.append(f'<h2 id="{sid}">{_doc_inline(title)}</h2>')
+        elif first.startswith("|"):
+            parts.append(_doc_table(lines))
+        elif first.startswith("- "):
+            items: list[str] = []
+            for line in lines:
+                if line.startswith("- "):
+                    items.append(line[2:].strip())
+                else:
+                    items[-1] += " " + line.strip()
+            parts.append("<ul>\n" + "\n".join(f"<li>{_doc_inline(i)}</li>" for i in items)
+                         + "\n</ul>")
+        elif all(re.match(r"\*\*[^*]+:\*\*", line) for line in lines):
+            parts.append('<p class="summary">' + "<br>\n".join(_doc_inline(line.strip())
+                                                               for line in lines) + "</p>")
+        else:
+            parts.append(f"<p>{_doc_inline(' '.join(line.strip() for line in lines))}</p>")
+    nav = '<nav class="toc" aria-label="On this page">\n' + "\n".join(toc) + "\n</nav>"
+    # the list of sections goes after the title and the lines under it
+    parts.insert(2, nav)
+    return "\n".join(parts)
+
+
 def _fill(template: str, values: dict) -> str:
     def sub(m):
         if m.group(1) not in values:
@@ -226,6 +334,8 @@ def render(include_held: bool = False) -> dict[str, str]:
         values = dict(common)
         if name == "about.html":
             values.update(about_values())
+        if name in LEGAL:
+            values["LEGAL"] = legal_html(legal_text(name))
         page = _fill(base, {**common, "TITLE": html.escape(title), "NAV": nav_links(path),
                             "DESCRIPTION": html.escape(description),
                             "CANONICAL": SITE_URL + path,

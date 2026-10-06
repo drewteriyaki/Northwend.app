@@ -316,7 +316,8 @@ def agreement_error(*, agreed: bool, adult: bool, us_resident: bool) -> str | No
         return ("For now Northwend is for people who live in the United States - tick the "
                 "box to confirm.")
     if not agreed:
-        return "Tick the box to agree to the About and disclosures."
+        return ("Tick the box to agree to the Terms of Use, Privacy Policy and About and "
+                "disclosures.")
     return None
 
 

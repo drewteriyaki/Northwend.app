@@ -1,41 +1,34 @@
-# Northwend Terms of Use
+# Terms of Use
 
-> **DRAFT - not legal advice; for review by a qualified lawyer before use.**
-> The lawyer's working copy, written for after the hosting move. The version
-> people read is `docs/legal/terms-of-use.md` (on the website, linked from sign-up),
-> with these notes resolved in plain, careful wording - keep the two in step. Every statement
-> about what the app does is based on the code as of October 2026 (see
-> `disclosures.py`, whose developer header lists which code each data statement
-> depends on). Assumptions and blanks are marked **[OWNER: ...]** (a fact or
-> decision for the owner) or **[LAWYER: ...]** (a legal question).
+**Effective date:** {{EFFECTIVE}}
+**Operator:** Northwend is run by {{OPERATOR}}, an individual developer ("we", "us").
+**Contact:** {{CONTACT}}
 
-**Effective date:** [OWNER: date these terms take effect]
-**Operator:** Andrew Zhang, an individual developer ("we", "us") [LAWYER: should the
-service be run through a company (for example an LLC) before launch? If so, name it here.]
-**Contact:** support@northwend.app
-
----
+Please read these terms before you use Northwend. By creating an account or
+using Northwend, you agree to them, to the [Privacy Policy](/privacy), and to the
+[About and disclosures](/about) page, which the app also shows.
 
 ## 1. What Northwend is
 
 Northwend is a free website and app that helps you follow your own investments
 and learn how investing works. You can bring in holdings from any brokerage (by
-pasting, uploading a file, reading screenshots or typing them in), see their value,
-set a goal, read short lessons, try "practice money" on past prices, and ask an AI
-guide ("Ask Northwend") questions. Financial advisors can also use it with their
-clients.
+pasting, uploading a file, typing them in or, where it's offered, reading
+screenshots), see their value, set a goal, read short lessons, try "practice
+money" on past prices, and ask an AI guide ("Ask Northwend") questions. Financial
+advisors can also use it with their clients.
 
 Northwend does not connect to your brokerage, cannot place trades, and never asks
 for your brokerage login.
 
+Northwend is an early (beta) service. It may change, have mistakes, or be
+unavailable at times.
+
 ## 2. Who can use it
 
 - You must be **18 or older**.
-- Northwend is offered **only to people in the United States**. [OWNER: confirm
-  US-only; people confirm "I live in the United States" next to "I'm 18 or
-  older" when they agree, and both are kept with their date, but the app does
-  not check location.] [LAWYER: whether to state
-  that use from outside the US is at the user's own risk and not permitted.]
+- Northwend is offered **only to people who live in the United States**. When you
+  sign up, you confirm that you're 18 or older and live in the United States.
+  Please don't use Northwend if either isn't true.
 - You must be able to agree to these terms. If you use Northwend for a business
   (for example an advisory firm), you agree for that business too.
 
@@ -49,25 +42,20 @@ money, model portfolios, alerts, and every AI answer.
   recommendation of a particular mix for you.
 - Northwend is **not** a registered investment adviser, broker-dealer, financial
   planner, tax adviser or law firm, and we are not acting as your adviser.
-- Anything worked out from your own answers (your "example mix", your "direction")
-  is described in kinds of funds and percentages - a common rule of thumb for
-  learning. Apart from your own holdings and watchlist, named funds appear only in
-  material that is the same for every user (general reads, which show examples of
-  each kind of fund from several providers, and the made-up example portfolio), or
-  that comes from your advisor. They are not recommendations.
+- Anything worked out from your own answers is described in kinds of funds and
+  percentages - a common rule of thumb for learning. Apart from your own holdings
+  and watchlist, named funds appear only in material that is the same for every
+  user (general reads, which show examples of each kind of fund from several
+  providers, and the made-up example portfolio), or that comes from your advisor.
+  They are not recommendations.
 - If an advisor gave you access, their advice comes from them, not from Northwend.
 - Consider talking to a licensed professional before making investment decisions.
-
-[LAWYER: confirm this framing, together with the app's design (no named funds tied
-to a person's answers; AI rules in `advisor.GUARDRAILS`), keeps Northwend within the
-"publisher" / impersonal-advice side of the Investment Advisers Act and state law.]
 
 ## 4. The AI guide and other AI features
 
 Northwend uses an AI model (Claude, from Anthropic) for the AI guide, for
-advisors' meeting talking points, and - only when
-you choose - for guessing a file's columns and, where it's offered, reading
-screenshots.
+advisors' meeting talking points, and - only when you choose - for guessing a
+file's columns and, where it's offered, reading screenshots.
 
 - **AI answers can be wrong, incomplete or out of date.** Check anything important
   before relying on it.
@@ -78,10 +66,10 @@ screenshots.
 - **Projections are hypothetical.** Any figure about the future (growth at a
   yearly rate, reaching a goal, retirement income) is an illustration built on
   assumptions, not a prediction or a promise.
-- Each account has a monthly allowance of AI requests. We may change allowances
-  or turn AI features off at any time.
+- Each account has a monthly allowance for AI use. We may change allowances or
+  turn AI features off at any time.
 - Don't put information into the chat that you don't want sent to the AI provider
-  (see the Privacy Policy for what is sent).
+  (the Privacy Policy says exactly what is sent).
 
 ## 5. Free service; how Northwend is paid
 
@@ -101,9 +89,9 @@ screenshots.
 - Keep your password private and don't reuse it elsewhere. You are responsible
   for what happens under your account.
 - Advisor and admin accounts must use two-step sign-in; anyone else can turn it on.
-- Tell us right away at support@northwend.app if you think someone else has used
+- Tell us right away at {{CONTACT}} if you think someone else has used
   your account.
-- We may lock an account temporarily after repeated wrong passwords or codes.
+- We may lock an account for a short time after repeated wrong passwords or codes.
 
 ## 7. Acceptable use
 
@@ -148,50 +136,49 @@ These extra terms apply if you use Northwend as a financial advisor.
 - **Your obligations are yours.** You remain responsible for your own licensing
   and registration, compliance, books-and-records and record-keeping obligations,
   privacy notices to your clients, and your firm's policies. Northwend is not a
-  record-keeping system of record. [LAWYER: confirm wording on SEC Rule 204-2 /
-  FINRA record-keeping and Regulation S-P.] [OWNER: say whether advisors can export
-  a client record for their own files; another change in progress adds a client
-  record export.]
+  books-and-records system. You can download a client's record from Northwend for
+  your own files, and you should keep your own records.
 - **Your licence is checked.** You ask for advisor access with your firm's name and
-  your CRD or licence number, and we check them before turning advisor access on
-  (the operator can also turn it on directly, from outside the app). We may refuse
-  or remove advisor access at any time, for example if a licence can't be confirmed
-  or lapses. [OWNER: describe how the check is done (for example FINRA BrokerCheck
-  or the SEC's IAPD) and how often it is repeated.]
+  your CRD or licence number, and we look you up in public records (such as FINRA
+  BrokerCheck or the SEC's Investment Adviser Public Disclosure) before turning
+  advisor access on. We may refuse or remove advisor access at any time, for
+  example if a licence can't be confirmed or lapses.
 - **Client consent.** Before you add a client or their holdings, you must have their
   permission. Clients you add can see their own portfolio, plan, and the notes you
   share with them (not ones you mark private). You can see everything in their
-  account except what's theirs alone: their notes to their future self and their
-  monthly walks.
+  account except what's theirs alone: their notes to their future self, their
+  monthly walks and their account map.
 - **Client relationships.** Your relationship with your clients is between you and
   them. Northwend is not a party to it and does not refer clients to advisors.
   Emails you send through Northwend (a client's setup link, or a note that a report
   or message is waiting) carry your name and firm as the sender name, go out from
   Northwend's address, and never include figures or your message text.
-- **Ending.** If you close your advisor account, your clients keep their own
-  accounts. [OWNER: confirm what happens to clients' access and to your notes;
-  today an advisor with clients must contact us to close the account.]
+- **Ending.** You or a client can end your working relationship in the app. The
+  client keeps their own account, and you keep your own records about working with
+  them (your notes and the proposals and reports you sent). To close an advisor
+  account that still has clients, contact us, so your clients aren't left without
+  notice.
 
 ## 10. Changes to the service, and ending your use
 
-- Northwend is an early (beta) service. Features may change, pause or end, and the
-  service may be unavailable at times.
+- Features may change, pause or end, and the service may be unavailable at times.
 - **You can stop at any time.** The Account page lets you download a copy of your
   data and delete your holdings or your whole account (an advisor-managed client
   asks their advisor or us; an advisor with clients contacts us).
 - **We may suspend or close an account** that breaks these terms, puts others at
   risk, or that the law requires us to close. Where we can, we'll tell you first
   and give you a chance to download your data.
-- We may shut Northwend down. If we do, we'll give at least [OWNER: number] days'
-  notice where we can, so you can download your data. [LAWYER: notice period.]
+- We may shut Northwend down. If we do, we'll give at least 30 days' notice where
+  we can, so you can download your data.
 
 ## 11. No warranties
 
 Northwend is provided **"as is" and "as available"**, without warranties of any
 kind, express or implied, including merchantability, fitness for a particular
-purpose, accuracy and non-infringement. We don't promise that it will be
-uninterrupted, error-free or secure, or that any figure, price, projection or AI
-answer is correct. [LAWYER: state-specific consumer-law carve-outs.]
+purpose, accuracy and non-infringement, to the fullest extent the law allows. We
+don't promise that it will be uninterrupted, error-free or secure, or that any
+figure, price, projection or AI answer is correct. Some places don't allow some
+of these exclusions, so they may not all apply to you.
 
 ## 12. Limitation of liability
 
@@ -201,32 +188,33 @@ To the fullest extent the law allows:
   investment loss, whether or not it relied on Northwend;
 - we are not liable for indirect, incidental, special, consequential or punitive
   damages, or for lost profits, data or goodwill;
-- our total liability for any claim about Northwend is limited to [LAWYER: amount;
-  for a free service often USD 100 or less].
+- because Northwend is free, our total liability for any claim about Northwend is
+  limited to USD 100.
 
 Some places don't allow some of these limits, so they may not all apply to you.
+Nothing in these terms takes away rights you have under the law that can't be
+given up by agreement.
 
 ## 13. Indemnity
 
-If you use Northwend in a way that breaks these terms or the law (or, for advisors,
-in connection with advice you give your clients), you agree to cover our reasonable
-costs of claims that result. [LAWYER: scope; whether to apply to consumers.]
+If you use Northwend for a business (for example as an advisor), and a claim
+against us results from your breaking these terms or the law, or from advice you
+give your clients, you agree to cover our reasonable costs of that claim, to the
+extent the law allows.
 
 ## 14. Changes to these terms
 
 When these terms change in a way that matters, we'll update the effective date
-and tell you in the app the next time you sign in (and by email if you have a
-confirmed address [OWNER: the app does not send this email today]) at least [OWNER: number] days before the change takes effect,
-except where a change is needed sooner for legal or security reasons. If you keep
-using Northwend after that, the new terms apply. The app records which version of
-its terms each sign-up agreed to.
+and tell you in the app (in What's new, and when you next sign in) before the
+change takes effect - at least 14 days before, except where a change is needed
+sooner for legal or security reasons. If you keep using Northwend after that, the
+new terms apply. The app records which version each person agreed to.
 
-## 15. Governing law and disputes
+## 15. Questions and disputes
 
-These terms are governed by the laws of [LAWYER: state], without regard to conflict
-of laws rules. Disputes will be resolved in the state or federal courts in
-[LAWYER: county, state]. [LAWYER: arbitration / class-action waiver, small-claims
-carve-out - include or not.]
+If something goes wrong, please contact us first at {{CONTACT}} - most problems
+can be sorted out quickly. Nothing in these terms limits any rights you have
+under the consumer laws of the state where you live.
 
 ## 16. Other
 
@@ -234,8 +222,8 @@ carve-out - include or not.]
   by any brokerage, fund company, Finnhub, Yahoo or Anthropic. Brokerage and fund
   names are used only to describe what Northwend can read or to give examples.
 - If part of these terms can't be enforced, the rest still applies.
-- These terms, the Privacy Policy and the in-app "About and disclosures" page are
-  the whole agreement between you and us about Northwend.
-  [LAWYER: reconcile with `disclosures.py`, which is shown in the app today and
-  currently acts as the terms users agree to at sign-up.]
-- Questions: **support@northwend.app**.
+- These terms, the Privacy Policy and the About and disclosures page are the whole
+  agreement between you and us about Northwend. They're meant to say the same
+  thing; if they ever seem to differ, tell us and we'll fix it, and the reading
+  that protects you more applies.
+- Questions: {{CONTACT}}.

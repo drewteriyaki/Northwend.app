@@ -179,6 +179,11 @@ MIN_AGE = 18
 OPERATOR_NAME = "Andrew Zhang"
 CONTACT = "support@northwend.app"
 
+# the published Terms of Use and Privacy Policy (docs/legal/, built into the
+# website by website/build.py; their date is LAST_UPDATED, the version agreed to)
+TERMS_URL = "https://northwend.app/terms"
+PRIVACY_URL = "https://northwend.app/privacy"
+
 _OPERATOR = OPERATOR_NAME or "[operator name]"
 _CONTACT = CONTACT or "[contact email]"
 

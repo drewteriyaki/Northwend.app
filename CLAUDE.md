@@ -120,9 +120,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   tables are worked out in build.py (no scripts: the CSP allows none) and
   its contour lines are the app's `static/topo-light.svg`. The design is
   the "Northwend website redesign" Claude Design canvas.
-- Legal: `docs/legal/` holds DRAFT Terms of Use, Privacy Policy and a security
-  page for advisors - unpublished, for a lawyer; keep their facts true to the
-  code like `disclosures.py`. The AI's rules are `advisor.GUARDRAILS` (in every
+- Legal: the published Terms of Use and Privacy Policy are `docs/legal/terms-of-use.md`
+  and `privacy-policy.md` (built into northwend.app/terms and /privacy; their
+  `{{NAMES}}` - date = `disclosures.LAST_UPDATED`, the version agreed to, operator,
+  contact, the host rows from `HOST_MOVED` - are filled by build.py; linked from every
+  agree box via `AGREE_BOX` and the About page). The `-DRAFT` files beside them (and the
+  security page for advisors) are the lawyer's working copies, written for after the
+  move. Keep all their facts true to the code like `disclosures.py` (tests/test_legal_pages.py). The AI's rules are `advisor.GUARDRAILS` (in every
   AI prompt; a test pins every AI call); `scripts/ai_guardrail_eval.py` tries
   them on the real model. Anything worked out from a person's answers names
   kinds of funds, never tickers (named examples only in general reads).

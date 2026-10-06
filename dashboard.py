@@ -734,7 +734,8 @@ def _render_disclosures(*, summary=True):
     for title, body in disclosures.SECTIONS:
         st.subheader(title, anchor=False)
         st.markdown(body.strip())
-    st.caption(f"Last updated {disclosures.LAST_UPDATED}.")
+    st.caption(f"Last updated {disclosures.LAST_UPDATED}. {LEGAL_LINKS} say the same in "
+               "more detail.")
 
 
 def _toggle_about():
@@ -743,6 +744,13 @@ def _toggle_about():
 
 # asked beside "I'm 18 or older" wherever that box is (decision D10)
 US_RESIDENT_BOX = "I live in the United States"
+# the published Terms of Use and Privacy Policy, on the website
+LEGAL_LINKS = (f"The [Terms of Use]({disclosures.TERMS_URL}) and "
+               f"[Privacy Policy]({disclosures.PRIVACY_URL})")
+AGREE_BOX = (f"I've read and agree to the [Terms of Use]({disclosures.TERMS_URL}), "
+             f"[Privacy Policy]({disclosures.PRIVACY_URL}) and About and disclosures")
+AGREE_HELP = ("What the app is, what's stored and what's sent to the AI. The About and "
+              "disclosures are below; the Terms and the Privacy Policy open on northwend.app.")
 
 
 def _invite_setup(token: str) -> bool:
@@ -775,10 +783,7 @@ def _invite_setup(token: str) -> bool:
             # the same boxes as Create account: a client agrees here, once
             adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="invite_adult")
             us_resident = st.checkbox(US_RESIDENT_BOX, key="invite_us")
-            agreed = st.checkbox("I've read and agree to the About and disclosures",
-                                 key="invite_agree",
-                                 help="What the app is, what's stored and what's sent to the "
-                                      "AI - open it below.")
+            agreed = st.checkbox(AGREE_BOX, key="invite_agree", help=AGREE_HELP)
             remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
                                    value=True, key="invite_remember",
                                    help="Leave this off on a shared or public computer.")
@@ -889,10 +894,7 @@ def _signup() -> bool:
                                              "the licence number where you're registered.")
             adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="signup_adult")
             us_resident = st.checkbox(US_RESIDENT_BOX, key="signup_us")
-            agreed = st.checkbox("I've read and agree to the About and disclosures",
-                                 key="signup_agree",
-                                 help="What the app is, what's stored and what's sent to the "
-                                      "AI - open it below.")
+            agreed = st.checkbox(AGREE_BOX, key="signup_agree", help=AGREE_HELP)
             remember = st.checkbox(f"Stay signed in on this device ({auth.SESSION_DAYS} days)",
                                    value=True, key="signup_remember",
                                    help="Leave this off on a shared or public computer.")
@@ -2025,10 +2027,12 @@ if not _me["agreed"] and not IS_ADMIN:
     with st.container(border=True, key="pt_agree"):
         st.markdown(f":material/handshake: **One quick thing.** Please read {APP_NAME}'s About "
                     "and disclosures - what it is, how your data is used and what's sent to "
-                    "the AI - and agree to them. You only need to do this once.")
+                    f"the AI - and its [Terms of Use]({disclosures.TERMS_URL}) and "
+                    f"[Privacy Policy]({disclosures.PRIVACY_URL}), and agree to them. You only "
+                    "need to do this once.")
         st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="terms_adult")
         st.checkbox(US_RESIDENT_BOX, key="terms_us")
-        st.checkbox("I've read and agree to the About and disclosures", key="terms_agree")
+        st.checkbox(AGREE_BOX, key="terms_agree")
         with st.container(horizontal=True):
             st.button("Agree", key="terms_ok", type="primary", on_click=_agree_now,
                       disabled=not (st.session_state.get("terms_adult")

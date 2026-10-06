@@ -266,6 +266,10 @@ p, h1, h2, h3, ul, ol, dl, dd, figure { margin: 0; }
 .calc-text th, .calc-text td { text-align: left; }
 .calc-text th:last-child, .calc-text td:last-child { text-align: right; }
 .calc-text tbody th { font-weight: 600; }
+/* the Terms and Privacy pages' tables: words, read from the left */
+.doc-table { min-width: 560px; font-size: 15px; line-height: 22px; }
+.doc-table th, .doc-table td { text-align: left; padding: 12px 16px; }
+.doc-table thead th:first-child { text-align: left; }
 .cell-sub { display: block; font-size: 13px; line-height: 18px; color: var(--ink-muted); font-weight: 400; }
 
 /* questions */
