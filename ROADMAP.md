@@ -1484,6 +1484,15 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         in the client's export (`export.OWN`) and the advisor's client record
         (`consent.csv`); both join `tests/test_principle_matrix.py`; Privacy draft,
         security page and disclosures say so; SCHEMA_VERSION 5
+- [ ] **Beginners first; newer advisors** (`docs/adr/0005-beginners-first-and-new-advisors.md`,
+      owner Oct 6): market as "new to investing? start here"; advisors early in their
+      careers are a named audience; never paid per lead, introduction or client; a
+      one-time review is the advisor's service, paid to them directly
+  - [x] The decision record, and a question for newer advisors on the website's For
+        advisors page (no promises of clients, nothing about Find a guide before L2)
+  - [ ] A "one-time review" offering on listings (filter or not: an L2 question)
+  - [ ] The calm "Find a guide" link on Learn and Plan (flag `directory`, never client mode)
+  - [ ] A beginner's "How advisors are paid" explainer beside the directory
 - [ ] **Step 6 - Billing** behind L1 (Paddle, by pull; founding seats; owner metrics)
 - [ ] **Step 7 - Remaining AI helpers** (most as rules, not AI)
 - [ ] **Step 8 - Service seams** (no new frontend now)

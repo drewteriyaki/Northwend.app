@@ -537,6 +537,16 @@ with every record written; the ordering, append-only and revoke tests pass.
 
 ---
 
+## Direction note (October 6): beginners first, newer advisors
+
+ADR 0005. Northwend is marketed as "new to investing? start here"; finding a
+guide is a later, optional step. Advisors early in their careers are a named
+audience. Northwend is never paid per lead, introduction or client - only, if
+at all, one flat seat fee (below) - and a one-time review is the advisor's
+service, paid to them directly. The L2 lawyer review covers this model.
+
+---
+
 ## Step 6 - Billing (about 2-2.5 weeks, 13-16 sessions; +2-3 sessions for a webhook service)
 
 Behind L1 and flag `billing`. After step 4. The provider is decision B2.
