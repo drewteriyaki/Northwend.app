@@ -1219,10 +1219,15 @@ def decline_advisor(conn, username: str, *, now: datetime | None = None) -> bool
     return cur.rowcount > 0
 
 
-def link_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> None:
+def link_client(conn: sqlite3.Connection, advisor_id: int, client_id: int, *,
+                commit: bool = True) -> None:
+    """Full sharing: the advisor sees the client's account (can_view).
+    `commit=False` leaves it to the caller's transaction (intros.share_account
+    writes the consent grant in the same one)."""
     conn.execute("INSERT INTO advisor_clients (advisor_id, client_id) VALUES (?, ?) "
                  "ON CONFLICT (advisor_id, client_id) DO NOTHING", (advisor_id, client_id))
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def unlink_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> None:

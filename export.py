@@ -63,6 +63,10 @@ OWN = [
     ("licence_checks", "licence_checks", "advisor_id", ""),
     # an advisor's own directory listing (directory.py)
     ("your_directory_listing", "advisor_profiles", "user_id", ""),
+    # introductions (intros.py): the ones you sent, and - for an advisor - the
+    # ones sent to you (without the sender's account id: LEFT_OUT_COLUMNS)
+    ("your_introductions", "intro_requests", "person_id", ""),
+    ("introductions_to_you", "intro_requests", "advisor_id", ""),
     # a client's sharing with an advisor, with the words they were shown
     # (consent.py), and each time an advisor opened their account (access_log.py)
     ("sharing_with_an_advisor", "consent_records", "client_id", ""),
@@ -76,7 +80,9 @@ ACCOUNT_COLUMNS = ("username", "email", "email_verified_at", "created_at", "last
 # the advisor's working record, not part of what the client was shown
 LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"},
                     # which admin recorded it: an id of someone else's login
-                    "licence_checks": {"checked_by"}}
+                    "licence_checks": {"checked_by"},
+                    # the sender's account id: someone else's login
+                    "introductions_to_you": {"person_id"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -102,6 +108,9 @@ Open them in any spreadsheet. Dates are UTC.
   the advisor agreement (and which version), and each check of your
   registration (where it was looked up, the number matched and the day)
 - your_directory_listing.csv: for an advisor, your listing in Find a guide
+- your_introductions.csv: introductions you sent from Find a guide - your
+  message, what you chose to share and the advisor's answer
+- introductions_to_you.csv: for an advisor, introductions people sent you
 - sharing_with_an_advisor.csv: when you agreed to share your account with an
   advisor and when that ended, with the exact words you were shown
 - advisor_visits.csv: each time an advisor opened a page in your account

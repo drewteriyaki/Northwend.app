@@ -18,9 +18,11 @@ The rules, enforced here and tested (tests/test_directory.py):
   link are shown but can't be filtered on (filtering on letters after a
   name would rank by another name).
 - **Nothing is counted about who browses** (brief 3.4). Browsing, filtering
-  and "Request an introduction" write nothing - no views, impressions or
-  clicks, for anyone, and advisors see no such numbers. The filters live in
-  the browser session only; the state a person picks is never saved.
+  and pressing "Request an introduction" write nothing - no views,
+  impressions or clicks, for anyone, and advisors see no such numbers. Only
+  an introduction the person actually sends is recorded (intros.py, flag
+  `intros`). The filters live in the browser session only; the state a
+  person picks is never saved.
 - **Shown only when** (visible): the account is an approved advisor
   (users.is_advisor), the profile is complete (missing), the advisor
   switched "listed" on, and - once the other step-5 work lands - the
@@ -164,7 +166,7 @@ PRIVACY_LINE = ("Nothing about your browsing is recorded, and the state you pick
 NONE_MATCH = ("No advisors match these filters yet. Try fewer of them - or check back later, "
               "as more advisors join.")
 NONE_YET = "No advisors are listed yet. Check back later."
-# the button on each listing until the intro flow (PLAN step 5 item 5) is built
+# the button on each listing while the intro flow (flag `intros`) is off
 INTROS_SOON = ("Introductions open soon. Until then, you're welcome to use the advisor's own "
                "scheduling link, or look up their public record.")
 
@@ -522,17 +524,12 @@ def describe(profile: dict) -> dict:
     }
 
 
-# ---- the introduction: a placeholder for the next step --------------------- #
+# ---- the introduction while its flag is off -------------------------------- #
 def request_intro_placeholder(person_id: int, advisor_id: int) -> dict:
-    """What "Request an introduction" does today: nothing is sent, saved or
-    counted; the page says INTROS_SOON.
-
-    The hook for PLAN step 5 item 5 (flag `intros`, gate L2): replace the
-    body with the real request - a new `intro_requests` row (person, advisor,
-    the person's message, time) that the advisor sees with the figure-free
-    view only (percentages, goal type, timeline bucket, stage), and keep its
-    signature (the page calls it with the person's login id and the
-    listing's user_id). Still nothing counted about browsing (brief 3.4):
-    only an intro actually sent is ever recorded."""
-    del person_id, advisor_id   # unused until the intro flow exists
+    """What "Request an introduction" does while the intro flow (flag
+    `intros`, PLAN step 5 item 5) is off: nothing is sent, saved or counted;
+    the page says INTROS_SOON. With it on, the button opens the intro form
+    (views/intros.py) and only an intro actually sent is written
+    (intros.send) - still nothing counted about browsing (brief 3.4)."""
+    del person_id, advisor_id   # nothing to do: the intro flow is off
     return {"sent": False, "message": INTROS_SOON}

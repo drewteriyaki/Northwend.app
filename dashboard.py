@@ -2235,6 +2235,9 @@ _view("clients")
 
 # the advisor directory: Find a guide, and the advisor's listing (directory.py)
 _view("directory")
+# introductions and the two-step consent to full sharing (intros.py), drawn
+# inside Find a guide and Your clients
+_view("intros")
 
 
 _view("meeting")

@@ -606,7 +606,9 @@ before its name goes into the live `NORTHWEND_GATES`.
 - [ ] The directory copy and its filters are signed off (B4). It's
       alphabetical only, and a test checks there's no ranking.
 - [ ] The two-step consent text is final and stored word for word with each
-      consent.
+      consent (built: `intros.SHARE_LINES` / `CONFIRM_LINE`, recorded by
+      `intros.share_account`; the intro copy is `intros.COPY_STATUS` DRAFT -
+      put the lawyer's words there, and turn on flag `intros` with `directory`).
 - [ ] Consent records and advisor access logs are append-only and kept 7
       years (B6), and the Privacy Policy says so.
 - [ ] The standing line "advice is the advisor's, not Northwend's", with

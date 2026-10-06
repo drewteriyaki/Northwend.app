@@ -1438,6 +1438,72 @@ class DirectoryTests(_PG):
         self.assertEqual([p["display_name"] for p in directory.listings(c)], ["Ben Okafor"])
 
 
+class IntroTests(_PG):
+    """Introductions and the two-step consent (intros.py, PLAN step 5.5-5.6) on
+    Postgres: sent, answered, shared in one transaction (the grant and the
+    link both committed, or neither), exported and deleted with an account."""
+    TAG = "intros"
+
+    def test_send_answer_share_export_and_delete(self):
+        import intros
+        import licence_check
+        c = self.conn
+        boss = self.user("boss.in")
+        carol = self.user("carol.in", advisor=True)
+        licence_check.record(c, carol, source="IAPD", crd="1234567",
+                             checked_on=licence_check._today().isoformat())
+        self.assertTrue(directory_profile(c, carol, "Carol Reyes"))
+        alice = self.user("alice.in")
+        bob = self.user("bob.in")
+        res = intros.send(c, alice, carol, "Hello there.", name="Alice",
+                          outline={"mix": [["Stocks", 70], ["Bonds", 30]], "stage": "invest"})
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(self.one("SELECT status, outline FROM intro_requests WHERE id = ?",
+                                  (res["id"],)),
+                         {"status": "sent",
+                          "outline": '{"mix": [["Stocks", 70], ["Bonds", 30]], '
+                                     '"stage": "invest"}'})
+        self.assertFalse(intros.send(c, alice, carol, "Again", name="Alice")["ok"])
+        other = intros.send(c, bob, carol, "Hi", name="Bob")["id"]
+        self.assertEqual([r["id"] for r in intros.for_advisor(c, carol)], [other, res["id"]])
+        self.assertTrue(intros.reply(c, carol, res["id"], "Happy to talk.", share_link=True)["ok"])
+        self.assertTrue(intros.decline(c, carol, other, "Not now.")["ok"])
+        self.assertEqual(self.one("SELECT status, reply, link_shared FROM intro_requests "
+                                  "WHERE id = ?", (res["id"],)),
+                         {"status": "replied", "reply": "Happy to talk.", "link_shared": 1})
+        # a failure half-way leaves nothing behind
+        text = intros.sharing_text_for(c, carol)
+        with unittest.mock.patch.object(auth, "link_client", side_effect=RuntimeError("x")):
+            with self.assertRaises(RuntimeError):
+                intros.share_account(c, alice, res["id"], text, confirmed=True)
+        self.assertEqual(self.seen("SELECT id FROM consent_records WHERE client_id = ?",
+                                   (alice,)), [])
+        self.assertTrue(intros.share_account(c, alice, res["id"], text, confirmed=True)["ok"])
+        self.assertEqual(self.one("SELECT kind, how, text_shown FROM consent_records WHERE "
+                                  "client_id = ?", (alice,)),
+                         {"kind": "grant", "how": "intro", "text_shown": text})
+        self.assertEqual(self.one("SELECT client_name FROM advisor_clients WHERE advisor_id = ? "
+                                  "AND client_id = ?", (carol, alice)), {"client_name": "Alice"})
+        z = zipfile.ZipFile(io.BytesIO(export.export_zip(c, alice)))
+        self.assertIn("Hello there.", z.read("your_introductions.csv").decode())
+        z = zipfile.ZipFile(io.BytesIO(export.export_zip(c, carol)))
+        self.assertNotIn("person_id", z.read("introductions_to_you.csv").decode())
+        self.assertTrue(admin.delete_account(c, bob, by=boss)["ok"])
+        self.assertEqual(self.seen("SELECT id FROM intro_requests WHERE person_id = ?", (bob,)),
+                         [])
+        self.assertTrue(admin.delete_account(c, carol, by=boss)["ok"])
+        self.assertEqual(self.seen("SELECT id FROM intro_requests"), [])
+
+
+def directory_profile(c, uid, name):
+    import directory
+    return directory.save_profile(c, uid, {
+        "display_name": name, "firm": "F", "reg_type": "sec_ria", "reg_number": "1234567",
+        "fee_models": ["flat"], "minimum": "none", "serves": ["new"], "states": ["NY"],
+        "meeting": "both", "description": "How I work.",
+        "scheduling_url": "https://cal.example.com/me"}, listed=True)["ok"]
+
+
 class DeleteAccountTests(_PG):
     TAG = "delete"
 

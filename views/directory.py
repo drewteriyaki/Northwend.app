@@ -12,8 +12,9 @@
 # Find a guide lists advisors alphabetically by name within the person's own
 # filters (directory.listings) - nothing ranked or featured. Nothing about
 # browsing is written or counted: the filters live in this browser session
-# only, and "Request an introduction" says introductions open soon
-# (directory.request_intro_placeholder, the hook for PLAN step 5 item 5).
+# only. "Request an introduction" opens the intro form (views/intros.py,
+# flag `intros`) - only an intro actually sent is written; with that flag off
+# it says introductions open soon (directory.request_intro_placeholder).
 # ruff: noqa: F821
 
 import directory
@@ -25,7 +26,13 @@ def _dir_md(text):
 
 
 def _dir_request_intro(advisor_id):
-    # nothing is sent, saved or counted yet - see directory.request_intro_placeholder
+    if flags.on("intros"):
+        # opens the intro form in this card (views/intros.py) - nothing is
+        # written until the person sends it
+        st.session_state["intro_to"] = advisor_id
+        return
+    # the intro flow is off: nothing is sent, saved or counted - see
+    # directory.request_intro_placeholder
     result = directory.request_intro_placeholder(LOGIN_ID, advisor_id)
     st.session_state["dir_intro"] = (advisor_id, result["message"])
 
@@ -68,11 +75,15 @@ def _dir_listing_card(p):
         shown = st.session_state.get("dir_intro")
         if shown and shown[0] == uid:
             st.info(shown[1], icon=":material/schedule:")
+        if flags.on("intros") and st.session_state.get("intro_to") == uid:
+            _intro_compose(p)   # views/intros.py
 
 
 def _render_find_a_guide():
     """Find a guide: the copy (DRAFT under L2), the B4 filters, and the
     listings alphabetically by name."""
+    if flags.on("intros"):
+        _render_my_intros()   # the person's own introductions (views/intros.py)
     st.write(directory.INTRO)
     with st.container(border=True):
         for line in directory.ABOUT_LINES:

@@ -962,6 +962,11 @@ def _render_clients():
         return
     today = datetime.now().date()
     _render_add_client()
+    if flags.on("intros") and flags.on("directory"):
+        # introductions from Find a guide - only those sent to this advisor
+        # (views/intros.py)
+        _render_intros_advisor()
+        st.divider()
     if not CLIENTS:
         st.info("No clients yet - add your first one with **Add client** just above.")
     else:

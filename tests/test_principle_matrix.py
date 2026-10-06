@@ -43,6 +43,7 @@ import directory  # noqa: E402
 import consent  # noqa: E402
 import export  # noqa: E402
 import future_notes  # noqa: E402
+import intros  # noqa: E402
 import licence_check  # noqa: E402
 import perf  # noqa: E402
 import plans  # noqa: E402
@@ -126,6 +127,11 @@ MATRIX = {
     "advisor_profiles": ("directory.get_profile", "directory.save_profile",
                          "directory.set_listed", "directory.delete_profile",
                          "directory.visible", "directory.listings", "directory.why_not_shown"),
+    # an introduction: the person's and the advisor's it was sent to, no one else's
+    "intro_requests": ("intros.for_person", "intros.for_advisor", "intros.send",
+                       "intros.reply", "intros.share_link", "intros.decline",
+                       "intros.withdraw", "intros.answer_email", "intros.can_share",
+                       "intros.share_account", "export.collect"),
     # kept after deletion (admin.KEPT_AFTER_DELETE), still one account's own
     "consent_records": ("consent.history", "consent.between", "consent.current",
                         "consent.grant", "consent.revoke", "advising.end_relationship",
@@ -137,7 +143,7 @@ ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
                                     advisor_agreement, ai_usage, auth, consent, directory,
-                                    export, future_notes, licence_check, perf, plans,
+                                    export, future_notes, intros, licence_check, perf, plans,
                                     portfolio, prefs, proposals, reports, txn_import,
                                     two_step, watchlist)}
 
@@ -287,6 +293,16 @@ class IsolationMatrix(unittest.TestCase):
             "fee_models": ["flat"], "minimum": "none", "serves": ["new"], "states": ["NY"],
             "meeting": "both", "description": f"{tag} description"},
             listed=side == "A")["ok"]
+        # an introduction from the investor to the advisor, answered (B's
+        # advisor is listed just long enough to receive it)
+        directory.set_listed(c, a, True)
+        sent = intros.send(c, uid, a, f"{tag} hello", name=f"{tag} name",
+                           outline={"mix": [["Stocks", 60], ["Bonds", 40]],
+                                    "goals": ["Retirement"]})
+        assert sent["ok"], sent
+        ids[f"{side}.intro"] = sent["id"]
+        assert intros.reply(c, a, sent["id"], f"{tag} answer")["ok"]
+        directory.set_listed(c, a, side == "A")
 
     # ---- the harness -------------------------------------------------------- #
     def setUp(self):
@@ -688,6 +704,35 @@ class IsolationMatrix(unittest.TestCase):
         licence_check.record(c, carol, source="BrokerCheck", crd="ALICE 7012345",
                              checked_on="2026-10-01")
         self.assertEqual(licence_check.last_check(c, carol)["source"], "BrokerCheck")
+
+    def check_intro_requests(self):
+        c, carol, alice = self.c, self.carol, self.alice
+        mine, theirs = self.ids["A.intro"], self.ids["B.intro"]
+        self.assertEqual([r["id"] for r in self.clean(intros.for_person(c, alice))], [mine])
+        got = self.clean(intros.for_advisor(c, carol))
+        self.assertEqual([r["id"] for r in got], [mine])
+        self.assertNotIn("person_id", got[0])          # never the sender's account id
+        self.assertEqual(intros.for_person(c, carol), [])
+        self.clean(export.collect(c, alice).get("your_introductions"))
+        self.clean(export.collect(c, carol).get("introductions_to_you"))
+        # B's advisor isn't listed: nothing reaches them
+        self.assertFalse(intros.send(c, alice, self.omar, "Hello", name="Alice")["ok"])
+        # A's helpers aimed at B's intro: all refused, nothing changes
+        self.assertIsNone(intros.answer_email(c, carol, theirs))
+        self.assertFalse(intros.reply(c, carol, theirs, "Mine")["ok"])
+        self.assertFalse(intros.share_link(c, carol, theirs)["ok"])
+        self.assertFalse(intros.decline(c, carol, theirs, "No")["ok"])
+        self.assertFalse(intros.withdraw(c, alice, theirs)["ok"])
+        self.assertIsNotNone(intros.can_share(c, alice, theirs))
+        self.assertFalse(intros.share_account(c, alice, theirs,
+                                              intros.sharing_text_for(c, self.omar),
+                                              confirmed=True)["ok"])
+        # and A's own work on A's own intro
+        self.assertFalse(intros.share_link(c, carol, mine)["ok"])   # no link on her listing
+        self.assertTrue(intros.share_account(c, alice, mine, intros.sharing_text_for(c, carol),
+                                             confirmed=True)["ok"])
+        self.assertTrue(auth.can_view(c, carol, alice))
+        self.assertFalse(intros.withdraw(c, alice, mine)["ok"])   # shared: closed
 
     def check_advisor_profiles(self):
         c, carol, alice = self.c, self.carol, self.alice

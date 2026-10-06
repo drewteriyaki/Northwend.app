@@ -322,6 +322,32 @@ def advisor_message(to: str, link: str, advisor_name: str, *, standing: str,
                 from_name=from_name)
 
 
+def intro_received(to: str, link: str) -> bool:
+    """Someone sent an advisor an introduction from Find a guide (intros.py).
+    Only that one is waiting - never who, their message or anything about them."""
+    lines = ["Someone who found you in Find a guide has asked for an introduction.",
+             "Sign in to read it under Introductions on Your clients - for their privacy, "
+             "introductions stay in Northwend and aren't sent by email."]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n"
+    return send(to, "You have a new introduction in Northwend", text,
+                _html([html_escape(x) for x in lines], ("Read it", link)))
+
+
+def intro_answered(to: str, link: str, advisor_name: str, *, standing: str,
+                   from_name: str | None = None) -> bool:
+    """An advisor answered (or declined) a person's introduction (intros.py).
+    Only that there's an answer - never its text or any figures. `standing`:
+    the advisor's standing line (standing_line.text)."""
+    lines = [f"{advisor_name} answered your introduction.",
+             "Sign in to read it under Your introductions on Find a guide - for your privacy, "
+             "answers stay in Northwend and aren't sent by email. Nothing in your account is "
+             "shared unless you choose it.", standing]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n\n{lines[2]}\n"
+    return send(to, f"{advisor_name} answered your introduction", text,
+                _html([html_escape(x) for x in lines], ("Read the answer", link)),
+                from_name=from_name)
+
+
 def relationship_ended(to: str, link: str, advisor_name: str, *, setup_days: int | None = None,
                        from_name: str | None = None) -> bool:
     """An advisor ended the relationship (advising.end_relationship): the

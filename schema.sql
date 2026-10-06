@@ -746,3 +746,27 @@ CREATE TABLE IF NOT EXISTS advisor_access_log (
 );
 CREATE INDEX IF NOT EXISTS idx_advisor_access_log_client ON advisor_access_log (client_id, at);
 CREATE INDEX IF NOT EXISTS idx_advisor_access_log_at ON advisor_access_log (at);
+
+-- Introductions (intros.py; PLAN step 5.5-5.6): a person who found an advisor
+-- in Find a guide asked to be introduced. One row per introduction actually
+-- sent - nothing about browsing is ever written. The advisor sees only the
+-- name the person gave, their message and the figure-free outline they chose
+-- to send (outline: JSON - asset-class mix in whole percents, goals, a
+-- timeline bucket, the route stage; never amounts, share counts, tickers or
+-- account details). Deleted with either account (admin.ACCOUNT_TABLES).
+CREATE TABLE IF NOT EXISTS intro_requests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    person_id    INTEGER NOT NULL,                -- who asked
+    advisor_id   INTEGER NOT NULL,                -- the advisor they wrote to
+    created_at   TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    person_name  TEXT    NOT NULL,                -- the name they gave the advisor
+    message      TEXT    NOT NULL DEFAULT '',     -- plain text, intros.LIMITS
+    outline      TEXT    NOT NULL DEFAULT '{}',   -- what they chose to send (intros.clean_outline)
+    status       TEXT    NOT NULL DEFAULT 'sent', -- intros.STATUSES: sent | replied | declined | withdrawn | shared
+    reply        TEXT,                            -- the advisor's answer, plain text
+    replied_at   TEXT,
+    link_shared  INTEGER NOT NULL DEFAULT 0,      -- the advisor shared their scheduling link
+    closed_at    TEXT                             -- declined, withdrawn or shared
+);
+CREATE INDEX IF NOT EXISTS idx_intro_requests_person ON intro_requests (person_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_intro_requests_advisor ON intro_requests (advisor_id, status);

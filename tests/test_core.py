@@ -1519,7 +1519,7 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         for (table,) in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'"):
             cols = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
             account_cols = cols & {"user_id", "advisor_id", "client_id", "created_by", "set_by",
-                                   "used_by", "admin_id", "target_id"}
+                                   "used_by", "admin_id", "target_id", "person_id"}
             if table != "users" and account_cols:
                 self.assertEqual(account_cols - covered.get(table, set()), set(),
                                  f"{table} isn't cleared by admin.delete_account")

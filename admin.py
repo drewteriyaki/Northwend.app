@@ -42,6 +42,8 @@ ACCOUNT_TABLES = {
     # checks made about an advisor (licence_check.py)
     "advisor_agreements": ("user_id",), "licence_checks": ("advisor_id",),
     "advisor_profiles": ("user_id",),   # an advisor's directory listing (directory.py)
+    # an introduction from Find a guide (intros.py): gone with either account
+    "intro_requests": ("person_id", "advisor_id"),
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)

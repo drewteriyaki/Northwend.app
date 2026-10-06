@@ -72,6 +72,10 @@ SAMPLES = {
                            dict(to=TO, link=LINK, advisor_name=ADVISOR, setup_days=7,
                                 from_name=ADVISOR)],
     "client_stopped_sharing": [dict(to=TO, link=LINK, client_name="Dana Lee")],
+    # introductions (intros.py): only that one is waiting, or answered
+    "intro_received": [dict(to=TO, link=LINK)],
+    "intro_answered": [dict(to=TO, link=LINK, advisor_name="Carol Reyes", standing=STANDING,
+                            from_name=ADVISOR)],
     "reset_password": [dict(to=TO, link=LINK, minutes=30)],
 }
 
@@ -150,7 +154,7 @@ class EmailFigures(unittest.TestCase):
 
     def test_advisor_authored_emails_carry_the_standing_line(self):
         # master brief 4.4: whatever an advisor sends a client says whose advice it is
-        for name in ("report_ready", "proposal_shared", "advisor_message"):
+        for name in ("report_ready", "proposal_shared", "advisor_message", "intro_answered"):
             self.assertIn("standing", inspect.signature(getattr(mailer, name)).parameters)
             for kwargs in SAMPLES[name]:
                 with self.subTest(email=name):

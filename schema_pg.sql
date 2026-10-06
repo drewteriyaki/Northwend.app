@@ -649,3 +649,21 @@ CREATE TABLE IF NOT EXISTS advisor_access_log (
 );
 CREATE INDEX IF NOT EXISTS idx_advisor_access_log_client ON advisor_access_log (client_id, at);
 CREATE INDEX IF NOT EXISTS idx_advisor_access_log_at ON advisor_access_log (at);
+
+-- Introductions - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS intro_requests (
+    id           SERIAL  PRIMARY KEY,
+    person_id    INTEGER NOT NULL,
+    advisor_id   INTEGER NOT NULL,
+    created_at   TEXT    NOT NULL,
+    person_name  TEXT    NOT NULL,
+    message      TEXT    NOT NULL DEFAULT '',
+    outline      TEXT    NOT NULL DEFAULT '{}',
+    status       TEXT    NOT NULL DEFAULT 'sent',
+    reply        TEXT,
+    replied_at   TEXT,
+    link_shared  INTEGER NOT NULL DEFAULT 0,
+    closed_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_intro_requests_person ON intro_requests (person_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_intro_requests_advisor ON intro_requests (advisor_id, status);

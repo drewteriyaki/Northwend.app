@@ -114,6 +114,15 @@ FEATURES = {
     # Alphabetical within the person's filters, nothing ranked, nothing about
     # browsing counted. Gate L2: its copy, filters and order are the lawyer's.
     "directory": {"gates": ("L2",), "view": "directory", "page": "Find a guide"},
+    # Introductions and the two-step consent to full sharing (PLAN step 5 items
+    # 5-6, master brief 4.3; intros.py, views/intros.py): "Request an
+    # introduction" on Find a guide sends a message and a figure-free outline;
+    # the advisor answers under Introductions on Your clients; the person may
+    # then share their full account in two steps. Drawn inside Find a guide and
+    # Your clients, so it needs `directory` on too (views/directory.py and
+    # views/clients.py check on("intros")). Gate L2: its copy and the consent
+    # text are the lawyer's. Off, the button says introductions open soon.
+    "intros": {"gates": ("L2",), "view": "intros"},
 }
 
 

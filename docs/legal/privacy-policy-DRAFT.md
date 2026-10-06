@@ -74,6 +74,12 @@ account, contact us and we will delete it.
   advisor working in your account never sees or changes them.
 - For advisors and their clients: advisor notes, proposals, progress reports,
   model portfolios, and the advisor's own name for each client.
+- Introductions (once the directory and intro flow are on, gate L2): each
+  introduction you send an advisor from Find a guide - the name you give, your
+  message, what you choose to include (your mix by asset class in whole
+  percents, your goals, a timeline range and where you are on Northwend's route -
+  never amounts, holdings or account details), when you sent it, and the
+  advisor's answer. Browsing Find a guide isn't recorded at all. [LAWYER: wording.]
 
 You don't have to use real numbers: an example portfolio and a "percentages only"
 mode work without any.
@@ -154,14 +160,23 @@ see (the account map is never emailed, and its PDF is only downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
 
+**Introductions.** An advisor you write to from Find a guide sees only what you
+send: the name you give, your message and the parts you choose to include
+(above) - not your email, holdings, amounts or anything else in your account.
+Their answer is seen only by you. Sharing your full account with them is a
+separate choice you make afterwards, in two steps that say exactly what they
+would see; only then do they see your account as described above, including the
+name and email on it. [LAWYER: the two-step consent text, `intros.SHARE_LINES`.]
+
 Each time an advisor opens a page in a client's account, Northwend records who,
 which client, which page and when - never what was on the page or any figure -
 and the client sees the list on their Account page ("Who has looked at your
 account", the last 90 days; their data download has all of it). An advisor never
 sees another advisor's visits. When a client agrees to share their account with an
-advisor (today: when they set up their login from the advisor's link or - if
-sharing began another way, or before these records were kept - when they're asked
-once at sign-in and choose to keep sharing), or sharing ends (the client stops it, the advisor ends it, we unlink them on request, or an
+advisor (when they set up their login from the advisor's link, choose to share
+after an introduction, or - if sharing began another way or before these records
+were kept - are asked once at sign-in and choose to keep sharing), or sharing
+ends (the client stops it, the advisor ends it, we unlink them on request, or an
 account is deleted), Northwend records it with the time and the exact words the
 client was shown. Section 7 says how long these records are kept. [LAWYER: wording.]
 
@@ -254,6 +269,7 @@ in step.]
 | Error records (the kind of error and where it happened, no personal data) | 90 days |
 | The record of what the person running Northwend did to accounts (never holdings) | 1 year [once the admin action log is in - PLAN 1b.3] |
 | An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept for the advisor's record-keeping duties after the client leaves or deletes their account (section 8) [LAWYER: how long] |
+| Introductions (the name and message sent, what was included, the advisor's answer) | Until the person's or the advisor's account is deleted [LAWYER: should the advisor keep their copy longer, as a record?] |
 | Records of consent to share with an advisor (when, which advisor, the exact words shown) and of each advisor's visits to a client's account (who, which page, when - never figures) | 7 years after the sharing ends (visits: 7 years), kept even when either account is deleted, to protect the client and the advisor in a dispute [decision B6 in `docs/PLAN.md`; LAWYER: confirm the period] |
 | Server logs at the host | [OWNER: per host; check it's no more than 30 days] |
 | Requests to the AI | Per Anthropic's API terms (section 5) |
@@ -265,7 +281,8 @@ in step.]
   Profile, Plan and the holdings window). An advisor-managed client can ask their
   advisor, or us.
 - **Download:** the Account page's "Export everything" downloads everything held for
-  your account as spreadsheet (CSV) files. Passwords, sign-in tokens, internet
+  your account as spreadsheet (CSV) files, including any introductions you sent
+  or received. Passwords, sign-in tokens, internet
   address hashes, advisors' private notes and other accounts' data aren't included.
 - **Delete holdings:** the Account page deletes all your holdings, cash, activity
   and value history (your goals, answers, notes and settings stay).

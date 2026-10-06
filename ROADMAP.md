@@ -1414,6 +1414,32 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         (`consent.unconfirmed`, one read for the book); what they see until then is
         unchanged - the question is in LEGAL_GATES' L2 row. No flag (a safeguard on
         today's relationships). `tests/test_consent_ask.py`
+  - [x] 5.5 Intro requests - `intros.py` + `views/intros.py`, flag `intros`, gate L2
+        (inside Find a guide, so `directory` too); new `intro_requests` table (both
+        schema files, SCHEMA_VERSION 6; `admin.ACCOUNT_TABLES` both ids, `export.OWN`
+        both sides, the matrix). "Request an introduction" opens a form: the name they
+        give, a plain-text message (no links, emails or long numbers) and the
+        figure-free outline they tick (`intros.outline`: asset-class mix in whole
+        percents, goals, timeline bucket, route stage - never amounts, share counts,
+        tickers or account details; `recap.has_money` guards it). Only to a visible
+        listing, from someone without an advisor; no second open one to the same
+        advisor, none for 90 days after a decline, 3 a day. "Introductions" on Your
+        clients: only the advisor's own (never the person's id or email); a text
+        answer once, their listing's scheduling link, or decline; the person can
+        withdraw. Emails say only that something's waiting (`mailer.intro_received`
+        / `intro_answered`, the latter with the standing line). Nothing about
+        browsing written or counted. Copy DRAFT (`intros.COPY_STATUS`).
+        `tests/test_intros.py`
+  - [x] 5.6 (two-step part) Full sharing after an intro - once the advisor answers,
+        "Share my full account with <name>": step 1 says what sharing means
+        (`intros.SHARE_LINES`, true to `can_view` / `CAN_MANAGE` / the access log /
+        the Privacy Policy), step 2 a tick and confirm (`intros.CONFIRM_LINE`).
+        `intros.share_account` then writes `consent.grant(..., how="intro")` with
+        exactly those words and `auth.link_client` (new `commit=False`) in one
+        transaction - the grant first, nothing left half-done on a failure. Plain
+        session-state steps (AppTest drives them). Stopping is the existing Stop
+        sharing (a `client_stop` revoke). Privacy Policy, its draft, the security
+        draft and About say what an intro shares and keeps
   - [x] 5.8 Advisor access log - done: `access_log.py` + append-only
         `advisor_access_log` (time, advisor, client, page - never figures), written in
         dashboard.py after `PAGE` when `ON_CLIENT`, once per page opened (the same page

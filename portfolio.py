@@ -179,7 +179,8 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # 4 = advisor_profiles (the advisor directory, directory.py).
 # 5 = consent_records and advisor_access_log (consent.py, access_log.py), the
 # one-time consent back-fill and their append-only grants on Postgres.
-SCHEMA_VERSION = 5
+# 6 = intro_requests (introductions from Find a guide, intros.py).
+SCHEMA_VERSION = 6
 
 
 def _ensure_schema(conn) -> None:

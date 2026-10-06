@@ -172,7 +172,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   table `advisor_profiles`). "Find a guide" in an individual's name menu (never client
   mode), the advisor's "Your directory listing" on Your clients. Alphabetical by name
   within B4's five filters - `directory.sort_key` is the only sort, never anything
-  computed or paid; nothing about browsing is written. Intro button: `request_intro_placeholder`.
+  computed or paid; nothing about browsing is written. Intro button: `request_intro_placeholder`
+  while flag `intros` is off.
+- Introductions (PLAN 5.5-5.6): `intros.py` + `views/intros.py` (flag `intros` + gate L2,
+  inside Find a guide and Your clients; table `intro_requests`). The advisor sees only the
+  name, message and figure-free outline sent (`intros.clean_outline`), only their own;
+  full sharing only via `intros.share_account` (two steps, then `consent.grant(how="intro")`
+  with the exact words and `auth.link_client` in one transaction).
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting move (PLAN step 4): `docs/CLOUDFLARE.md` (headers, proxy, obfuscation off),

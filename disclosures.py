@@ -57,6 +57,20 @@ Each statement about data here must stay true to the code:
   report and message emails say something is waiting - never figures or the
   message text. The advisor's name for a client ("Chen household") is
   advisor_clients.client_name, seen only by that advisor.
+- Introductions (intros.py, views/intros.py; flag intros + gate L2):
+  intro_requests keeps each intro a person sends from Find a guide - the name
+  they give, their message (plain text, no links, emails or long numbers),
+  the outline they tick (intros.clean_outline: asset-class mix in whole
+  percents, goals, a timeline bucket, the route stage - never amounts, share
+  counts, tickers or account details), the advisor's text answer and whether
+  they shared their listing's scheduling link. The advisor reads only intros
+  sent to them (intros.for_advisor - never the person's id or email); nothing
+  about browsing is written. The "an introduction is waiting" / "answered"
+  emails (mailer.intro_received / intro_answered) carry no text or figures,
+  the answered one the standing line. Full sharing only after two steps:
+  consent.grant(how='intro', the exact words, intros.sharing_text) and the
+  advisor_clients link in one transaction (intros.share_account). Deleted with
+  either account (admin.ACCOUNT_TABLES); in both sides' export.
 - Meeting prep talking points (meeting.facts_for_ai / talking_points): profile,
   advisor.portfolio_summary, and percentage facts - no dollars, no note text.
 - Advisors' Monday email (weekly_email.py, GitHub Actions): counts only (reviews
@@ -285,7 +299,13 @@ their account map.
   username or password, and never connects to your brokerage. It only reads
   what you choose to paste, upload, type in or photograph.
 - **Who can see it:** you, and - if your account is managed by an advisor -
-  that advisor. To look after accounts, the person who runs Northwend can see
+  that advisor. Where introductions are offered, an advisor you write to from
+  Find a guide sees only the name you give, your message and the parts you
+  choose to include (your mix by asset class in percents, goals, a timeline
+  range, where you are on the route) - never amounts, holdings or your email -
+  until you choose, in two separate steps, to share your full account. Those
+  introductions are kept until you or the advisor deletes the account, and
+  browsing Find a guide isn't recorded at all. To look after accounts, the person who runs Northwend can see
   login details (your email or username, your role, when the account was made
   and last signed in) - not your holdings, plan or answers. If an account has
   no email address, they can set a temporary password to help its owner back
@@ -323,8 +343,8 @@ their account map.
   words - never figures.
 - **Taking a copy:** the **Account** page also downloads everything held for your
   account as spreadsheet (CSV) files - holdings, history, plan, answers,
-  settings, what your advisor shared with you, and the sharing and "who has
-  looked" records. Passwords and sign-in
+  settings, what your advisor shared with you, the sharing and "who has
+  looked" records, and any introductions. Passwords and sign-in
   records aren't included.
 """),
     ("Security", """
