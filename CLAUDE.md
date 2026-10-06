@@ -69,7 +69,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   confirm / reset links, advisor requests; sign-up needs an invite code from `invite_codes.py`
   while gate L0 is off - the live app sets `NORTHWEND_GATES = "L0"`), `two_step.py` + `views/two_step.py`
   (two-step sign-in: `_two_step_gate()` runs inside `_login()` after any way in;
-  required for advisors and admins - an AppTest signing one in sets
+  required for advisors and admins; the authenticator keys are encrypted with `NORTHWEND_TOTP_KEY`
+  (Fernet, "new,old" to rotate; `manage_users.py encrypt-two-step [--rotate]`; the published
+  wording follows `disclosures.TWO_STEP_ENCRYPTED`, flipped only once live shows 0 readable) - an AppTest signing one in sets
   `two_step_ok`, see tests/test_menu.py; `manage_users.py reset-two-step`), `admin.py` + `views/admin.py` (the
   Admin portal: logins only, never holdings; admins made only from outside the app: `manage_users.py make-admin` or the
   `NORTHWEND_ADMINS` secret (a list of logins); its System panel shows the copy's

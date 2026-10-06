@@ -79,7 +79,7 @@ class RenderBlueprintTests(unittest.TestCase):
         "MOVED_TO": "set only on the old copy, after the move",
     }
     SECRETS = ("PORTFOLIO_DB", "ANTHROPIC_API_KEY", "RESEND_API_KEY", "FINNHUB_API_KEY",
-               "NORTHWEND_ADMINS", "ALERT_EMAIL")
+               "NORTHWEND_TOTP_KEY", "NORTHWEND_ADMINS", "ALERT_EMAIL")
     # switched by hand in Render's Environment: a Blueprint sync must not undo it
     BY_HAND = ("NORTHWEND_GATES", "NORTHWEND_FLAGS", "NORTHWEND_AI_CEILING_USD", "AI_ZDR")
 

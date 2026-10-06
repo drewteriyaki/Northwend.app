@@ -62,7 +62,8 @@ holds what, read the file map in `CLAUDE.md` ("Where things live" and
 
 - `users`: one row per login (password hash, email, advisor and admin
   flags, agreement and its time). Sessions in `login_sessions`, two-step in
-  `two_step`.
+  `two_step` (each authenticator key encrypted with `NORTHWEND_TOTP_KEY`, a
+  host setting kept apart from the database; readable without it).
 - `advisor_clients` links an advisor to a client (with the advisor's name
   for them). `advisor_notes`, `proposals`, `progress_reports`,
   `former_clients` are the advisor's records.

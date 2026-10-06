@@ -42,8 +42,9 @@ account, contact us and we will delete it.
 - When the account was made and when you last signed in; which version of the
   terms you agreed to, and when; when you confirmed you're 18 or older and live
   in the United States. If you joined with an invite code: which code, and when.
-- If you turn on two-step sign-in: the key your authenticator app uses (stored so
-  codes can be checked) and your backup codes as hashes.
+- If you turn on two-step sign-in: the key your authenticator app uses (stored
+  encrypted, with the encryption key kept apart from the database, so codes can be
+  checked) and your backup codes as hashes.
 - "Stay signed in": a random token in a cookie on your device; we store only a hash.
 - For advisors asking for access: your firm's name and your CRD or licence number.
 

@@ -74,6 +74,10 @@ services:
         sync: false
       - key: FINNHUB_API_KEY
         sync: false
+      # encrypts the two-step keys in the database (two_step.py): the live
+      # copy's own key, the same one the live app already has - never staging's
+      - key: NORTHWEND_TOTP_KEY
+        sync: false
       # ---- Switched by the owner, by hand ----------------------------------
       - key: NORTHWEND_ADMINS      # admin logins, commas or spaces
         sync: false

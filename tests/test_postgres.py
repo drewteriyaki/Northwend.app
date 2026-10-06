@@ -413,6 +413,50 @@ class TwoStepTests(_PG):
                                   (uid,))["backup_codes_hash"], "")
 
 
+class TwoStepKeyTests(_PG):
+    """Two-step keys sealed with NORTHWEND_TOTP_KEY (audit 1.1e) on Postgres:
+    the sealed form fits the column, a readable row is sealed at a good code,
+    and encrypt-two-step does the rest in one go."""
+    TAG = "totpkey"
+
+    def test_sealed_keys_and_the_command(self):
+        from cryptography.fernet import Fernet
+        k = Fernet.generate_key().decode()
+        c = self.conn
+        old_uid, new_uid, idle_uid = self.user("olive"), self.user("nina"), self.user("ida")
+        no_key = {n: v for n, v in os.environ.items() if n != "NORTHWEND_TOTP_KEY"}
+        with unittest.mock.patch.dict(os.environ, no_key, clear=True):
+            old = two_step.new_secret()
+            self.assertTrue(two_step.enable(c, old_uid, old, two_step.totp(old, NOW),
+                                            now=NOW)["ok"])
+            idle = two_step.new_secret()
+            self.assertTrue(two_step.enable(c, idle_uid, idle, two_step.totp(idle, NOW),
+                                            now=NOW)["ok"])
+        def stored(uid):
+            return self.one("SELECT totp_secret FROM two_step WHERE user_id = ?",
+                            (uid,))["totp_secret"]
+
+        self.assertEqual(stored(old_uid), old)
+        with unittest.mock.patch.dict(os.environ, {**no_key, "NORTHWEND_TOTP_KEY": k},
+                                      clear=True):
+            new = two_step.new_secret()
+            self.assertTrue(two_step.enable(c, new_uid, new, two_step.totp(new, NOW),
+                                            now=NOW)["ok"])
+            self.assertTrue(stored(new_uid).startswith(two_step.SEALED))
+            later = NOW + timedelta(seconds=60)
+            stamp = two_step.status(c, old_uid)["stamp"]
+            for uid, s in ((old_uid, old), (new_uid, new)):
+                self.assertTrue(two_step.verify(c, uid, two_step.totp(s, later), now=later)["ok"])
+            self.assertTrue(stored(old_uid).startswith(two_step.SEALED))   # sealed on the way
+            self.assertEqual(two_step.status(c, old_uid)["stamp"], stamp)
+            self.assertEqual(two_step.storage(c),
+                             {"sealed": 2, "readable": 1, "unreadable": 0, "old_key": 0})
+            res = two_step.encrypt_all(c)
+            self.assertEqual((res["ok"], res["sealed"]), (True, 1))
+            self.assertEqual(two_step._open(stored(idle_uid)), idle)
+            self.assertEqual(two_step.storage(c)["readable"], 0)
+
+
 class SignOutAndLogTests(_PG):
     """PLAN 1b.2, 1b.3 and 1b.7 on Postgres: the session numbers, the admin
     action log, and passwords at 600,000 iterations."""

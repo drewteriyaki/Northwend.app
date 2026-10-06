@@ -12,6 +12,7 @@ created (there is no signup anywhere in the web app itself).
   python manage_users.py clients <advisor>
   python manage_users.py make-admin | remove-admin <username>
   python manage_users.py reset-two-step <username>
+  python manage_users.py encrypt-two-step [--rotate]   (NORTHWEND_TOTP_KEY in the environment)
   python manage_users.py seed-staging --db <staging dsn or scratch file> [--reset-passwords]
   python manage_users.py sign-out-all        (every account, every device and tab)
 
@@ -307,6 +308,30 @@ def cmd_reset_two_step(args) -> int:
     return 0
 
 
+def cmd_encrypt_two_step(args) -> int:
+    """Seal every two-step key still stored readable with NORTHWEND_TOTP_KEY
+    (two_step.encrypt_all; audit 1.1e) - run once the host has the key, with
+    the same key in this shell's environment. --rotate also re-seals the
+    rest with the first key, after a new one went in front. Refuses, changing
+    nothing, if a sealed key won't open with the key here (not the app's)."""
+    import two_step
+    conn = connect(args.db)
+    res = two_step.encrypt_all(conn, rotate=args.rotate)
+    if not res["ok"]:
+        print(f"Nothing changed in {where(args.db)}: {res['error']}")
+        return 1
+    done = f"{res['sealed']} readable key{'s' if res['sealed'] != 1 else ''} encrypted"
+    if args.rotate:
+        done += f", {res['resealed']} re-encrypted with the first key"
+    _log(conn, "encrypt_two_step", None, f"{done} (key id {res['key_id']})")
+    left = two_step.storage(conn)
+    print(f"Two-step keys in {where(args.db)}: {done}, with key id {res['key_id']}. "
+          f"Still readable: {left['readable']}. Admin > System on that copy should show "
+          f"the same key id - if it doesn't, the host has a different key: put this one in "
+          "front of it there (comma-separated) before anyone signs in.")
+    return 0
+
+
 # --- sign-out-all (PLAN 1b.2, audit X5) ------------------------------------ #
 def cmd_sign_out_all(args) -> int:
     """The incident switch: every account signed out at once - saved
@@ -580,6 +605,10 @@ def main(argv=None) -> int:
                    ).add_argument("username")
     sub.add_parser("reset-two-step", help="turn off two-step sign-in for someone who lost "
                    "their phone (signs them out everywhere)").add_argument("username")
+    p_enc = sub.add_parser("encrypt-two-step", help="encrypt the two-step keys still stored "
+                           "readable, with NORTHWEND_TOTP_KEY from this shell's environment")
+    p_enc.add_argument("--rotate", action="store_true",
+                       help="also re-encrypt the rest with the first key (after a rotation)")
     # sign-out-all (PLAN 1b.2)
     sub.add_parser("sign-out-all", help="sign every account out now, on every device and "
                    "open tab (an emergency switch)")
@@ -623,6 +652,8 @@ def main(argv=None) -> int:
         return cmd_reset_two_step(args)
     if args.cmd == "sign-out-all":   # PLAN 1b.2
         return cmd_sign_out_all(args)
+    if args.cmd == "encrypt-two-step":
+        return cmd_encrypt_two_step(args)
     if args.cmd in ("ai-unlimited", "ai-limited"):
         return cmd_set_ai_unlimited(args, args.cmd == "ai-unlimited")
     if args.cmd == "ai-usage":

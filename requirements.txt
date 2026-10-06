@@ -44,3 +44,7 @@ fpdf2==2.8.8
 # Python, no dependencies of its own. Optional: without it the setup shows the
 # key and a link instead. The codes themselves (two_step.py) are stdlib only.
 segno==1.6.6
+
+# Two-step keys encrypted at rest (two_step.py, audit 1.1e): Fernet, with the
+# key in NORTHWEND_TOTP_KEY. Imported only when that key is set.
+cryptography==50.0.2

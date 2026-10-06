@@ -14,6 +14,7 @@ Contents:
 - [Roll back](#roll-back)
 - [Restore the database](#restore-the-database)
 - [Rotate a key](#rotate-a-key)
+- [Two-step key](#two-step-key)
 - [Sign everyone out](#sign-everyone-out)
 - [Turn off AI or email in an emergency](#turn-off-ai-or-email-in-an-emergency)
 - [Turn a feature or gate on or off](#turn-a-feature-or-gate-on-or-off)
@@ -189,12 +190,74 @@ Staging has keys of its own: rotate those separately.
 | `ANTHROPIC_API_KEY` | Anthropic console > API keys, in the right workspace (production, or staging's own) | App settings (live and staging each their own). Render's Environment after step 4. Not in GitHub. | Restart the app. Ask Northwend one question in the app. Revoke the old key. |
 | `RESEND_API_KEY` | resend.com > API Keys (sending access, the northwend.app domain) | App settings, the `RESEND_API_KEY` GitHub secret, Render | Restart the app. Admin > System says email is sending. Ask for a password reset to your own address. Revoke the old key. |
 | `FINNHUB_API_KEY` | finnhub.io > Dashboard | The `FINNHUB_API_KEY` GitHub secret, app settings, Render | Actions > Scheduled sync > Run workflow: the refresh job is green. A new Finnhub key may end the old one at once. |
+| `NORTHWEND_TOTP_KEY` | Made on your computer (see [Two-step key](#two-step-key)) | App settings (live and staging each their own), Render. Not in GitHub. A copy in your password manager. | Never just replace it: the old one must stay behind the new one until everything is re-encrypted. Follow [Two-step key](#two-step-key), "Rotate it". |
 | The Neon password (inside `PORTFOLIO_DB` and `DATABASE_URL`) | Neon console > the project > Roles > the app's role > Reset password | `PORTFOLIO_DB` in app settings, the `DATABASE_URL` GitHub secret, Render | The old password stops at once, so the app is down until the new string is in. Do it at a quiet hour, all places in one go. Restart the app. Run the workflow. |
 | GitHub | - | Holds copies of the keys above, not keys of its own | If GitHub itself may be exposed: change the password, check two-factor is on, delete unused personal access tokens, review which apps have access (Streamlit, Render), then rotate every key above, since a changed workflow could have read any secret. |
 | Paddle keys (step 6) | Paddle dashboard: the API key, and any notification secret | Render's Environment and the GitHub secret for the reconciliation job. Staging gets sandbox keys only. | Restart the app. Run the reconciliation job. A test will fail on a live billing key in the repo (coming in this step, PLAN 1b.4). |
 
 `ALERT_EMAIL`, `APP_URL`, `NORTHWEND_ADMINS`, `NORTHWEND_GATES` and
 `NORTHWEND_FLAGS` aren't secrets, but they live in the same places.
+
+---
+
+## Two-step key
+
+Audit 1.1e. The key each person's authenticator app uses is stored in the
+database (it's needed to check their codes, so it can't be hashed). With
+`NORTHWEND_TOTP_KEY` set in the app's settings, those keys are stored
+encrypted, so a copy of the database alone can't make anyone's codes. Without
+it they are stored readable, as before - fine for a local copy. Admin >
+System shows the key as set or not (with a short key id, never the key) and
+how many two-step keys are encrypted, still readable, or won't open.
+
+**Losing the key locks every app code out** (backup codes and the password
+still work, and Admin > Reset two-step sign-in is the way back for anyone
+stuck). Keep a copy of each key in your password manager before putting it
+anywhere else.
+
+**Turn it on (once per copy: staging first, then live).** In this order:
+1. Make a key on your computer:
+   `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+   Save it in your password manager, named for the copy (staging and live
+   each get their own).
+2. Put it in the app's settings as `NORTHWEND_TOTP_KEY` (Streamlit: Secrets;
+   Render: Environment) and restart.
+3. Admin > System: "Two-step key: set (key id ...)". Write the key id down.
+   New setups are encrypted from now on, and each older one is encrypted the
+   next time its owner signs in with a code.
+4. Encrypt the rest now, from your computer, with the same key in the shell
+   (only the environment is read, never `.env`):
+   `NORTHWEND_TOTP_KEY="<the key>" python manage_users.py --db "<that copy's connection string>" encrypt-two-step`.
+   It prints the key id it used: it must match step 3. It refuses, changing
+   nothing, if anything is already encrypted with a different key.
+5. Admin > System: "Two-step keys stored: N encrypted, 0 readable". The
+   admin action log shows the command.
+6. Only now, for the live copy: in `disclosures.py` set
+   `TWO_STEP_ENCRYPTED = True` (the in-app Security section, the About page
+   and the Privacy Policy then say the keys are stored encrypted), run
+   `python website/build.py`, and commit through staging and release. Not
+   before step 5 shows 0 readable on the live app: the published words must
+   be true when they go out.
+
+**Rotate it** (it may have leaked, or it lived on a host you're leaving):
+1. Make a new key (step 1 above).
+2. In the app's settings: the new key, a comma, then the old one
+   (`NORTHWEND_TOTP_KEY = "<new>,<old>"`), and restart. The first key
+   encrypts; both open.
+3. From your computer, with the same two keys in the shell:
+   `NORTHWEND_TOTP_KEY="<new>,<old>" python manage_users.py --db "..." encrypt-two-step --rotate`.
+4. Admin > System: none "with an older key". Then set the setting to the new
+   key alone, restart, and check System shows nothing that "won't open".
+   Keep the old key in your password manager while any backup from before
+   the rotation is kept: a restore brings back rows encrypted with it (put
+   it back behind the new one, then `--rotate` again).
+
+**If System shows keys that "won't open":** the setting holds a different
+key from the one they were encrypted with. Put the right key back (or in
+front, comma-separated) and restart; nothing was lost. Meanwhile those
+people can sign in with a backup code, and the admin is emailed (an error
+named KeyUnreadable, at most once an hour). If the key is truly lost: each
+of them needs Admin > Reset two-step sign-in, then sets it up again.
 
 ---
 
@@ -392,7 +455,9 @@ Before you start:
       `FINNHUB_API_KEY`, `NORTHWEND_ADMINS`, `ALERT_EMAIL`,
       `NORTHWEND_GATES` (today `L0`), `NORTHWEND_FLAGS`,
       `NORTHWEND_AI_CEILING_USD`. `AI_ZDR`: `0` until Anthropic has confirmed
-      zero data retention in writing. The rest (`NORTHWEND_ENV=production`,
+      zero data retention in writing. `NORTHWEND_TOTP_KEY`: exactly the live
+      app's (from your password manager) - a different one means nobody's
+      app codes work on Render ([Two-step key](#two-step-key)). The rest (`NORTHWEND_ENV=production`,
       `CLIENT_IP_HEADER`, `APP_URL`, the Streamlit settings) come from the
       file - don't add them by hand.
 - [ ] **Apply**. Watch the service's Events until the deploy is **live**.
@@ -407,7 +472,8 @@ Don't share it.
       Account look as on the live app.
 - [ ] Admin > System: runs on Render, the version is `main`'s latest commit,
       the database is Postgres, email is sending, every key is set, the
-      gates and flags match the live app's.
+      gates and flags match the live app's, and the two-step key has the
+      live app's key id with none that "won't open".
 - [ ] Render > Logs: no errors.
 
 Emails sent from this copy already link to app.northwend.app (`APP_URL`),
@@ -460,7 +526,8 @@ Done when: all three are ticked.
 - [ ] Recommended, since Community Cloud held them: rotate each key that
       lived there ([Rotate a key](#rotate-a-key)) at a quiet hour - the new
       ones go only to Render and GitHub. The Neon password goes with the
-      database roles (`docs/DB_ROLES.md`, step 5).
+      database roles (`docs/DB_ROLES.md`, step 5). `NORTHWEND_TOTP_KEY`
+      rotates its own way ([Two-step key](#two-step-key), "Rotate it").
 
 ### 8. Name the real hosts
 Until now the About page on each copy named its own host by itself, and the

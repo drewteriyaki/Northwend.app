@@ -250,7 +250,9 @@ def legal_text(name: str, moved: bool | None = None) -> str:
     return _fill(text, {"EFFECTIVE": disclosures.LAST_UPDATED,
                         "OPERATOR": disclosures.OPERATOR_NAME,
                         "CONTACT": disclosures.CONTACT,
-                        "HOST_ROWS": host_rows(moved), "WHERE_APP_RUNS": where_app_runs(moved)})
+                        "HOST_ROWS": host_rows(moved), "WHERE_APP_RUNS": where_app_runs(moved),
+                        # "stored encrypted" only once disclosures.TWO_STEP_ENCRYPTED is True
+                        "TWO_STEP_KEY": disclosures.two_step_key_words()})
 
 
 def _doc_inline(text: str) -> str:

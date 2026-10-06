@@ -30,10 +30,14 @@ Each statement about data here must stay true to the code:
   stored; 5 wrong passwords lock a username for 15 minutes (auth.py). "Sign
   out other devices" and the admin's "Sign everyone out" also close tabs
   already open (users.session_gen, app_state).
-- Two-step sign-in (two_step.py): TOTP; the key is stored readable (needed to
-  check codes), backup codes as PBKDF2 hashes (older sets as SHA-256 until
-  used or replaced); never exported or shown to an admin; wrong codes lock
-  like passwords; "remember this device" is a date on the stay-signed-in
+- Two-step sign-in (two_step.py): TOTP; the key can't be hashed (it's needed
+  to check codes), so it's stored encrypted (Fernet) with NORTHWEND_TOTP_KEY,
+  a key kept in the host's settings apart from the database - readable only
+  on a copy without that setting (a local run; Admin > System says so and
+  counts any still readable). TWO_STEP_ENCRYPTED (below) says when the live
+  copy's are all encrypted, for the published wording. Backup codes as PBKDF2
+  hashes (older sets as SHA-256 until used or replaced); never exported or
+  shown to an admin; wrong codes lock like passwords; "remember this device" is a date on the stay-signed-in
   session (login_sessions.two_step_until).
 - Sign-up: the email is the login, not shown to others or sent to the AI; only
   Resend gets it, to deliver the confirm / reset emails (mailer.py, auth.sign_up);
@@ -174,6 +178,30 @@ LAST_UPDATED = "October 6, 2026"
 # LAST_UPDATED to that day (who sees the app's traffic changed), and rebuild
 # the website.
 HOST_MOVED = False
+
+# Two-step keys encrypted at rest (two_step.py, audit 1.1e). The code seals
+# them whenever NORTHWEND_TOTP_KEY is set, but only the owner can set it on
+# the live host. Until the live copy's are all encrypted, the published words
+# (the in-app Security section, the About page and the Privacy Policy) keep
+# saying only what's true today. Set this to True once the live app's Admin >
+# System shows the key set and "0 readable" - after RUNBOOK, "Two-step key":
+# the key on the host, then `manage_users.py encrypt-two-step` - and rebuild
+# the website. The wording itself: two_step_key_words().
+TWO_STEP_ENCRYPTED = False
+
+
+def two_step_key_words(encrypted: bool | None = None) -> str:
+    """How the Privacy Policy describes the stored two-step key."""
+    encrypted = TWO_STEP_ENCRYPTED if encrypted is None else encrypted
+    if encrypted:
+        return ("stored encrypted, with the encryption key kept apart from the database, "
+                "so codes can be checked")
+    return "stored so codes can be checked"
+
+
+# the in-app Security section and the About page: a line only once it's true
+_TWO_STEP_KEY_LINE = (" The key behind your codes is stored\n  encrypted, and what unlocks "
+                      "it is kept apart from the database." if TWO_STEP_ENCRYPTED else "")
 
 
 def hosting_lines(host: str | None = None, behind_cloudflare: bool | None = None,
@@ -347,14 +375,14 @@ their account map.
   looked" records, and any introductions. Passwords and sign-in
   records aren't included.
 """),
-    ("Security", """
+    ("Security", f"""
 - **Passwords** are stored only as a salted, one-way hash, never as text. After
   5 wrong passwords a username is locked for 15 minutes.
 - **Two-step sign-in:** after your password, a 6-digit code from an app on your
   phone, so a password alone isn't enough. Advisor and admin accounts always use
   it; anyone can turn it on from the **Account** page. Backup codes are stored
   only as a scrambled copy. On a device you trust you can skip the code for 30
-  days.
+  days.{_TWO_STEP_KEY_LINE}
 - **New accounts:** to stop automated sign-ups, only a few accounts can be
   made from one internet address each day. For that, a scrambled copy of the
   address (not the address itself) is kept for one day.

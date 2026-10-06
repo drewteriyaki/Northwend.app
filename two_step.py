@@ -4,9 +4,13 @@ authenticator app on the person's phone - TOTP (RFC 6238): HMAC-SHA-1,
 clock is a little off. Required for advisors and admins (their login opens
 other people's portfolios); anyone else can turn it on on the Account page.
 
-- The secret key is stored per login (`two_step` table). It has to stay
-  readable to check codes, so it's shown only during setup - never again,
-  never exported, never to an admin.
+- The secret key is stored per login (`two_step` table), shown only during
+  setup - never again, never exported, never to an admin. Checking codes
+  needs it, so it can't be hashed: with NORTHWEND_TOTP_KEY set it's stored
+  encrypted (Fernet, `enc1:` in front - "Keys at rest" below), so a copy of
+  the database alone can't make anyone's codes. Without that setting (a
+  local run, or a host not set up yet) it's stored readable, as it always
+  was; Admin > System says which, and how many are still readable.
 - BACKUP_CODES one-time backup codes, shown once (at setup, or when new ones
   are made) and stored only as slow hashes (PBKDF2, _backup_match); each
   works once.
@@ -20,7 +24,9 @@ other people's portfolios); anyone else can turn it on on the Account page.
   locked out: it turns two-step off and signs the account out everywhere, so
   setting it up again needs the password.
 
-Standard library only. The app's pages are in views/two_step.py.
+The codes are standard library only; the encryption is the `cryptography`
+package, imported only when a key is set. The app's pages are in
+views/two_step.py.
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import auth
+import settings
 
 DIGITS = 6
 PERIOD = 30          # seconds per code
@@ -103,6 +110,183 @@ def otpauth_uri(secret: str, account: str, issuer: str = "Northwend") -> str:
 
 def _clean(code: str | None) -> str:
     return re.sub(r"[\s-]", "", code or "").lower()
+
+
+# --------------------------------------------------------------------------- #
+# keys at rest (audit 1.1e, PLAN D14)
+# --------------------------------------------------------------------------- #
+# two_step.totp_secret holds either the key as the app shows it (base32 -
+# readable: rows from before NORTHWEND_TOTP_KEY, or a copy without it) or
+# SEALED + a Fernet token (AES-128-CBC and HMAC-SHA256) made with the first
+# of settings.totp_keys(). Base32 has no ":", so the two can't be mixed up.
+# Readable rows become sealed at the person's next good code (_good_code), or
+# all at once with `manage_users.py encrypt-two-step` (encrypt_all, which
+# also re-seals with a new first key after a rotation). A sealed key that no
+# key here opens (a wrong or missing NORTHWEND_TOTP_KEY) matches no code:
+# backup codes and the password paths still work, and Admin > System counts
+# them (storage). Never logged, printed or shown, sealed or not.
+SEALED = "enc1:"
+
+
+class KeyUnreadable(Exception):
+    """A stored two-step key that this copy's NORTHWEND_TOTP_KEY can't open.
+    Only its type and place reach the admin (error_alerts.py) - never a key."""
+
+
+_BOXES: dict[tuple[str, ...], object] = {}
+
+
+def _box():
+    """A MultiFernet for settings.totp_keys() (the first encrypts, all
+    decrypt), None without a usable key - unset, or not a Fernet key
+    (key_state says which)."""
+    keys = tuple(settings.totp_keys())
+    if not keys:
+        return None
+    if keys not in _BOXES:
+        try:
+            from cryptography.fernet import Fernet, MultiFernet
+            _BOXES[keys] = MultiFernet([Fernet(k.encode("ascii")) for k in keys])
+        except (ValueError, TypeError, UnicodeEncodeError, ImportError):
+            _BOXES[keys] = None
+    return _BOXES[keys]
+
+
+def key_id(key: str) -> str:
+    """A short name for a key - the start of a hash, which gives nothing of
+    the key away - so the host's key can be checked against the one a
+    command ran with without showing either."""
+    return hashlib.sha256(b"northwend two-step key id:" + key.encode("utf-8")).hexdigest()[:8]
+
+
+def key_state() -> dict:
+    """{"state": "set" / "not set" / "not valid", "count": how many keys,
+    "key_id": the first (encrypting) key's key_id or None}. For Admin >
+    System and the command line - never a key itself."""
+    keys = settings.totp_keys()
+    if not keys:
+        return {"state": "not set", "count": 0, "key_id": None}
+    return {"state": "set" if _box() is not None else "not valid", "count": len(keys),
+            "key_id": key_id(keys[0])}
+
+
+def _seal(secret: str) -> str:
+    """The form to store: sealed with the first key, or - without a usable
+    key - readable, as before."""
+    box = _box()
+    if box is None:
+        return secret
+    return SEALED + box.encrypt(secret.encode("ascii")).decode("ascii")
+
+
+def _open(stored: str | None) -> str | None:
+    """The key from its stored form; None when it's sealed and no key here
+    opens it."""
+    stored = stored or ""
+    if not stored.startswith(SEALED):
+        return stored
+    box = _box()
+    if box is None:
+        return None
+    from cryptography.fernet import InvalidToken
+    try:
+        return box.decrypt(stored[len(SEALED):].encode("ascii")).decode("ascii")
+    except (InvalidToken, ValueError, UnicodeError):
+        return None
+
+
+def _needs_sealing(stored: str) -> bool:
+    """Readable while a key is set, or sealed with a key that's no longer
+    the first one (a rotation): re-seal at the next good code."""
+    box = _box()
+    if box is None:
+        return False
+    if not stored.startswith(SEALED):
+        return True
+    from cryptography.fernet import Fernet, InvalidToken
+    try:
+        Fernet(settings.totp_keys()[0].encode("ascii")).decrypt(
+            stored[len(SEALED):].encode("ascii"))
+        return False
+    except (InvalidToken, ValueError):
+        return True
+
+
+def storage(conn) -> dict:
+    """How the two-step keys are stored, as counts (no names): {"sealed":
+    opens with this copy's key, "readable": not encrypted yet, "unreadable":
+    sealed but no key here opens it, "old_key": sealed with a key that isn't
+    the first one any more}. For Admin > System."""
+    out = {"sealed": 0, "readable": 0, "unreadable": 0, "old_key": 0}
+    for row in conn.execute("SELECT totp_secret FROM two_step"):
+        stored = row["totp_secret"] or ""
+        if not stored.startswith(SEALED):
+            out["readable"] += 1
+        elif _open(stored) is None:
+            out["unreadable"] += 1
+        else:
+            out["sealed"] += 1
+            out["old_key"] += _needs_sealing(stored)
+    return out
+
+
+def encrypt_all(conn, *, rotate: bool = False) -> dict:
+    """`manage_users.py encrypt-two-step`: seal every readable key with the
+    first key, in one transaction - and with rotate=True, re-seal the sealed
+    ones with it too (after a new key went in front). Refuses, changing
+    nothing, without a usable key or when a sealed key won't open (the key
+    here isn't the one the app uses). {"ok", "error", "sealed", "resealed",
+    "key_id"}."""
+    state = key_state()
+    out = {"ok": False, "error": None, "sealed": 0, "resealed": 0, "key_id": state["key_id"]}
+    if state["state"] == "not set":
+        return {**out, "error": "NORTHWEND_TOTP_KEY isn't set here, so there's nothing to "
+                                "encrypt with."}
+    if state["state"] == "not valid":
+        return {**out, "error": "NORTHWEND_TOTP_KEY isn't a valid key (each one is 44 "
+                                "letters, digits, - or _, ending in =)."}
+    rows = conn.execute("SELECT user_id, totp_secret FROM two_step ORDER BY user_id").fetchall()
+    work = []
+    for row in rows:
+        stored = row["totp_secret"] or ""
+        if not stored.startswith(SEALED):
+            work.append((row["user_id"], stored, "sealed"))
+            continue
+        secret = _open(stored)
+        if secret is None:
+            n = sum(1 for r in rows if (r["totp_secret"] or "").startswith(SEALED)
+                    and _open(r["totp_secret"]) is None)
+            return {**out, "error": f"{n} stored key{'s' if n != 1 else ''} won't open with "
+                                    "the NORTHWEND_TOTP_KEY here - it isn't the key the app "
+                                    "uses. Nothing was changed."}
+        if rotate and _needs_sealing(stored):
+            work.append((row["user_id"], secret, "resealed"))
+    for user_id, secret, how in work:
+        conn.execute("UPDATE two_step SET totp_secret = ? WHERE user_id = ?",
+                     (_seal(secret), user_id))
+        out[how] += 1
+    conn.commit()
+    return {**out, "ok": True}
+
+
+def _good_code(conn, user_id: int, row, code: str, now: datetime) -> tuple[int | None, bool]:
+    """(the time step `code` matched for this login's stored key, or None;
+    True when the stored key couldn't be opened). A match moves
+    last_token_step on - and seals a readable key (or re-seals one made
+    with an older key) on the way."""
+    stored = row["totp_secret"] or ""
+    secret = _open(stored)
+    if secret is None:
+        return None, True
+    step = _match(secret, code, now, row["last_token_step"] or 0)
+    if step is not None:
+        if _needs_sealing(stored):
+            conn.execute("UPDATE two_step SET last_token_step = ?, totp_secret = ? "
+                         "WHERE user_id = ?", (step, _seal(secret), user_id))
+        else:
+            conn.execute("UPDATE two_step SET last_token_step = ? WHERE user_id = ?",
+                         (step, user_id))
+    return step, False
 
 
 # --------------------------------------------------------------------------- #
@@ -242,7 +426,11 @@ def status_and_login(conn, user_id: int) -> tuple[dict, dict | None]:
     if row is None:
         return {"on": False, "required": False, "stamp": None, "backup_left": 0}, None
     on = bool(row["totp_secret"])
-    stamp = (hashlib.sha256(f"{row['enabled_at']}:{row['totp_secret']}".encode("utf-8"))
+    # from the key itself, not its stored form: sealing it (or re-sealing it
+    # with a new key) mustn't look like a new setup to a tab already past the
+    # code - only turning it on, off or reset should
+    shown = (_open(row["totp_secret"]) or row["totp_secret"]) if on else ""
+    stamp = (hashlib.sha256(f"{row['enabled_at']}:{shown}".encode("utf-8"))
              .hexdigest()[:16] if on else None)
     return ({"on": on,
              "required": bool(row["is_advisor"]) or admin._admin_row(row, admin.listed_admins()),
@@ -285,7 +473,8 @@ def enable(conn, user_id: int, secret: str, code: str, *,
     conn.execute("DELETE FROM two_step WHERE user_id = ?", (user_id,))
     conn.execute("INSERT INTO two_step (user_id, totp_secret, backup_codes_hash, enabled_at, "
                  "last_token_step) VALUES (?, ?, ?, ?, ?)",
-                 (user_id, re.sub(r"[\s-]", "", secret).upper(), hashes, auth._utc(now), step))
+                 (user_id, _seal(re.sub(r"[\s-]", "", secret).upper()), hashes,
+                  auth._utc(now), step))
     _forget_devices(conn, user_id)
     conn.commit()
     return {"ok": True, "error": None, "backup_codes": codes}
@@ -294,10 +483,13 @@ def enable(conn, user_id: int, secret: str, code: str, *,
 def verify(conn, user_id: int, code: str, *, now: datetime | None = None) -> dict:
     """The sign-in check: a code from the app, or a backup code (used up).
     Wrong codes count toward a lock, like passwords. Returns {"ok",
-    "error", "locked_minutes", "used_backup", "backup_left"}."""
+    "error", "locked_minutes", "used_backup", "backup_left", "key_problem":
+    the stored key wouldn't open with this copy's NORTHWEND_TOTP_KEY - the
+    page tells the admin (KeyUnreadable)}. A good code also seals a
+    readable key (_good_code)."""
     now = now or datetime.now(timezone.utc)
     out = {"ok": False, "error": None, "locked_minutes": 0, "used_backup": False,
-           "backup_left": 0}
+           "backup_left": 0, "key_problem": False}
     key = _fail_key(user_id)
     locked = _lock_left(conn, key, now)
     if locked:
@@ -310,20 +502,25 @@ def verify(conn, user_id: int, code: str, *, now: datetime | None = None) -> dic
                                 "Sign in again."}
     code = _clean(code)
     hashes = (row["backup_codes_hash"] or "").split()
-    step = _match(row["totp_secret"], code, now, row["last_token_step"] or 0)
+    step, unreadable = _good_code(conn, user_id, row, code, now)   # moves last_token_step on
+    out["key_problem"] = unreadable
     backup = None if step is not None else _backup_match(user_id, code, hashes)
-    if step is not None:
-        conn.execute("UPDATE two_step SET last_token_step = ? WHERE user_id = ?", (step, user_id))
-    elif backup is not None:
+    if step is None and backup is not None:
         hashes.remove(backup)   # used up
         conn.execute("UPDATE two_step SET backup_codes_hash = ? WHERE user_id = ?",
                      (" ".join(hashes), user_id))
         out["used_backup"] = True
-    else:
+    elif step is None:
+        # still counted when the key wouldn't open: the lock is what guards
+        # the backup codes, which go on working
         mins, left = _note_failure(conn, key, now)
         if mins:
             return {**out, "locked_minutes": mins,
                     "error": f"Too many tries. Please wait {_minutes(mins)} and try again."}
+        if unreadable:
+            return {**out, "error": "We couldn't check codes from your app just now - sorry. "
+                                    "One of your backup codes works in its place, or try again "
+                                    "a little later."}
         return {**out, "error": "That code didn't work. Type the 6 digits your app shows now"
                 + (f" ({left} more tr{'ies' if left != 1 else 'y'} before a short wait)."
                    if left <= 2 else ".")}
@@ -347,10 +544,8 @@ def _confirm_it_is_them(conn, user_id: int, answer: str, now: datetime) -> str |
                        "WHERE user_id = ?", (user_id,)).fetchone()
     code = _clean(answer)
     if row is not None:
-        step = _match(row["totp_secret"], code, now, row["last_token_step"] or 0)
+        step, _unreadable = _good_code(conn, user_id, row, code, now)
         if step is not None:
-            conn.execute("UPDATE two_step SET last_token_step = ? WHERE user_id = ?",
-                         (step, user_id))
             conn.commit()
             return None
         if _backup_match(user_id, code, (row["backup_codes_hash"] or "").split()):

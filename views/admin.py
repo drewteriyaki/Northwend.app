@@ -473,6 +473,33 @@ def _admin_flag_rows():
             ("Feature flags (NORTHWEND_FLAGS)", feats)]
 
 
+def _admin_two_step_rows(c):
+    """Whether two-step keys are stored encrypted (two_step.py, audit 1.1e):
+    the key set or not - with its key id, never the key - and how many are
+    still readable or won't open, as counts with no names."""
+    k = two_step.key_state()
+    n = two_step.storage(c)
+    if k["state"] == "set":
+        key = (f"set (key id {k['key_id']}"
+               + (f"; {k['count']} keys, the first encrypts" if k["count"] > 1 else "") + ")")
+    elif k["state"] == "not valid":
+        key = ("set, but not a valid key - new two-step keys are stored readable until it's "
+               "fixed")
+    else:
+        key = ("not set - two-step keys are stored readable" if HOSTED
+               else "not set - two-step keys are stored readable (fine for a local copy)")
+    stored = f"{n['sealed']} encrypted, {n['readable']} readable"
+    if n["readable"] and k["state"] == "set":
+        stored += (" (each is encrypted at its next sign-in, or all at once with "
+                   "manage_users.py encrypt-two-step)")
+    if n["old_key"]:
+        stored += f", {n['old_key']} with an older key (manage_users.py encrypt-two-step --rotate)"
+    if n["unreadable"]:
+        stored += (f", **{n['unreadable']} that won't open with this key** - those people "
+                   "need a backup code until the right key is back in NORTHWEND_TOTP_KEY")
+    return [("Two-step key (NORTHWEND_TOTP_KEY)", key), ("Two-step keys stored", stored)]
+
+
 def _render_system(c):
     """Developer facts about this copy of the app - never a secret's value."""
     from manage_users import where
@@ -498,6 +525,7 @@ def _render_system(c):
          if HOSTED else "listed below only - a local copy doesn't email"),
         ("AI (Anthropic key)", "set" if _anthropic_key() else "not set - AI features are off"),
         ("Live prices (Finnhub key)", "set" if resolve_key(None) else "not set"),
+        *_admin_two_step_rows(c),
         ("Last price update", _admin_when(last_price)),
         ("Newest daily price history", last_bar or "none"),
         ("Admins", "; ".join(admins)),

@@ -142,9 +142,21 @@ Open:
 - The TOTP secret is stored as plain text (`two_step.py:241-243`). Anyone
   with a copy of the database can make codes. Encrypting it with a key kept
   in the host's secrets is a small change.
+  **Fixed Oct 6 (D14 approved; ROADMAP 1b.8b):** with `NORTHWEND_TOTP_KEY` set
+  (a host setting, never in the database or the repo) each key is stored as
+  `enc1:` + a Fernet token (`cryptography`; AES-128-CBC with HMAC-SHA256).
+  Older readable keys are sealed at their owner's next good code, or all at
+  once by `manage_users.py encrypt-two-step` (logged); comma-separated keys
+  rotate (`--rotate`). A key that won't open matches no code (backup codes
+  still work) and alerts the admin; Admin > System shows the key set or not
+  and the counts. Without the setting (a local run, or a host not set up
+  yet) keys stay readable, so it protects the live copy only once the owner
+  sets it there and runs the command (RUNBOOK, "Two-step key").
+  Tests: `tests/test_two_step_encryption.py`, `tests/test_postgres.py`.
 - Backup codes are plain SHA-256 of about 40 bits each (`two_step.py:110-113`).
   That's fine against online guessing, which the lock covers, but weak
   against offline guessing from a stolen database. A slow hash would fix it.
+  **Fixed Oct 6 (ROADMAP 1b.8):** PBKDF2, one salt per set.
 - No app-level test shows the gate. Every AppTest that signs in an advisor
   sets `two_step_ok` itself (for example `tests/test_advisor_client.py:245`).
   Add one test that an advisor without it sees only the code page.

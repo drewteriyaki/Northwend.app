@@ -33,6 +33,7 @@ ACTIONS = (
     "set_password",       # command line: typed a new password for someone
     "unlock",             # cleared a wrong-password or wrong-code lock
     "reset_two_step",
+    "encrypt_two_step",   # command line: sealed the readable two-step keys (counts, key id)
     "ai_limits",          # lifted or restored the monthly AI limits
     "link_client",
     "unlink_client",

@@ -147,6 +147,18 @@ def skip_schema_setup() -> bool:
     return get("NORTHWEND_SKIP_SCHEMA_SETUP").strip().lower() in ("1", "true", "yes", "on")
 
 
+def totp_keys() -> list[str]:
+    """NORTHWEND_TOTP_KEY: the key(s) two-step sign-in's stored authenticator
+    keys are encrypted with (two_step.py) - Fernet keys, separated by commas
+    or spaces. The first encrypts; every one decrypts, so a new key goes in
+    front of the old one while rotating. Read from the environment (the
+    host's settings) only, never the local .env file: a key meant for this
+    computer must never encrypt another copy's database by accident. []
+    when unset: the keys stay readable, as before."""
+    raw = get("NORTHWEND_TOTP_KEY")
+    return [k for k in raw.replace(",", " ").split() if k]
+
+
 def server_files_ok() -> bool:
     """The "path to a CSV on this machine" box may show: local runs only -
     hosted, the path would be on the server's own disk."""

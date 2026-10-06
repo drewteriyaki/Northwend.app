@@ -229,6 +229,22 @@ def _two_step_setup_page():
         st.button("Sign out", key="two_step_setup_out", type="tertiary", on_click=_logout)
 
 
+def _two_step_key_alert():
+    """A stored two-step key wouldn't open with this copy's NORTHWEND_TOTP_KEY
+    (a wrong or missing key): tell the admin like any error - its type and
+    place only, at most an email an hour (error_alerts.py) - and Admin >
+    System counts them. Never the key, never who."""
+    try:
+        raise two_step.KeyUnreadable("a stored two-step key didn't open with NORTHWEND_TOTP_KEY")
+    except two_step.KeyUnreadable as ex:
+        try:
+            import error_alerts
+            error_alerts.report(DB, ex, copy="Staging" if STAGING else "Live",
+                                send=settings.send_error_alerts())
+        except Exception:  # noqa: BLE001 - an alert must never break sign-in
+            pass
+
+
 def _two_step_code_page(uid, token, stamp):
     """Ask for the code from the phone (or a backup code)."""
     mid = _two_step_page_top()
@@ -260,6 +276,8 @@ def _two_step_code_page(uid, token, stamp):
             two_step.remember_device(c, token, uid)
     finally:
         c.close()
+    if res.get("key_problem"):
+        _two_step_key_alert()
     if not res["ok"]:
         mid.error(res["error"])
         return

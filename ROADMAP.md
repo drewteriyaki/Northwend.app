@@ -1122,7 +1122,16 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [x] 1b.8 Backup codes (1.1e) - done: PBKDF2 (100,000, one salt per set);
         older SHA-256 sets still work, each goes on use and all on regenerate.
         TOTP secrets stay unencrypted: D14 needs the `cryptography` package,
-        not approved yet
+        not approved yet (since approved: 1b.8b)
+  - [x] 1b.8b TOTP secrets encrypted at rest (1.1e, D14) - done Oct 6:
+        `NORTHWEND_TOTP_KEY` (host setting; comma-separated keys, the first
+        encrypts) seals `two_step.totp_secret` as `enc1:` + Fernet
+        (`cryptography==50.0.2`); readable rows sealed at the next good code or
+        by `manage_users.py encrypt-two-step [--rotate]` (logged); a key that
+        won't open fails closed (backup codes still work) and alerts; Admin >
+        System shows set / not set with a key id and the counts; no key = readable
+        as before. Owner: RUNBOOK "Two-step key", then
+        `disclosures.TWO_STEP_ENCRYPTED = True` for the published words
     - [x] 1b.4 CI additions - done: Tests workflow jobs `lint` (`ruff check`,
           rules in pyproject `[tool.ruff]`: F, E4, E7, E9, W) and `audit`
           (`pip-audit -r requirements.txt`, clean today) beside the required

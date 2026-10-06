@@ -906,7 +906,7 @@ Seat prices are integer cents, as the provider uses.
 *Why:* Northwend shows and projects money but never moves it; billing
 amounts are the provider's.
 
-**D14. Encrypt TOTP secrets at rest?**
+**D14. Encrypt TOTP secrets at rest?** *(approved Oct 6: done, ROADMAP 1b.8b)*
 *Recommended:* only if adding the `cryptography` package is acceptable.
 *Why:* the key would sit beside the database URL, so it guards a narrow
 case (a leaked backup).

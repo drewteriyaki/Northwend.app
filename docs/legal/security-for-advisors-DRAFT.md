@@ -67,8 +67,11 @@ pasted text and screenshots are not kept. Clients can also use an example or
 ## Two-step sign-in
 
 - **Required for every advisor and admin account**; available to everyone else.
-- A 6-digit code from an authenticator app (TOTP). The key is stored readable,
-  because it's needed to check codes; it is never exported or shown to an admin.
+- A 6-digit code from an authenticator app (TOTP). The key can't be hashed, because
+  it's needed to check codes, so it's stored encrypted (Fernet: AES-128 and an
+  HMAC-SHA256 check), with the encryption key kept in the host's settings, apart
+  from the database - a copy of the database alone can't make anyone's codes. It is
+  never exported or shown to an admin.
 - 8 one-time backup codes, stored only as salted PBKDF2-SHA256 hashes, shown once.
 - "Remember this device" skips the code on that device for 30 days.
 - For someone who lost their phone, an admin can reset their two-step sign-in (in
