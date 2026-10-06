@@ -210,22 +210,27 @@ terms, and link them.]
 
 ## 7. How long we keep it
 
-- **Your account and its data:** until you delete it (or we close the account, see
-  the Terms).
-- **Database backups:** the database provider keeps a short rolling backup
-  (currently about 6 hours) so data can be recovered after an outage; deleted data
-  is gone from it after that. [OWNER: confirm the Neon plan's history window.]
-- **Sign-in sessions:** up to 30 days ("stay signed in"); ended by logging out or
-  changing your password.
-- **Email links:** confirm links last 3 days, password-reset links 60 minutes; both
-  are stored only as hashes and work once.
-- **Setup links** from an advisor: 7 days, if not used first.
-- **Sign-up and email-limit hashes:** one day.
-- **Error records:** the kind of error and where it happened, no personal data.
-  [OWNER: decide a retention period; today they are kept until cleared.]
-- **Server logs at the host:** [OWNER: per host].
-- [OWNER: advisor notes - another change in progress adds archiving; describe how
-  long archived notes are kept and who can see them.]
+What's kept only for a while is deleted by a nightly job (`tidy.py`); the rest
+stays until you delete it. [This is decision D5 in `docs/PLAN.md`; keep the two
+in step.]
+
+| What | How long |
+|---|---|
+| Files you upload, screenshots, pasted text | Not kept: read in memory, then gone |
+| Your holdings, plan, profile answers, notes and settings | Until you delete them or your account (or we close the account, see the Terms) |
+| A deleted account | Gone at once; gone from the database provider's rolling backup when that window passes (currently about 6 hours) [OWNER: confirm the Neon plan's history window; decision D6] |
+| An account made through sign-up whose email was never confirmed | Deleted, with everything in it, after 30 days without a sign-in |
+| Sign-in sessions ("stay signed in") and "remember this device" for two-step sign-in | 30 days; ended sooner by logging out or changing your password |
+| Wrong-password, sign-up and email-send counts (a hash of the internet address, never the address) | 1 day |
+| Email links (stored only as hashes, each works once) | Password reset 60 minutes, confirm 3 days, an advisor's setup link 7 days |
+| Unsubscribe links in reminder emails | 1 year |
+| Minute-by-minute prices (no personal data) | 1 week, then one closing price a day |
+| Daily prices and fund details (no personal data) | Kept |
+| Error records (the kind of error and where it happened, no personal data) | 90 days |
+| The record of what the person running Northwend did to accounts (never holdings) | 1 year [once the admin action log is in - PLAN 1b.3] |
+| An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept for the advisor's record-keeping duties after the client leaves or deletes their account (section 8) [LAWYER: how long] |
+| Server logs at the host | [OWNER: per host; check it's no more than 30 days] |
+| Requests to the AI | Per Anthropic's API terms (section 5) |
 
 ## 8. Your choices: see, correct, download, delete
 

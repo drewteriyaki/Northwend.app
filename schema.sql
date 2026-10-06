@@ -1,6 +1,15 @@
 -- Portfolio tracker schema (phase 1)
 -- SQLite. Safe to run repeatedly; every object uses IF NOT EXISTS.
 
+-- The schema's version (portfolio.SCHEMA_VERSION): one row, written by
+-- portfolio._ensure_schema once the tables, back-filled columns and clean-ups
+-- for that version are in. `northwend-migrate` runs it on purpose. Bump
+-- SCHEMA_VERSION in the same change as any schema change.
+CREATE TABLE IF NOT EXISTS schema_version (
+    version     INTEGER NOT NULL,
+    applied_at  TEXT    NOT NULL                 -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+);
+
 -- Individual login accounts. Admin-provisioned only (see manage_users.py) -
 -- there is no self-service signup anywhere in the app.
 --

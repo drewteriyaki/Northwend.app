@@ -1,0 +1,12 @@
+# Tools for checking the code - not needed to run the app, and never installed
+# on Streamlit Cloud or Render (they install requirements.txt only). The Tests
+# workflow installs this for its lint, audit and coverage steps:
+#
+#   pip install -r requirements-dev.txt
+#   ruff check .                          # lint (rules in pyproject.toml, [tool.ruff])
+#   pip-audit -r requirements.txt         # known vulnerabilities in the app's pins
+#   coverage run -m unittest discover -s tests && coverage report --format=total
+
+ruff==0.16.10
+pip-audit==2.10.1
+coverage==7.16.2

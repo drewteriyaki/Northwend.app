@@ -284,7 +284,6 @@ def parse(rows, mapping: dict, *, filename: str = "", today: date | None = None)
     if header_i is None:
         header_i = -1
     header = rows[header_i] if header_i >= 0 else []
-    width = max(mapping.values(), default=0) + 1
 
     def cell(row, field):
         i = mapping.get(field)

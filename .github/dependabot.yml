@@ -1,0 +1,28 @@
+# Dependabot: once a week, one grouped pull request per kind - the Python
+# packages (requirements.txt and pyproject.toml, which a test keeps equal)
+# and the GitHub Actions the workflows use (pinned by commit SHA; Dependabot
+# updates the SHA and its version comment together). The PRs go to staging,
+# like every change (CLAUDE.md: staging first, then release to main).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    target-branch: staging
+    schedule:
+      interval: weekly
+    groups:
+      python-packages:
+        patterns: ["*"]
+    ignore:
+      # pinned on purpose: pandas 3.0 is blocked on one machine (requirements.txt)
+      - dependency-name: pandas
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    target-branch: staging
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]

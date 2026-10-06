@@ -1123,6 +1123,29 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         older SHA-256 sets still work, each goes on use and all on regenerate.
         TOTP secrets stay unencrypted: D14 needs the `cryptography` package,
         not approved yet
+    - [x] 1b.4 CI additions - done: Tests workflow jobs `lint` (`ruff check`,
+          rules in pyproject `[tool.ruff]`: F, E4, E7, E9, W) and `audit`
+          (`pip-audit -r requirements.txt`, clean today) beside the required
+          `unit-tests` / `postgres-tests` (add them as required checks when
+          ready); a coverage total printed by `unit-tests` (no gate);
+          `requirements-dev.txt`; `.github/dependabot.yml` (weekly, grouped,
+          pip and actions, PRs to staging); every action pinned by commit SHA
+          (a test checks); `tests/test_repo_rules.py` fails on a live
+          Stripe / Paddle key in any tracked file (1.11a)
+    - [x] 1b.5 Layer rule as a test - done: `tests/test_repo_rules.py`
+          (`CALCULATION_MODULES` import neither Streamlit nor the database,
+          directly or through the app's modules; `VIEW_SQL_ALLOWED`, SQL in
+          views/ that may only shrink). `mix_return` moved to `asset_classes`
+          so `stress` is pure; `perf`, `plans`, `recap` not on the list yet
+    - [x] 1b.6 Schema version and migrate - done: `schema_version` table (both
+          schema files), `portfolio.SCHEMA_VERSION = 1` (bump with any schema
+          change), written by `_ensure_schema`; `northwend-migrate --db`
+          (`portfolio.py migrate`); SQLite and Postgres tests
+    - [x] 1b.9 Retention - done: `tidy.py` / `northwend-tidy` (D5: unconfirmed
+          self-made accounts after 30 days without a sign-in, error records 90
+          days, expired links and sessions, day-old counts, 1m bars past 8 days,
+          `admin_log.prune` when that module is in); nightly `tidy` job with
+          its own failure alert; the About page and the Privacy draft's table
 - [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)

@@ -91,6 +91,16 @@ def describe(split: dict) -> str:
     return " / ".join(f"{v * 100:.0f}% {k.lower()}" for k, v in parts)
 
 
+def mix_return(mix: dict, returns: dict) -> float | None:
+    """A mix's weighted return: `mix` is {class: share} (any total), `returns`
+    {class: %} with an "Other" fallback. None for an empty mix. Used by the
+    advisor proposal card (proposals.compare) and the stress test (stress.py)."""
+    total = sum(mix.values())
+    if not total:
+        return None
+    return sum(returns.get(k, returns["Other"]) * v for k, v in mix.items()) / total
+
+
 # ---- storage ---------------------------------------------------------------- #
 OVERRIDES_PREF = "class_overrides"   # user_prefs key: {symbol: class}
 

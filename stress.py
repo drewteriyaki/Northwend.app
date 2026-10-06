@@ -11,7 +11,7 @@ rough change of a broad index from the stock market's high to its low
 ("drop") and the rough yearly pace it grew at in the years after the low
 ("pace") - the same spirit as the advisor proposal card's hard years
 (proposals.HARD_YEARS, calendar-year returns) and worked out with the same
-weighted mix (proposals._mix_return). Recovery assumes each class then grew
+weighted mix (asset_classes.mix_return). Recovery assumes each class then grew
 at its pace, with no rebalancing and nothing added or taken out. The past
 won't repeat the same way.
 
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import math
 
-from proposals import _mix_return
+from asset_classes import mix_return as _mix_return
 
 # Stocks: US and international stock indexes blended. Bonds: the US aggregate
 # bond index. Cash: Treasury bills. Other: a rough middle for real estate and

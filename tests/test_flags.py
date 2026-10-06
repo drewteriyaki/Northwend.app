@@ -33,7 +33,7 @@ import auth  # noqa: E402
 import checkin  # noqa: E402
 import checkin_email  # noqa: E402
 import flags  # noqa: E402
-import gear  # noqa: E402
+import gear  # noqa: E402, F401
 import mailer  # noqa: E402
 import settings  # noqa: E402
 import portfolio  # noqa: E402

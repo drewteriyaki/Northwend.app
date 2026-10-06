@@ -8,6 +8,8 @@
     northwend-history               # sync_history.py: Yahoo bars, dividends, fundamentals
     northwend-users list            # manage_users.py: logins, admins, AI limits
     northwend-weekly-email          # weekly_email.py: advisors' Monday email
+    northwend-migrate --db <dsn>    # portfolio.py migrate: the schema, on purpose, and its version
+    northwend-tidy --db <dsn>       # tidy.py: the retention schedule (nightly job)
 
 Each takes the same options as `python <script>.py` and runs that script's
 main(). Like the scripts' own `__main__` blocks, a command closes any pooled
@@ -59,4 +61,15 @@ def users(argv=None):
 
 def weekly_email(argv=None):
     import weekly_email as mod
+    return _run(mod.main, argv)
+
+
+def migrate(argv=None):
+    import portfolio as mod
+    args = sys.argv[1:] if argv is None else list(argv)
+    return _run(mod.main, ["migrate", *args])
+
+
+def tidy(argv=None):
+    import tidy as mod
     return _run(mod.main, argv)

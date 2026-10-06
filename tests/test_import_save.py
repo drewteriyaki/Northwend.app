@@ -31,7 +31,7 @@ import manual_entry  # noqa: E402
 import perf  # noqa: E402
 import portfolio  # noqa: E402
 import sample_data  # noqa: E402
-import txn_import  # noqa: E402
+import txn_import  # noqa: E402, F401
 
 BROKERS = os.path.join(os.path.dirname(__file__), "fixtures", "brokers")
 SCHWAB = os.path.join(os.path.dirname(__file__), "fixtures", "sample_positions.csv")

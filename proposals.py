@@ -251,11 +251,7 @@ def render_pdf(proposal: dict, cmp: dict, *, client_name: str, advisor_name: str
     return bytes(pdf.output())
 
 
-def _mix_return(mix: dict, returns: dict) -> float | None:
-    total = sum(mix.values())
-    if not total:
-        return None
-    return sum(returns.get(k, returns["Other"]) * v for k, v in mix.items()) / total
+_mix_return = asset_classes.mix_return   # (shared with stress.py, which stays pure)
 
 
 def compare(today: dict, proposed: dict, *, value: float | None = None, monthly: float = 0.0,

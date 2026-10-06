@@ -5,6 +5,7 @@ Subcommands:
   import <positions.csv> [--db portfolio.db]    parse a Schwab Positions export into SQLite
   verify [--db portfolio.db] [--snapshot DATE]  check parsed holdings against the file's totals
   report [--db portfolio.db] [--snapshot DATE]  print an unrealized gain/loss summary
+  migrate --db <file or postgresql://...>       set up / upgrade the schema, record its version
 
 Standard library only (sqlite3, csv, argparse). No network calls.
 """
@@ -13,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import csv
 import os
 import re
 import shutil
@@ -21,7 +21,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pgcompat
 
@@ -169,6 +169,12 @@ _SCHEMA_LOCK = threading.Lock()
 # Same thing across processes (the app and a scheduled job starting together):
 # a Postgres advisory lock held for the setup transaction. Any fixed number.
 SCHEMA_ADVISORY_LOCK_ID = 7215346
+# The schema's version, kept in the schema_version table by _ensure_schema
+# (and `northwend-migrate`). Bump it in the same change as any change to the
+# schema: a new table or column in schema.sql / schema_pg.sql, the back-fill
+# list below, or a one-time clean-up. 1 = the schema when versions began
+# (October 2026).
+SCHEMA_VERSION = 1
 
 
 def _ensure_schema(conn) -> None:
@@ -285,7 +291,44 @@ def _ensure_schema(conn) -> None:
         if big:
             print(f"schema: {len(big)} INTEGER column(s) changed to BIGINT: " + ", ".join(big),
                   file=sys.stderr)
+    _record_schema_version(conn)
     conn.commit()
+
+
+def _record_schema_version(conn) -> None:
+    """Set schema_version's one row to SCHEMA_VERSION, with the time, once
+    the setup above is done. Left as it is when it already says this version
+    (applied_at stays when it was first reached) or a later one (a newer copy
+    of the code set this database up - this one doesn't take it back)."""
+    rows = conn.execute("SELECT version FROM schema_version").fetchall()
+    have = max((r["version"] for r in rows), default=None)
+    if len(rows) == 1 and have >= SCHEMA_VERSION:
+        return
+    conn.execute("DELETE FROM schema_version")
+    conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                 (max(SCHEMA_VERSION, have or 0),
+                  datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+
+
+def schema_version(conn) -> dict | None:
+    """{"version", "applied_at"} from schema_version, or None if it's empty."""
+    row = conn.execute("SELECT version, applied_at FROM schema_version "
+                       "ORDER BY version DESC LIMIT 1").fetchone()
+    return {"version": row["version"], "applied_at": row["applied_at"]} if row else None
+
+
+def migrate(db_path: str) -> dict | None:
+    """Bring a database's schema up to this code's, on purpose: the setup
+    connect() runs once per process (_ensure_schema), run again even if this
+    process already did - for a deploy, before the app starts (the app still
+    runs it at start too). Returns schema_version() afterwards."""
+    _SCHEMA_READY.discard(db_path if pgcompat.is_postgres_dsn(db_path)
+                          else os.path.abspath(db_path))
+    conn = connect(db_path)
+    try:
+        return schema_version(conn)
+    finally:
+        conn.close()
 
 
 # Every table with an account name in it, and the columns that, with the
@@ -962,6 +1005,17 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate(args: argparse.Namespace) -> int:
+    where = "the Postgres database" if pgcompat.is_postgres_dsn(args.db) else args.db
+    done = migrate(args.db)
+    if done is None:   # (not expected: the setup has just written it)
+        print(f"Schema set up in {where}, but no version was recorded.", file=sys.stderr)
+        return 1
+    print(f"Schema of {where} is at version {done['version']} "
+          f"(this code's is {SCHEMA_VERSION}; reached {done['applied_at']}).")
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Personal portfolio tracker (phase 1).")
@@ -984,6 +1038,12 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--db", default=DEFAULT_DB, help=f"SQLite file (default: {DEFAULT_DB})")
     pr.add_argument("--snapshot", help="snapshot date YYYY-MM-DD (default: latest)")
     pr.set_defaults(func=cmd_report)
+
+    pm = sub.add_parser("migrate", help="bring the database's schema up to this code's "
+                                        "and record its version")
+    pm.add_argument("--db", required=True,
+                    help="SQLite file or Postgres connection string (postgresql://...)")
+    pm.set_defaults(func=cmd_migrate)
 
     return p
 

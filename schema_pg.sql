@@ -22,6 +22,12 @@
 -- valid (Postgres has no CREATE TABLE IF NOT EXISTS quirks here - it's
 -- supported natively, same as SQLite).
 
+-- The schema's version - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS schema_version (
+    version     INTEGER NOT NULL,
+    applied_at  TEXT    NOT NULL
+);
+
 -- Individual login accounts - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS users (
     id            SERIAL  PRIMARY KEY,

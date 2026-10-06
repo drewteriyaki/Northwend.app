@@ -18,7 +18,6 @@ Tests workflow's postgres-tests job runs it against a postgres:16 service:
 import io
 import json
 import os
-import re
 import secrets
 import sys
 import types
@@ -544,7 +543,7 @@ class AdvisorTests(_PG):
                          ("October 1, 2026", auth.TERMS_VIA_SETUP_LINK))
         self.assertTrue(row["email_verified_at"] and row["last_login_at"])
         self.assertEqual(self.seen("SELECT * FROM invites WHERE user_id = ?", (dana,)), [])
-        self.assertEqual(auth.verify_login(c, f"dana.invite@example.com", "clientpass1"), dana)
+        self.assertEqual(auth.verify_login(c, "dana.invite@example.com", "clientpass1"), dana)
 
         self.assertTrue(auth.set_client_name(c, carol, dana, " Dana  and Lee "))
         self.assertEqual(dict(auth.list_clients(c, carol))[dana], "Dana and Lee")
@@ -1398,6 +1397,115 @@ class DeleteAccountTests(_PG):
             where = " OR ".join(f"{col} = ?" for col in cols)
             self.assertEqual(self.seen(f"SELECT * FROM {table} WHERE {where}",
                                        (eve,) * len(cols)), [], table)
+
+
+# --------------------------------------------------------------------------- #
+# northwend-migrate (schema version) and northwend-tidy (retention, D5)
+# --------------------------------------------------------------------------- #
+@unittest.skipUnless(PG, SKIP)
+class MigrateAndTidyTests(unittest.TestCase):
+
+    def _versions(self, dsn):
+        c = portfolio.connect(dsn)
+        try:
+            return [dict(r) for r in c.execute("SELECT version, applied_at FROM schema_version")]
+        finally:
+            c.close()
+
+    def test_migrate_on_a_fresh_database(self):
+        import cli
+        dsn = fresh_db("migrate")
+        self.addCleanup(close_db, dsn)
+        out = io.StringIO()
+        with unittest.mock.patch("sys.stdout", out):
+            self.assertEqual(cli.migrate(["--db", dsn]), 0)
+        self.assertIn(f"Schema of the Postgres database is at version {portfolio.SCHEMA_VERSION}",
+                      out.getvalue())
+        self.assertNotIn(PG.split("@")[-1], out.getvalue())   # the DSN is never printed
+        rows = self._versions(dsn)
+        self.assertEqual([r["version"] for r in rows], [portfolio.SCHEMA_VERSION])
+        self.assertRegex(rows[0]["applied_at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual(portfolio.migrate(dsn), rows[0])   # again: nothing changes
+        self.assertEqual(in_use(dsn), 0)
+
+    def test_migrate_upgrades_a_database_from_sep_30_and_records_the_version(self):
+        import psycopg
+        dsn = fresh_db("migrateold")
+        self.addCleanup(close_db, dsn)
+        with open(OLD_SCHEMA, encoding="utf-8") as fh:
+            old = fh.read()
+        raw = psycopg.connect(dsn, autocommit=True)
+        try:
+            raw.execute(";\n".join(pgcompat._split_statements(old)))
+            raw.execute("INSERT INTO users (username, password_hash, password_salt) "
+                        "VALUES ('olive', 'x', 'y')")
+            self.assertIsNone(raw.execute("SELECT to_regclass('schema_version')").fetchone()[0])
+        finally:
+            raw.close()
+        with unittest.mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            done = portfolio.migrate(dsn)
+        self.assertIn("changed to BIGINT", err.getvalue())   # the upgrade's own clean-ups ran
+        self.assertEqual(done["version"], portfolio.SCHEMA_VERSION)
+        c = portfolio.connect(dsn)
+        try:
+            cols = {r["column_name"] for r in c.execute(
+                "SELECT column_name FROM information_schema.columns WHERE "
+                "table_schema = current_schema() AND table_name = 'users'")}
+            self.assertTrue({"email", "terms_version", "is_admin", "last_login_at"} <= cols)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM schema_version")
+                             .fetchone()["n"], 1)
+        finally:
+            c.close()
+
+    def test_tidy_runs(self):
+        import tidy
+        dsn = fresh_db("tidy")
+        self.addCleanup(close_db, dsn)
+        c = portfolio.connect(dsn)
+        long_ago = (NOW - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            gone = auth.sign_up(c, "never.confirmed@example.com", PW, seconds_open=10,
+                                **SIGNUP)["user_id"]
+            sample_data.load(c, gone)
+            kept = auth.sign_up(c, "confirmed@example.com", PW, seconds_open=10,
+                                **SIGNUP)["user_id"]
+            fresh = auth.sign_up(c, "just.joined@example.com", PW, seconds_open=10,
+                                 **SIGNUP)["user_id"]
+            made = auth.create_user(c, "admin.made", PW)
+            c.execute("UPDATE users SET created_at = ? WHERE id IN (?, ?, ?)",
+                      (long_ago, gone, kept, made))
+            c.execute("UPDATE users SET email_verified_at = ? WHERE id = ?", (long_ago, kept))
+            c.execute("INSERT INTO error_events (kind, source, error_type, place, first_seen, "
+                      "last_seen) VALUES ('old', 'job', 'Job failed', 'x', ?, ?)",
+                      ("2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+            c.execute("INSERT INTO intraday_bars (ticker, interval, ts, close) VALUES "
+                      "('VTI', '1m', ?, 300), ('VTI', '1m', ?, 301)",
+                      ((NOW - timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                       NOW.strftime("%Y-%m-%dT%H:%M:%SZ")))
+            c.commit()
+        finally:
+            c.close()
+        out = io.StringIO()
+        with unittest.mock.patch.object(tidy, "admin_log", None), \
+                unittest.mock.patch("sys.stdout", out):
+            self.assertEqual(tidy.main(["--db", dsn]), 0)
+        text = out.getvalue()
+        self.assertIn("unconfirmed accounts 1, error records 1", text)
+        self.assertIn("minute bars 1", text)
+        self.assertNotIn("example.com", text)
+        ids = {r["id"] for r in self._seen(dsn, "SELECT id FROM users")}
+        self.assertEqual(ids, {kept, fresh, made})
+        self.assertEqual(self._seen(dsn, "SELECT * FROM snapshots WHERE user_id = ?", (gone,)),
+                         [])
+        self.assertEqual(len(self._seen(dsn, "SELECT * FROM intraday_bars")), 1)
+        self.assertEqual(in_use(dsn), 0)
+
+    def _seen(self, dsn, sql, params=()):
+        c = portfolio.connect(dsn)
+        try:
+            return [dict(r) for r in c.execute(sql, params)]
+        finally:
+            c.close()
 
 
 # --------------------------------------------------------------------------- #

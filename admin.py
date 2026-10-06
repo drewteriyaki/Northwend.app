@@ -13,7 +13,6 @@ their advisor see those.
 
 from __future__ import annotations
 
-import os
 import secrets
 from collections.abc import Iterable
 from datetime import datetime, timezone

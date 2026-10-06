@@ -91,6 +91,12 @@ Each statement about data here must stay true to the code:
 - Delete all my holdings: portfolio.delete_holdings / HOLDINGS_TABLES (keeps
   plans, profile, notes, settings, watchlist, login); only for an account
   that manages itself (dashboard CAN_MANAGE).
+- How long things are kept (PLAN D5): tidy.py, nightly (the Scheduled sync
+  workflow's tidy job) - never-confirmed self-made accounts after 30 days
+  without a sign-in (tidy.UNCONFIRMED_DAYS, through admin.delete_account),
+  error_events 90 days, expired email links / setup links / sessions, the
+  login_failures / signups / email_sends counts after a day. Session and
+  link lengths: auth.py, two_step.py.
 - No third-party analytics: .streamlit/config.toml gatherUsageStats = false;
   the only counting is feature_counts.py (above), inside the database.
 - Account map (account_map.py, the Account page): the login's own, never shown
@@ -198,9 +204,18 @@ their account map.
   no email address, they can set a temporary password to help its owner back
   in, and every action they take on accounts is recorded. It isn't sold,
   rented or shared for advertising.
-- **How long it's kept:** until you delete it. The database provider keeps a
-  short rolling backup (currently about 6 hours) so data can be recovered after
-  an outage; deleted data is gone from it after that.
+- **How long it's kept:** your holdings, plan, answers and notes stay until you
+  delete them or your account. The database provider keeps a short rolling
+  backup (currently about 6 hours) so data can be recovered after an outage;
+  deleted data is gone from it after that.
+- **Kept only for a while,** and tidied away each night: an account you made
+  yourself whose email was never confirmed is deleted, with everything in it,
+  after 30 days without a sign-in. Sign-ins last 30 days ("stay signed in",
+  and skipping the two-step code on a trusted device). Email links work until
+  they run out: a password reset after 1 hour, a confirm link after 3 days, an
+  advisor's setup link after 7 days. The scrambled counts that stop automated
+  sign-ups and repeated wrong passwords are kept for 1 day, and error records
+  (what went wrong and where - nothing about you) for 90 days.
 - **Deleting:** on the **Account** page you can delete all your holdings
   (holdings, cash, activity and value history; your goals, profile answers,
   notes and settings stay), or your whole account and everything in it. If an

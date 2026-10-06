@@ -19,7 +19,6 @@ the same address in a List-Unsubscribe header (unsubscribe.py).
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import time
 from datetime import date

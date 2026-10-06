@@ -36,6 +36,8 @@ northwend-prices = "cli:prices"
 northwend-history = "cli:history"
 northwend-users = "cli:users"
 northwend-weekly-email = "cli:weekly_email"
+northwend-migrate = "cli:migrate"
+northwend-tidy = "cli:tidy"
 
 [tool.setuptools]
 py-modules = [
@@ -56,4 +58,37 @@ py-modules = [
     # year in review and the account map
     "recap", "account_map",
     "admin_log",   # the admin action log (PLAN 1b.3)
+    "tidy",   # the nightly retention job (northwend-tidy)
 ]
+
+# `ruff check` (the Tests workflow's lint job; requirements-dev.txt has the
+# version). A small rule set the code passes today: pyflakes (F: unused or
+# undefined names, unused imports) and pycodestyle's import, statement, syntax
+# and whitespace checks (E4, E7, E9, W). Line length is not checked.
+[tool.ruff]
+target-version = "py313"
+extend-exclude = ["website/public"]
+
+[tool.ruff.lint]
+select = ["F", "E4", "E7", "E9", "W"]
+ignore = [
+    "E731",   # a lambda given a name - used on purpose in a few tests
+    "E741",   # a one-letter name like `l` or `O`
+]
+
+[tool.ruff.lint.per-file-ignores]
+# dashboard.py and views/ share one namespace (dashboard's _view runs each
+# view inside it): dashboard calls what the views define (F821), imports
+# what only the views use (F401, F811), and sets the page up before its
+# imports finish (E402). Each view says `# ruff: noqa: F821` itself too.
+"dashboard.py" = ["E402", "F401", "F811", "F821"]
+"views/*.py" = ["F821"]
+
+# The unit-tests job prints a coverage total (coverage.py, requirements-dev.txt).
+# Printed only for now - no gate; ratchet it up, never down.
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "website/*", "scripts/*"]
+
+[tool.coverage.report]
+skip_empty = true
