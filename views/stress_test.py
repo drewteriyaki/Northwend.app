@@ -84,6 +84,8 @@ def _render_stress_test(alloc_rows, value):
             if not is_now:
                 other_pct = mask_or(other_pct)
             st.caption(f"In {wo['key']}, {name} would have been about {other_pct} at the low.")
+    # the Storm Drill (R4, flag storm_drill): what they'd do, in their own words
+    render_storm_drill_field()   # views/future_notes.py
     with st.expander("How this is worked out"):
         st.caption(stress.ASSUMPTIONS)
         st.markdown("  \n".join(

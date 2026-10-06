@@ -101,7 +101,9 @@ mode work without any.
   statistics are turned off, and the website (northwend.app) runs no scripts.
 - **Feature counts.** To learn whether features like the monthly walk help,
   Northwend counts in totals only, inside its own database - for example, how many
-  people took a second monthly walk within 45 days of their first. The counts are
+  people took a second monthly walk within 45 days of their first, or how many
+  wrote down on the Stress test what they'd do in a drop (never what they
+  wrote). The counts are
   worked out by the app's code from what's already stored; nobody looks at one
   person's record to make them. A count is never about one person, is shown only
   for groups of 20 or more (and only on the admin page), and is never shared,

@@ -69,7 +69,10 @@ Each statement about data here must stay true to the code:
   feature_counts.MIN_GROUP (20) or more, only in the Admin portal's
   "Feature tests" panel; never sent anywhere or to the AI; anyone with
   prefs feature_counts_off (Account > "Leave me out of feature counts") is
-  skipped; only walks kept with their day (from the Walk on) count.
+  skipped; only walks kept with their day (from the Walk on) count. The
+  Storm Drill (flag storm_drill; its answer is a future_notes row, symbol
+  future_notes.DRILL) is counted as how many people wrote one - never the
+  words, and nothing about selling.
 - Export everything (export.py): the account's own rows as CSV; never password
   hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
@@ -256,7 +259,8 @@ to run the site.
 
 **Feature counts:** to learn whether features like the monthly walk help,
 Northwend counts in totals only, inside its own database - for example, how many
-people took a second monthly walk within 45 days of their first. A count is
+people took a second monthly walk within 45 days of their first, or how many
+wrote down on the Stress test what they'd do in a drop (never what they wrote). A count is
 never about one person, is shown only for groups of 20 or more, and is never
 shared, sold or sent to the AI. To leave yourself out, turn on **Leave me out of
 feature counts** on the **Account** page.

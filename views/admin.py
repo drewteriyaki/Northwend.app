@@ -644,6 +644,8 @@ def _render_admin():
     c = connect(DB)
     try:
         _render_feature_tests(c)
+        if flags.on("storm_drill"):
+            _render_drill_count(c)
     finally:
         c.close()
 
@@ -676,6 +678,19 @@ def _render_ai_spend(s):
                 "Cache write": r["cache_write_tokens"], "Cache read": r["cache_read_tokens"],
                 "Estimated": ai_spend.dollars(r["cost_micro"])} for r in s["rows"]]),
                 hide_index=True, width="stretch")
+
+
+def _render_drill_count(c):
+    """The Storm Drill (R4): how many people wrote down what they'd do - a
+    total, never the words. Selling on a drop isn't measured yet."""
+    n = feature_counts.drill_answers(c)
+    st.markdown("**The storm drill** - people who wrote down what they'd do in a drop")
+    if n is None:
+        st.caption(f"Fewer than {feature_counts.MIN_GROUP} people have written one so far - "
+                   "nothing to show yet.")
+    else:
+        st.markdown(f"- Wrote a drill answer: {n}")
+    st.caption("Only the count of answers. What people do on a drop isn't measured yet.")
 
 
 def _render_feature_tests(c):

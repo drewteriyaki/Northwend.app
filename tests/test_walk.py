@@ -264,7 +264,9 @@ class FeatureCountTests(_DB):
         with open(os.path.join(REPO, "feature_counts.py"), encoding="utf-8") as fh:
             src = fh.read()
         sql = re.findall(r'"(SELECT[^"]*)"', src)
-        self.assertEqual(sql, ["SELECT data FROM user_prefs WHERE data LIKE ?"])
+        self.assertEqual(sql, ["SELECT data FROM user_prefs WHERE data LIKE ?",
+                               # the Storm Drill count (R4): settings only, no body
+                               "SELECT p.data AS data FROM future_notes n LEFT JOIN user_prefs p "])
 
     def test_never_sent_to_the_ai_or_an_advisor(self):
         for name in ("advisor.py", "meeting.py", "reports.py", "overview.py", "advising.py",

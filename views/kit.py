@@ -293,6 +293,7 @@ def render_weather():
                    "your kit." if cloak else "") + "</div>")
         if own:   # their own words back, never an advisor's view (views/future_notes.py)
             render_storm_notes(w)
+            render_storm_drill()   # the Storm Drill answer (R4, flag storm_drill)
         with st.container(horizontal=True):
             if st.button("What storms have looked like", key="storm_more", type="tertiary"):
                 st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)

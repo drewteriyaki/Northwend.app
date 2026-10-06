@@ -20,6 +20,8 @@ def _notes_mine():
 
 
 def _fn_key(symbol):
+    if symbol == future_notes.DRILL:
+        return "drill"
     return symbol or "plan"
 
 
@@ -117,9 +119,11 @@ def _render_note_body(symbol, note):
             st.button(f"Ask {GUIDE} about it", key=f"fn_ask_{k}", type="tertiary",
                       icon=":material/forum:", on_click=_fn_ask, args=(note,))
         return
-    st.text_area("Note to future you", key=f"fn_text_{k}", max_chars=future_notes.MAX_CHARS,
+    drill = symbol == future_notes.DRILL   # the Storm Drill: no example, no right answer
+    st.text_area(future_notes.DRILL_QUESTION if drill else "Note to future you",
+                 key=f"fn_text_{k}", max_chars=future_notes.MAX_CHARS,
                  height=90, label_visibility="collapsed",
-                 placeholder=(future_notes.PLACEHOLDER_HOLDING if symbol
+                 placeholder=(None if drill else future_notes.PLACEHOLDER_HOLDING if symbol
                               else future_notes.PLACEHOLDER_PLAN))
     with st.container(horizontal=True):
         st.button("Save note", key=f"fn_save_{k}", type="primary", on_click=_fn_save,
@@ -195,6 +199,47 @@ def render_storm_notes(w):
                      f"<div>{html.escape(future_notes.quote(n, _fmt_date))}</div>")
     st.html("<div class='pt-fnote-storm'><div class='pt-eyebrow' style='margin:0'>"
             "In your own words</div>" + "".join(parts) + "</div>")
+
+
+# ---- the Storm Drill (ROADMAP R4, flag storm_drill): written on the Stress
+# test after seeing 2008, read back on the storm note when a drop comes ----- #
+
+DRILL_LINE = ("Your own words - there's no right answer. If markets drop, Home shows you "
+              "what you wrote. ")
+DRILL_COUNT_LINE = ("Northwend counts only how many people wrote one, never the words; "
+                    "you can leave yourself out on Account.")
+
+
+def _drill_on():
+    """The drill is the person's own: only with its flag, on their own account."""
+    return flags.on("storm_drill") and _notes_mine()
+
+
+def render_storm_drill_field():
+    """On the Stress test, after the hard years (views/stress_test.py): one
+    field, the person's own words, no suggested answers."""
+    if not _drill_on():
+        return
+    note = _fn_read(future_notes.DRILL)
+    with st.container(border=True, key="pt_storm_drill"):
+        st.markdown(f":material/edit_note: **{future_notes.DRILL_QUESTION}**")
+        st.caption(DRILL_LINE + future_notes.PRIVATE_LINE + " " + DRILL_COUNT_LINE)
+        _render_note_body(future_notes.DRILL, note)
+
+
+def render_storm_drill():
+    """On the storm note (views/kit.py render_weather): the person's drill
+    answer back, calmly - or one quiet line saying where to write one."""
+    if not _drill_on():
+        return
+    note = _fn_read(future_notes.DRILL)
+    if note:
+        st.html("<div class='pt-fnote-storm'><div class='pt-eyebrow' style='margin:0'>"
+                "Your storm drill</div><div>"
+                + html.escape(future_notes.drill_quote(note, _fmt_date)) + "</div></div>")
+    else:
+        st.caption(f"You can write down what you'd do in a drop like this on "
+                   f"{_label('Plan')}'s Stress test.")
 
 
 # ---- after a first save of holdings: "leave a note for future you?" -------- #

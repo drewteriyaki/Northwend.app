@@ -13,6 +13,12 @@ with Export everything; deleted with the account (admin.ACCOUNT_TABLES).
 
 The moment they're for: when markets drop, Home's storm note shows the
 person their own words back (storm_picks) - calm, never alarming.
+
+The Storm Drill (ROADMAP R4, flag storm_drill) is one more note, under the
+symbol DRILL: what the person wrote on the Plan's Stress test after seeing
+2008 ("What will you do when this happens?"). No suggested answers, no
+right one. Same table, so the same privacy, export and delete; shown back
+on the storm note (drill_quote), never among the holdings' notes.
 """
 
 from __future__ import annotations
@@ -22,6 +28,8 @@ from datetime import datetime, timezone
 MAX_CHARS = 500          # a note, not an essay
 STORM_HOLDINGS = 2       # holdings' notes shown with a storm, the ones that fell most
 PLAN = None              # the plan's note has no symbol
+DRILL = "__STORM_DRILL__"   # the Storm Drill answer (R4) - never a real symbol
+DRILL_QUESTION = "What will you do when this happens?"
 
 PLACEHOLDER_HOLDING = "e.g. Holding this for 20 years - it's the whole market."
 PLACEHOLDER_PLAN = "e.g. This is for the house; don't touch it before 2030."
@@ -103,6 +111,14 @@ def quote(note: dict, fmt_date) -> str:
     return f"You wrote on {fmt_date(written_on(note))}: “{body}”"
 
 
+def drill_quote(note: dict, fmt_date) -> str:
+    """The Storm Drill answer back on the storm note: "You wrote this when
+    you looked at 2008 (Oct 6, 2026): '...'" (plain text)."""
+    body = " ".join(str(note.get("body") or "").split())
+    return (f"You wrote this when you looked at 2008 ({fmt_date(written_on(note))}): "
+            f"“{body}”")
+
+
 def storm_picks(notes: dict, falls: dict, held: set | None = None) -> list[dict]:
     """The notes to show beside a storm: the plan's first (it's what the
     money is for), then up to STORM_HOLDINGS holdings' notes - those that
@@ -112,7 +128,7 @@ def storm_picks(notes: dict, falls: dict, held: set | None = None) -> list[dict]
     out = []
     if notes.get(None):
         out.append(notes[None])
-    syms = [s for s in notes if s is not None and (held is None or s in held)]
+    syms = [s for s in notes if s is not None and s != DRILL and (held is None or s in held)]
     syms.sort(key=lambda s: (falls.get(s) is None, -(falls.get(s) or 0.0), s))
     out += [{**notes[s], "fell_pct": falls.get(s)} for s in syms[:STORM_HOLDINGS]]
     return out
@@ -123,6 +139,10 @@ def ask_text(note: dict) -> str:
     their note: the note as data - one line, quoted, never a section of its
     own (like advisor._data_text) - inside their own question."""
     body = " ".join(str(note.get("body") or "").split())[:MAX_CHARS].replace('"', "'")
+    if note.get("symbol") == DRILL:
+        return ("When I looked at how my mix would have done in 2008, I wrote down what "
+                f'I\'d do if a drop like that happened: "{body}". Can you help me think '
+                "about it - does it still fit my goal and timeline?")
     about = f"about {note['symbol']}" if note.get("symbol") else "about my plan"
     return (f'I wrote a note to my future self {about}: "{body}". Can you help me think '
             "about it - does it still fit my goal and timeline, and what might be worth "

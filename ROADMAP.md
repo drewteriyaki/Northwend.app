@@ -1150,6 +1150,15 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
       decoder, the no-account decoder route
+  - [x] Storm Drill field (R4) - done Oct 6, behind flag `storm_drill`: "What will
+        you do when this happens?" after the hard years on Plan's Stress test (no
+        example, no right answer), kept as the person's own note
+        (`future_notes.DRILL`: same privacy, export and delete as notes); Home's
+        storm note shows it back ("You wrote this when you looked at 2008"), or
+        one quiet line without one; no trade button; never in an advisor's
+        session. Counted as totals only (`feature_counts.drill_answers`, 20+,
+        opt-out; Admin > Feature tests); privacy text says so. Selling on a drop
+        isn't measured yet
 - [ ] **Step 4 - Own the hosting** (Render behind Cloudflare). Steps 5-6 never go
       live before this
 - [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and

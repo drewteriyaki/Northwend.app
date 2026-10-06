@@ -4,7 +4,8 @@ feature helps, in totals only. Pure logic plus one read; no Streamlit.
 The rules, as the privacy text says them (disclosures.py, the Privacy
 Policy draft):
 - Totals only, worked out here in code. Nobody looks at a single person's
-  row: the query reads the settings column alone - no user id, no name.
+  row: each query hands back the settings column alone - no user id, no
+  name, never a note's words.
 - A total is shown only for a group of at least MIN_GROUP people.
 - Never shared or sold, and never sent to the AI: only the Admin portal's
   "Feature tests" panel shows them (views/admin.py).
@@ -18,6 +19,9 @@ Policy draft):
 R1's metric: of the people who finished a first walk, how many finished a
 second within SECOND_WITHIN_DAYS days of it - among those whose window has
 closed, so the share isn't pulled down by people still inside it.
+
+R4's, for now: how many people wrote a Storm Drill answer (drill_answers) -
+a count of rows, never the words.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ import json
 from datetime import date, timedelta
 
 import checkin
+import future_notes
 
 MIN_GROUP = 20
 SECOND_WITHIN_DAYS = 45
@@ -97,3 +102,30 @@ def _all_settings(conn):
 def walks(conn, today: date | None = None) -> dict | None:
     """walk_totals() from the database."""
     return walk_totals(_all_settings(conn), today or date.today())
+
+
+# R4 (the Storm Drill): for now only how many people wrote a drill answer.
+# Selling behaviour on the next drop isn't measured yet - that needs its own
+# privacy text first.
+
+def drill_total(settings_of_writers) -> int | None:
+    """How many people wrote a Storm Drill answer, from each writer's
+    settings (None when they have none) - without anyone left out; None
+    while that's under MIN_GROUP."""
+    n = sum(1 for p in settings_of_writers if not left_out(p if isinstance(p, dict) else {}))
+    return n if n >= MIN_GROUP else None
+
+
+def drill_answers(conn) -> int | None:
+    """drill_total() from the database. The query hands back only each
+    writer's settings column - never the words, never whose they are (the
+    user id only joins the two tables inside the query)."""
+    def settings():
+        for r in conn.execute("SELECT p.data AS data FROM future_notes n LEFT JOIN user_prefs p "
+                              "ON p.user_id = n.user_id WHERE n.symbol = ?",
+                              (future_notes.DRILL,)):
+            try:
+                yield json.loads(r["data"]) if r["data"] else {}
+            except (TypeError, ValueError):
+                yield {}
+    return drill_total(settings())

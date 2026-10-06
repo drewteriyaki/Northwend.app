@@ -83,6 +83,7 @@ Open them in any spreadsheet. Dates are UTC.
 - from_your_advisor_*.csv: what your advisor shared with you, if you have one
 - two_step_sign_in.csv: when you turned on two-step sign-in, if you did
 - notes_to_future_you.csv: the notes you wrote to yourself on a holding or your plan
+  (symbol __STORM_DRILL__: what you wrote you'd do in a drop, on the Stress test)
 - account_map.csv: your account map - who to call, paperwork, notes for family
 
 Not included: your password and sign-in records, which are never stored in a

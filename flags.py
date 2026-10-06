@@ -59,6 +59,11 @@ FEATURES = {
     # views/holdings_input.py): the image goes to the model, so it's off on
     # the live copy (decision D1). Paste and CSV work without it.
     "screenshot_ai": {"gates": (), "view": None},
+    # The Storm Drill (ROADMAP R4, future_notes.DRILL, views/future_notes.py):
+    # "What will you do when this happens?" on the Plan's Stress test, shown
+    # back on Home's storm note when a drop comes; counted in totals only
+    # (feature_counts.drill_answers, Admin > Feature tests).
+    "storm_drill": {"gates": (), "view": None},
 }
 
 
