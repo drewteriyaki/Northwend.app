@@ -1022,7 +1022,7 @@ step 9. Its "Next two weeks" is replaced, and its R15 is dropped. The
 matched", M6 client payments and M7 reviews are out. Every new feature
 ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
 
-- [ ] **Step 1 - Hardening Phase 0 and Phase 1** (PLAN 1a and 1b, about 3 weeks)
+- [x] **Step 1 - Hardening Phase 0 and Phase 1** (done Oct 6; 1b.13 more broker files deferred, allowed to slip) (PLAN 1a and 1b, about 3 weeks)
   - [x] 1a.1 `flags.py`, the Walk behind its flag; Admin lists flags - done:
         `NORTHWEND_GATES` (L0-L3, no L4) and `NORTHWEND_FLAGS` (`walk`,
         `screenshot_ai`), all off unless set; `_view` and `PAGES` check `FEATURES`;
@@ -1081,7 +1081,7 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [x] 1a.13 First ADRs - done: `docs/adr/` 0001 screenshot reading (D1),
         0002 flags and gates, 0003 tools and layout (B9), 0004 billing by pull
         (B2/B3)
-  - [ ] 1b Phase 1: RUNBOOK, sign out everyone, admin action log, CI additions,
+  - [x] 1b Phase 1: RUNBOOK, sign out everyone, admin action log, CI additions,
         layer rule test, schema version, password hashing, retention job,
         `.env.example`, ARCHITECTURE.md, staging seed
   - [x] 1b.1 RUNBOOK - done: `docs/RUNBOOK.md`: deploy (Community Cloud now,
