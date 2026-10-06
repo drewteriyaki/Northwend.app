@@ -1084,6 +1084,24 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [ ] 1b Phase 1: RUNBOOK, sign out everyone, admin action log, CI additions,
         layer rule test, schema version, password hashing, retention job,
         `.env.example`, ARCHITECTURE.md, staging seed
+  - [x] 1b.1 RUNBOOK - done: `docs/RUNBOOK.md`: deploy (Community Cloud now,
+        Render after step 4), roll back, restore (Neon branch, counts, swap, the
+        quarterly drill), rotate each key, sign everyone out, AI/email off,
+        flags and gates, shut down, after a breach; owner prerequisites with a
+        dated sign-off line per gate, a checklist per gate L0-L3, the D16 budget
+        (blanks; the AI ceiling about half the Anthropic line). Points to
+        `sign-out-all`, `northwend-migrate` and `northwend-tidy` as coming in 1b
+  - [x] 1b.10 `.env.example` - done: every setting the code reads, one line
+        each, no values (MAIL_DRY_RUN=1 the only one); `tests/test_ops_docs.py`
+        fails when the code reads a name it doesn't list
+  - [x] 1b.11 ARCHITECTURE.md - done: `docs/ARCHITECTURE.md`, one page; the
+        file map stays in CLAUDE.md
+  - [x] 1b.12 Staging seed - done: `manage_users.py seed-staging` (a household
+        with a walk due, an approved advisor without two-step yet, three
+        clients; @example.com; re-runs refresh, never double;
+        `--reset-passwords`); refuses production, Postgres without
+        `NORTHWEND_ENV=staging`, and a local portfolio.db.
+        `sample_data.snapshot_rows`; `tests/test_staging_seed.py`
 - [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)

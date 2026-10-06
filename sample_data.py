@@ -31,19 +31,31 @@ HOLDINGS = [
 CASH = {"Brokerage": 850.0, "Roth IRA": 240.0}
 
 
+def snapshot_rows(snap: str, *, scale: float = 1.0,
+                  price_factor: float = 1.0) -> tuple[list[dict], dict]:
+    """The example holdings as write_snapshot()'s (rows, totals) for the date
+    `snap`: shares, cost and cash times `scale`, prices times `price_factor`.
+    load() uses them as they are; the staging seed (manage_users.py
+    seed-staging) makes its made-up people's holdings from them."""
+    rows = []
+    for acct, sym, name, asset_type, shares, cost, price in HOLDINGS:
+        qty, basis = round(shares * scale, 4), round(cost * scale, 2)
+        mv = round(qty * price * price_factor, 2)
+        rows.append({"snapshot_date": snap, "account": acct, "symbol": sym, "description": name,
+                     "asset_type": asset_type, "quantity": float(qty), "cost_basis": basis,
+                     "market_value": mv, "reported_gain": round(mv - basis, 2),
+                     "reported_gain_pct": round((mv - basis) / basis * 100, 2)})
+    totals = {a: {"cash_value": round(c * scale, 2), "reported_cost_basis": None,
+                  "reported_market_value": None, "reported_gain": None,
+                  "reported_gain_pct": None} for a, c in CASH.items()}
+    return rows, totals
+
+
 def load(conn, user_id: int, *, today: date | None = None) -> int:
     """Save the example portfolio as today's snapshot. Returns the number of
     holdings. Only for an account with nothing in it (the caller checks)."""
     snap = (today or date.today()).isoformat()
-    rows = []
-    for acct, sym, name, asset_type, shares, cost, price in HOLDINGS:
-        mv = round(shares * price, 2)
-        rows.append({"snapshot_date": snap, "account": acct, "symbol": sym, "description": name,
-                     "asset_type": asset_type, "quantity": float(shares), "cost_basis": cost,
-                     "market_value": mv, "reported_gain": round(mv - cost, 2),
-                     "reported_gain_pct": round((mv - cost) / cost * 100, 2)})
-    totals = {a: {"cash_value": c, "reported_cost_basis": None, "reported_market_value": None,
-                  "reported_gain": None, "reported_gain_pct": None} for a, c in CASH.items()}
+    rows, totals = snapshot_rows(snap)
     write_snapshot(conn, user_id, {"snapshot_date": snap, "as_of_text": "Example portfolio"},
                    rows, totals, SAMPLE_SOURCE)
     return len(rows)

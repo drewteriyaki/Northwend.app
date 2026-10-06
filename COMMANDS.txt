@@ -91,6 +91,14 @@ month's use - add --db $env:NEON_DSN for the live site:
   python manage_users.py --db $env:NEON_DSN ai-limited <username>
   python manage_users.py --db $env:NEON_DSN ai-usage
 
+Made-up people for the STAGING copy (a household with holdings, a plan and
+a walk due; an approved advisor; three clients - all @example.com). Safe to
+run again; never runs where NORTHWEND_ENV says production, and a Postgres
+database needs NORTHWEND_ENV=staging. Prints each login's temporary password:
+  $env:NORTHWEND_ENV = "staging"
+  python manage_users.py --db $env:STAGING_DSN seed-staging
+  python manage_users.py --db $env:STAGING_DSN seed-staging --reset-passwords
+
 Create several accounts at once from a text file (one per line, either
 "username" alone for a random generated password, or "username,password"
 for one you chose — passwords are shown ONCE in the output, save them):

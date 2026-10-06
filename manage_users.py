@@ -11,6 +11,7 @@ created (there is no signup anywhere in the web app itself).
   python manage_users.py clients <advisor>
   python manage_users.py make-admin | remove-admin <username>
   python manage_users.py reset-two-step <username>
+  python manage_users.py seed-staging --db <staging dsn or scratch file> [--reset-passwords]
 
 --db can go before or after the command. Without it: the PORTFOLIO_DB
 environment variable if it's set, else ./portfolio.db. Commands that change
@@ -318,6 +319,170 @@ def cmd_clients(args) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# seed-staging (PLAN 1b.12): made-up people for the staging copy
+# --------------------------------------------------------------------------- #
+# Obviously made-up names, example.com addresses (nothing can reach them).
+# Holdings come from sample_data.py, saved as ordinary holdings (not the
+# "example portfolio"), so every page treats them as real.
+SEED_SOURCE = "staging seed"   # snapshots.source_file of the seeded holdings
+SEED_HOUSEHOLD = {"login": "seed.household@example.com", "name": "Example Household",
+                  "scale": 1.0, "mix": {"Stocks": 70.0, "Bonds": 25.0, "Cash": 5.0}}
+SEED_ADVISOR = {"login": "seed.advisor@example.com", "name": "Avery Example (advisor)",
+                "firm": "Example Advisory (made up)", "licence": "0000000"}
+SEED_CLIENTS = (
+    {"login": "seed.client1@example.com", "name": "Blake Sample", "scale": 0.5,
+     "mix": {"Stocks": 80.0, "Bonds": 15.0, "Cash": 5.0}},
+    {"login": "seed.client2@example.com", "name": "Casey Placeholder", "scale": 2.0,
+     "mix": {"Stocks": 60.0, "Bonds": 35.0, "Cash": 5.0}},
+    {"login": "seed.client3@example.com", "name": "Drew Testcase", "scale": 4.0,
+     "mix": {"Stocks": 40.0, "Bonds": 50.0, "Cash": 10.0}},
+)
+
+
+def seed_refusal(db: str) -> str | None:
+    """Why seed-staging won't write to `db`, or None. Never the live copy
+    (NORTHWEND_ENV says production); a Postgres database only when
+    NORTHWEND_ENV says staging; never the local portfolio.db (someone's own
+    holdings) - a scratch file is fine."""
+    import pgcompat
+    env = settings.environment()
+    if env == "production":
+        return "NORTHWEND_ENV says production - the seed never runs on the live copy."
+    if pgcompat.is_postgres_dsn(db):
+        if env != "staging":
+            return ("For a Postgres database, set NORTHWEND_ENV=staging first, so the seed "
+                    "can't land in the live database by mistake.")
+        return None
+    if os.path.basename(db).lower() == "portfolio.db":
+        return ("That's a local portfolio.db (someone's own holdings). Pass --db with a "
+                "scratch file or the staging database.")
+    return None
+
+
+def _seed_login(conn, who: dict, *, reset_password: bool) -> tuple[int, str, str | None]:
+    """The seed login `who`, made if missing: (id, "created" or "refreshed",
+    the temporary password or None when it was kept)."""
+    login, shown = who["login"], secrets.token_urlsafe(9)
+    uid = auth.get_user_id(conn, login)
+    if uid is None:
+        uid, status = auth.create_user(conn, login, shown), "created"
+    else:
+        status = "refreshed"
+        if reset_password:
+            auth.set_password(conn, login, shown)
+        else:
+            shown = None
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # the address counts as confirmed, so features that wait for it work on staging
+    conn.execute("UPDATE users SET email = ?, email_verified_at = COALESCE(email_verified_at, "
+                 "?) WHERE id = ?", (login, now, uid))
+    conn.commit()
+    auth.set_display_name(conn, uid, who["name"])
+    return uid, status, shown
+
+
+def _seed_holdings(conn, uid: int, scale: float, today) -> None:
+    """Two snapshots - about a month ago and today - replacing any the seed
+    saved before (so a re-run never piles them up)."""
+    from datetime import timedelta
+    import sample_data
+    from portfolio import write_snapshot
+    with conn:
+        for table in ("positions", "account_totals", "snapshots"):
+            conn.execute(f"DELETE FROM {table} WHERE source_file = ? AND user_id = ?",
+                         (SEED_SOURCE, uid))
+    for when, factor in ((today - timedelta(days=35), 0.97), (today, 1.0)):
+        snap = when.isoformat()
+        rows, totals = sample_data.snapshot_rows(snap, scale=scale, price_factor=factor)
+        write_snapshot(conn, uid, {"snapshot_date": snap, "as_of_text": "Staging seed"},
+                       rows, totals, SEED_SOURCE)
+
+
+def _seed_plan(conn, uid: int, who: dict, *, set_by: int, today) -> None:
+    import plans
+    plans.save_plan(conn, uid, {
+        "goal_type": "Retirement", "goal_name": "Retirement (made up)",
+        "target_amount": round(900_000 * who["scale"], -3),
+        "target_date": today.replace(year=today.year + 25, day=1).isoformat(),
+        "monthly_contribution": round(500 * who["scale"], 2),
+        "target_alloc": dict(who["mix"])}, set_by=set_by)
+
+
+def seed_staging(conn, *, today=None, reset_passwords: bool = False) -> list[dict]:
+    """The made-up household, an approved advisor (two-step not set up, so
+    it's asked for at their first sign-in) and three clients linked to them.
+    Safe to run again: existing seed logins are refreshed, never doubled.
+    Returns [{"login", "role", "status", "password"}] - password None when
+    an existing login kept its own."""
+    from datetime import date, timedelta
+    import advisor
+    import checkin
+    import prefs
+    today = today or date.today()
+    out = []
+
+    # the household: holdings, a plan with a target mix, answers, a walk due
+    uid, status, pw = _seed_login(conn, SEED_HOUSEHOLD, reset_password=reset_passwords)
+    _seed_holdings(conn, uid, SEED_HOUSEHOLD["scale"], today)
+    _seed_plan(conn, uid, SEED_HOUSEHOLD, set_by=uid, today=today)
+    advisor.save_profile(conn, uid, {
+        "goal": "Retirement", "time_horizon_years": 25, "risk_tolerance": "moderate",
+        "drawdown_reaction": "Hold and wait", "experience": "some", "age_range": "35-44",
+        "income_stability": "Mostly stable", "emergency_fund": "3-6 months",
+        "high_interest_debt": "None", "employer_match": "Yes, and I get the full match"})
+    p = prefs.load(conn, uid)
+    last_month = checkin.month_of(today.replace(day=1) - timedelta(days=1))
+    p.pop(checkin.PREF_STATE, None)      # this month's walk not started...
+    p[checkin.PREF_SINCE] = last_month   # ...holdings seen last month...
+    p[checkin.PREF_DAY] = 1              # ...offered from the 1st: due now
+    prefs.save(conn, uid, p)
+    out.append({"login": SEED_HOUSEHOLD["login"], "role": "investor", "status": status,
+                "password": pw})
+
+    # the advisor: approved without an email, two-step left for them to set up
+    aid, status, pw = _seed_login(conn, SEED_ADVISOR, reset_password=reset_passwords)
+    request = auth.advisor_request(conn, aid)
+    if not request or request["decision"] != "approved":
+        auth.request_advisor(conn, aid, SEED_ADVISOR["firm"], SEED_ADVISOR["licence"])
+    auth.set_advisor(conn, SEED_ADVISOR["login"], True)
+    out.append({"login": SEED_ADVISOR["login"], "role": "advisor", "status": status,
+                "password": pw})
+
+    # three clients, linked to the advisor, each with holdings and a plan
+    for who in SEED_CLIENTS:
+        cid, status, pw = _seed_login(conn, who, reset_password=reset_passwords)
+        auth.link_client(conn, aid, cid)
+        auth.set_client_name(conn, aid, cid, who["name"])
+        _seed_holdings(conn, cid, who["scale"], today)
+        _seed_plan(conn, cid, who, set_by=aid, today=today)
+        out.append({"login": who["login"], "role": "client", "status": status, "password": pw})
+    return out
+
+
+def cmd_seed_staging(args) -> int:
+    refusal = seed_refusal(args.db)
+    if refusal:
+        print(f"Not seeding: {refusal}")
+        return 1
+    conn = connect(args.db)
+    try:
+        rows = seed_staging(conn, reset_passwords=args.reset_passwords)
+    finally:
+        conn.close()
+    w = max(len(r["login"]) for r in rows)
+    print(f"Seeded {where(args.db)} with made-up people:\n")
+    print(f"  {'Login':<{w}}  {'Role':<8}  {'Status':<9}  Temporary password")
+    for r in rows:
+        shown = r["password"] or "(unchanged - add --reset-passwords for a new one)"
+        print(f"  {r['login']:<{w}}  {r['role']:<8}  {r['status']:<9}  {shown}")
+    print("\nPasswords are shown only here. The advisor sets up two-step sign-in at "
+          "first sign-in; the Monthly Walk shows on the household's Home when the "
+          "'walk' flag is on.")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Manage portfolio-tracker login accounts.")
     default_db = settings.get("PORTFOLIO_DB", DEFAULT_DB)
@@ -360,6 +525,11 @@ def main(argv=None) -> int:
                             ("ai-limited", "give an account the normal monthly AI limits")):
         sub.add_parser(name, help=help_text).add_argument("username")
     sub.add_parser("ai-usage", help="this month's AI use per account")
+    # seed-staging (PLAN 1b.12): made-up people for the staging copy
+    p_seed = sub.add_parser("seed-staging", help="add a made-up household, an advisor and "
+                            "three clients (staging or a scratch file only)")
+    p_seed.add_argument("--reset-passwords", action="store_true",
+                        help="give seed logins that already exist new temporary passwords")
 
     # --db also works after the command (make-admin admin1 --db ...)
     for p in sub.choices.values():
@@ -393,6 +563,8 @@ def main(argv=None) -> int:
         return cmd_set_ai_unlimited(args, args.cmd == "ai-unlimited")
     if args.cmd == "ai-usage":
         return cmd_ai_usage(args)
+    if args.cmd == "seed-staging":
+        return cmd_seed_staging(args)
     return cmd_list(args)
 
 

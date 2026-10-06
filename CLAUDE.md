@@ -127,7 +127,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `FEATURES` - a view or page a feature owns is skipped by `_view`/`PAGES`, a feature inside
   a view checks `flags.on("name")`; a test checks every name is checked; everything is off
   unless set). `settings.py`: env/secrets reads go through `settings.get`; `settings.hosted()`
-  (a hosted copy with no Postgres `PORTFOLIO_DB` stops). One-click unsubscribe:
+  (a hosted copy with no Postgres `PORTFOLIO_DB` stops). A new setting goes in
+  `.env.example` with a one-line comment (a test checks). Operations (deploy, restore,
+  keys, gates' checklists, budget): `docs/RUNBOOK.md`; one-page overview:
+  `docs/ARCHITECTURE.md`; made-up staging people: `manage_users.py seed-staging`. One-click unsubscribe:
   `unsubscribe.py` + `views/unsubscribe.py` (`?unsubscribe=`, reusable hashed tokens in
   `email_tokens`). Legal gates and principles: `docs/LEGAL_GATES.md`, `docs/PRINCIPLES.md`.
 - `export.py`: Export everything (Your data); a new table with account data goes
