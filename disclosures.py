@@ -193,7 +193,7 @@ HOST_MOVED = True   # done October 6, 2026: go.northwend.app on Render
 # System shows the key set and "0 readable" - after RUNBOOK, "Two-step key":
 # the key on the host, then `manage_users.py encrypt-two-step` - and rebuild
 # the website. The wording itself: two_step_key_words().
-TWO_STEP_ENCRYPTED = False
+TWO_STEP_ENCRYPTED = True   # live: key set, 0 readable (October 6, 2026)
 
 
 def two_step_key_words(encrypted: bool | None = None) -> str:
