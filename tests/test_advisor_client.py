@@ -64,7 +64,8 @@ class PureTests(unittest.TestCase):
         with unittest.mock.patch.object(mailer, "send",
                                         lambda *a, **k: sent.append(a) or True):
             self.assertTrue(mailer.proposal_shared("dana@example.com", "https://x/?page=your-advisor",
-                                                   "Carol Lee"))
+                                                   "Carol Lee", standing="This is Carol Lee's "
+                                                   "advice, from Lee Wealth - not Northwend's."))
             self.assertTrue(mailer.proposal_answered("carol@example.com",
                                                      "https://x/?page=plan&client=7", "Dana", True))
             self.assertTrue(mailer.proposal_answered("carol@example.com",

@@ -246,9 +246,11 @@ class LogicTests(_DB, unittest.TestCase):
 
     def test_report_email_says_sign_in_and_carries_no_figures(self):
         mailer.report_ready("lee@example.com", "https://x/?page=advisor-notes", "Dana", "Q3 2026",
+                            standing="This is Dana's advice, from Lee Wealth - not Northwend's.",
                             from_name="Dana")
         (lee,) = self.outbox.to("lee@example.com")
         self.assertIn("Sign in to read it", lee["text"])
+        self.assertIn("This is Dana's advice, from Lee Wealth", lee["text"])
         self.assertNotIn("?invite=", lee["text"])
         self.assertNotIn("$", lee["text"])
 

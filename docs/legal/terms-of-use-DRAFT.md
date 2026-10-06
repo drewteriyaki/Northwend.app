@@ -156,8 +156,26 @@ These extra terms apply if you use Northwend as a financial advisor.
   your CRD or licence number, and we check them before turning advisor access on
   (the operator can also turn it on directly, from outside the app). We may refuse
   or remove advisor access at any time, for example if a licence can't be confirmed
-  or lapses. [OWNER: describe how the check is done (for example FINRA BrokerCheck
-  or the SEC's IAPD) and how often it is repeated.]
+  or lapses. The check is done by hand: we look up your firm and your CRD or
+  licence number on FINRA BrokerCheck or the SEC's Investment Adviser Public
+  Disclosure (IAPD) site and confirm they match a current registration, and we
+  keep a record of where we looked, the number that matched and the date. We
+  repeat the check about once a year (we're reminded once 11 months have passed).
+  If your registration hasn't been re-checked within 13 months, you're left out of
+  any advisor listing until it has been. [LAWYER: confirm this is enough, and
+  whether a lapsed registration should also pause access to clients' accounts.]
+- **The advisor agreement.** Before you use the advisor tools you accept the
+  Northwend advisor agreement: that you represent a registered firm, that all
+  advice you give through Northwend is yours under your firm's supervision, that
+  you won't present Northwend as an adviser, and that your client agreements,
+  Form ADV delivery and record keeping are yours. We keep which version you
+  accepted and when, and ask again when it changes. While Northwend is in beta,
+  advisor seats are free and the agreement is marked "beta". [LAWYER: the
+  agreement's text is in `advisor_agreement.py` (TEXT), a draft for your review.]
+- **Whose advice it is.** Everything you share with a client through Northwend -
+  proposals, progress reports, notes and messages, and the emails saying one is
+  waiting - shows your name and firm and says the advice is yours, not
+  Northwend's (`standing_line.py`; interim wording until gate L2).
 - **Client consent.** Before you add a client or their holdings, you must have their
   permission. Clients you add can see their own portfolio, plan, and the notes you
   share with them (not ones you mark private). You can see everything in their

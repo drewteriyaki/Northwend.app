@@ -174,24 +174,25 @@ up on the next page load, without a restart.
 
 ## Consent and access-log tables (1.6f)
 
-Step 5 adds tables that must only ever grow (advisor consent records, access
-logs; B6). The default privileges above would let the app change or delete
-their rows, so the change that adds them also takes that back, in the same
-`northwend-migrate` run (only where the roles exist - not on local copies or
-in CI):
+Step 5 adds two tables that must only ever grow: `consent_records`
+(`consent.py`) and `advisor_access_log` (`access_log.py`), kept 7 years (B6).
+The default privileges above would let the app change or delete their rows,
+so every schema setup - `northwend-migrate`, as the owner - takes that back
+(`portfolio._append_only_grants`, only for the roles that exist - none on
+local copies or in CI). In SQL it is:
 
 ```sql
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'northwend_app') THEN
-    REVOKE UPDATE, DELETE, TRUNCATE ON <consent table>, <access-log table>
-      FROM northwend_app, northwend_jobs;
-  END IF;
-END $$;
+REVOKE UPDATE, DELETE, TRUNCATE ON consent_records, advisor_access_log FROM northwend_app;
+REVOKE UPDATE, TRUNCATE ON consent_records, advisor_access_log FROM northwend_jobs;
 ```
 
-The app role then has `INSERT, SELECT` only on them. A Postgres test in
-step 5 should check that an `UPDATE` as the app role fails.
+The app role then has `INSERT, SELECT` only on them. The jobs role keeps
+`DELETE` for one thing: the nightly `northwend-tidy` runs the 7-year prunes
+(`consent.prune`, `access_log.prune`) as `northwend_jobs`. If the roles are
+made after the migrate that added the tables (SCHEMA_VERSION 3), run
+`northwend-migrate` once more - or the two lines above, as the owner.
+`tests/test_postgres.py` (`ConsentAccessTests`) checks that an `UPDATE` or
+`DELETE` as an app-like role fails and an `INSERT` works.
 
 ## Undo
 

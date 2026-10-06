@@ -54,6 +54,11 @@ GATE_CHECKS = {
     # today's tailored example mix, pending the lawyer.
     "L3": "answers worked out from a person's own answers - off, common starting points "
           "the same for everyone, and Ask Northwend's about-my-situation answers stay general",
+    # PLAN step 5 item 1, master brief 4.1 and 4.5: advisor seats. Off, every
+    # seat is a free beta seat and the advisor agreement (advisor_agreement.py,
+    # its own flag below) is shown marked "Beta"; which state it was in is
+    # kept with each acceptance. No billing exists yet (step 6).
+    "L1": "advisor seats - off, free beta seats, and the advisor agreement is shown marked Beta",
 }
 
 # name -> {"gates": the gates it needs besides its flag, "view": the view it
@@ -96,6 +101,19 @@ FEATURES = {
     # only after step 4's hosting move (Render behind Cloudflare, so the limit
     # sees each visitor's real address - CLIENT_IP_HEADER). Staging may have it on.
     "decoder_public": {"gates": ("L0",), "view": "decoder_public"},
+    # The advisor agreement and attestation (PLAN step 5 item 1, master brief
+    # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
+    # advisor accepts it before Your clients and clients' accounts open. Not
+    # behind L1: with L1 off the same text is shown marked "Beta" (free beta
+    # seats, brief 4.5) - L1 changes only that label (GATE_CHECKS).
+    "advisor_agreement": {"gates": (), "view": None},
+    # The advisor directory (PLAN step 5 items 3-4 and 11, master brief 3.3 and
+    # 4.2, decision B4; directory.py): "Find a guide" in an individual's name
+    # menu (never in client mode, never for an advisor), and "Your directory
+    # listing" on Your clients (views/clients.py checks on("directory")).
+    # Alphabetical within the person's filters, nothing ranked, nothing about
+    # browsing counted. Gate L2: its copy, filters and order are the lawyer's.
+    "directory": {"gates": ("L2",), "view": "directory", "page": "Find a guide"},
 }
 
 

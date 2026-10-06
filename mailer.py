@@ -164,28 +164,30 @@ def email_changed(to: str, new_email: str, link: str) -> bool:
                 _html([html_escape(x) for x in lines], ("Open Northwend", link)))
 
 
-def report_ready(to: str, link: str, advisor_name: str, period: str, *,
+def report_ready(to: str, link: str, advisor_name: str, period: str, *, standing: str,
                  from_name: str | None = None) -> bool:
     """A progress report is waiting - no figures in the email itself. Only
     sent to a confirmed email (proposals.who_to_tell), so the client can
-    sign in to read it."""
+    sign in to read it. `standing`: the advisor's standing line
+    (standing_line.text - the advice is theirs, not Northwend's)."""
     lines = [f"{advisor_name} has shared your progress report for {period}.",
              "Sign in to read it - for your privacy, the figures stay in Northwend and aren't "
-             "sent by email."]
-    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n"
+             "sent by email.", standing]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n\n{lines[2]}\n"
     return send(to, f"Your progress report for {period}", text,
                 _html([html_escape(x) for x in lines], ("Read my report", link)),
                 from_name=from_name)
 
 
-def proposal_shared(to: str, link: str, advisor_name: str) -> bool:
-    """An advisor shared a proposal (proposals.py) - no figures in the email itself."""
+def proposal_shared(to: str, link: str, advisor_name: str, *, standing: str) -> bool:
+    """An advisor shared a proposal (proposals.py) - no figures in the email
+    itself. `standing`: the advisor's standing line (standing_line.text)."""
     lines = [f"{advisor_name} has shared a proposal with you: a suggested mix for your "
              "investments, with a note on why.",
              "Sign in to read it and let them know what you think - for your privacy, the "
              "details stay in Northwend and aren't sent by email.",
-             "Nothing is bought or sold until you and your advisor decide together."]
-    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n\n{lines[2]}\n"
+             "Nothing is bought or sold until you and your advisor decide together.", standing]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n\n{lines[2]}\n\n{lines[3]}\n"
     return send(to, "Your advisor has a proposal for you", text,
                 _html([html_escape(x) for x in lines], ("Read the proposal", link)))
 
@@ -276,6 +278,21 @@ def advisor_approved(to: str, link: str) -> bool:
                 _html(lines, ("Sign in to Northwend", link)))
 
 
+def licence_checks_due(to: str, link: str, due: int, overdue: int) -> bool:
+    """The nightly licence step (licence_check.remind, D15): how many advisors
+    need their registration looked up again - counts only, never a name or a
+    number. To the admin (error_alerts.alert_to)."""
+    lines = [f"{due} advisor{'s are' if due != 1 else ' is'} due a licence check: no check on "
+             "record, or the last one is 11 months old or more.",
+             (f"{overdue} of them {'have' if overdue != 1 else 'has'} no check in the last 13 "
+              "months, so they're left out of the advisor directory until they're re-checked."
+              if overdue else "All of them are still within 13 months of their last check."),
+             "Look each one up on BrokerCheck or IAPD, then record it in the Admin portal, under "
+             "Licence checks."]
+    text = "\n\n".join(lines) + f"\n\nOpen Admin: {link}\n"
+    return send(to, "Advisor licence checks due", text, _html(lines, ("Open Admin", link)))
+
+
 def advisor_declined(to: str, link: str) -> bool:
     """Their advisor request was declined (auth.decline_advisor, via
     admin.decline_advisor). Polite, and says what to do next."""
@@ -291,14 +308,15 @@ def advisor_declined(to: str, link: str) -> bool:
                 _html(lines, ("Open Northwend", link)))
 
 
-def advisor_message(to: str, link: str, advisor_name: str, *,
+def advisor_message(to: str, link: str, advisor_name: str, *, standing: str,
                     from_name: str | None = None) -> bool:
     """An advisor sent their clients a message (Your clients > Message
-    clients). Only that it's there - never the message itself or any figures."""
+    clients). Only that it's there - never the message itself or any figures.
+    `standing`: the advisor's standing line (standing_line.text)."""
     lines = [f"{advisor_name} sent you a message.",
              "Sign in to read it on your Your advisor page - for your privacy, messages stay "
-             "in Northwend and aren't sent by email."]
-    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n"
+             "in Northwend and aren't sent by email.", standing]
+    text = f"{lines[0]}\n\n{lines[1]}\n\nRead it: {link}\n\n{lines[2]}\n"
     return send(to, f"{advisor_name} sent you a message", text,
                 _html([html_escape(x) for x in lines], ("Read the message", link)),
                 from_name=from_name)

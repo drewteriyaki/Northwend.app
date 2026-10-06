@@ -586,7 +586,10 @@ before its name goes into the live `NORTHWEND_GATES`.
 - [ ] The business entity is formed (strongly recommended).
 
 ### L1 Advisor seats and billing
-- [ ] The advisor agreement text is final (no longer marked "beta").
+- [ ] The advisor agreement text is final (no longer marked "beta"): the
+      lawyer's wording in `advisor_agreement.TEXT`, `VERSION` bumped (every
+      advisor is asked again), and the `advisor_agreement` flag on (staging
+      first). Admin's accounts table shows who accepted which version.
 - [ ] The billing copy is final: one flat price per seat, never per client.
       The test that billing never reads client or intro counts passes.
 - [ ] Seat lapse works as decided (B5: 30 days of read and export).
@@ -607,11 +610,16 @@ before its name goes into the live `NORTHWEND_GATES`.
 - [ ] Consent records and advisor access logs are append-only and kept 7
       years (B6), and the Privacy Policy says so.
 - [ ] The standing line "advice is the advisor's, not Northwend's", with
-      name and firm, is on every advisor artefact.
+      name and firm, is on every advisor artefact (built with interim text:
+      put the lawyer's wording in `standing_line.STANDING_LINE`).
 - [ ] State coverage is handled as the attorney decided.
 - [ ] The Terms no longer say Northwend "does not refer clients" (reworded
       by the attorney).
-- [ ] Licence checks are stored, and the yearly re-check job runs (D15).
+- [ ] Licence checks are stored, and the yearly re-check job runs (D15):
+      built - the approval form records each check (`licence_check.py`),
+      Admin > Licence checks lists those due, and the nightly tidy job's
+      "Count advisors due a licence check" step emails the count. Every
+      advisor has a check on record (none shows "no check on record").
 - [ ] Step 4 is done.
 
 ### L3 Conclusion policy

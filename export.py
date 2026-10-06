@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 
 import advising
 import auth
+import consent
 
 # (file name, table, the column that is this account, extra WHERE)
 OWN = [
@@ -56,6 +57,16 @@ OWN = [
     ("notes_to_future_you", "future_notes", "user_id", ""),
     # the "if something happens to me" binder (account_map.py) - their own only
     ("account_map", "account_map", "user_id", ""),
+    # an advisor: each time they accepted the advisor agreement (advisor_agreement.py)
+    ("advisor_agreement", "advisor_agreements", "user_id", ""),
+    # an advisor: each check of their registration (licence_check.py)
+    ("licence_checks", "licence_checks", "advisor_id", ""),
+    # an advisor's own directory listing (directory.py)
+    ("your_directory_listing", "advisor_profiles", "user_id", ""),
+    # a client's sharing with an advisor, with the words they were shown
+    # (consent.py), and each time an advisor opened their account (access_log.py)
+    ("sharing_with_an_advisor", "consent_records", "client_id", ""),
+    ("advisor_visits", "advisor_access_log", "client_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -63,7 +74,9 @@ ACCOUNT_COLUMNS = ("username", "email", "email_verified_at", "created_at", "last
                    "terms_version", "terms_accepted_at", "terms_via", "age_confirmed_at",
                    "us_resident_at", "is_advisor")
 # the advisor's working record, not part of what the client was shown
-LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"}}
+LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"},
+                    # which admin recorded it: an id of someone else's login
+                    "licence_checks": {"checked_by"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -85,6 +98,13 @@ Open them in any spreadsheet. Dates are UTC.
 - notes_to_future_you.csv: the notes you wrote to yourself on a holding or your plan
   (symbol __STORM_DRILL__: what you wrote you'd do in a drop, on the Stress test)
 - account_map.csv: your account map - who to call, paperwork, notes for family
+- advisor_agreement.csv, licence_checks.csv: for an advisor, when you accepted
+  the advisor agreement (and which version), and each check of your
+  registration (where it was looked up, the number matched and the day)
+- your_directory_listing.csv: for an advisor, your listing in Find a guide
+- sharing_with_an_advisor.csv: when you agreed to share your account with an
+  advisor and when that ended, with the exact words you were shown
+- advisor_visits.csv: each time an advisor opened a page in your account
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's
@@ -189,6 +209,8 @@ Open them in any spreadsheet. Times are UTC.
 - proposals.csv: your proposals, with the client's answer (status, responded_at) -
   archived ones too (archived_at)
 - reports.csv: progress reports you sent, and when they were opened (read_at)
+- consent.csv: when the client agreed to share their account with you and when
+  that ended (kind grant / revoke, how), with the exact words they were shown
 - profile.csv: the client's answers about their goals and risk (while they're
   your client - not once the relationship has ended)
 
@@ -211,6 +233,7 @@ REPORT_COLUMNS = ("id", "period_label", "period_start", "period_end", "created_a
 PROFILE_LEFT_OUT = {"ai_memory"}   # the AI guide's own notes, never shown in the app
 # a former client's client.csv: who they were to the advisor when it ended
 FORMER_COLUMNS = ("client_name", "email", "ended_at", "ended_by", "account")
+CONSENT_COLUMNS = ("at", "kind", "scope", "how", "text_shown", "text_sha256")
 
 
 def client_record(conn, advisor_id: int, client_id: int) -> dict[str, list[dict]]:
@@ -253,6 +276,10 @@ def client_record(conn, advisor_id: int, client_id: int) -> dict[str, list[dict]
         found[file] = [dict(r) for r in conn.execute(
             f"SELECT {', '.join(cols)} FROM {table} WHERE client_id = ? AND advisor_id = ? "
             "ORDER BY id", (client_id, advisor_id))]
+    # the client's consent to share with this advisor and its end, word for
+    # word (consent.py) - between the two of them only
+    found["consent"] = [{c: r[c] for c in CONSENT_COLUMNS}
+                        for r in reversed(consent.between(conn, client_id, advisor_id))]
     # their answers are their own: in the record only while they're a client
     found["profile"] = [] if former is not None else [
         {k: v for k, v in dict(r).items() if k not in PROFILE_LEFT_OUT}

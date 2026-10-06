@@ -9,6 +9,7 @@
 # ruff: noqa: F821
 
 import proposals
+import standing_line
 
 
 def _prop_advisor_ok(c):
@@ -41,11 +42,12 @@ def _prop_who_for_client(c, client_id):
 
 
 def _prop_tell_client(email, advisor_name, note):
-    """Email the client that a proposal is waiting - no figures. What to add
-    to the advisor's message."""
+    """Email the client that a proposal is waiting - no figures, with the
+    advisor's standing line. What to add to the advisor's message."""
     if not email:
         return note
-    if mailer.proposal_shared(email, f"{_app_address()}?page=your-advisor", advisor_name):
+    if mailer.proposal_shared(email, f"{_app_address()}?page=your-advisor", advisor_name,
+                              standing=_standing_text(st.session_state["user_id"])):
         return f" We emailed {email} to let them know."
     return " (The email to let them know couldn't be sent.)"
 
@@ -182,6 +184,7 @@ def _prop_card(p, cmp, *, as_advisor):
         if p.get("note"):
             st.markdown(("**From your advisor:** " if not as_advisor else "**Your note:** ")
                         + p["note"].replace("$", r"\$"))
+        _render_standing(p["advisor_id"])   # whose advice it is (standing_line.py)
         st.dataframe(pd.DataFrame([{
             "Asset class": cls,
             "Today": "-" if now is None else mask_or(f"{now:.0f}%"),
@@ -244,18 +247,14 @@ def _prop_card(p, cmp, *, as_advisor):
                            help="A one-page PDF of this proposal to share or print."):
                 # the names as each side knows them - the advisor's name for
                 # the client, the advisor's name and firm - not their logins
-                if as_advisor:
-                    c = connect(DB)
-                    try:
-                        card = prefs.load(c, p["advisor_id"]).get("advisor_card") or {}
-                    finally:
-                        c.close()
-                    adv = _advisor_names(card, st.session_state["username"])[0]
-                else:
-                    adv = _advisor_display_name()
+                c = connect(DB)
+                try:
+                    adv = standing_line.who(c, p["advisor_id"])
+                finally:
+                    c.close()
                 st.session_state[key] = proposals.render_pdf(
                     p, cmp if not _hidden() else {**cmp, "projected": None},
-                    client_name=ACTIVE_NAME, advisor_name=adv)
+                    client_name=ACTIVE_NAME, advisor_name=adv["name"], firm=adv["firm"])
                 st.rerun()
 
 

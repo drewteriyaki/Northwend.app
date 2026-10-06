@@ -113,6 +113,15 @@ pasted text and screenshots are not kept. Clients can also use an example or
   mark private).
 - **No other advisor or user.** [OWNER: firms with several advisors - not supported
   today; each link is one advisor to one client.]
+- **Every visit is logged and shown to the client.** Each page you open in a
+  client's account is recorded (you, the client, the page, the time - never what
+  was on it), and your client sees the list on their Account page. You never see
+  another advisor's visits.
+- **Consent is recorded.** When a client agrees to share their account with you
+  (today: setting up their login from your link) and when sharing ends (they stop
+  it, you end it, or an account is deleted), the time and the exact words they
+  were shown are kept. When sharing ends, your access ends on your very next page
+  load. Your client record export includes your consent records with that client.
 
 ## AI and other services
 
@@ -144,6 +153,9 @@ section 4.
 - The database provider keeps a rolling backup of about 6 hours; deleted data is
   gone from it after that. [OWNER: confirm Neon's history window on the current plan.]
 - Short-lived security records (sign-up and email-limit hashes) are kept one day.
+- **Consent records and the access log** are append-only (the app's database role
+  can add and read them, not change or delete them) and kept 7 years after
+  sharing ends, even when either account is deleted. [LAWYER: confirm the period.]
 - **Record-keeping is yours.** Northwend is not a books-and-records system. Export
   what you need to keep under your own obligations. [LAWYER: SEC Rule 204-2 / FINRA
   wording.] [OWNER: note archiving and a client record export are being added in a

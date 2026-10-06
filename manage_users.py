@@ -7,6 +7,7 @@ created (there is no signup anywhere in the web app itself).
   python manage_users.py list   [--db portfolio.db]
   python manage_users.py bulk-create <file.txt> [--db portfolio.db]
   python manage_users.py make-advisor | remove-advisor <username>
+        [--source BrokerCheck|IAPD --crd <number matched> --checked-on YYYY-MM-DD]
   python manage_users.py link | unlink <advisor> <client>
   python manage_users.py clients <advisor>
   python manage_users.py make-admin | remove-admin <username>
@@ -166,7 +167,17 @@ def cmd_set_advisor(args, flag: bool) -> int:
     conn = connect(args.db)
     if flag:
         import admin
-        res = admin.approve_advisor(conn, args.username)
+        check = None
+        if getattr(args, "source", None) or getattr(args, "crd", None):
+            # the licence check made (licence_check.py, D15) - kept with the approval
+            from datetime import datetime, timezone
+            check = {"source": args.source, "crd": args.crd or "",
+                     "checked_on": args.checked_on or datetime.now(timezone.utc).date()}
+        try:
+            res = admin.approve_advisor(conn, args.username, check=check)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
         found = res["ok"]
     else:
         found, res = auth.set_advisor(conn, args.username, flag), {"emailed": None}
@@ -547,7 +558,14 @@ def main(argv=None) -> int:
                                              "(approves its advisor request)"),
                             ("remove-advisor", "take advisor rights away from an account"),
                             ("decline-advisor", "turn down an account's advisor request")):
-        sub.add_parser(name, help=help_text).add_argument("username")
+        p = sub.add_parser(name, help=help_text)
+        p.add_argument("username")
+        if name == "make-advisor":   # the licence check made (licence_check.py, D15)
+            p.add_argument("--source", choices=("BrokerCheck", "IAPD"),
+                           help="where the registration was looked up")
+            p.add_argument("--crd", help="the CRD or licence number that matched")
+            p.add_argument("--checked-on", help="the day it was checked (YYYY-MM-DD; today "
+                                                "if left out)")
     sub.add_parser("advisor-requests", help="accounts waiting for advisor access")
     for name, help_text in (("make-admin", "give an account the in-app Admin portal"),
                             ("remove-admin", "take the Admin portal away from an account")):

@@ -31,7 +31,10 @@ account, contact us and we will delete it.
 - If you turn on two-step sign-in: the key your authenticator app uses (stored so
   codes can be checked) and your backup codes as hashes.
 - "Stay signed in": a random token in a cookie on your device; we store only a hash.
-- For advisors asking for access: your firm's name and your CRD or licence number.
+- For advisors asking for access: your firm's name and your CRD or licence number,
+  and a note of each check of your registration (where it was looked up, the number
+  that matched and the day); where the advisor agreement is in use, which version
+  you accepted and when.
 
 **Your investments and plans** (what you or your advisor add)
 
@@ -139,6 +142,17 @@ see (the account map is never emailed, and its PDF is only downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
 
+**Who has looked at your account.** Each time an advisor opens a page in a
+client's account, Northwend records who, which page and when - never what was on
+the page or any figure - and the client sees the list on their Account page ("Who
+has looked at your account", the last 90 days; their data download has all of
+it). An advisor never sees another advisor's visits. When a client agrees to share
+their account with an advisor (today: when they set up their login from the
+advisor's link), or sharing ends (the client stops it, the advisor ends it, we
+unlink them on request, or an account is deleted), Northwend records it with the
+time and the exact words the client was shown. Section 7 says how long these
+records are kept.
+
 The person who runs Northwend can see, on an admin page, only login details:
 username, email, role, when the account was made and last signed in, and locks -
 not your holdings, plans or answers - and the feature counts, as totals only.
@@ -222,6 +236,7 @@ you delete it.
 | Error records (the kind of error and where it happened, no personal data) | 90 days |
 | The record of what the person running Northwend did to accounts (never holdings) | 1 year |
 | An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept with the advisor's account, for their record-keeping duties (section 8) |
+| Records of consent to share with an advisor (when, which advisor, the exact words shown) and of each advisor's visits to a client's account (who, which page, when - never figures) | 7 years after the sharing ends (visits: 7 years), kept even when either account is deleted, to protect the client and the advisor in a dispute |
 | Server logs at the hosts | Under each host's own policy |
 | Requests to the AI | Under Anthropic's terms (section 5) |
 
@@ -232,7 +247,8 @@ you delete it.
   Profile, Plan and the holdings window). An advisor-managed client can ask their
   advisor, or us.
 - **Download:** the Account page's "Export everything" downloads everything held for
-  your account as spreadsheet (CSV) files. Passwords, sign-in tokens, internet
+  your account as spreadsheet (CSV) files, including the sharing and "who has
+  looked" records. Passwords, sign-in tokens, internet
   address hashes, advisors' private notes and other accounts' data aren't included.
 - **Delete holdings:** the Account page deletes all your holdings, cash, activity
   and value history (your goals, answers, notes and settings stay).
@@ -245,7 +261,10 @@ you delete it.
   former advisor keeps only their own records about working with you: their
   notes, the proposals and progress reports they sent you, and the name and email
   they had for you, because advisers must keep records of their advice. They
-  can't see your account once you've stopped sharing with them.
+  can't see your account once you've stopped sharing with them. The records of
+  your consent to share and of advisors' visits to your account also stay, for 7
+  years (section 7): they hold who, when and the words you were shown, never
+  figures.
 - **Anything else,** or if you can't sign in: email {{CONTACT}}. We'll answer
   within 30 days, and usually much sooner. Whatever state you live in, you can
   ask us what we hold about you, to correct it, or to delete it.

@@ -159,6 +159,19 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `decoder_401k`; pasted order, never sorted, nothing saved) and `decoder_public.py` +
   `views/decoder_public.py` (`?decode=401k` without an account, flag `decoder_public` +
   gate L0, a per-address limit - only after the hosting move).
+- Advisor safeguards (PLAN step 5): `advisor_agreement.py` + `views/advisor_agreement.py`
+  (flag `advisor_agreement`; until the current version is accepted `auth.can_view` opens
+  no client), `licence_check.py` (BrokerCheck/IAPD evidence at approval, re-check due at
+  11 months, not current after 13; nightly count email), `standing_line.py` (the "advice is
+  the advisor's" line on proposals, reports, messages and their emails), `consent.py`
+  (append-only grants/revokes with the exact words shown) and `access_log.py` (each page an
+  advisor opens in a client's account; the client sees it on Account). Consent and access
+  rows are `admin.KEPT_AFTER_DELETE` (7 years, only their own `prune` deletes).
+- The advisor directory: `directory.py` + `views/directory.py` (flag `directory` + gate L2;
+  table `advisor_profiles`). "Find a guide" in an individual's name menu (never client
+  mode), the advisor's "Your directory listing" on Your clients. Alphabetical by name
+  within B4's five filters - `directory.sort_key` is the only sort, never anything
+  computed or paid; nothing about browsing is written. Intro button: `request_intro_placeholder`.
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting move (PLAN step 4): `docs/CLOUDFLARE.md` (headers, proxy, obfuscation off),

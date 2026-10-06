@@ -456,6 +456,25 @@ CREATE TABLE IF NOT EXISTS advisor_requests (
     decided_at    TEXT
 );
 
+-- An advisor's directory listing - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS advisor_profiles (
+    user_id        INTEGER PRIMARY KEY,
+    display_name   TEXT    NOT NULL DEFAULT '',
+    firm           TEXT    NOT NULL DEFAULT '',
+    reg_type       TEXT    NOT NULL DEFAULT '',
+    reg_number     TEXT    NOT NULL DEFAULT '',
+    credentials    TEXT    NOT NULL DEFAULT '[]',
+    fee_models     TEXT    NOT NULL DEFAULT '[]',
+    minimum        TEXT    NOT NULL DEFAULT '',
+    serves         TEXT    NOT NULL DEFAULT '[]',
+    states         TEXT    NOT NULL DEFAULT '[]',
+    meeting        TEXT    NOT NULL DEFAULT '',
+    description    TEXT    NOT NULL DEFAULT '',
+    scheduling_url TEXT    NOT NULL DEFAULT '',
+    listed         INTEGER NOT NULL DEFAULT 0,
+    updated_at     TEXT    NOT NULL
+);
+
 -- An ended advisor relationship - see the matching comment in schema.sql.
 CREATE TABLE IF NOT EXISTS former_clients (
     advisor_id   INTEGER NOT NULL,
@@ -581,3 +600,52 @@ CREATE TABLE IF NOT EXISTS admin_log (
     detail      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log (at);
+
+-- The advisor agreement - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS advisor_agreements (
+    id           SERIAL  PRIMARY KEY,
+    user_id      INTEGER NOT NULL,
+    version      TEXT    NOT NULL,
+    text_hash    TEXT    NOT NULL,
+    l1_on        INTEGER NOT NULL DEFAULT 0,
+    accepted_at  TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_advisor_agreements_user ON advisor_agreements (user_id, id);
+
+-- Licence checks - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS licence_checks (
+    id           SERIAL  PRIMARY KEY,
+    advisor_id   INTEGER NOT NULL,
+    source       TEXT    NOT NULL,
+    crd          TEXT    NOT NULL,
+    checked_on   TEXT    NOT NULL,
+    checked_by   INTEGER,
+    recorded_at  TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_licence_checks_advisor ON licence_checks (advisor_id, checked_on);
+
+-- Consent records - see the matching comment in schema.sql. The app's role
+-- can't UPDATE or DELETE them (portfolio._append_only_grants).
+CREATE TABLE IF NOT EXISTS consent_records (
+    id          SERIAL  PRIMARY KEY,
+    at          TEXT    NOT NULL,
+    client_id   INTEGER NOT NULL,
+    advisor_id  INTEGER NOT NULL,
+    kind        TEXT    NOT NULL,
+    scope       TEXT    NOT NULL,
+    text_shown  TEXT,
+    text_sha256 TEXT,
+    how         TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_consent_records_pair ON consent_records (client_id, advisor_id);
+
+-- The advisor access log - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS advisor_access_log (
+    id          SERIAL  PRIMARY KEY,
+    at          TEXT    NOT NULL,
+    advisor_id  INTEGER NOT NULL,
+    client_id   INTEGER NOT NULL,
+    page        TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_advisor_access_log_client ON advisor_access_log (client_id, at);
+CREATE INDEX IF NOT EXISTS idx_advisor_access_log_at ON advisor_access_log (at);

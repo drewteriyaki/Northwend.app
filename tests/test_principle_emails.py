@@ -21,6 +21,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 import mailer  # noqa: E402
+import standing_line  # noqa: E402
 import weekly_email  # noqa: E402
 
 # public functions in mailer.py that don't build an email
@@ -30,6 +31,8 @@ LINK = "https://app.northwend.app/?page=advisor-notes&token=Zx_kQ-abcdefABCDEF"
 UNSUB = "https://app.northwend.app/?unsubscribe=Qw_er-tyUIOPasdfgh"
 TO = "dana.lee@example.com"
 ADVISOR = "Carol Reyes, Reyes Wealth Partners"
+# the advisor's standing line (standing_line.py, master brief 4.4)
+STANDING = standing_line.text("Carol Reyes", "Reyes Wealth Partners")
 # the CRD or licence number an advisor typed: an identifier the admin looks
 # up, sent only to the support address - not a figure
 LICENCE = "CRD 7012345"
@@ -40,9 +43,10 @@ SAMPLES = {
     "confirm_new_email": [dict(to=TO, link=LINK, days=7)],
     "email_changed": [dict(to=TO, new_email="dana.new@example.com", link=LINK)],
     "report_ready": [dict(to=TO, link=LINK, advisor_name=ADVISOR, period="Q3 2026",
-                          from_name=ADVISOR),
-                     dict(to=TO, link=LINK, advisor_name=ADVISOR, period="September 2026")],
-    "proposal_shared": [dict(to=TO, link=LINK, advisor_name=ADVISOR)],
+                          standing=STANDING, from_name=ADVISOR),
+                     dict(to=TO, link=LINK, advisor_name=ADVISOR, period="September 2026",
+                          standing=STANDING)],
+    "proposal_shared": [dict(to=TO, link=LINK, advisor_name=ADVISOR, standing=STANDING)],
     "proposal_answered": [dict(to=TO, link=LINK, client_name="Dana Lee", accepted=True),
                           dict(to=TO, link=LINK, client_name="Chen household",
                                accepted=False)],
@@ -59,7 +63,11 @@ SAMPLES = {
                              licence=LICENCE)],
     "advisor_approved": [dict(to=TO, link=LINK)],
     "advisor_declined": [dict(to=TO, link=LINK)],
-    "advisor_message": [dict(to=TO, link=LINK, advisor_name=ADVISOR, from_name=ADVISOR)],
+    "advisor_message": [dict(to=TO, link=LINK, advisor_name=ADVISOR, standing=STANDING,
+                             from_name=ADVISOR)],
+    # the nightly licence step (licence_check.remind): counts only
+    "licence_checks_due": [dict(to=TO, link=LINK, due=3, overdue=1),
+                           dict(to=TO, link=LINK, due=1, overdue=0)],
     "relationship_ended": [dict(to=TO, link=LINK, advisor_name=ADVISOR),
                            dict(to=TO, link=LINK, advisor_name=ADVISOR, setup_days=7,
                                 from_name=ADVISOR)],
@@ -139,6 +147,17 @@ class EmailFigures(unittest.TestCase):
                     for key, value in mail["headers"].items():
                         self.assertEqual(figures_in(f"{key}: {value}"), [], f"{name}: {key}")
                     self.assertTrue(mail["subject"].strip() and mail["text"].strip())
+
+    def test_advisor_authored_emails_carry_the_standing_line(self):
+        # master brief 4.4: whatever an advisor sends a client says whose advice it is
+        for name in ("report_ready", "proposal_shared", "advisor_message"):
+            self.assertIn("standing", inspect.signature(getattr(mailer, name)).parameters)
+            for kwargs in SAMPLES[name]:
+                with self.subTest(email=name):
+                    mail = render(getattr(mailer, name), kwargs)[0]
+                    self.assertIn(STANDING, mail["text"])
+                    self.assertIn("Carol Reyes&#x27;s advice, from Reyes Wealth Partners - not "
+                                  "Northwend&#x27;s.", mail["html"])
 
     def test_the_check_itself_catches_figures(self):
         # so a quiet pass means something

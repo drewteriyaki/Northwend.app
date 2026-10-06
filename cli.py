@@ -10,6 +10,7 @@
     northwend-weekly-email          # weekly_email.py: advisors' Monday email
     northwend-migrate --db <dsn>    # portfolio.py migrate: the schema, on purpose, and its version
     northwend-tidy --db <dsn>       # tidy.py: the retention schedule (nightly job)
+    northwend-licence-check --db <dsn>  # licence_check.py: advisors due a licence re-check
 
 Each takes the same options as `python <script>.py` and runs that script's
 main(). Like the scripts' own `__main__` blocks, a command closes any pooled
@@ -72,4 +73,9 @@ def migrate(argv=None):
 
 def tidy(argv=None):
     import tidy as mod
+    return _run(mod.main, argv)
+
+
+def licence_check(argv=None):
+    import licence_check as mod
     return _run(mod.main, argv)

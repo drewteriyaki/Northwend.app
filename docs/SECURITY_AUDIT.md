@@ -225,6 +225,12 @@ Open:
 - Nothing re-checks once a year.
 - The Terms draft still has `[OWNER: describe how the check is done]`
   (`docs/legal/terms-of-use-DRAFT.md:154-155`).
+*PLAN step 5 (built):* all three. The approval form records the source
+(BrokerCheck or IAPD), the CRD matched and the day (`licence_check.py`,
+`licence_checks`); Admin > Licence checks lists advisors due from 11 months
+and flags them past 13 (`licence_check.licence_current` for the directory); the
+nightly tidy job emails the admin a count, at most weekly; the Terms draft
+describes the process.
 
 **1.2d New resources from the master brief - Not built yet, P1 before L2 opens.**
 The master brief (Oct 5) adds four resources: the advisor directory, intro

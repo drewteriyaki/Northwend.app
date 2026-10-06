@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 # The only action words a row can have.
 ACTIONS = (
     "approve_advisor",    # made an advisor (approving a request, or straight away)
+    "licence_check",      # recorded a licence check (licence_check.py) - source and day only
     "decline_advisor",    # turned down an advisor request
     "remove_advisor",     # took advisor rights away
     "make_admin",         # command line only

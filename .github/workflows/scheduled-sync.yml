@@ -109,6 +109,17 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python tidy.py --db "$DATABASE_URL"
+      # D15: how many advisors are due a licence re-check (11 months since
+      # the last, or none on record) - counts only, emailed to the admin at
+      # most once a week while any are (licence_check.py). Skipped quietly
+      # without RESEND_API_KEY.
+      - name: Count advisors due a licence check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python licence_check.py --db "$DATABASE_URL"
       - name: Tell the admin it failed
         if: failure()
         env:

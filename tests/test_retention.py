@@ -236,7 +236,9 @@ class TidyTests(_DB):
         done = tidy.run(c, now=NOW)
         self.assertEqual(done, {"unconfirmed accounts": 0, "error records": 1, "email links": 1,
                                 "setup links": 1, "sessions": 1, "wrong-password counts": 2,
-                                "sign-up counts": 1, "email-send counts": 1, "minute bars": 1})
+                                "sign-up counts": 1, "email-send counts": 1, "minute bars": 1,
+                                # 7 years (B6): nothing that old here
+                                "consent records": 0, "advisor access log rows": 0})
         q = lambda sql: [tuple(r) for r in c.execute(sql)]  # noqa: E731
         self.assertEqual(q("SELECT kind FROM error_events"), [("recent",)])
         self.assertEqual(q("SELECT token_hash FROM email_tokens"), [("t-live",)])

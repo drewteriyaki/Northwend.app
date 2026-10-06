@@ -511,13 +511,14 @@ def create_invite(conn, advisor_id: int, client_id: int, *,
 
 
 def invite_info(conn, token: str | None, *, now: datetime | None = None) -> dict | None:
-    """{"user_id", "username", "expires_at"} for a live setup link, else None
-    (unknown, expired or already used alike)."""
+    """{"user_id", "username", "expires_at", "advisor_id" (who made it)} for
+    a live setup link, else None (unknown, expired or already used alike)."""
     if not token:
         return None
     now = now or datetime.now(timezone.utc)
     row = conn.execute(
-        "SELECT i.user_id, u.username, i.expires_at FROM invites i JOIN users u ON u.id = i.user_id "
+        "SELECT i.user_id, u.username, i.expires_at, i.created_by AS advisor_id "
+        "FROM invites i JOIN users u ON u.id = i.user_id "
         "WHERE i.token_hash = ? AND i.expires_at > ?", (_token_hash(token), _utc(now))).fetchone()
     return dict(row) if row else None
 
@@ -538,14 +539,17 @@ def cancel_invite(conn, client_id: int) -> None:
 
 def accept_invite(conn, token: str, password: str, *, agreed: bool = False,
                   adult: bool = False, us_resident: bool = False,
-                  terms_version: str | None = None,
+                  terms_version: str | None = None, consent_text: str | None = None,
                   now: datetime | None = None) -> dict:
     """The client sets their password from a setup link and agrees to the
     About and disclosures, as at sign-up: `agreed` / `adult` / `us_resident`
     are the form's three checkboxes and `terms_version` the version agreed to (kept with the
     time - record_agreement), all required. The link is used up (it can't
     set the password again), and any other sign-ins of that account end.
-    Returns {"ok", "error", "user_id", "username"}."""
+    While they're still that advisor's client, a consent grant is recorded
+    with the sharing words the page showed (`consent_text`; by default
+    consent.setup_link_text for this advisor). Returns {"ok", "error",
+    "user_id", "username"}."""
     info = invite_info(conn, token, now=now)
     if info is None:
         return {"ok": False, "error": "This setup link has expired or was already used. "
@@ -559,6 +563,14 @@ def accept_invite(conn, token: str, password: str, *, agreed: bool = False,
         return {"ok": False, "error": missing, "user_id": None, "username": None}
     record_agreement(conn, info["user_id"], terms_version, via=TERMS_VIA_SETUP_LINK,
                      now=now, commit=False)   # set_password below commits it all
+    advisor_id = info.get("advisor_id")
+    if advisor_id and conn.execute("SELECT 1 FROM advisor_clients WHERE advisor_id = ? AND "
+                                   "client_id = ?", (advisor_id, info["user_id"])).fetchone():
+        import consent
+        consent.grant(conn, info["user_id"], advisor_id,
+                      consent_text or consent.setup_link_text(
+                          consent.advisor_label(conn, advisor_id)),
+                      "setup_link", now=now, commit=False)
     conn.execute("DELETE FROM invites WHERE user_id = ?", (info["user_id"],))
     stamp = _utc(now or datetime.now(timezone.utc))
     # an email the advisor gave counts as confirmed once the client is in
@@ -1214,8 +1226,13 @@ def link_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> No
 
 
 def unlink_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> None:
-    conn.execute("DELETE FROM advisor_clients WHERE advisor_id = ? AND client_id = ?",
-                 (advisor_id, client_id))
+    """The admin's unlink (Admin portal, manage_users.py): when there was a
+    link, a consent revoke records that it ended ('admin', consent.py)."""
+    cur = conn.execute("DELETE FROM advisor_clients WHERE advisor_id = ? AND client_id = ?",
+                       (advisor_id, client_id))
+    if cur.rowcount:
+        import consent
+        consent.revoke(conn, client_id, advisor_id, "admin", commit=False)
     conn.commit()
 
 
@@ -1270,10 +1287,15 @@ def _login_from_name(conn, name: str) -> str:
 
 def can_view(conn: sqlite3.Connection, viewer_id: int, target_id: int) -> bool:
     """Whose data a logged-in user may see: their own, plus - if they're an
-    advisor - accounts linked to them as clients."""
+    advisor - accounts linked to them as clients, once they've accepted the
+    current advisor agreement (advisor_agreement.tools_open: asked only while
+    its flag is on)."""
     if viewer_id == target_id:
         return True
     if not is_advisor(conn, viewer_id):
+        return False
+    import advisor_agreement
+    if not advisor_agreement.tools_open(conn, viewer_id):
         return False
     return conn.execute("SELECT 1 FROM advisor_clients WHERE advisor_id = ? AND client_id = ?",
                         (viewer_id, target_id)).fetchone() is not None

@@ -9,6 +9,7 @@
 
 import proposals
 import reports
+import standing_line
 
 
 def _rep_save_one(c, viewer, target, kind, message, value, today):
@@ -42,9 +43,10 @@ def _rep_untold(signed_in):
 
 def _rep_tell(email, label, card):
     """Email a client that a report is waiting - no figures - from the
-    advisor's name and firm. True if sent."""
+    advisor's name and firm, with their standing line. True if sent."""
     body_name, from_name = _advisor_names(card, st.session_state["username"])
     return mailer.report_ready(email, f"{_app_address()}?page=advisor-notes", body_name, label,
+                               standing=_standing_text(st.session_state["user_id"]),
                                from_name=from_name)
 
 
@@ -181,7 +183,7 @@ def _rep_body(rep, money):
         _md("**What's next:**  \n" + "  \n".join(f"- {s}" for s in steps))
 
 
-def _rep_pdf_button(rep, client_name, advisor_name):
+def _rep_pdf_button(rep, client_name):
     key = f"rep_pdf_{rep['id']}"
     if st.session_state.get(key):
         st.download_button("Download PDF", st.session_state[key], mime="application/pdf",
@@ -191,8 +193,13 @@ def _rep_pdf_button(rep, client_name, advisor_name):
                    # a report is its figures: the file has them, hidden here or not
                    help=("The PDF shows the report's real amounts, even while amounts are "
                          "hidden here." if _hidden() else None)):
+        c = connect(DB)
+        try:   # the advisor's name and firm as their clients know them
+            adv = standing_line.who(c, rep["advisor_id"])
+        finally:
+            c.close()
         st.session_state[key] = reports.render_pdf(rep, client_name=client_name,
-                                                   advisor_name=advisor_name)
+                                                   advisor_name=adv["name"], firm=adv["firm"])
         st.rerun()
 
 
@@ -245,7 +252,6 @@ def _render_reports_client():
     c = connect(DB)
     try:
         sent = reports.for_client(c, USER_ID)
-        adv = auth.get_username(c, sent[0]["advisor_id"]) if sent else None
     finally:
         c.close()
     if not sent:
@@ -259,4 +265,5 @@ def _render_reports_client():
             if rep.get("message"):
                 _md(f"**From your advisor:** {rep['message']}")
             _rep_body(rep, fmt_money0)
-            _rep_pdf_button(rep, ACTIVE_NAME, _advisor_display_name() if MY_ADVISOR_CARD else adv)
+            _render_standing(rep["advisor_id"])   # whose advice it is (standing_line.py)
+            _rep_pdf_button(rep, ACTIVE_NAME)

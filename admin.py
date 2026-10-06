@@ -18,6 +18,7 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 
 import auth
+import consent
 import settings
 import two_step
 
@@ -37,6 +38,10 @@ ACCOUNT_TABLES = {
     "former_clients": ("advisor_id", "client_id"),
     "future_notes": ("user_id",),   # notes to future you (future_notes.py)
     "account_map": ("user_id",),   # the account map (account_map.py)
+    # the advisor agreement accepted (advisor_agreement.py) and the licence
+    # checks made about an advisor (licence_check.py)
+    "advisor_agreements": ("user_id",), "licence_checks": ("advisor_id",),
+    "advisor_profiles": ("user_id",),   # an advisor's directory listing (directory.py)
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)
@@ -48,7 +53,18 @@ ACCOUNT_REFERENCES = {"plans": ("set_by",), "money_out": ("set_by",),
                       "invite_codes": ("created_by", "used_by"),
                       # the admin action log (admin_log.py): the row stays,
                       # without the deleted account's id
-                      "admin_log": ("admin_id", "target_id")}
+                      "admin_log": ("admin_id", "target_id"),
+                      # the admin who recorded a licence check: the check stays
+                      "licence_checks": ("checked_by",)}
+# Append-only records kept, ids and all, when an account is deleted (audit
+# 1.6f, PLAN B6): consent to share with an advisor (consent.py) and the
+# advisor access log (access_log.py). They hold ids, times and the words
+# shown, never figures, and protect both the client and the advisor in a
+# dispute - so they stay 7 years (their own prune, run by tidy.py), and the
+# ids stay too, so a record still says who. Not cleared like
+# ACCOUNT_REFERENCES, never deleted like ACCOUNT_TABLES.
+KEPT_AFTER_DELETE = {"consent_records": ("client_id", "advisor_id"),
+                     "advisor_access_log": ("advisor_id", "client_id")}
 
 
 def listed_admins() -> set[str]:
@@ -100,15 +116,28 @@ def _advisor_email(conn, username: str) -> tuple[dict | None, str | None]:
     return dict(row), to
 
 
-def approve_advisor(conn, username: str, app_link: str | None = None) -> dict:
+def approve_advisor(conn, username: str, app_link: str | None = None, *,
+                    check: dict | None = None, by: int | None = None) -> dict:
     """Make `username` an advisor (approving their request, if any) and email
-    them that it's ready (mailer.advisor_approved). Returns {"ok": False if
+    them that it's ready (mailer.advisor_approved). `check`: the licence check
+    the admin made - {"source", "crd", "checked_on"} (licence_check.record,
+    D15), kept with `by` (the admin); a bad one raises ValueError before
+    anything changes (licence_check.check_error). Returns {"ok": False if
     there's no such login, "emailed": True / False (the email failed) / None
     (no address, or they were an advisor already - nothing to say)}."""
+    import licence_check
     import mailer
+    if check is not None:
+        error = licence_check.check_error(check.get("source"), check.get("crd"),
+                                          check.get("checked_on"))
+        if error:
+            raise ValueError(error)
     row, to = _advisor_email(conn, username)
     if row is None:
         return {"ok": False, "emailed": None}
+    if check is not None:
+        licence_check.record(conn, row["id"], source=check["source"], crd=check["crd"],
+                             checked_on=check["checked_on"], by=by, commit=False)
     auth.set_advisor(conn, username, True)
     if row["is_advisor"] or not to:
         return {"ok": True, "emailed": None}
@@ -134,8 +163,12 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
     confirmed, role ('admin' / 'advisor' / 'client' / 'investor'), advisor
     (a client's advisor's username), clients (an advisor's count),
     ai_unlimited, signed_up (made it themselves), terms_version and
-    terms_accepted_at (agreeing to the disclosures), licence_checked (when an
-    advisor request was approved, else None), created_at, last_login_at,
+    terms_accepted_at (agreeing to the disclosures), licence_checked (the day
+    of the latest recorded licence check, else when an advisor request was
+    approved, else None), licence_check (the latest recorded check, or None),
+    licence_status (an advisor's licence_check.status, else None), agreement
+    (the advisor agreement last accepted, advisor_agreement.latest_all, or
+    None), created_at, last_login_at,
     locked (a wrong-password lock is running), request (an advisor request
     waiting), two_step (two-step sign-in is on - never its key)."""
     now = now or datetime.now(timezone.utc)
@@ -156,6 +189,11 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
         else:   # approved: their firm and licence number were checked then
             checked[r["user_id"]] = r["decided_at"]
     two_step_on = {r["user_id"] for r in conn.execute("SELECT user_id FROM two_step")}
+    import advisor_agreement
+    import licence_check
+    agreed = advisor_agreement.latest_all(conn)
+    checks = licence_check.last_checks(conn)
+    today = now.date()
     listed = listed_admins()
     out = []
     for r in conn.execute("SELECT id, username, email, email_verified_at, is_advisor, is_admin, "
@@ -173,7 +211,15 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
             "ai_unlimited": bool(r["ai_unlimited"]), "signed_up": auth.made_by_themselves(r),
             # when they agreed to the About and disclosures, and which version
             "terms_version": r["terms_version"], "terms_accepted_at": r["terms_accepted_at"],
-            "licence_checked": checked.get(r["id"]),
+            # the latest recorded check (licence_check.py), else - from before
+            # checks were recorded - the day their request was approved
+            "licence_checked": (checks[r["id"]]["checked_on"] if r["id"] in checks
+                                else checked.get(r["id"])),
+            "licence_check": checks.get(r["id"]),
+            "licence_status": (licence_check.status(checks.get(r["id"]), today=today)
+                               if r["is_advisor"] else None),
+            # the advisor agreement they last accepted (advisor_agreement.py)
+            "agreement": agreed.get(r["id"]),
             "created_at": r["created_at"], "last_login_at": r["last_login_at"],
             # wrong passwords, or wrong two-step codes (two_step.py)
             "locked": bool({auth._login_key(r["username"]), two_step._fail_key(r["id"])}
@@ -220,8 +266,10 @@ def delete_account(conn, user_id: int, *, by: int,
     notes, proposals, reports and former-client rows about this account are
     kept (ADVISOR_RECORD_TABLES) - an advisor closing a client account nobody
     could open (advising.end_relationship), or a former client deleting
-    their own account (delete_own, PLAN D7). Returns {"ok", "error",
-    "username", "orphaned_clients"}."""
+    their own account (delete_own, PLAN D7). Consent records and the advisor
+    access log stay (KEPT_AFTER_DELETE), with a revoke added for each advisor
+    link that ends here. Returns {"ok", "error", "username",
+    "orphaned_clients"}."""
     if keep_records_of is None:
         keep = ()
     elif isinstance(keep_records_of, int):
@@ -238,7 +286,15 @@ def delete_account(conn, user_id: int, *, by: int,
                 "orphaned_clients": 0}
     orphaned = conn.execute("SELECT COUNT(*) AS n FROM advisor_clients WHERE advisor_id = ?",
                             (user_id,)).fetchone()["n"]
+    links = conn.execute("SELECT advisor_id, client_id FROM advisor_clients WHERE "
+                         "advisor_id = ? OR client_id = ?", (user_id, user_id)).fetchall()
     with conn:
+        # sharing this account was part of ends: a revoke each (consent.py),
+        # in the same transaction. Consent records and access logs themselves
+        # stay (KEPT_AFTER_DELETE).
+        for link in links:
+            consent.revoke(conn, link["client_id"], link["advisor_id"], "account_deleted",
+                           commit=False)
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
             params = (user_id,) * len(cols)

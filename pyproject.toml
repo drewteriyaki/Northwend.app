@@ -38,6 +38,7 @@ northwend-users = "cli:users"
 northwend-weekly-email = "cli:weekly_email"
 northwend-migrate = "cli:migrate"
 northwend-tidy = "cli:tidy"
+northwend-licence-check = "cli:licence_check"
 
 [tool.setuptools]
 py-modules = [
@@ -45,6 +46,7 @@ py-modules = [
     "ai_usage", "alerts", "whats_new",
     "allocation", "asset_classes", "auth", "brokerages", "changes", "charts", "checkin",
     "checkin_email", "cli", "client_csv", "client_plan", "codefresh", "context_card",
+    "consent", "access_log",
     "csv_import", "dashboard", "disclosures", "error_alerts", "export", "feature_counts", "fees",
     "friendly_errors", "fund_holdings", "future_notes", "gear", "hosting", "income",
     "invite_codes", "learn", "live_prices",
@@ -65,6 +67,9 @@ py-modules = [
     "tidy",   # the nightly retention job (northwend-tidy)
     "ai_policy",   # the conclusion policy: the AI's rules and the output check (AI_PLAN 7)
     "ai_library", "ai_tools",   # Ask Northwend's library and calculator tools (AI_PLAN 5)
+    # PLAN step 5: the advisor agreement, licence checks (D15), the standing line
+    "advisor_agreement", "licence_check", "standing_line",
+    "directory",   # the advisor directory and Find a guide (PLAN step 5)
 ]
 # the AI eval set (docs/AI_PLAN.md 8): cases, the offline checker, the runner
 packages = ["evals"]

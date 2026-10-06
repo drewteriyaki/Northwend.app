@@ -110,7 +110,7 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 | A10 | About and disclosures (in the app and as the website's About page) | `disclosures.py` | Education | L0 (its paid and advisor sections change at L1/L2 - section 7) | No |
 | A11 | "Something went wrong" message; error email to the admin | `friendly_errors.py`, `error_alerts.py` | Account | L0 | No |
 | A12 | Admin portal: accounts, advisor requests, AI use, feature tests, System | `views/admin.py`, `admin.py` | Account | L0 | No |
-| A13 | Asking for advisor access (firm and CRD or licence number; the admin checks and approves) | `auth.py:964-991`, `views/admin.py:48`, `mailer.py:225-266` | Advisor tool | L1 | No. No stored evidence, check date or yearly re-check yet (brief 4.1). |
+| A13 | Asking for advisor access (firm and CRD or licence number; the admin checks and approves) | `auth.py:964-991`, `views/admin.py:48`, `mailer.py:225-266` | Advisor tool | L1 | No. No stored evidence, check date or yearly re-check yet (brief 4.1). **Step 5:** the approval form records the source (BrokerCheck / IAPD), the CRD matched and the day (`licence_check.py`, `licence_checks`); Admin lists re-checks due from 11 months, flags 13; a nightly count is emailed to the admin. |
 | A14 | Advisor preview: a made-up book while access is checked | `advisor_demo.py`, `views/advisor_demo.py` | Advisor tool | L1 | No |
 | A15 | AI allowances and the "used up" messages | `ai_usage.py` | Account | L0 | No |
 
@@ -211,14 +211,14 @@ L1 off means these run as free beta seats, as today. The standing line is L2.
 | H1 | Your clients: the book, reason chips, search | `views/clients.py:941`, `overview.py` | Advisor tool | L1 | No |
 | H2 | Add a client; setup link and invite email | `views/clients.py:655`, `auth.py`, `mailer.py:198` | Advisor tool | L1; consent **L2** | No. Today this is the only way a client joins an advisor. There is no separate, recorded second consent (brief 4.3). |
 | H3 | Add clients from a file | `client_csv.py`, `views/clients.py:761` | Advisor tool | L1 | No |
-| H4 | Message clients (and the "you have a message" email) | `views/clients.py:853-938`, `mailer.py:268` | Advisor tool | L1; line **L2** | No. The message carries no firm name and no "advice is the advisor's" line (brief 4.4). |
+| H4 | Message clients (and the "you have a message" email) | `views/clients.py:853-938`, `mailer.py:268` | Advisor tool | L1; line **L2** | No. The message carries no firm name and no "advice is the advisor's" line (brief 4.4). **Step 5:** each message, and its email, carries the standing line with name and firm (`standing_line.py`, interim text). |
 | H5 | Model portfolios (save; apply on a client's Plan) | `views/clients.py:516`, `views/plan.py:729-738` | Advisor tool | L1 | No - the advisor's. |
 | H6 | How clients see you (advisor card); Monday email setting | `views/clients.py:465-513` | Advisor tool | L1 | No |
 | H7 | This week summary and the Monday email (counts only) | `views/clients.py:1084`, `weekly_email.py`, `mailer.py:186` | Advisor tool | L1 | No |
-| H8 | Advisor notes: notes, next steps, reviews, archive and edit history; the client's "Your advisor" page | `views/clients.py:15-188`, `advising.py` | Advisor tool | L1; line **L2** | No |
+| H8 | Advisor notes: notes, next steps, reviews, archive and edit history; the client's "Your advisor" page | `views/clients.py:15-188`, `advising.py` | Advisor tool | L1; line **L2** | No. **Step 5:** the advisor card over the client's notes carries the standing line. |
 | H9 | Meeting prep: what changed, AI talking points kept as a private note | `meeting.py`, `views/meeting.py` | Advisor tool | L1 (AI policy L3) | No. Drafts for the advisor only. |
-| H10 | Proposals: draft, compare, share; the client accepts or replies; PDF; emails | `proposals.py`, `views/proposals.py`, `mailer.py:158-183` | Advisor tool | L1; line **L2** | No. The PDF says "This proposal is your advisor's recommendation ... Northwend ... does not give investment advice" (`proposals.py:176-178`). The in-app card and the email don't carry that line or the firm. |
-| H11 | Progress reports: send, read, PDF, email | `reports.py`, `views/reports.py`, `mailer.py:144` | Advisor tool | L1; line **L2** | No. The PDF footer says "Prepared by your advisor in Northwend" (`reports.py:16`), without the standing line or firm. |
+| H10 | Proposals: draft, compare, share; the client accepts or replies; PDF; emails | `proposals.py`, `views/proposals.py`, `mailer.py:158-183` | Advisor tool | L1; line **L2** | No. The PDF says "This proposal is your advisor's recommendation ... Northwend ... does not give investment advice" (`proposals.py:176-178`). The in-app card and the email don't carry that line or the firm. **Step 5:** the card, the PDF and the email carry the standing line with name and firm. |
+| H11 | Progress reports: send, read, PDF, email | `reports.py`, `views/reports.py`, `mailer.py:144` | Advisor tool | L1; line **L2** | No. The PDF footer says "Prepared by your advisor in Northwend" (`reports.py:16`), without the standing line or firm. **Step 5:** the in-app report, its PDF and the email carry the standing line with name and firm. |
 | H12 | Export a client's record; export all records | `export.client_record_zip`, `views/clients.py:190-260` | Advisor tool | L1 | No |
 | H13 | End the relationship; client stops sharing; former clients; their emails | `advising.end_relationship`, `views/clients.py:261-436`, `mailer.py:281-312` | Advisor tool | **L2** (revocation, brief 4.3) | No |
 | H14 | Client mode: no example funds or practice money; Home shows the advisor's next step | `route.advisor_step`, `views/start_home.py:158-230` | Advisor tool | L1 | No |
@@ -406,18 +406,18 @@ The chat itself has no client-mode rule yet.
 |---|---|---|---|---|
 | US-residency attestation; 18+ as its own field | 6 (L0) | Account | L0 | Today 18+ is part of the agreement (audit 1.10c) |
 | Published Terms and Privacy Policy | 6 (L0) | Account | L0 | Drafts in `docs/legal/` |
-| Advisor agreement and attestation at seat activation | 4.1 | Advisor tool | L1 | Marked "beta" while L1 is off |
-| Licence evidence, check date, yearly re-check job | 4.1 | Advisor tool | L1 | Today a manual check, nothing stored but the number |
+| Advisor agreement and attestation at seat activation | 4.1 | Advisor tool | L1 | Marked "beta" while L1 is off. **Built (step 5):** `advisor_agreement.py`, flag `advisor_agreement`; the text is a draft for the lawyer |
+| Licence evidence, check date, yearly re-check job | 4.1 | Advisor tool | L1 | **Built (step 5):** `licence_check.py` - still a manual look-up (no official API), now recorded |
 | Seat billing: hosted checkout and portal, signed webhooks, seat status, founding seats, lapse grace period, daily reconciliation | 4.5, 7, 8a | Billing | L1 + `NORTHWEND_BILLING` | Not on Streamlit Community Cloud (brief 7) |
 | Pricing copy (website and app) | 4.5 | Billing | L1 | One flat price; a test that billing never reads client or intro counts |
-| The directory: profiles, filters, alphabetical only, no ranking (tested) | 4.2 | Directory | L2 | |
-| "Find a guide" page and its one calm link | 3.3 | Directory | L2 | No analytics on who browsed |
+| The directory: profiles, filters, alphabetical only, no ranking (tested) | 4.2 | Directory | L2 | **Built** behind flag `directory` + L2 (`directory.py`, `views/directory.py`, `advisor_profiles`): B4's five filters only; alphabetical by name, tested on shuffled profiles for every filter combination |
+| "Find a guide" page and its one calm link | 3.3 | Directory | L2 | **Built**: one link, in an individual's name menu (never client mode); nothing about browsing written or counted (tested). Its copy is DRAFT (`directory.COPY_STATUS`, `INTRO`, `ABOUT_LINES`) for review here. "Request an introduction" says introductions open soon until the intro flow |
 | Intro request (figure-free view and a message); advisor's text reply or scheduling link | 4.3.1-2 | Directory | L2 | |
 | Second, separate consent to full sharing; consent records (append-only, exact text, time, advisor) | 4.3.3, 7 | Directory | L2 | Kept the lawyer's period; default 7 years |
 | Revoke sharing ends access within one request | 4.3.4 | Advisor tool | L2 | Stop sharing exists (H13); needs the one-request test |
 | Advisor access log, visible to the client (append-only) | 4.3.5 | Advisor tool | L2 | |
-| The standing "advice is the advisor's, not Northwend's" line, with name and firm, on every advisor artefact | 4.4 | Advisor tool | L2 | Today only on the proposal PDF |
-| State-coverage handling | 6 (L2) | Directory | L2 | |
+| The standing "advice is the advisor's, not Northwend's" line, with name and firm, on every advisor artefact | 4.4 | Advisor tool | L2 | **Built (step 5) with interim text:** `standing_line.STANDING_LINE`; the lawyer's final wording replaces it |
+| State-coverage handling | 6 (L2) | Directory | L2 | **Built**: "Your state" filter; an advisor isn't shown for a state they didn't list; the state picked isn't saved |
 | Common starting points (the example-mix rewrite) | 3.1 | Education | L3 | Replaces B9, B10's mix, the suggestion buttons. **Built in step 2** (what L3 off shows) |
 | Conclusion policy, `ContextCard`, figures opt-in, 60+ case eval | 5 | Education | L3 | Step 2 built the policy (`ai_policy.py`) and the eval (`evals/`, 64 cases); the gateway wires the policy |
 | Do-Nothing Ledger (R2) | 3.2 | Descriptive | L0 + flag; L3 review | Must show both directions (ROADMAP risk list) |

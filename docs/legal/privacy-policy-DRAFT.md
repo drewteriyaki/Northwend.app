@@ -154,6 +154,16 @@ see (the account map is never emailed, and its PDF is only downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
 
+Each time an advisor opens a page in a client's account, Northwend records who,
+which client, which page and when - never what was on the page or any figure -
+and the client sees the list on their Account page ("Who has looked at your
+account", the last 90 days; their data download has all of it). An advisor never
+sees another advisor's visits. When a client agrees to share their account with an
+advisor (today: when they set up their login from the advisor's link), or sharing
+ends (the client stops it, the advisor ends it, we unlink them on request, or an
+account is deleted), Northwend records it with the time and the exact words the
+client was shown. Section 7 says how long these records are kept. [LAWYER: wording.]
+
 The person who runs Northwend can see, on an admin page, only login details:
 username, email, role, when the account was made and last signed in, and locks -
 not your holdings, plans or answers - and the feature counts, as totals only.
@@ -243,6 +253,7 @@ in step.]
 | Error records (the kind of error and where it happened, no personal data) | 90 days |
 | The record of what the person running Northwend did to accounts (never holdings) | 1 year [once the admin action log is in - PLAN 1b.3] |
 | An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept for the advisor's record-keeping duties after the client leaves or deletes their account (section 8) [LAWYER: how long] |
+| Records of consent to share with an advisor (when, which advisor, the exact words shown) and of each advisor's visits to a client's account (who, which page, when - never figures) | 7 years after the sharing ends (visits: 7 years), kept even when either account is deleted, to protect the client and the advisor in a dispute [decision B6 in `docs/PLAN.md`; LAWYER: confirm the period] |
 | Server logs at the host | [OWNER: per host; check it's no more than 30 days] |
 | Requests to the AI | Per Anthropic's API terms (section 5) |
 
@@ -268,7 +279,9 @@ in step.]
   they had for you, because advisers must keep records of their advice (for
   example SEC Rule 204-2). They can't see your account once you've stopped
   sharing with them. [LAWYER: confirm this split and how long the advisor may
-  keep these records.]
+  keep these records.] The records of your consent to share and of advisors'
+  visits to your account also stay, for 7 years (section 7): they hold who,
+  when and the words you were shown, never figures.
 - **Anything else,** or if you can't sign in: email support@northwend.app. We'll
   answer within [OWNER: number] days.
 - **Emails:** Northwend sends no newsletters or marketing. Advisors can turn off

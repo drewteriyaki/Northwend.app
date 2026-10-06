@@ -7,6 +7,8 @@
 # the Clients page, and the weekly summary notice.
 # ruff: noqa: F821
 
+import standing_line
+
 # ---- advisor notes, the advisor card, the clients page ------------------------ #
 _NOTE_ICON = {"Review": ":material/event:", "Note": ":material/notes:",
               "Next step": ":material/flag:"}
@@ -24,6 +26,8 @@ def _render_advisor_card(card):
             st.caption(contact)
         if card.get("message"):
             _md(card["message"])
+        if MY_ADVISOR:   # whose advice the notes below are (standing_line.py)
+            _render_standing(MY_ADVISOR)
 
 
 def _notes_for_view(conn):
@@ -142,6 +146,8 @@ def _render_note(n, set_done, archive, edit):
                    + (f" · edited {_fmt_date(n['edited_at'][:10])}" if n.get("edited_at") else "")
                    + (f" · archived {_fmt_date(n['archived_at'][:10])}" if archived else ""))
         _md(n["body"])
+        if n.get("is_message") and n.get("advisor_id"):   # a message: whose advice it is
+            _render_standing(n["advisor_id"])
         if not ON_CLIENT or n.get("advisor_id") != LOGIN_ID:   # only the note's own advisor
             return
         earlier = advising.note_history(n)
@@ -357,7 +363,9 @@ def _stop_sharing():
         adv = advising.advisor_of(c, me)
         if adv is None:
             return
-        res = advising.end_relationship(c, adv, me, by="client")
+        # the confirm step's words go with the consent revoke (consent.py)
+        res = advising.end_relationship(c, adv, me, by="client",
+                                        text_shown=st.session_state.get("_stop_sharing_text"))
         to = auth.email_status(c, adv)
         email = (to["email"] if res["ok"] and to["confirmed"]
                  and auth.notice_ok(c, "ended", to["email"]) else None)
@@ -379,11 +387,16 @@ def _render_stop_sharing():
     with st.expander(":material/link_off: Stop sharing with my advisor", expanded=bool(msg)):
         if msg:
             st.error(msg)
+        words = (f"Your advisor, {_advisor_display_name()}, will no longer see your account. "
+                 "You keep everything - your holdings, plan and goals - and manage them "
+                 "yourself from now on.",
+                 "Your advisor keeps their own notes about your time working together, for "
+                 "their records. We'll let them know you've stopped sharing.")
+        st.session_state["_stop_sharing_text"] = "\n\n".join(words)
         st.markdown(f"Your advisor, **{_md_name(_advisor_display_name())}**, will no longer "
                     "see your account. You keep everything - your holdings, plan and goals - "
                     "and manage them yourself from now on.")
-        st.markdown("Your advisor keeps their own notes about your time working together, for "
-                    "their records. We'll let them know you've stopped sharing.")
+        st.markdown(words[1])
         st.checkbox("I understand - stop sharing my account", key="stop_sharing_ok")
         st.button("Stop sharing", key="stop_sharing", type="primary", on_click=_stop_sharing)
 
@@ -875,6 +888,7 @@ def _send_message():
             to_email = [e for e in confirmed if auth.notice_ok(c, "message", e)]
             waited = len(confirmed) - len(to_email)
         card = prefs.load(c, viewer).get("advisor_card") or {}
+        standing = standing_line.for_advisor(c, viewer)   # whose advice it is (brief 4.4)
     finally:
         c.close()
     if not res["ok"]:
@@ -886,7 +900,8 @@ def _send_message():
         if i:
             time.sleep(0.6)   # the email service takes a couple a second
         emailed += bool(mailer.advisor_message(email, f"{_app_address()}?page=your-advisor",
-                                               body_name, from_name=from_name))
+                                               body_name, standing=standing,
+                                               from_name=from_name))
     n, in_app = len(res["sent_to"]), len(res["sent_to"]) - emailed - waited
     text = (f"Sent to {n} client{'s' if n != 1 else ''} - it's on their Advisor notes page. "
             + (f"Emailed {emailed} that it's there. " if emailed else "")
@@ -939,6 +954,9 @@ def _render_message_clients(rows):
 
 
 def _render_clients():
+    if ADVISOR_AGREEMENT_DUE:   # the advisor agreement first (views/advisor_agreement.py)
+        _render_advisor_agreement()
+        return
     today = datetime.now().date()
     _render_add_client()
     if not CLIENTS:
@@ -1062,6 +1080,9 @@ def _render_clients():
     _render_models()
     st.divider()
     _render_advisor_settings()
+    if flags.on("directory"):   # your listing in Find a guide (views/directory.py)
+        st.divider()
+        _render_directory_listing()
     st.caption(f":material/mail: Questions about using Northwend in your practice: "
                f"**{disclosures.CONTACT}**")
 

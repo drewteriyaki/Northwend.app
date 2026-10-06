@@ -141,13 +141,19 @@ These extra terms apply if you use Northwend as a financial advisor.
 - **Your licence is checked.** You ask for advisor access with your firm's name and
   your CRD or licence number, and we look you up in public records (such as FINRA
   BrokerCheck or the SEC's Investment Adviser Public Disclosure) before turning
-  advisor access on. We may refuse or remove advisor access at any time, for
-  example if a licence can't be confirmed or lapses.
+  advisor access on, keep a record of where we looked, the number that matched and
+  the date, and repeat the check about once a year. We may refuse or remove advisor
+  access at any time, for example if a licence can't be confirmed or lapses.
+- **Whose advice it is.** What you share with a client through Northwend -
+  proposals, progress reports and messages, and the emails saying one is waiting -
+  shows your name and firm and says the advice is yours, not Northwend's.
 - **Client consent.** Before you add a client or their holdings, you must have their
   permission. Clients you add can see their own portfolio, plan, and the notes you
   share with them (not ones you mark private). You can see everything in their
   account except what's theirs alone: their notes to their future self, their
-  monthly walks and their account map.
+  monthly walks and their account map. Each page you open in a client's account
+  is recorded (who, which page, when - never figures), and the client can see that
+  list.
 - **Client relationships.** Your relationship with your clients is between you and
   them. Northwend is not a party to it and does not refer clients to advisors.
   Emails you send through Northwend (a client's setup link, or a note that a report

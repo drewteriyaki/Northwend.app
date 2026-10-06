@@ -47,8 +47,13 @@ Each statement about data here must stay true to the code:
   sign-ups store firm + licence (advisor_requests) and email them to the
   support address (mailer.advisor_request) for the admin to check; the
   decision is emailed to them (admin.approve_advisor / decline_advisor).
+  Each check (source, the CRD matched, the day) is kept in licence_checks
+  (licence_check.py); the advisor agreement accepted - version, text hash,
+  gate L1 on or off, time - in advisor_agreements (advisor_agreement.py).
 - Advisors' emails to clients (setup link, report waiting, a message waiting)
-  carry the advisor's name and firm in the From name only (mailer.sender);
+  carry the advisor's name and firm in the From name (mailer.sender); the
+  report, proposal and message emails also carry the standing line
+  (standing_line.py: the advice is the advisor's, not Northwend's);
   report and message emails say something is waiting - never figures or the
   message text. The advisor's name for a client ("Chen household") is
   advisor_clients.client_name, seen only by that advisor.
@@ -107,7 +112,11 @@ Each statement about data here must stay true to the code:
   manual_entry.PCT_SOURCE. Pasted text: paste_parse / csv_import, no AI.
 - Delete my account: admin.delete_own; a former client's delete keeps each
   former advisor's own records (admin.ADVISOR_RECORD_TABLES, for every
-  former_clients row) - everything else of theirs goes.
+  former_clients row) - everything else of theirs goes. Consent records
+  (consent.py) and the advisor access log (access_log.py) stay, ids and all
+  (admin.KEPT_AFTER_DELETE), for 7 years (consent.prune / access_log.prune in
+  tidy.py; PLAN B6). The access log is on the client's Account page ("Who has
+  looked at your account", access_log.for_client) and in their export.
 - Delete all my holdings: portfolio.delete_holdings / HOLDINGS_TABLES (keeps
   plans, profile, notes, settings, watchlist, login); only for an account
   that manages itself (dashboard CAN_MANAGE).
@@ -254,7 +263,10 @@ their account map.
   Monday summary with counts only - no client names or figures), never shown
   to anyone else or sent to the AI - and which version of this page you agreed
   to. Northwend sends no newsletters or marketing email. If you ask for advisor access, also
-  your firm's name and your CRD or licence number, so it can be checked.
+  your firm's name and your CRD or licence number, so it can be checked, and a
+  note of each check (where it was looked up, the number that matched and the
+  day); for an advisor, also which version of the advisor agreement you accepted
+  and when.
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
   cut to its last 3 digits before it's saved. Pasted text is read by the app
@@ -295,9 +307,17 @@ their account map.
   with you - their notes, the proposals and reports they sent you, and the name
   and email they had for you - because advisors must keep records of their
   work. They can't see anything in your account once you've stopped sharing.
+- **Who has looked at your account:** each time an advisor opens a page in your
+  account, Northwend notes who, which page and when - never what was on it -
+  and your **Account** page lists it. When you agree to share your account with
+  an advisor, or stop, that's noted too, with the words you were shown. These
+  records are kept for 7 years after sharing ends, even if an account is
+  deleted, to protect you and your advisor. They hold who, when and those
+  words - never figures.
 - **Taking a copy:** the **Account** page also downloads everything held for your
   account as spreadsheet (CSV) files - holdings, history, plan, answers,
-  settings and what your advisor shared with you. Passwords and sign-in
+  settings, what your advisor shared with you, and the sharing and "who has
+  looked" records. Passwords and sign-in
   records aren't included.
 """),
     ("Security", """

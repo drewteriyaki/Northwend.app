@@ -21,6 +21,7 @@ import codefresh
 # the imports below load one current set (see codefresh.py).
 _OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
 
+import access_log
 import accounts
 import advising
 import ai_spend
@@ -30,6 +31,7 @@ import alerts
 import asset_classes
 import auth
 import charts
+import consent
 import csv_import
 import disclosures
 import export
@@ -753,12 +755,24 @@ AGREE_HELP = ("What the app is, what's stored and what's sent to the AI. The Abo
               "disclosures are below; the Terms and the Privacy Policy open on northwend.app.")
 
 
+def _md_name(name):
+    """A person's name or email inside st.markdown, shown as typed: markdown
+    characters escaped, and an email isn't turned into a mailto link (an
+    invisible word joiner before the @ stops the autolink). (Up here: the
+    setup link page uses it before sign-in.)"""
+    text = re.sub(r"([\\`*_{}\[\]<>()#+!|~$])", r"\\\1", str(name or ""))
+    return text.replace("@", "\u2060@")
+
+
 def _invite_setup(token: str) -> bool:
     """The page a client's setup link opens: choose a password for the
     account their advisor made, then they're signed in. False until then."""
     conn = connect(DB)
     try:
         info = auth.invite_info(conn, token)
+        # the sharing words, recorded verbatim with the consent grant (consent.py)
+        sharing = (consent.setup_link_text(consent.advisor_label(conn, info["advisor_id"]))
+                   if info and info.get("advisor_id") else None)
     finally:
         conn.close()
     _, mid, _ = st.columns([1, 1.4, 1])
@@ -774,6 +788,8 @@ def _invite_setup(token: str) -> bool:
         st.subheader("Set up your login", anchor=False)
         st.caption(f"Your advisor set up a {APP_NAME} account for you. Choose a password "
                    "only you know - your advisor never sees it.")
+        if sharing:
+            st.caption(f":material/group: {_md_name(sharing)}")
         with st.form("invite_form", border=True):
             st.text_input("Username", value=info["username"], disabled=True,
                           help="You'll sign in with this.")
@@ -805,7 +821,8 @@ def _invite_setup(token: str) -> bool:
     try:
         result = auth.accept_invite(conn, token, pw, agreed=agreed, adult=adult,
                                     us_resident=us_resident,
-                                    terms_version=disclosures.LAST_UPDATED)
+                                    terms_version=disclosures.LAST_UPDATED,
+                                    consent_text=sharing)
         if result["ok"]:
             # they just agreed to this version, so no "worth a quick read"
             # banner; their advisor may have set other settings already
@@ -1400,6 +1417,10 @@ if IS_ADMIN:
 ADVISOR_PENDING = bool(ADVISOR_REQUEST and ADVISOR_REQUEST["decision"] is None)
 if ADVISOR_PENDING:
     PAGES.append("Advisor preview")
+# Find a guide, the advisor directory (flag directory, gate L2; views/directory.py):
+# for an individual, from the name menu - never an advisor, never client mode
+if not IS_ADVISOR and not CLIENT_MODE:
+    PAGES.append("Find a guide")
 # a page whose feature is off (flags.FEATURES) isn't one this account can open
 PAGES = [p for p in PAGES if flags.page_on(p)]
 
@@ -1425,7 +1446,8 @@ else:
            *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
 NAV = [p for p in NAV if flags.page_on(p)]
 # (Advisor preview is reached from the name menu's "advisor access requested" note)
-ACCOUNT_MENU = [p for p in ("Account", "What's new", "About", "Admin") if p in PAGES]
+ACCOUNT_MENU = [p for p in ("Account", "Find a guide", "What's new", "About", "Admin")
+                if p in PAGES]
 # the top bar's words where they're shorter than the page's own name (an
 # advisor's bar holds more); the button's tooltip gives the full name
 NAV_SHORT = ({"Clients": "Clients", "Advisor notes": "Notes", "AI Assistant": "Ask"}
@@ -1475,14 +1497,6 @@ def _advisor_display_name():
     """The managing advisor's name as they've chosen to show it."""
     card = MY_ADVISOR_CARD
     return (card.get("name") or card.get("username") or "your advisor") +         (f", {card['firm']}" if card.get("firm") else "")
-
-
-def _md_name(name):
-    """A person's name or email inside st.markdown, shown as typed: markdown
-    characters escaped, and an email isn't turned into a mailto link (an
-    invisible word joiner before the @ stops the autolink)."""
-    text = re.sub(r"([\\`*_{}\[\]<>()#+!|~$])", r"\\\1", str(name or ""))
-    return text.replace("@", "\u2060@")
 
 
 def _advisor_names(card, username):
@@ -1741,6 +1755,19 @@ def _open_holdings_dialog(kind):
 
 
 PAGE = st.session_state["page"]
+# The advisor access log (access_log.py, brief 4.3.5): an advisor opening a
+# page in a client's account - the client sees it on their Account page. One
+# row per page opened, not per rerun (access_log.is_new_view). The login's
+# own pages (Account, About...) and Your clients aren't the client's.
+if ON_CLIENT and PAGE not in access_log.NOT_THE_CLIENTS:
+    _now_ts = time.time()
+    if access_log.is_new_view(st.session_state.get("_access_last"), USER_ID, PAGE, _now_ts):
+        _conn = connect(DB)
+        try:
+            access_log.record(_conn, LOGIN_ID, USER_ID, PAGE)
+        finally:
+            _conn.close()
+        st.session_state["_access_last"] = (USER_ID, PAGE, _now_ts)
 # the Money tab last open: the menu's Money goes back to it
 if PAGE in MONEY_PAGES:
     st.session_state["money_tab"] = PAGE
@@ -1771,7 +1798,7 @@ _BRAND = (f"<div class='pt-brand{' pt-brand-compact' if IS_ADVISOR else ''}'>"
           "<span class='pt-brand-mark' aria-hidden='true' translate='no'>flag</span>"
           f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
 ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
-                 "What's new": ":material/campaign:",
+                 "What's new": ":material/campaign:", "Find a guide": ":material/signpost:",
                  "Admin": ":material/admin_panel_settings:",
                  "Advisor preview": ":material/preview:"}
 
@@ -2197,7 +2224,13 @@ def _rules_from(saved_prefs):
     return [{**r, "abs_gt": float(saved.get(r["key"], r["abs_gt"]))} for r in alerts.DEFAULT_RULES]
 
 
+# the advisor agreement before Your clients, and the standing line's helpers
+_view("advisor_agreement")
+
 _view("clients")
+
+# the advisor directory: Find a guide, and the advisor's listing (directory.py)
+_view("directory")
 
 
 _view("meeting")
@@ -3072,6 +3105,11 @@ if PAGE == "What's new":
 if PAGE == "About":
     _page_header("About and disclosures", data=False)
     _render_disclosures()
+    st.stop()
+if PAGE == "Find a guide":
+    # the advisor directory - listings, not the viewed account's data
+    _page_header(_label(PAGE), data=False)
+    _render_find_a_guide()
     st.stop()
 if PAGE == "Advisor preview":
     # made-up clients, in memory only - nothing of the viewed account's is read

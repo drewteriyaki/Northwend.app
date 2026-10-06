@@ -1,6 +1,8 @@
 """Principle test (PLAN 1a.10, audit 1.2a): one account's helpers never read,
 change or delete another account's rows - for every table in
-admin.ACCOUNT_TABLES.
+admin.ACCOUNT_TABLES, and the append-only records kept after an account is
+deleted (admin.KEPT_AFTER_DELETE: consent records, the advisor access log;
+PLAN step 5.12, audit 1.2d).
 
 Two worlds are seeded the same way on a scratch database: A (alice, an
 investor; carol, an advisor, with her client dana and a former client) and
@@ -28,15 +30,20 @@ from datetime import date, datetime, timezone
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
+import access_log  # noqa: E402
 import account_map  # noqa: E402
 import accounts  # noqa: E402
 import admin  # noqa: E402
 import advising  # noqa: E402
 import advisor  # noqa: E402
+import advisor_agreement  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
+import directory  # noqa: E402
+import consent  # noqa: E402
 import export  # noqa: E402
 import future_notes  # noqa: E402
+import licence_check  # noqa: E402
 import perf  # noqa: E402
 import plans  # noqa: E402
 import portfolio  # noqa: E402
@@ -111,11 +118,28 @@ MATRIX = {
     "account_map": ("account_map.load", "account_map.save_account", "account_map.save_other",
                     "account_map.delete_entry", "account_map.save_family",
                     "account_map.clear"),
+    "advisor_agreements": ("advisor_agreement.latest", "advisor_agreement.has_current",
+                           "advisor_agreement.tools_open", "advisor_agreement.accept"),
+    "licence_checks": ("licence_check.last_check", "licence_check.licence_current",
+                       "licence_check.record"),
+    # B's listing is off: a listed one is public by design (Find a guide)
+    "advisor_profiles": ("directory.get_profile", "directory.save_profile",
+                         "directory.set_listed", "directory.delete_profile",
+                         "directory.visible", "directory.listings", "directory.why_not_shown"),
+    # kept after deletion (admin.KEPT_AFTER_DELETE), still one account's own
+    "consent_records": ("consent.history", "consent.between", "consent.current",
+                        "consent.grant", "consent.revoke", "advising.end_relationship",
+                        "auth.unlink_client", "export.collect"),
+    "advisor_access_log": ("access_log.for_client", "access_log.record", "export.collect"),
 }
+# every table the matrix must cover
+ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 
-_MODULES = {m.__name__: m for m in (account_map, accounts, advising, advisor, ai_usage, auth,
-                                    export, future_notes, perf, plans, portfolio, prefs,
-                                    proposals, reports, txn_import, two_step, watchlist)}
+_MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
+                                    advisor_agreement, ai_usage, auth, consent, directory,
+                                    export, future_notes, licence_check, perf, plans,
+                                    portfolio, prefs, proposals, reports, txn_import,
+                                    two_step, watchlist)}
 
 
 def _position(account, symbol, tag, fig, snap=SNAP):
@@ -222,9 +246,15 @@ class IsolationMatrix(unittest.TestCase):
         ids[f"{side}.advisor"] = a
         asecret = two_step.new_secret()
         two_step.enable(c, a, asecret, two_step.totp(asecret))
+        # the advisor agreement accepted, and a licence check on record
+        advisor_agreement.accept(c, a, ticked=True)
+        licence_check.record(c, a, source="IAPD", crd=f"{tag} 7012345",
+                             checked_on="2026-09-01")
         cid = auth.create_client(c, a, client, name=f"{tag} client")
         ids[f"{side}.client"] = cid
         auth.create_invite(c, a, cid)
+        consent.grant(c, cid, a, f"{tag} shares with their advisor", "setup_link")
+        access_log.record(c, a, cid, "Dashboard")
         advising.add_note(c, cid, a, "Next step", f"{tag} step", "2026-09-01")
         advising.add_note(c, cid, a, "Note", f"{tag} private", "2026-09-02", private=True)
         notes = advising.list_notes(c, cid, include_private=True, advisor_id=a)
@@ -249,6 +279,14 @@ class IsolationMatrix(unittest.TestCase):
                   ("2026-09-01 10:00:00", gone))
         c.commit()
         advising.end_relationship(c, a, gone, by="advisor", now=now)
+        # the advisor's directory listing: A's listed, B's not (a listed one is
+        # public by design - it's what Find a guide shows)
+        assert directory.save_profile(c, a, {
+            "display_name": f"{tag} Advisor", "firm": f"{tag} Advisors LLC",
+            "reg_type": "sec_ria", "reg_number": "1234567", "credentials": f"{tag[:5]} CFP",
+            "fee_models": ["flat"], "minimum": "none", "serves": ["new"], "states": ["NY"],
+            "meeting": "both", "description": f"{tag} description"},
+            listed=side == "A")["ok"]
 
     # ---- the harness -------------------------------------------------------- #
     def setUp(self):
@@ -267,7 +305,7 @@ class IsolationMatrix(unittest.TestCase):
     def b_rows(self) -> dict:
         """Every row of B's, in every account table."""
         out = {}
-        for table, cols in admin.ACCOUNT_TABLES.items():
+        for table, cols in ALL_TABLES.items():
             where = " OR ".join(f"{col} IN ({', '.join('?' * len(self.b_ids))})"
                                 for col in cols)
             rows = self.c.execute(f"SELECT * FROM {table} WHERE {where}",
@@ -284,7 +322,7 @@ class IsolationMatrix(unittest.TestCase):
 
     # ---- the matrix itself -------------------------------------------------- #
     def test_the_matrix_lists_every_account_table(self):
-        self.assertEqual(set(MATRIX), set(admin.ACCOUNT_TABLES),
+        self.assertEqual(set(MATRIX), set(ALL_TABLES),
                          "a new account table needs its row in MATRIX, a check_<table> "
                          "method and B's rows in _seed")
         for table, helpers in MATRIX.items():
@@ -595,6 +633,35 @@ class IsolationMatrix(unittest.TestCase):
         future_notes.save(c, a, None, "")       # empty: deletes A's plan note only
         future_notes.delete(c, a)
 
+    def check_consent_records(self):
+        c, carol, dana = self.c, self.carol, self.dana
+        # (earlier checks on this copy may have ended carol and dana already)
+        self.assertTrue(self.clean(consent.history(c, dana)))
+        self.clean(consent.between(c, dana, carol))
+        self.assertEqual(consent.between(c, self.zed, carol), [])
+        self.assertFalse(consent.current(c, self.zed, carol))
+        self.clean(export.collect(c, dana).get("sharing_with_an_advisor"))
+        # an unlink or an end that isn't hers writes nothing (dana's own end
+        # is check_former_clients' - an earlier check on this copy may have
+        # closed her account)
+        auth.unlink_client(c, carol, self.zed)
+        self.assertFalse(advising.end_relationship(c, carol, self.zed, by="advisor")["ok"])
+        consent.grant(c, dana, carol, "Again", "intro")
+        self.assertTrue(consent.current(c, dana, carol))
+        consent.revoke(c, dana, carol, "admin")
+        self.assertFalse(consent.current(c, dana, carol))
+
+    def check_advisor_access_log(self):
+        c, carol, dana = self.c, self.carol, self.dana
+        self.assertEqual([r["advisor_id"] for r in self.clean(
+            access_log.for_client(c, dana, dana))], [carol])
+        self.clean(access_log.for_client(c, dana, carol))
+        # another advisor's client: nothing, even to that client's id
+        self.assertEqual(access_log.for_client(c, self.zed, carol), [])
+        self.assertEqual(access_log.for_client(c, dana, self.omar), [])
+        access_log.record(c, carol, dana, "Plan")
+        self.clean(export.collect(c, dana).get("advisor_visits"))
+
     def check_account_map(self):
         c, a = self.c, self.alice
         self.clean(account_map.load(c, a))
@@ -604,6 +671,39 @@ class IsolationMatrix(unittest.TestCase):
         account_map.delete_entry(c, a, self.ids["B.map_other"])
         account_map.save_family(c, a, "")
         account_map.clear(c, a)
+
+    def check_advisor_agreements(self):
+        c, carol = self.c, self.carol
+        self.clean(advisor_agreement.latest(c, carol))
+        self.assertTrue(advisor_agreement.has_current(c, carol))
+        self.assertTrue(advisor_agreement.tools_open(c, carol))
+        advisor_agreement.accept(c, carol, ticked=True)   # a new row of carol's only
+        self.assertEqual(advisor_agreement.latest(c, self.omar)["version"],
+                         advisor_agreement.VERSION)
+
+    def check_licence_checks(self):
+        c, carol = self.c, self.carol
+        self.assertEqual(self.clean(licence_check.last_check(c, carol))["crd"], "ALICE 7012345")
+        self.assertTrue(licence_check.licence_current(c, carol, today=date(2026, 10, 1)))
+        licence_check.record(c, carol, source="BrokerCheck", crd="ALICE 7012345",
+                             checked_on="2026-10-01")
+        self.assertEqual(licence_check.last_check(c, carol)["source"], "BrokerCheck")
+
+    def check_advisor_profiles(self):
+        c, carol, alice = self.c, self.carol, self.alice
+        self.clean(directory.get_profile(c, carol))
+        self.assertIsNone(directory.get_profile(c, alice))
+        self.clean(directory.why_not_shown(c, carol))
+        shown = self.clean(directory.visible(c))
+        self.assertNotIn(self.omar, [p["user_id"] for p in shown])   # B's is off
+        self.clean(directory.listings(c, {"state": "NY", "meeting": "virtual"}))
+        with self.assertRaises(PermissionError):    # an investor has no listing
+            directory.save_profile(c, alice, {"display_name": "Alice"})
+        mine = {**directory.get_profile(c, carol), "description": "Mine, edited"}
+        self.assertTrue(directory.save_profile(c, carol, mine, listed=True)["ok"])
+        self.assertTrue(directory.set_listed(c, carol, False))
+        self.assertTrue(directory.delete_profile(c, carol))
+        self.assertFalse(directory.set_listed(c, carol, True))
 
 
 if __name__ == "__main__":

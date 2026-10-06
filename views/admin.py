@@ -23,6 +23,7 @@ import feature_counts
 import flags
 import hosting
 import invite_codes
+import licence_check
 import two_step
 
 
@@ -70,20 +71,94 @@ def _admin_emailed(res):
     return {True: "emailed", False: "email failed", None: "no email"}[res["emailed"]]
 
 
+def _admin_check_from(key):
+    """The licence check typed into a form (Advisor requests, Licence checks):
+    {"source", "crd", "checked_on"}, and what's wrong with it or None."""
+    check = {"source": st.session_state.get(f"admin_src_{key}"),
+             "crd": st.session_state.get(f"admin_crd_{key}") or "",
+             "checked_on": st.session_state.get(f"admin_on_{key}")}
+    return check, licence_check.check_error(check["source"], check["crd"], check["checked_on"])
+
+
+def _admin_check_form(key, crd=""):
+    """Where the admin looked an advisor up, the number that matched and the
+    day (D15) - asked before approving, and for each yearly re-check."""
+    with st.container(horizontal=True, vertical_alignment="bottom"):
+        st.selectbox("Checked on", licence_check.SOURCES, index=None, key=f"admin_src_{key}",
+                     placeholder="BrokerCheck or IAPD")
+        st.text_input("CRD or licence number that matched", value=crd, key=f"admin_crd_{key}",
+                      max_chars=40)
+        today = datetime.now(timezone.utc).date()   # as licence_check.check_error counts
+        st.date_input("Day checked", value=today, max_value=today, key=f"admin_on_{key}")
+    st.caption("Look them up on [BrokerCheck](https://brokercheck.finra.org/) or "
+               "[IAPD](https://adviserinfo.sec.gov/) and match the firm and number - a check, "
+               "not an endorsement.")
+
+
 def _admin_decide(username, approve):
     """An advisor request: approve or decline it, and email them either way
-    (admin.approve_advisor / decline_advisor)."""
+    (admin.approve_advisor / decline_advisor). Approving keeps the licence
+    check typed above it (licence_check.py, D15) - it can't go without one."""
     def act(c):
         if approve:
-            res = admin.approve_advisor(c, username, _app_address())
+            check, error = _admin_check_from(username)
+            if error:
+                return ("error", f"{username}: {error}")
+            res = admin.approve_advisor(c, username, _app_address(), check=check,
+                                        by=st.session_state["user_id"])
             return ("success", f"{username} is now an advisor." + _admin_told(res),
-                    auth.get_user_id(c, username), "request approved; " + _admin_emailed(res))
+                    auth.get_user_id(c, username),
+                    f"request approved; checked on {check['source']} {check['checked_on']}; "
+                    + _admin_emailed(res))
         res = admin.decline_advisor(c, username, _app_address())
         if not res["ok"]:
             return ("info", f"{username} has no advisor request waiting.")
         return ("success", f"Declined {username}'s advisor request." + _admin_told(res),
                 auth.get_user_id(c, username), _admin_emailed(res))
     _admin_do(act, "approve_advisor" if approve else "decline_advisor")
+
+
+def _admin_record_check(user_id, username):
+    """Licence checks: record a re-check of an advisor (licence_check.record)."""
+    def act(c):
+        check, error = _admin_check_from(f"re{user_id}")
+        if error:
+            return ("error", error)
+        row = licence_check.record(c, user_id, source=check["source"], crd=check["crd"],
+                                   checked_on=check["checked_on"],
+                                   by=st.session_state["user_id"])
+        return ("success", f"Recorded {username}'s licence check on {row['source']} "
+                           f"({row['checked_on']}).",
+                user_id, f"{row['source']} {row['checked_on']}")
+    _admin_do(act, "licence_check")
+
+
+_LICENCE_WORDS = {licence_check.NONE: "no check on record", licence_check.CURRENT: "current",
+                  licence_check.DUE: "due a re-check",
+                  licence_check.OVERDUE: "not re-checked in 13 months"}
+
+
+def _render_licence_checks(advisors_due):
+    """Advisors whose licence check is 11 months old or more, or missing (D15),
+    each with a form to record a new one. Past 13 months they're flagged:
+    the directory leaves them out until they're re-checked."""
+    st.subheader(f"Licence checks due ({len(advisors_due)})", anchor=False)
+    if not advisors_due:
+        st.caption("Every advisor was checked in the last 11 months.")
+        return
+    st.caption("About once a year, look each advisor up again on BrokerCheck or IAPD and "
+               "record it here. Past 13 months without one, an advisor is left out of the "
+               "advisor directory until they're re-checked.")
+    for a in advisors_due:
+        last = a["check"]
+        with st.expander(f"{a['username']} - {_LICENCE_WORDS[a['status']]}"
+                         + (f" (last {last['checked_on']} on {last['source']})" if last else ""),
+                         icon=(":material/error:" if a["status"] in (licence_check.NONE,
+                                                                     licence_check.OVERDUE)
+                               else ":material/schedule:")):
+            _admin_check_form(f"re{a['id']}", last["crd"] if last else "")
+            st.button("Record this check", key=f"admin_check_{a['id']}", type="primary",
+                      on_click=_admin_record_check, args=(a["id"], a["username"]))
 
 
 def _admin_reset_link(user_id):
@@ -462,6 +537,7 @@ def _render_admin():
             return
         accounts = admin.list_accounts(c)
         requests = auth.pending_advisor_requests(c)
+        licence_due = licence_check.due(c)   # advisors whose check is old or missing (D15)
         usage = c.execute("SELECT u.username, a.kind, a.used, a.cost_micro FROM ai_usage a "
                           "JOIN users u "
                           "ON u.id = a.user_id WHERE a.month = ? ORDER BY u.username, a.kind",
@@ -494,21 +570,25 @@ def _render_admin():
     if not requests:
         st.caption("None waiting.")
     else:
-        st.caption("Approve or decline - either way they get a short email saying so. "
-                   "Approved advisors are asked to set up two-step sign-in, then add a client.")
+        st.caption("Check each one, then approve or decline - either way they get a short "
+                   "email saying so. Approving keeps where you checked, the number that "
+                   "matched and the day. Approved advisors are asked to set up two-step "
+                   "sign-in, then add a client.")
     for r in requests:
-        with st.container(border=True, horizontal=True, vertical_alignment="center"):
+        with st.container(border=True):
             # firm and licence are as typed at sign-up: shown as text, never as a
             # link or an image (_md_name escapes markdown)
             st.markdown(f"**{_md_name(r['username'])}** · {_md_name(r['firm'])} · CRD/licence "
-                        f"**{_md_name(r['licence'])}** · asked {_admin_when(r['requested_at'])}",
-                        width="stretch")
-            st.link_button("Check on BrokerCheck", "https://brokercheck.finra.org/",
-                           type="tertiary")
-            st.button("Approve", key=f"admin_ok_{r['username']}", type="primary",
-                      on_click=_admin_decide, args=(r["username"], True))
-            st.button("Decline", key=f"admin_no_{r['username']}",
-                      on_click=_admin_decide, args=(r["username"], False))
+                        f"**{_md_name(r['licence'])}** · asked {_admin_when(r['requested_at'])}")
+            _admin_check_form(r["username"], r["licence"])
+            with st.container(horizontal=True):
+                st.button("Approve", key=f"admin_ok_{r['username']}", type="primary",
+                          on_click=_admin_decide, args=(r["username"], True))
+                st.button("Decline", key=f"admin_no_{r['username']}",
+                          on_click=_admin_decide, args=(r["username"], False))
+
+    # ---- licence re-checks (D15) ------------------------------------------ #
+    _render_licence_checks(licence_due)
 
     # ---- accounts ------------------------------------------------------------ #
     st.subheader(f"Accounts ({len(accounts)})", anchor=False)
@@ -525,6 +605,10 @@ def _render_admin():
         "Created": _admin_when(a["created_at"]), "Last sign-in": _admin_when(a["last_login_at"]),
         "Locked": "locked" if a["locked"] else "", "Two-step": "on" if a["two_step"] else "",
         "AI limits": "none" if a["ai_unlimited"] else "",
+        # advisors: the agreement version they accepted, and their licence check
+        "Agreement": (((a["agreement"]["version"] + ("" if a["agreement"]["current"] else " (old)"))
+                       if a["agreement"] else "not yet") if a["is_advisor"] else ""),
+        "Licence": _LICENCE_WORDS[a["licence_status"]] if a["is_advisor"] else "",
     } for a in shown]), hide_index=True, width="stretch")
 
     pick = st.selectbox("Open an account", [a["id"] for a in shown], index=None,
@@ -542,9 +626,19 @@ def _render_admin():
                 facts.append("email confirmed" if a["confirmed"] else "email not confirmed yet")
             if a["is_advisor"]:
                 # what Northwend did: checked a licence number - not an endorsement
-                facts.append(f"licence checked {_admin_when(a['licence_checked'])[:10]}"
-                             if a["licence_checked"] else
+                chk = a["licence_check"]
+                facts.append(f"licence checked {chk['checked_on']} on {chk['source']} "
+                             f"(**{_md_name(chk['crd'])}**) - {_LICENCE_WORDS[a['licence_status']]}"
+                             if chk else
+                             f"request approved {_admin_when(a['licence_checked'])[:10]} - no "
+                             "licence check on record" if a["licence_checked"] else
                              "advisor without a request - no licence check on record")
+                ag = a["agreement"]   # advisor_agreement.py
+                facts.append(f"advisor agreement {ag['version']}"
+                             + (" (beta)" if not ag["l1_on"] else "")
+                             + f" accepted {_admin_when(ag['accepted_at'])[:10]}"
+                             + ("" if ag["current"] else " - not the current version")
+                             if ag else "advisor agreement not accepted yet")
             facts.append(f"agreed to the disclosures ({a['terms_version']} version) on "
                          f"{_admin_when(a['terms_accepted_at'])[:10]}" if a["terms_version"]
                          else "hasn't agreed to the disclosures yet")

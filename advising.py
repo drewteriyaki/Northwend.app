@@ -369,16 +369,19 @@ def ending_plan(conn, advisor_id: int, client_id: int) -> dict | None:
 
 
 def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
-                     now: datetime | None = None) -> dict:
+                     now: datetime | None = None, text_shown: str | None = None) -> dict:
     """End the relationship between `advisor_id` and `client_id` (`by`:
     'advisor' or 'client' - who asked; the caller has checked it's one of
-    them). Unlinks them, cancels any setup link the advisor made, keeps the
-    advisor's records and notes who the client was (former_clients), and
-    deals with the client's login as ending_plan() says. Returns {"ok",
-    "error", "account", "name", "client_email", "setup_token" (for the email,
-    "setup link" only)}. Sends nothing: the caller emails both sides."""
+    them). Unlinks them, cancels any setup link the advisor made, writes a
+    consent revoke ('client_stop' / 'advisor_end', with `text_shown`, the
+    confirm step's words, if given), keeps the advisor's records and notes
+    who the client was (former_clients), and deals with the client's login
+    as ending_plan() says. Returns {"ok", "error", "account", "name",
+    "client_email", "setup_token" (for the email, "setup link" only)}. Sends
+    nothing: the caller emails both sides."""
     import admin
     import auth
+    import consent
 
     if by not in ENDED_BY:
         raise ValueError("ended by the advisor or the client")
@@ -399,6 +402,10 @@ def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
         conn.execute("DELETE FROM invites WHERE user_id = ?", (client_id,))
         conn.execute("DELETE FROM advisor_clients WHERE advisor_id = ? AND client_id = ?",
                      (advisor_id, client_id))
+        # the record of it, in the same transaction as the unlink (consent.py)
+        consent.revoke(conn, client_id, advisor_id,
+                       "client_stop" if by == "client" else "advisor_end",
+                       text_shown=text_shown, now=now, commit=False)
         conn.commit()
     except Exception:
         conn.rollback()

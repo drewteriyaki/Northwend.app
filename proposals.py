@@ -179,11 +179,14 @@ PDF_FOOTER = ("This proposal is your advisor's recommendation, made by them as y
 
 
 def render_pdf(proposal: dict, cmp: dict, *, client_name: str, advisor_name: str,
-               goal_line: str | None = None) -> bytes:
+               firm: str | None = None, goal_line: str | None = None) -> bytes:
     """A one-page PDF of a proposal: the advisor's note, today vs proposed, and
-    the illustration with its assumptions. Dollar figures only when given."""
+    the illustration with its assumptions. Dollar figures only when given.
+    Under the title, the advisor's name and firm and their standing line
+    (standing_line.py: the advice is theirs, not Northwend's)."""
     from fpdf import FPDF
 
+    import standing_line
     from client_plan import _money0, _safe
 
     class _ProposalPDF(FPDF):
@@ -213,8 +216,9 @@ def render_pdf(proposal: dict, cmp: dict, *, client_name: str, advisor_name: str
     pdf.set_font("Helvetica", "B", 18)
     pdf.cell(0, 10, _safe(proposal["title"]), new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(90)
-    para(f"For {client_name}, from {advisor_name}  |  "
-         f"{(proposal.get('shared_at') or proposal.get('updated_at') or '')[:10]}")
+    para(f"For {client_name}, from {advisor_name}" + (f", {firm}" if firm else "")
+         + f"  |  {(proposal.get('shared_at') or proposal.get('updated_at') or '')[:10]}")
+    para(standing_line.text(advisor_name, firm), 9, "I")
     pdf.set_text_color(0)
     if goal_line:
         para(goal_line)

@@ -24,6 +24,9 @@ What goes:
   7 days of them (perf.INTRADAY_INTERVALS); daily bars stay. The quote table's
   minute rows are trimmed by the history sync (live_prices.trim_history).
 - The admin action log past a year (admin_log.prune), when that module is in.
+- Consent records 7 years after the sharing they record ended (consent.prune),
+  and advisor access log rows after 7 years (access_log.prune) - PLAN B6. Both
+  outlive account deletion until then (admin.KEPT_AFTER_DELETE).
 
 Prints counts only - never a name, an email or an id.
 """
@@ -34,8 +37,10 @@ import argparse
 import sys
 from datetime import datetime, timedelta, timezone
 
+import access_log
 import admin
 import auth
+import consent
 import pgcompat
 import settings
 from portfolio import connect
@@ -121,6 +126,9 @@ def run(conn, *, now: datetime | None = None) -> dict:
         done["admin log entries"] = int(admin_log.prune(conn, older_than_days=ADMIN_LOG_DAYS)
                                         or 0)
         conn.commit()
+    # B6: 7 years, past account deletion (each module's prune is the only delete)
+    done["consent records"] = consent.prune(conn, now=now)
+    done["advisor access log rows"] = access_log.prune(conn, now=now)
     return done
 
 

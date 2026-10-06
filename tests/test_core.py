@@ -1511,6 +1511,11 @@ class AdminTests(TempDBMixin, unittest.TestCase):
         covered = {t: set(c) for t, c in admin.ACCOUNT_TABLES.items()}
         for t, cols in admin.ACCOUNT_REFERENCES.items():
             covered.setdefault(t, set()).update(cols)
+        # append-only records kept on purpose, ids and all (consent, access log)
+        for t, cols in admin.KEPT_AFTER_DELETE.items():
+            self.assertNotIn(t, admin.ACCOUNT_TABLES)
+            self.assertNotIn(t, admin.ACCOUNT_REFERENCES)
+            covered.setdefault(t, set()).update(cols)
         for (table,) in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'"):
             cols = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
             account_cols = cols & {"user_id", "advisor_id", "client_id", "created_by", "set_by",
@@ -4414,6 +4419,8 @@ class ExportTests(TempDBMixin, unittest.TestCase):
         # links with clients are about the client too
         left_out = {"login_sessions", "email_tokens", "invites", "advisor_clients"}
         self.assertEqual(set(admin.ACCOUNT_TABLES) - exported - left_out, set())
+        # the records kept after deletion are the client's to take too
+        self.assertEqual(set(admin.KEPT_AFTER_DELETE) - exported, set())
 
 
 class WeeklyEmailTests(TempDBMixin, unittest.TestCase):

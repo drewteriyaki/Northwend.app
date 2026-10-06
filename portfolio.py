@@ -174,8 +174,12 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # (and `northwend-migrate`). Bump it in the same change as any change to the
 # schema: a new table or column in schema.sql / schema_pg.sql, the back-fill
 # list below, or a one-time clean-up. 1 = the schema when versions began
-# (October 2026); 2 = ai_usage's cost columns (cost-based AI allowances).
-SCHEMA_VERSION = 2
+# (October 2026); 2 = ai_usage's cost columns (cost-based AI allowances);
+# 3 = advisor_agreements and licence_checks (PLAN step 5, D15).
+# 4 = advisor_profiles (the advisor directory, directory.py).
+# 5 = consent_records and advisor_access_log (consent.py, access_log.py), the
+# one-time consent back-fill and their append-only grants on Postgres.
+SCHEMA_VERSION = 5
 
 
 def _ensure_schema(conn) -> None:
@@ -295,8 +299,44 @@ def _ensure_schema(conn) -> None:
         if big:
             print(f"schema: {len(big)} INTEGER column(s) changed to BIGINT: " + ", ".join(big),
                   file=sys.stderr)
+        _append_only_grants(conn)
+    # once per database: a 'migration' grant for each advisor-client link from
+    # before consent records began (consent.backfill; a no-op once marked)
+    import consent
+    filled = consent.backfill(conn)
+    if filled:
+        print(f"schema: consent records begun for {filled} existing advisor link(s)",
+              file=sys.stderr)
     _record_schema_version(conn)
     conn.commit()
+
+
+# Tables that only ever grow (audit 1.6f): only their module's prune, run by
+# the nightly tidy job, removes a row. On Postgres, where the database roles
+# exist (docs/DB_ROLES.md), the app's role can add and read them only, and
+# the jobs' role can't change them either - it keeps DELETE for the prune.
+APPEND_ONLY_TABLES = ("consent_records", "advisor_access_log")
+APPEND_ONLY_REVOKES = {"northwend_app": "UPDATE, DELETE, TRUNCATE",
+                       "northwend_jobs": "UPDATE, TRUNCATE"}
+
+
+def _append_only_grants(conn, revokes: dict[str, str] | None = None) -> list[str]:
+    """Postgres: take back what `revokes` names (APPEND_ONLY_REVOKES: role ->
+    privileges) on APPEND_ONLY_TABLES, for the roles that exist - none on a
+    local copy or in CI. Runs with every schema setup, so the default
+    privileges of DB_ROLES step 1 never stand on these tables. Returns the
+    roles it ran for."""
+    revokes = APPEND_ONLY_REVOKES if revokes is None else revokes
+    names = list(revokes)
+    if not names:
+        return []
+    have = [r["rolname"] for r in conn.execute(
+        f"SELECT rolname FROM pg_roles WHERE rolname IN ({', '.join('?' for _ in names)}) "
+        "ORDER BY rolname", tuple(names)).fetchall()]
+    for role in have:
+        conn.execute(f'REVOKE {revokes[role]} ON {", ".join(APPEND_ONLY_TABLES)} '
+                     f'FROM "{role}"')
+    return have
 
 
 def _record_schema_version(conn) -> None:

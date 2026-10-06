@@ -508,6 +508,31 @@ CREATE TABLE IF NOT EXISTS advisor_requests (
     decided_at    TEXT
 );
 
+-- An advisor's directory listing (directory.py; PLAN step 5, flag `directory`,
+-- gate L2): what they show on Find a guide, as they entered it. One row per
+-- advisor. The lists (credentials, fee_models, serves, states) are JSON text
+-- of the keys in directory.py. Shown only when listed = 1, the profile is
+-- complete and the account is an approved advisor (directory.visible). No
+-- order, rank or count of any kind: listings are alphabetical by name, and
+-- nothing about who browses is kept (brief 3.4).
+CREATE TABLE IF NOT EXISTS advisor_profiles (
+    user_id        INTEGER PRIMARY KEY,          -- the advisor
+    display_name   TEXT    NOT NULL DEFAULT '',
+    firm           TEXT    NOT NULL DEFAULT '',
+    reg_type       TEXT    NOT NULL DEFAULT '',  -- directory.REG_TYPES
+    reg_number     TEXT    NOT NULL DEFAULT '',  -- their CRD number, as entered
+    credentials    TEXT    NOT NULL DEFAULT '[]',
+    fee_models     TEXT    NOT NULL DEFAULT '[]',
+    minimum        TEXT    NOT NULL DEFAULT '',  -- directory.MINIMUMS (a band)
+    serves         TEXT    NOT NULL DEFAULT '[]',
+    states         TEXT    NOT NULL DEFAULT '[]',
+    meeting        TEXT    NOT NULL DEFAULT '',  -- 'virtual' | 'in_person' | 'both'
+    description    TEXT    NOT NULL DEFAULT '',
+    scheduling_url TEXT    NOT NULL DEFAULT '',  -- https only
+    listed         INTEGER NOT NULL DEFAULT 0,   -- the advisor's own switch
+    updated_at     TEXT    NOT NULL              -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+);
+
 -- A relationship an advisor or their client ended (advising.end_relationship).
 -- The client keeps their account; the advisor keeps their own notes,
 -- proposals and reports about them (export.client_record), and this row says
@@ -657,3 +682,67 @@ CREATE TABLE IF NOT EXISTS admin_log (
     detail      TEXT                             -- a few words made by the code
 );
 CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log (at);
+
+-- The advisor agreement (advisor_agreement.py; master brief 4.1, gate L1): each
+-- time an advisor accepts a version - which version, a SHA-256 of the exact text
+-- they were shown, whether gate L1 was on then (off: shown marked "Beta") and
+-- when. A new row for every acceptance; the latest one counts. Deleted with the
+-- account (admin.ACCOUNT_TABLES); in their own export (export.OWN).
+CREATE TABLE IF NOT EXISTS advisor_agreements (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,                -- the advisor
+    version      TEXT    NOT NULL,                -- advisor_agreement.VERSION
+    text_hash    TEXT    NOT NULL,                -- SHA-256 of the text shown
+    l1_on        INTEGER NOT NULL DEFAULT 0,      -- 1: gate L1 was on (not the beta text)
+    accepted_at  TEXT    NOT NULL                 -- 'YYYY-MM-DD HH:MM:SS' UTC
+);
+CREATE INDEX IF NOT EXISTS idx_advisor_agreements_user ON advisor_agreements (user_id, id);
+
+-- Licence checks (licence_check.py; PLAN D15): each time the admin looked an
+-- advisor up - at approval and about once a year after - where (BrokerCheck or
+-- IAPD), the CRD or licence number that matched, and the day. A new row each
+-- time; the latest one counts (due after 11 months, not current after 13).
+-- Deleted with the advisor's account; checked_by (the admin) is cleared when
+-- that admin's account is deleted (admin.ACCOUNT_REFERENCES).
+CREATE TABLE IF NOT EXISTS licence_checks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    advisor_id   INTEGER NOT NULL,
+    source       TEXT    NOT NULL,                -- 'BrokerCheck' or 'IAPD'
+    crd          TEXT    NOT NULL,                -- the CRD or licence number matched
+    checked_on   TEXT    NOT NULL,                -- 'YYYY-MM-DD', the day it was looked up
+    checked_by   INTEGER,                         -- the admin; NULL: the command line
+    recorded_at  TEXT    NOT NULL                 -- 'YYYY-MM-DD HH:MM:SS' UTC
+);
+CREATE INDEX IF NOT EXISTS idx_licence_checks_advisor ON licence_checks (advisor_id, checked_on);
+
+-- Consent records (consent.py; PLAN step 5.6, audit 1.6f): a client's grant
+-- or revoke of sharing with an advisor, with the exact words shown (verbatim,
+-- and their SHA-256). Append-only - only consent.prune removes rows, 7 years
+-- after the sharing ended (PLAN B6). Kept when either account is deleted
+-- (admin.KEPT_AFTER_DELETE): ids, times and words, never figures.
+CREATE TABLE IF NOT EXISTS consent_records (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    client_id   INTEGER NOT NULL,
+    advisor_id  INTEGER NOT NULL,
+    kind        TEXT    NOT NULL,                -- 'grant' | 'revoke'
+    scope       TEXT    NOT NULL,                -- 'full_sharing' (consent.SCOPES)
+    text_shown  TEXT,                            -- verbatim; a revoke may have none
+    text_sha256 TEXT,
+    how         TEXT    NOT NULL                 -- consent.HOWS: 'setup_link', 'client_stop'...
+);
+CREATE INDEX IF NOT EXISTS idx_consent_records_pair ON consent_records (client_id, advisor_id);
+
+-- The advisor access log (access_log.py; PLAN step 5.8, audit 1.6f): one row
+-- per page an advisor opens in a client's account. Never figures. Append-only
+-- - only access_log.prune removes rows, after 7 years (PLAN B6). Kept when
+-- either account is deleted (admin.KEPT_AFTER_DELETE).
+CREATE TABLE IF NOT EXISTS advisor_access_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    advisor_id  INTEGER NOT NULL,
+    client_id   INTEGER NOT NULL,
+    page        TEXT    NOT NULL                 -- the app's page name ('Dashboard', 'Plan'...)
+);
+CREATE INDEX IF NOT EXISTS idx_advisor_access_log_client ON advisor_access_log (client_id, at);
+CREATE INDEX IF NOT EXISTS idx_advisor_access_log_at ON advisor_access_log (at);

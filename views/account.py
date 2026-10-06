@@ -11,7 +11,9 @@
 # login's own account (LOGIN_ID), even while an advisor is viewing a client.
 # ruff: noqa: F821
 
+import access_log
 import admin
+import consent
 import feature_counts
 import two_step
 
@@ -246,6 +248,60 @@ def _render_guide_notes():
     st.button("Forget everything", key="acct_notes_forget", on_click=_acct_forget_all)
 
 
+_CONSENT_HOW = {"setup_link": "when you set up your login from their link",
+                "intro": "after you asked to work with them",
+                "client_stop": "you stopped sharing", "advisor_end": "your advisor ended it",
+                "admin": "ended by Northwend support",
+                "account_deleted": "an account was closed",
+                "migration": "from before these records were kept"}
+
+
+def _render_who_looked():
+    """Who has looked at your account (access_log.py, brief 4.3.5): each page
+    an advisor opened in the login's own account, the last SHOWN_DAYS days,
+    and their sharing record (consent.py). Only for someone who has, or had,
+    an advisor; always the login's own rows."""
+    c = connect(DB)
+    try:
+        seen = access_log.for_client(c, LOGIN_ID, LOGIN_ID)
+        shared = consent.history(c, LOGIN_ID)
+    finally:
+        c.close()
+    if not (seen or shared or IS_MANAGED_CLIENT):
+        return
+
+    def who(advisor_id, name):
+        if advisor_id == MY_ADVISOR:
+            return _advisor_display_name()
+        return name or "A former advisor"
+
+    st.subheader("Who has looked at your account", anchor=False)
+    st.caption(f"Each time an advisor opens a page in your account, it's noted here: who, "
+               f"which page and when - never what was on it. The last {access_log.SHOWN_DAYS} "
+               "days are shown; your data download has them all. Only you see this list.")
+    if seen:
+        st.dataframe(pd.DataFrame([{"When": _fmt_when(r["at"]),
+                                    "Who": who(r["advisor_id"], r["advisor"]),
+                                    "Page": _label(r["page"])} for r in seen]),
+                     hide_index=True, width="stretch", height=min(36 * (len(seen) + 1) + 2, 320))
+    else:
+        st.caption(f"No advisor has opened your account in the last {access_log.SHOWN_DAYS} "
+                   "days.")
+    if shared:
+        with st.expander("Your sharing record"):
+            for r in shared:
+                verb = ("You agreed to share your account with" if r["kind"] == "grant"
+                        else "Sharing ended with")
+                st.markdown(f"**{_fmt_date(r['at'])}** · {verb} "
+                            f"{_md_name(who(r['advisor_id'], r['advisor']))} "
+                            f"({_CONSENT_HOW.get(r['how'], r['how'])})")
+                if r["text_shown"] and r["how"] != "migration":
+                    st.caption(f"What you saw: {_md_name(r['text_shown'])}")
+            st.caption("Kept for 7 years after sharing ends, even if an account is deleted, "
+                       "to protect you and your advisor. It holds who, when and these "
+                       "words - never figures.")
+
+
 def _acct_facts(c):
     # the login's row and two-step state as the sign-in gate read them at the
     # top of this run (this page is drawn in the full run; its changes are
@@ -366,6 +422,9 @@ def _render_account():
 
     # ---- the guide's notes (the write rule: visible and deletable) -------------- #
     _render_guide_notes()
+
+    # ---- who has looked: an advisor's visits and the sharing record ----------- #
+    _render_who_looked()
 
     # ---- your data ------------------------------------------------------------ #
     st.subheader("Your data", anchor=False)

@@ -29,6 +29,7 @@ from datetime import date, datetime, timedelta, timezone
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
+import access_log  # noqa: E402
 import accounts  # noqa: E402
 import admin  # noqa: E402
 import advising  # noqa: E402
@@ -37,6 +38,7 @@ import ai_usage  # noqa: E402
 import auth  # noqa: E402
 import checkin  # noqa: E402
 import checkin_email  # noqa: E402
+import consent  # noqa: E402
 import csv_import  # noqa: E402
 import error_alerts  # noqa: E402
 import export  # noqa: E402
@@ -768,6 +770,61 @@ class AdvisorTests(_PG):
 
 
 # --------------------------------------------------------------------------- #
+# PLAN step 5: the advisor agreement, licence checks (D15), the standing line
+# --------------------------------------------------------------------------- #
+@unittest.skipUnless(PG, SKIP)
+class AdvisorAgreementTests(_PG):
+    TAG = "agree"
+
+    def test_agreement_licence_checks_and_the_nightly_count(self):
+        import advisor_agreement
+        import licence_check
+        import standing_line
+        c = self.conn
+        carol = self.user("carol.pg", advisor=True)
+        dana = auth.create_client(c, carol, "dana.pg", name="Dana")
+        env = {"NORTHWEND_FLAGS": "advisor_agreement", "NORTHWEND_GATES": ""}
+        with unittest.mock.patch.dict(os.environ, env), \
+                unittest.mock.patch("flags._secret", lambda name: None):
+            self.assertFalse(auth.can_view(c, carol, dana))
+            advisor_agreement.accept(c, carol, ticked=True)
+            self.assertTrue(auth.can_view(c, carol, dana))
+        row = self.one("SELECT version, l1_on FROM advisor_agreements WHERE user_id = ?",
+                       (carol,))
+        self.assertEqual(row, {"version": advisor_agreement.VERSION, "l1_on": 0})
+        # approval with the check made, kept by another connection
+        nia = self.user("nia.pg")
+        auth.request_advisor(c, nia, "Nia Wealth", "7012345")
+        admin.approve_advisor(c, "nia.pg", check={"source": "IAPD", "crd": "7012345",
+                                                  "checked_on": "2026-10-01"}, by=carol)
+        self.assertEqual(self.one("SELECT source, crd, checked_on FROM licence_checks "
+                                  "WHERE advisor_id = ?", (nia,)),
+                         {"source": "IAPD", "crd": "7012345", "checked_on": "2026-10-01"})
+        self.assertTrue(licence_check.licence_current(c, nia, today=date(2026, 10, 6)))
+        today = date(2026, 10, 6)
+        self.assertEqual(licence_check.counts(c, today=today), {"due": 1, "overdue": 1})
+        box = _mail(self)
+        with unittest.mock.patch.dict(os.environ, {"RESEND_API_KEY": "re_test",
+                                                   "MAIL_DRY_RUN": ""}):
+            self.assertTrue(licence_check.remind(c, today=today)["emailed"])
+            self.assertIsNone(licence_check.remind(c, today=today)["emailed"])
+        self.assertEqual([s for _, s in box.sent], ["Advisor licence checks due"])
+        self.assertEqual(self.one("SELECT number FROM app_state WHERE name = ?",
+                                  (licence_check.MAILED_STATE,)),
+                         {"number": today.toordinal()})
+        prefs.save(c, carol, {"advisor_card": {"name": "Carol", "firm": "Reyes Wealth"}})
+        self.assertIn("Carol's advice, from Reyes Wealth", standing_line.for_advisor(c, carol))
+        acc = {a["id"]: a for a in admin.list_accounts(c)}
+        self.assertTrue(acc[carol]["agreement"]["current"])
+        self.assertEqual(acc[nia]["licence_status"], licence_check.status(
+            licence_check.last_check(c, nia)))
+        # deleting the advisor takes both with it
+        self.assertTrue(admin.delete_account(c, nia, by=-1)["ok"])
+        self.assertEqual(self.seen("SELECT * FROM licence_checks WHERE advisor_id = ?", (nia,)),
+                         [])
+
+
+# --------------------------------------------------------------------------- #
 # notes to future you and the monthly check-in's reminder email
 # --------------------------------------------------------------------------- #
 @unittest.skipUnless(PG, SKIP)
@@ -1332,6 +1389,55 @@ class YearAndMapTests(_PG):
         self.assertEqual(self.seen("SELECT id FROM account_map WHERE user_id = ?", (uid,)), [])
 
 
+class DirectoryTests(_PG):
+    """The advisor directory (directory.py, PLAN step 5): a listing saved,
+    changed (the upsert), shown alphabetically within filters, exported and
+    deleted with the account."""
+    TAG = "directory"
+
+    def test_listing_upsert_order_export_and_delete(self):
+        import directory
+        import licence_check
+        c = self.conn
+        boss = self.user("boss.dir")
+        fields = {"reg_type": "sec_ria", "reg_number": "1234567", "credentials": "CFP®",
+                  "fee_models": ["flat", "aum"], "minimum": "none", "serves": ["new"],
+                  "states": ["NY", "CA"], "meeting": "both", "description": "How I work.",
+                  "scheduling_url": "https://cal.example.com/me"}
+        ids = {}
+        for login, name in (("zoe.dir", "Zoë Abbott"), ("ann.dir", "ann Lee"),
+                            ("ben.dir", "Ben Okafor")):
+            ids[name] = self.user(login, advisor=True)
+            # a current licence check (licence_check.py), so the listing shows
+            licence_check.record(c, ids[name], source="IAPD", crd="1234567",
+                                 checked_on=licence_check._today().isoformat())
+            res = directory.save_profile(c, ids[name], {"display_name": name, "firm": "F",
+                                                        **fields}, listed=True)
+            self.assertTrue(res["ok"], res)
+        # saved again: one row, changed in place
+        directory.save_profile(c, ids["Ben Okafor"],
+                               {"display_name": "Ben Okafor", "firm": "F", **fields,
+                                "states": ["TX"], "meeting": "in_person"}, listed=True)
+        self.assertEqual(self.one("SELECT COUNT(*) AS n, MAX(states) AS s FROM advisor_profiles "
+                                  "WHERE user_id = ?", (ids["Ben Okafor"],)),
+                         {"n": 1, "s": '["TX"]'})
+        names = [p["display_name"] for p in directory.listings(c)]
+        self.assertEqual(names, ["ann Lee", "Ben Okafor", "Zoë Abbott"])
+        self.assertEqual([p["display_name"] for p in directory.listings(
+            c, {"state": "NY", "meeting": "virtual", "fee_models": ["aum"]})],
+            ["ann Lee", "Zoë Abbott"])
+        self.assertTrue(directory.set_listed(c, ids["ann Lee"], False))
+        self.assertEqual(self.one("SELECT listed FROM advisor_profiles WHERE user_id = ?",
+                                  (ids["ann Lee"],)), {"listed": 0})
+        self.assertEqual(len(directory.listings(c)), 2)
+        z = zipfile.ZipFile(io.BytesIO(export.export_zip(c, ids["Zoë Abbott"])))
+        self.assertIn("Zoë Abbott", z.read("your_directory_listing.csv").decode())
+        self.assertTrue(admin.delete_account(c, ids["Zoë Abbott"], by=boss)["ok"])
+        self.assertEqual(self.seen("SELECT user_id FROM advisor_profiles WHERE user_id = ?",
+                                   (ids["Zoë Abbott"],)), [])
+        self.assertEqual([p["display_name"] for p in directory.listings(c)], ["Ben Okafor"])
+
+
 class DeleteAccountTests(_PG):
     TAG = "delete"
 
@@ -1409,6 +1515,125 @@ class DeleteAccountTests(_PG):
             where = " OR ".join(f"{col} = ?" for col in cols)
             self.assertEqual(self.seen(f"SELECT * FROM {table} WHERE {where}",
                                        (eve,) * len(cols)), [], table)
+
+
+class ConsentAccessTests(_PG):
+    """Consent records and the advisor access log (consent.py, access_log.py;
+    PLAN step 5, audit 1.2d / 1.6f) on Postgres."""
+    TAG = "consent"
+
+    def test_records_revokes_the_log_delete_prune_and_export(self):
+        c = self.conn
+        carol = self.user("carol.cr", advisor=True)
+        omar = self.user("omar.cr", advisor=True)
+        dana = auth.create_client(c, carol, "dana.cr@example.com", name="Dana")
+        token = auth.create_invite(c, carol, dana)
+        self.assertTrue(auth.accept_invite(c, token, PW, consent_text="Shared with Carol.",
+                                           **AGREE)["ok"])
+        self.assertTrue(consent.current(c, dana, carol))
+        row = self.one("SELECT kind, how, text_shown, text_sha256, at FROM consent_records "
+                       "WHERE client_id = ?", (dana,))     # committed: another connection sees it
+        self.assertEqual((row["kind"], row["how"], row["text_shown"]),
+                         ("grant", "setup_link", "Shared with Carol."))
+        self.assertEqual(row["text_sha256"], consent.text_sha256("Shared with Carol."))
+        self.assertRegex(row["at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        access_log.record(c, carol, dana, "Plan")
+        access_log.record(c, omar, dana, "Income", now=NOW - timedelta(days=200))
+        self.assertEqual([r["page"] for r in access_log.for_client(c, dana, dana)], ["Plan"])
+        self.assertEqual(len(access_log.for_client(c, dana, dana, days=None)), 2)
+        self.assertEqual([r["page"] for r in access_log.for_client(c, dana, omar, days=None)],
+                         ["Income"])
+        self.assertEqual(access_log.for_client(c, dana, self.user("eve.cr"), days=None), [])
+        files = export.collect(c, dana)
+        self.assertEqual(len(files["sharing_with_an_advisor"]), 1)
+        self.assertEqual(len(files["advisor_visits"]), 2)
+        self.assertEqual(len(export.client_record(c, carol, dana)["consent"]), 1)
+
+        # stop sharing: a revoke in the same commit as the unlink; access ends
+        self.assertTrue(advising.end_relationship(c, carol, dana, by="client",
+                                                  text_shown="Stop?")["ok"])
+        self.assertEqual(self.one("SELECT kind, how, text_shown FROM consent_records WHERE "
+                                  "client_id = ? ORDER BY id DESC LIMIT 1", (dana,)),
+                         {"kind": "revoke", "how": "client_stop", "text_shown": "Stop?"})
+        self.assertFalse(auth.can_view(c, carol, dana))
+        # her account deleted: both tables keep their rows, ids and all
+        self.assertTrue(admin.delete_own(c, dana, PW)["ok"])
+        self.assertEqual(len(self.seen("SELECT id FROM consent_records WHERE client_id = ?",
+                                       (dana,))), 2)
+        self.assertEqual(len(self.seen("SELECT id FROM advisor_access_log WHERE client_id = ?",
+                                       (dana,))), 2)
+        # 7 years on, the prunes take them; not a day before
+        later = NOW + timedelta(days=consent.KEEP_DAYS + 2)
+        self.assertEqual(consent.prune(c, now=NOW), 0)
+        self.assertGreaterEqual(consent.prune(c, now=later), 2)   # (and other tests' ended ones)
+        self.assertGreaterEqual(access_log.prune(c, now=later), 2)
+        for table in ("consent_records", "advisor_access_log"):
+            self.assertEqual(self.seen(f"SELECT id FROM {table} WHERE client_id = ?",
+                                       (dana,)), [], table)
+
+    def test_the_back_fill_once(self):
+        c = self.conn
+        carol = self.user("carol.bf", advisor=True)
+        dana = self.user("dana.bf")
+        c.execute("DELETE FROM app_state WHERE name = ?", (consent.BACKFILL_MARK,))
+        c.commit()
+        auth.link_client(c, carol, dana)
+        portfolio._SCHEMA_READY.discard(self.dsn)
+        with unittest.mock.patch("sys.stderr", new_callable=io.StringIO):
+            portfolio._ensure_schema(c)
+        self.assertEqual(self.one("SELECT kind, how FROM consent_records WHERE client_id = ?",
+                                  (dana,)), {"kind": "grant", "how": "migration"})
+        self.assertEqual(consent.backfill(c), 0)
+
+    def test_an_app_role_can_add_and_read_but_not_change_or_delete(self):
+        import psycopg
+        role = f"nwtest_app_{os.getpid()}_{secrets.token_hex(3)}"
+        schema = self.dsn.split("search_path%3D", 1)[1]
+        admin_conn = _admin()
+        try:
+            try:
+                admin_conn.execute(f'CREATE ROLE "{role}"')
+            except psycopg.Error as exc:
+                self.skipTest(f"can't create a role here: {exc}")
+            self.addCleanup(lambda: _drop_role(role))
+            # what DB_ROLES step 1 gives the app: every row right on every table
+            admin_conn.execute(f'GRANT USAGE ON SCHEMA {schema} TO "{role}"')
+            admin_conn.execute(f'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA '
+                               f'{schema} TO "{role}"')
+            admin_conn.execute(f'GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {schema} '
+                               f'TO "{role}"')
+        finally:
+            admin_conn.close()
+        # the schema setup's revoke, for this role as if it were northwend_app
+        self.assertEqual(portfolio._append_only_grants(
+            self.conn, {role: portfolio.APPEND_ONLY_REVOKES["northwend_app"],
+                        "nwtest_no_such_role": "UPDATE"}), [role])
+        self.conn.commit()
+        raw = psycopg.connect(self.dsn, autocommit=True)
+        try:
+            raw.execute(f'SET ROLE "{role}"')
+            raw.execute("INSERT INTO advisor_access_log (at, advisor_id, client_id, page) "
+                        "VALUES ('2026-10-06T12:00:00Z', 1, 2, 'Plan')")
+            raw.execute("INSERT INTO consent_records (at, client_id, advisor_id, kind, scope, "
+                        "text_shown, how) VALUES ('2026-10-06T12:00:00Z', 2, 1, 'grant', "
+                        "'full_sharing', 'x', 'intro')")
+            self.assertTrue(raw.execute("SELECT COUNT(*) FROM consent_records").fetchone()[0])
+            for sql in ("UPDATE consent_records SET kind = 'revoke'",
+                        "DELETE FROM consent_records",
+                        "UPDATE advisor_access_log SET page = 'x'",
+                        "DELETE FROM advisor_access_log",
+                        "TRUNCATE advisor_access_log"):
+                with self.subTest(sql), self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                    raw.execute(sql)
+            raw.execute("UPDATE watchlist SET ticker = ticker")   # other tables as before
+        finally:
+            raw.close()
+
+
+def _drop_role(role):
+    with _admin() as c:
+        c.execute(f'DROP OWNED BY "{role}"')
+        c.execute(f'DROP ROLE IF EXISTS "{role}"')
 
 
 # --------------------------------------------------------------------------- #
@@ -1880,7 +2105,8 @@ class UpgradeTests(_KeepModules):
             self.assertEqual(cols("daily_bars")["volume"], "bigint")
             for table in ("fund_top_holdings", "proposals", "progress_reports", "two_step",
                           "error_events", "email_tokens", "advisor_requests", "csv_layouts",
-                          "former_clients", "invite_codes", "app_state", "admin_log"):
+                          "former_clients", "invite_codes", "app_state", "admin_log",
+                          "consent_records", "advisor_access_log"):
                 self.assertTrue(cols(table), table)
             self.assertEqual([r["account"] for r in conn.execute(
                 "SELECT account FROM positions UNION ALL SELECT account FROM transactions")],

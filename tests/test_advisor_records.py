@@ -237,7 +237,10 @@ class ClientRecordTests(_DB):
         files = _unzip(export.client_record_zip(self.conn, self.carol, self.dana, now=NOW))
         self.assertEqual(set(files), {"README.txt", "client.csv", "notes.csv",
                                       "note_history.csv", "proposals.csv", "reports.csv",
-                                      "profile.csv"})
+                                      "profile.csv", "consent.csv"})
+        # the setup link's grant, with the words shown (consent.py)
+        self.assertIn("setup_link", files["consent.csv"])
+        self.assertIn("Your account is shared with your advisor", files["consent.csv"])
         self.assertIn("Dana Lee", files["README.txt"])
         self.assertIn("October 1, 2026", files["client.csv"])           # when they agreed
         self.assertIn(auth.TERMS_VIA_SETUP_LINK, files["client.csv"])

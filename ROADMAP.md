@@ -1349,6 +1349,78 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         a month later
 - [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and
       two-step consent, access logs, the standing "advice is the advisor's" line
+  - [x] 5.1 Advisor agreement and attestation (brief 4.1, gate L1) - `advisor_agreement.py`
+        (DRAFT text for the lawyer, VERSION, a SHA-256 of the text) and
+        `views/advisor_agreement.py`, flag `advisor_agreement`: an approved advisor
+        sees it on Your clients until they tick and accept; `auth.can_view` opens no
+        client's account before that; their own investor side works as usual. Kept in
+        `advisor_agreements` (version, hash, L1 on or off, time; a new row each time); a
+        new version or text asks again; marked "Beta" while L1 is off
+        (`flags.GATE_CHECKS["L1"]`). Admin shows who accepted which version
+  - [x] 5.2 Licence evidence and the yearly re-check (D15) - `licence_check.py`: the
+        approval form records the source (BrokerCheck / IAPD), the CRD matched and the
+        day (`licence_checks`); Admin > Licence checks lists advisors 11 months on (or
+        with none on record) with a form to record a re-check, flagged past 13 months;
+        `licence_current(conn, advisor_id)` for the directory; the nightly tidy job's
+        new step emails the admin a count, at most weekly (`northwend-licence-check`).
+        Terms draft says how the check is done
+  - [x] 5.10 The standing line (brief 4.4; interim text until L2) - `standing_line.py`
+        (one constant, "This is <advisor>'s advice, from <firm> - not Northwend's.
+        Northwend provides the software."): on proposals, reports (in the app and the
+        PDFs), the advisor card over the client's notes, each message, and the
+        proposal, report and message emails
+  - [x] 5.3 Directory profile - `directory.py`, new `advisor_profiles` table (both
+        schema files, SCHEMA_VERSION 4; `admin.ACCOUNT_TABLES`, `export.OWN`, the
+        matrix). "Your directory listing" on Your clients: name and firm as shown
+        (from How clients see you at first), registration type and CRD number with
+        the public IAPD / BrokerCheck link, credentials (shown, never filtered), fee
+        model, minimum in bands, who they serve (fixed list), states, virtual / in
+        person / both, a 500-character plain-text description (no links or emails),
+        an https-only scheduling link, and the advisor's own "List me" switch. Shown
+        only when approved, complete and listed, the licence check current and the
+        agreement accepted while its flag is on (`directory.OUTSIDE_CHECKS`:
+        `licence_check.licence_current`, `advisor_agreement.tools_open`; failing closed)
+  - [x] 5.4 "Find a guide" - flag `directory`, gate L2; in an individual's name
+        menu only (never an advisor, never client mode). B4's five filters (state,
+        virtual or in person, fee model, who they serve, minimum band) and no others;
+        alphabetical by name within them, nothing else (`directory.sort_key`, the
+        only sort; tests shuffle profiles across every filter combination and check
+        no other sort or ranking field exists). Nothing about browsing is written or
+        counted (a test compares the database before and after). Copy is DRAFT
+        (`directory.COPY_STATUS`) for L2. "Request an introduction" says
+        introductions open soon (`directory.request_intro_placeholder`, the hook for
+        5.5). `tests/test_directory.py`
+  - [x] 5.11 State coverage - "Your state" filter; not shown for a state they
+        didn't list; the state picked isn't saved
+  - [x] 5.6 (records part) Consent records - done: `consent.py` + append-only
+        `consent_records` (time ISO UTC, client, advisor, grant/revoke, scope
+        `full_sharing`, the exact text shown and its SHA-256, how);
+        `grant` / `revoke` / `current` / `history` / `between`. A grant when a client
+        creates their login from the setup link (the page now shows the sharing
+        sentence naming the advisor, recorded verbatim); a revoke on Stop sharing
+        (with the confirm words), End relationship, an admin unlink and an account
+        deleted. Existing links got one 'migration' grant, once (`consent.backfill`,
+        marked in `app_state`). The two-step intro consent (5.5-5.6) is still to come:
+        it calls `consent.grant(..., how="intro")`. No flag: today's relationships
+  - [x] 5.8 Advisor access log - done: `access_log.py` + append-only
+        `advisor_access_log` (time, advisor, client, page - never figures), written in
+        dashboard.py after `PAGE` when `ON_CLIENT`, once per page opened (the same page
+        again in 30 minutes in one session isn't a new row; Account / About / Your
+        clients aren't the client's). The client's Account page: "Who has looked at
+        your account" (90 days, a calm caption) and "Your sharing record"; an advisor
+        only ever reads their own rows
+  - [x] 5.9 Revoking ends access within one request - done: tested with AppTest
+        (Stop sharing clicked as the client, the advisor's very next run is their own
+        account, a `client_stop` revoke row exists, nothing more logged)
+  - [x] 5.12 (consent and access log) Append-only and kept (1.6f, B6) - done: only
+        `consent.prune` / `access_log.prune` (7 years; consent counted from when
+        sharing ended, never while in force) delete, run by `tidy.py`; a test greps
+        every module. `admin.KEPT_AFTER_DELETE`: delete_account keeps both, ids and
+        all; on Postgres the schema setup revokes UPDATE/DELETE/TRUNCATE from
+        `northwend_app` (UPDATE/TRUNCATE from `northwend_jobs`, which prunes);
+        in the client's export (`export.OWN`) and the advisor's client record
+        (`consent.csv`); both join `tests/test_principle_matrix.py`; Privacy draft,
+        security page and disclosures say so; SCHEMA_VERSION 5
 - [ ] **Step 6 - Billing** behind L1 (Paddle, by pull; founding seats; owner metrics)
 - [ ] **Step 7 - Remaining AI helpers** (most as rules, not AI)
 - [ ] **Step 8 - Service seams** (no new frontend now)

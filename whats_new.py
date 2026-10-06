@@ -22,6 +22,14 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "See when your advisor looks",
+     "items": [
+         "If you have an advisor, your Account page now shows when they looked at your "
+         "account and which page they opened. Only you see this list.",
+         "Agreeing to share your account with an advisor, and stopping, is now noted with "
+         "the words you were shown. You'll find it under Your sharing record, and in your "
+         "data download.",
+     ]},
     {"date": "2026-10-06", "title": "Our Terms of Use and Privacy Policy",
      "items": [
          "Northwend's Terms of Use and Privacy Policy are now published on northwend.app, "
