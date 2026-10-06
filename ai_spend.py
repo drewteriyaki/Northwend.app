@@ -20,6 +20,10 @@ The month's total against the ceiling (NORTHWEND_AI_CEILING_USD, default
     95%         closing  - no new conversations; open ones may finish
     100%        resting  - every AI feature shows the calm "resting" line
 
+The same table counts Ask Northwend's output-check breaks (note_break: a
+row per kind of break, "check:<kind>", with no tokens and no cost); summary()
+keeps them out of the answers and lists them apart for Admin.
+
 Each email goes once per threshold per month (an `ai_alerts` row claims it,
 so two processes can't both send). The wording people see never says
 "limit", "budget" or "cost".
@@ -168,19 +172,21 @@ def level(conn, now: datetime | None = None) -> str:
 def summary(conn, now: datetime | None = None) -> dict:
     """For the Admin page - counts only: {"month", "spent" and "ceiling"
     (micro-dollars), "percent", "level", "projected" (micro-dollars at this
-    month's daily rate so far), "calls", "rows" (per helper and model)}."""
+    month's daily rate so far), "calls", "rows" (per helper and model),
+    "breaks" (the output check's counts, breaks())}."""
     now = now or datetime.now(timezone.utc)
-    rows = [dict(r) for r in conn.execute(
+    every = [dict(r) for r in conn.execute(
         "SELECT helper, model, calls, input_tokens, output_tokens, cache_write_tokens, "
         "cache_read_tokens, cost_micro FROM ai_spend WHERE month = ? ORDER BY helper, model",
         (month_of(now),))]
+    rows = [r for r in every if not r["helper"].startswith(CHECK_PREFIX)]
     spent, ceiling = sum(r["cost_micro"] for r in rows), ceiling_micro()
     days = (resets_on(now) - date(now.year, now.month, 1)).days
     elapsed = max(1.0, now.day - 1 + now.hour / 24)
     return {"month": month_of(now), "spent": spent, "ceiling": ceiling,
             "percent": percent(spent, ceiling), "level": level_of(spent, ceiling),
             "projected": round(spent * days / elapsed), "calls": sum(r["calls"] for r in rows),
-            "rows": rows}
+            "rows": rows, "breaks": breaks(every)}
 
 
 def dollars(micro: int) -> str:
@@ -329,4 +335,49 @@ def note(response, helper: str, model: str, *, also=None) -> None:
                   file=sys.stderr)
         except Exception:
             pass
+
+
+# ---- the output check's breaks, for the Admin page ------------------------------ #
+# A break of the conclusion policy's output check (ai_policy, AI_PLAN 7.2) is
+# counted in this same table, as a row per (month, "check:<kind>", what
+# followed) with no tokens and no cost: "retried" when the model was asked
+# once more, "fallback" when the second draft broke too and the calm line was
+# shown. The kind of break only - never the text, never who.
+CHECK_PREFIX = "check:"
+RETRIED, FELL_BACK = "retried", "fallback"
+
+
+def note_break(kinds, retried: bool, now: datetime | None = None) -> None:
+    """Count one break of the output check, once for each of its `kinds`
+    (ai_policy.KINDS; anything else is ignored). `retried`: it was the
+    second draft that broke (the calm fallback line was shown). Never
+    raises; does nothing until use_db()."""
+    db = _SINK["db"]
+    if not db:
+        return
+    try:
+        import ai_policy
+        from portfolio import connect
+        conn = connect(db)
+        try:
+            for kind in sorted(set(kinds or ()) & set(ai_policy.KINDS)):
+                record(conn, CHECK_PREFIX + kind, FELL_BACK if retried else RETRIED, {}, now)
+        finally:
+            conn.close()
+    except Exception as exc:   # counts only; the answer itself is fine
+        try:
+            print(f"[ai spend] couldn't count a check: {type(exc).__name__}", file=sys.stderr)
+        except Exception:
+            pass
+
+
+def breaks(rows) -> list[dict]:
+    """The output check's counts out of summary()'s rows: [{"kind",
+    "retried", "fallback"}], most first."""
+    out: dict = {}
+    for r in rows:
+        if r["helper"].startswith(CHECK_PREFIX) and r["model"] in (RETRIED, FELL_BACK):
+            kind = r["helper"][len(CHECK_PREFIX):]
+            out.setdefault(kind, {"kind": kind, RETRIED: 0, FELL_BACK: 0})[r["model"]] += r["calls"]
+    return sorted(out.values(), key=lambda b: (-(b[RETRIED] + b[FELL_BACK]), b["kind"]))
 

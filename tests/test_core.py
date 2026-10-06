@@ -28,6 +28,7 @@ os.environ.setdefault("NORTHWEND_PBKDF2_ITERATIONS", "1000")
 import accounts  # noqa: E402
 import advising  # noqa: E402
 import advisor  # noqa: E402
+import ai_tools  # noqa: E402
 import alerts  # noqa: E402
 import allocation  # noqa: E402
 import auth  # noqa: E402
@@ -1038,8 +1039,9 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
         results = client.calls[1]["messages"][-1]["content"]
         self.assertFalse(results[0].get("is_error"))
         self.assertTrue(results[1]["is_error"])
-        self.assertEqual({t["name"] for t in client.calls[0]["tools"]},
-                         {"suggest_profile_answers", "save_memory"})
+        # the profile and notes tools, then the read-only calculators (ai_tools)
+        self.assertEqual([t["name"] for t in client.calls[0]["tools"]],
+                         ["suggest_profile_answers", "save_memory", *ai_tools.NAMES])
         # without on_memory (an advisor in a client's account) nothing is
         # handed over, and the model is told notes aren't kept here
         client = _FakeClient([

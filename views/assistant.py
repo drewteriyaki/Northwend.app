@@ -63,8 +63,59 @@ def _chat_card(contexts, cash_by_account, profile, memory):
                                         experience=profile.get("experience"),
                                         managed=CLIENT_MODE),
             memory=memory if _chat_keeps_notes() else "",
-            scope=context_card.SELF if _chat_keeps_notes() else context_card.ADVISOR_FULL)
+            scope=context_card.SELF if _chat_keeps_notes() else context_card.ADVISOR_FULL,
+            client_mode=_chat_client_mode(), advisor_label=_chat_advisor_label())
     return context_card.for_conversation(st.session_state, USER_ID, make)[0]
+
+
+def _chat_client_mode():
+    """Client mode for the chat (AI_PLAN 7.3): the person works with an
+    advisor and is talking in their own account. An advisor in a client's
+    account is the advisor talking - the card says so, no client mode."""
+    return CLIENT_MODE and IS_MANAGED_CLIENT and LOGIN_ID == USER_ID
+
+
+def _chat_advisor_label():
+    """Their advisor's name and firm as the advisor shows clients (How
+    clients see you) - the login only when no name is set, never an email
+    (context_card.clean_advisor_label)."""
+    import context_card
+    if not _chat_client_mode():
+        return None
+    card = MY_ADVISOR_CARD or {}
+    return context_card.clean_advisor_label(card.get("name") or card.get("username"),
+                                            card.get("firm"))
+
+
+def _chat_quick_starts(contexts):
+    """The suggested first questions: an advisor's client's are about
+    understanding their own plan and what to ask their advisor (CLIENT_ASK,
+    views/start_home.py); everyone else's are QUICK_STARTS, or before
+    anything is invested QUICK_STARTS_NEW."""
+    if _chat_client_mode():
+        return {
+            ("Explain my mix" if contexts else "Before I meet my advisor"): (
+                "Explain what my portfolio holds in plain words - the kinds of funds and my "
+                "mix - and what questions I could bring to my advisor about it."
+                if contexts else CLIENT_ASK["bring_advisor"]),
+            "My advisor's proposal": CLIENT_ASK["proposal"],
+            "Questions for my advisor": "What questions do people usually ask their advisor "
+                                        "about their plan, and why do they matter?",
+        }
+    return QUICK_STARTS if contexts else QUICK_STARTS_NEW   # nothing to review yet
+
+
+def _chat_stream(chunks):
+    """Draw Ask Northwend's checked answer as it comes and return what was
+    shown: text is added; a Redraw (the output check dropped a draft and is
+    asking once more, advisor.stream_reply) replaces what's shown with the
+    answer's earlier rounds."""
+    import advisor
+    box, shown = st.empty(), ""
+    for chunk in chunks:
+        shown = chunk.text if isinstance(chunk, advisor.Redraw) else shown + chunk
+        box.markdown(shown)
+    return shown
 
 
 def _new_conversation():
@@ -155,7 +206,7 @@ def _render_assistant(contexts, cash_by_account):
     if not display:
         if not full:
             st.caption("Not sure where to start? Try one of these:")
-        starts = QUICK_STARTS if contexts else QUICK_STARTS_NEW   # nothing to review yet
+        starts = _chat_quick_starts(contexts)
         cols = st.columns(len(starts))
         for col, (label, text) in zip(cols, starts.items()):
             if col.button(label, width="stretch", key=f"quick_{label}"):
@@ -194,13 +245,15 @@ def _render_assistant(contexts, cash_by_account):
 
         with chat_box, st.chat_message("assistant", avatar=SAGE_AVATAR):
             try:
-                # the conclusion policy's output check, sentence by sentence
-                # (advisor.policed): their own holdings and question may name funds
-                reply = st.write_stream(advisor.policed(advisor.stream_reply(
+                # the conclusion policy's output check, sentence by sentence,
+                # with one more try on a break (advisor.stream_reply): their own
+                # holdings and question may name funds; breaks are counted by
+                # kind only (ai_spend.note_break, Admin)
+                reply = _chat_stream(advisor.stream_reply(
                     anthropic.Anthropic(api_key=api_key), history, card, suggested.append,
                     kept.append if _chat_keeps_notes() else None, user_id=LOGIN_ID,
-                    **ai_spend.chat_settings(quota["level"])),
-                    allowed_tickers=ai_policy.tickers_in(str(card)) | ai_policy.tickers_in(prompt)))
+                    allowed_tickers=ai_policy.tickers_in(str(card)) | ai_policy.tickers_in(prompt),
+                    on_break=ai_spend.note_break, **ai_spend.chat_settings(quota["level"])))
             except anthropic.AnthropicError as exc:
                 # one calm sentence, never the error's text (_ai_failed); the
                 # question leaves the history so the next try asks it afresh,

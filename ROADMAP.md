@@ -1228,6 +1228,44 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         untouched (`checkin.PREF_TARGET_FROM`, C3). COPY_AUDIT's 13 Rewrites
         and 19 of 21 "Same problem" Rewrites done (open: the chat page's
         profile line, the storm cloak); website rebuilt
+  - [x] AI_PLAN 10 step 10 The library (`ai_library.py`) - done:
+        `block_text()` joins the shared, cached first block through
+        `ai_gateway.library_text()`: what Northwend is, the route's stages,
+        the three building blocks with the general named examples
+        (`starter_funds`), readiness in general, common starting points,
+        past drops as history (`storms`, `stress`), how Northwend's features
+        work, the learn-more links, and a DRAFT glossary of 63 terms (owner
+        to review). About 18,000 characters (~4,500 tokens) against a 32,000
+        budget; no ticker outside the general examples; it passes the
+        policy check itself (`tests/test_ai_steps.py`)
+  - [x] AI_PLAN 10 step 13 Client mode - done: the card's `client_mode` and
+        `advisor_label` (the name and firm the advisor shows clients,
+        `context_card.clean_advisor_label`: never an email); the label sits
+        in the card's `<advisor>` part and rule 10
+        (`ai_policy.client_rule`) after `</card>`, in the person's own
+        block, so the shared block stays identical for everyone. Only the
+        client talking in their own account - an advisor in a client's
+        account isn't "the client". Client quick starts (`CLIENT_ASK`:
+        their mix, their advisor's proposal, questions for their advisor)
+  - [x] AI_PLAN 10 step 14 Calculator tools (`ai_tools.py`) - done:
+        `stress_test`, `next_deposit_split`, `employer_match`, `fee_drag`,
+        `goal_projection`, in a fixed order after the profile and notes tools
+        (`advisor.chat_tools()`, the same for everyone). Percentages, months
+        and ratios in and out - no input can take a dollar amount, so
+        `for_model` never has one (a fuzz test); bad input is an error the
+        model fixes; no database code at all (a test with the database
+        refusing to open). The `for_screen` dollar cards wait for the
+        opt-in (AI_PLAN 3.3); `goal_projection` takes the person's figures
+        as shares of their goal (the plan isn't read server side yet)
+  - [x] AI_PLAN 7.2 One more try - done: `advisor.stream_reply` checks each
+        sentence itself; on a break the draft stops at once (its tokens so
+        far still count), the page is told to `Redraw` the earlier rounds,
+        and the model is asked once more with `RETRY_REMINDER` as a text
+        block at the end of the last user message (Sonnet 5 has no
+        mid-conversation system messages; the prefix before it stays
+        cached); a second break shows `FALLBACK`. Each break is counted by
+        kind (`ai_spend.note_break`: rows `check:<kind>` with no tokens or
+        cost) and shown on Admin > AI use as totals only
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
       decoder, the no-account decoder route
   - [x] Storm Drill field (R4) - done Oct 6, behind flag `storm_drill`: "What will

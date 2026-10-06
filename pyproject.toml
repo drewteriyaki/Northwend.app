@@ -64,6 +64,7 @@ py-modules = [
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)
     "ai_policy",   # the conclusion policy: the AI's rules and the output check (AI_PLAN 7)
+    "ai_library", "ai_tools",   # Ask Northwend's library and calculator tools (AI_PLAN 5)
 ]
 # the AI eval set (docs/AI_PLAN.md 8): cases, the offline checker, the runner
 packages = ["evals"]

@@ -682,6 +682,31 @@ def _render_ai_spend(s):
                 "Cache write": r["cache_write_tokens"], "Cache read": r["cache_read_tokens"],
                 "Estimated": ai_spend.dollars(r["cost_micro"])} for r in s["rows"]]),
                 hide_index=True, width="stretch")
+    _render_ai_breaks(s.get("breaks") or [])
+
+
+AI_BREAK_WORDS = {   # ai_policy.KINDS, in words
+    "conclusion": "Said what to do", "for_you_mix": "A mix for them", "rating": "Rated a choice",
+    "advisor_pick": "Pointed to an advisor", "prediction": "A prediction",
+    "urgency": "Urgency", "ticker": "Named a fund outside the card",
+}
+
+
+def _render_ai_breaks(rows):
+    """Ask Northwend's output check this month (ai_policy, AI_PLAN 7.2):
+    how often a draft broke the conclusion policy, by kind - totals only,
+    never the text or who asked."""
+    st.markdown("**The output check** - drafts stopped by the conclusion policy this month")
+    if not rows:
+        st.caption("None this month.")
+        return
+    st.dataframe(pd.DataFrame([{
+        "Kind": AI_BREAK_WORDS.get(r["kind"], r["kind"]),
+        "Asked once more": r[ai_spend.RETRIED],
+        "Calm line shown": r[ai_spend.FELL_BACK]} for r in rows]),
+        hide_index=True, width="stretch")
+    st.caption("A first break asks the model once more with a reminder; a second shows the "
+               "calm line instead. Counts only - never the text, never who asked.")
 
 
 def _render_drill_count(c):

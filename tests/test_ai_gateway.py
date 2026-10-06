@@ -23,7 +23,9 @@ sys.path.insert(0, REPO)
 
 import advisor  # noqa: E402
 import ai_gateway  # noqa: E402
+import ai_library  # noqa: E402
 import ai_spend  # noqa: E402
+import ai_tools  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
 import context_card  # noqa: E402
@@ -361,6 +363,11 @@ class ContextCardTests(unittest.TestCase):
             "positions": "int",
             "accounts": "int",
             "notes": "tuple[advisor.MemoryNote, ...]",
+            # client mode (AI_PLAN 7.3, step 13): whether they work with an
+            # advisor, and the name and firm the advisor shows clients -
+            # cleaned (clean_advisor_label), never a login's email
+            "client_mode": "bool",
+            "advisor_label": "str | None",
         })
         self.assertEqual({f.name: f.type for f in dataclasses.fields(context_card.HoldingLine)},
                          {"ticker": "str", "name": "str", "kind": "tuple[tuple[str, int], ...]",
@@ -531,8 +538,8 @@ class CacheLayoutTests(unittest.TestCase):
 
     def test_breakpoints_where_expected(self):
         (card, req), _ = self._two_requests()
-        self.assertEqual([t["name"] for t in req["tools"]],
-                         ["suggest_profile_answers", "save_memory"])    # first, fixed order
+        self.assertEqual([t["name"] for t in req["tools"]],     # first, fixed order
+                         ["suggest_profile_answers", "save_memory", *ai_tools.NAMES])
         block1, block2 = req["system"]
         self.assertEqual(block1["cache_control"], {"type": "ephemeral", "ttl": "1h"})
         self.assertEqual(block2["cache_control"], {"type": "ephemeral"})
@@ -550,7 +557,8 @@ class CacheLayoutTests(unittest.TestCase):
         self.assertNotEqual(card_a, card_b)
         self.assertEqual(a["tools"], b["tools"])
         self.assertEqual(a["system"][0], b["system"][0])
-        for personal in ("VTI", "Total Stock", "house ~2029", "Retirement; Buy a home"):
+        # (VTI itself is one of the library's general examples, the same for everyone)
+        for personal in ("- VTI (Total Stock)", "house ~2029", "Retirement; Buy a home"):
             self.assertNotIn(personal, a["system"][0]["text"])
 
     def test_the_library_hook(self):
@@ -720,7 +728,8 @@ class WriteRuleAppTests(_App):
                       "aggressive", box)
         # the card went as the second block, the rules first (the cache layout)
         req = client.calls[0]
-        self.assertEqual(req["system"][0]["text"], advisor.chat_rules())
+        self.assertEqual(req["system"][0]["text"],
+                         advisor.chat_rules() + "\n\n" + ai_library.block_text())
         self.assertTrue(req["system"][1]["text"].startswith("<card>"))
         at.button(key="chat_suggest_save").click().run()
         c = self.db_()

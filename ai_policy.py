@@ -20,15 +20,16 @@ kind of adviser or Northwend's directory, or saying they need one; predicting
 returns, prices or markets, or calling anything safe or guaranteed; urgency
 or hype.
 
-What the gateway (ai_gateway.py, built separately) wires in - this module
-doesn't touch advisor.py:
+How Ask Northwend uses it (advisor.py; this module touches nothing else):
 
 1. ``rules(client_mode=False, advisor_label=None)`` -> ((key, text), ...).
    Use it in place of ``advisor.GUARDRAILS`` in every system prompt that
    writes for people (``rules_text()`` gives the "## Rules you always
    follow" section ready to put first). It is the stricter text *always*
    (AI_PLAN decision 10: being more careful needs no sign-off). Client mode
-   adds rule 10 with the advisor's label.
+   adds rule 10 with the advisor's label - the chat puts ``client_rule()``
+   in the person's own card block instead (context_card.render), so the
+   shared block stays the same for everyone.
 2. Gate L3 only decides whether about-my-situation answers may open up:
    ``situation_answers_open()`` is ``flags.gate("L3")``. While it is off,
    ``rules()`` adds ``situation_general`` - such questions are answered in
@@ -38,10 +39,12 @@ doesn't touch advisor.py:
    Streaming: feed the chunks through ``SentenceBuffer`` and run
    ``check()`` on each finished sentence before showing it, then on the
    whole answer at the end. On a hit: stop, discard the draft, ask once
-   more with ``RETRY_REMINDER`` appended (a mid-conversation system message
-   keeps the cache), check again, and if that fails too show ``FALLBACK``
-   (``check`` returns it as the replacement). Count the hit with
-   ``kinds(text)`` - kind names only, never the text.
+   more with ``RETRY_REMINDER`` appended (advisor.stream_reply: a text block
+   at the end of the last user message, which keeps the cached prefix -
+   Claude Sonnet 5 has no mid-conversation system messages), check again,
+   and if that fails too show ``FALLBACK`` (``check`` returns it as the
+   replacement). Count the hit with ``kinds(text)`` - kind names only,
+   never the text (ai_spend.note_break).
 4. ``check(text, allowed_tickers=...)`` also flags a named fund or stock
    that isn't in the question, the person's own holdings or Northwend's
    general examples (``GENERAL_EXAMPLES``) - pass that set when there is a
@@ -148,14 +151,20 @@ def situation_answers_open() -> bool:
     return flags.gate(GATE)
 
 
+def client_rule(advisor_label: str | None = None) -> str:
+    """Rule 10 on its own (client mode), for `advisor_label`. Ask Northwend
+    puts it in the person's own card block, after the card - never in the
+    shared block, which stays the same for everyone (context_card.render)."""
+    return CLIENT_RULE[1].format(advisor=advisor_label or "their advisor")
+
+
 def rules(client_mode: bool = False, advisor_label: str | None = None) -> tuple:
     """The rules for a system prompt, as (key, text) pairs - the stricter set
     always; the client-mode rule for an advisor's client; the general-terms
     rule while gate L3 is off."""
     out = list(RULES)
     if client_mode:
-        key, text = CLIENT_RULE
-        out.append((key, text.format(advisor=advisor_label or "their advisor")))
+        out.append((CLIENT_RULE[0], client_rule(advisor_label)))
     if not situation_answers_open():
         out.append(SITUATION_RULE)
     return tuple(out)

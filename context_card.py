@@ -18,6 +18,16 @@ its cache keeps working (AI_PLAN 3.5, ai_gateway.build_request).
 Scopes: SELF (the person in their own account: their notes included) and
 ADVISOR_FULL (an advisor in a client's account: the same minus the notes -
 the advisor's conversation never reads or keeps the client's notes).
+
+Client mode (AI_PLAN 7.3, step 13): a person who works with an advisor
+(dashboard.CLIENT_MODE, talking in their own account) gets client_mode and
+their advisor's label - the name and firm the advisor shows clients, cleaned
+like a fund's name, never a login or an email. The card shows the label in
+its <advisor> part, and render() adds ai_policy's client rule after the
+closing </card> tag: the rule is part of this person's own (second) block,
+so the shared first block stays identical for everyone and its cache holds.
+An advisor talking in a client's account is the advisor, not the client:
+no client mode there (the card's notes part says who is talking).
 """
 
 from __future__ import annotations
@@ -43,6 +53,10 @@ TIMELINES = (("under 3 years", 3), ("3 to 5 years", 6), ("6 to 10 years", 11),
              ("11 to 20 years", 21), ("more than 20 years", None))
 TOP_HOLDINGS = 15
 NAME_MAX = 60
+LABEL_MAX = 80             # an advisor's label: "Jane Doe, Doe Planning"
+# what the client rule calls the advisor - the label itself is data, in the
+# card's <advisor> part, so the instruction after the card holds no typed text
+ADVISOR_REF = "their advisor (named in the card's <advisor> part)"
 STORE_KEY = "chat_card"   # in session state: {"for": account id, "text": rendered card}
 
 _FIGURE = re.compile(r"[$€£¥]|\b\d{1,3}(?:,\d{3})+\b")
@@ -80,6 +94,20 @@ def clean_name(raw) -> str:
     if len(text) > NAME_MAX:   # cut at a word, after scrubbing (which can lengthen it)
         text = text[:NAME_MAX].rsplit(" ", 1)[0] if " " in text[:NAME_MAX] else text[:NAME_MAX]
     return text if text and _safe_text(text) else "name unknown"
+
+
+def clean_advisor_label(name, firm=None) -> str | None:
+    """The advisor's label for the card: "Name, Firm" as the advisor shows
+    it to clients - one line, at most LABEL_MAX characters, no figures, no
+    tag brackets, never an email. None without a clean name."""
+    def clean(raw) -> str:
+        text = " ".join(str(raw or "").replace("<", " ").replace(">", " ").split())
+        ok = text and "@" not in text and _safe_text(text) and advisor.scrub_memory(text) == text
+        return text if ok else ""
+    who, where = clean(name), clean(firm)
+    if not who:
+        return None
+    return (f"{who}, {where}" if where else who)[:LABEL_MAX].rstrip(" ,") or None
 
 
 def _classes(pairs) -> bool:
@@ -122,6 +150,8 @@ class ContextCard:
     positions: int
     accounts: int
     notes: tuple[advisor.MemoryNote, ...]    # SELF only
+    client_mode: bool = False                # works with an advisor (SELF only)
+    advisor_label: str | None = None         # clean_advisor_label(), client mode only
 
     def __post_init__(self):
         ok = (
@@ -144,7 +174,12 @@ class ContextCard:
             and all(_is_pct(v, 0, 100_000) for v in self.others)
             and _is_pct(self.positions, 0, 100_000) and _is_pct(self.accounts, 0, 100_000)
             and all(isinstance(n, advisor.MemoryNote) for n in self.notes)
-            and (self.scope == SELF or not self.notes))
+            and (self.scope == SELF or not self.notes)
+            and isinstance(self.client_mode, bool)
+            and (not self.client_mode or self.scope == SELF)
+            and (self.advisor_label is None
+                 or (self.client_mode and isinstance(self.advisor_label, str)
+                     and clean_advisor_label(self.advisor_label) == self.advisor_label)))
         if not ok:
             raise ValueError("a ContextCard holds only its typed fields (AI_PLAN 3.1)")
 
@@ -204,7 +239,18 @@ class ContextCard:
                  "<holdings>", *holdings, "</holdings>"]
         if self.stage:
             parts += ["<route>", STAGES[self.stage], "</route>"]
+        if self.client_mode:
+            parts += ["<advisor>", "They work with an advisor: "
+                      + (self.advisor_label or "name not shown") + ".", "</advisor>"]
         parts += ["<notes>", notes, "</notes>", "</card>"]
+        if self.client_mode:
+            # Northwend's own rule for this conversation, after the card (never
+            # data): ai_policy's rule 10, pointing at the label in the card
+            import ai_policy
+            parts += ["", "## For this conversation",
+                      ai_policy.client_rule(ADVISOR_REF)
+                      + " When you point them to their advisor, use the advisor's name from "
+                        "the card."]
         return "\n".join(parts)
 
 
@@ -263,14 +309,17 @@ def _split(c: dict, splits: dict) -> tuple[tuple[str, int], ...]:
 
 def build(*, profile: dict, contexts: list, cash_by_account: dict, splits: dict | None = None,
           targets: dict | None = None, band=None, stage: str | None = None, memory: str = "",
-          scope: str = SELF) -> ContextCard:
+          scope: str = SELF, client_mode: bool = False,
+          advisor_label: str | None = None) -> ContextCard:
     """A card from what the page already holds: the profile row (only its
     answers), dashboard.py's position contexts (each one's symbol, account,
     asset type and live value - for weights and counts; the name is market
     data's, c["info"]["name"]), cash by account (amounts become percents
     here and go no further), asset_classes.splits(), their target mix
     ({class: %}) and band (points), the route stage, and the guide's saved
-    notes (only kept for SELF)."""
+    notes (only kept for SELF). `client_mode`: the person works with an
+    advisor (and is the one talking - SELF); `advisor_label`: the advisor's
+    name and firm, as clean_advisor_label() makes it."""
     splits = splits or {}
     rows = [{"symbol": (c.get("pos") or {}).get("symbol"),
              "account": (c.get("pos") or {}).get("account"),
@@ -318,7 +367,10 @@ def build(*, profile: dict, contexts: list, cash_by_account: dict, splits: dict 
         others=(int(others_n), _pct(others_w)),
         positions=len(contexts),
         accounts=len(accounts) if contexts or cash_by_account else 0,
-        notes=advisor.parse_notes(memory) if scope == SELF else ())
+        notes=advisor.parse_notes(memory) if scope == SELF else (),
+        client_mode=bool(client_mode) and scope == SELF,
+        advisor_label=(clean_advisor_label(advisor_label)
+                       if client_mode and scope == SELF else None))
 
 
 def stage_of(*, has_real_holdings: bool, experience: str | None, managed: bool) -> str:

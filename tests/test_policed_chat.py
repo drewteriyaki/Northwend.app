@@ -56,10 +56,15 @@ class PolicedTests(unittest.TestCase):
     def test_the_rules_are_in_the_shared_prompt_block(self):
         self.assertIn(ai_policy.rules_text(), advisor.chat_rules())
 
-    def test_the_chat_page_wraps_the_stream(self):
+    def test_the_chat_page_checks_the_stream(self):
+        # Ask Northwend's answers are checked inside stream_reply (with one
+        # more try on a break - tests/test_ai_steps.py), the funds the card and
+        # the question name allowed, breaks counted by kind for Admin
         with open(os.path.join(REPO, "views", "assistant.py"), encoding="utf-8") as fh:
             src = fh.read()
-        self.assertIn("advisor.policed(advisor.stream_reply(", src)
+        call = src.split("_chat_stream(advisor.stream_reply(")[1].split("\n\n")[0]
+        self.assertIn("allowed_tickers=ai_policy.tickers_in(str(card))", call)
+        self.assertIn("on_break=ai_spend.note_break", call)
 
 
 if __name__ == "__main__":

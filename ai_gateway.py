@@ -164,8 +164,8 @@ def check(spec: HelperSpec, user_id: int | None, *, conversation_open: bool = Fa
 # ---- the request -------------------------------------------------------------- #
 
 def library_text() -> str:
-    """Northwend's own guide for the shared block (AI_PLAN 5.1): ai_library's
-    block_text() once that module exists, else nothing. The same for
+    """Northwend's own guide for the shared block (AI_PLAN 5.1):
+    ai_library.block_text() ("" if the module were missing). The same for
     everyone, so it never breaks the shared cache."""
     try:
         import ai_library
@@ -245,9 +245,20 @@ def call(helper: str, *, messages: list, user_id: int | None = None, system=None
 
 def _streamed(client, request: dict, spec: HelperSpec, user_id: int | None):
     with client.messages.stream(**request) as stream:
-        for event in stream:
-            if event.type == "text":
-                yield event.text
+        try:
+            for event in stream:
+                if event.type == "text":
+                    yield event.text
+        except GeneratorExit:
+            # stopped early (the output check dropped the draft, AI_PLAN 7.2):
+            # what it used so far still counts - its token counts only
+            try:
+                so_far = stream.current_message_snapshot
+            except Exception:  # noqa: BLE001 - nothing streamed yet, or a stand-in
+                so_far = None
+            if so_far is not None:
+                _record(spec, so_far, user_id)
+            raise
         message = stream.get_final_message()
     _record(spec, message, user_id)
     return message

@@ -583,7 +583,7 @@ CREATE TABLE IF NOT EXISTS error_events (
 -- month, helper and model. Counts only - no user_id, no question or answer text.
 CREATE TABLE IF NOT EXISTS ai_spend (
     month              TEXT    NOT NULL,         -- 'YYYY-MM' (UTC)
-    helper             TEXT    NOT NULL,         -- 'chat', 'prep', 'plan', 'screenshot', 'csv', 'txn'
+    helper             TEXT    NOT NULL,         -- 'chat', 'prep', 'screenshot', 'csv', 'txn'; 'check:<kind>' counts the output check's breaks (no tokens, no cost)
     model              TEXT    NOT NULL,
     calls              INTEGER NOT NULL DEFAULT 0,
     input_tokens       INTEGER NOT NULL DEFAULT 0,
