@@ -4349,6 +4349,18 @@ class WebsiteTests(unittest.TestCase):
             with open(os.path.join(cls.PUBLIC, n), encoding="utf-8") as fh:
                 cls.pages[n] = fh.read()
 
+    def test_every_page_shows_the_support_email(self):
+        # in the footer of every page, as a link Cloudflare's email obfuscation
+        # leaves alone (its decoding script would be blocked by the CSP)
+        link = '<a href="mailto:support@northwend.app">support@northwend.app</a>'
+        for name, page in self.pages.items():
+            footer = page[page.index('<footer class="site-footer">'):]
+            self.assertIn(f"<!--email_off-->{link}<!--/email_off-->", footer, name)
+            self.assertNotIn('href="mailto:', re.sub(
+                r"<!--email_off-->.*?<!--/email_off-->", "", page, flags=re.S), name)
+        self.assertIn("Questions about using Northwend in your practice",
+                      self.pages["advisors.html"])
+
     def test_pages_for_new_investors_and_advisors(self):
         self.assertIn("new-to-investing.html", self.pages)
         self.assertIn("advisors.html", self.pages)

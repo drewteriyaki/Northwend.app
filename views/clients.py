@@ -1062,6 +1062,8 @@ def _render_clients():
     _render_models()
     st.divider()
     _render_advisor_settings()
+    st.caption(f":material/mail: Questions about using Northwend in your practice: "
+               f"**{disclosures.CONTACT}**")
 
 
 WEEK_LIST_MAX = 5  # clients listed per group in the weekly summary; the rest are counted

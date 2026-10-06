@@ -878,7 +878,8 @@ def _signup() -> bool:
             if role == "advisor":
                 st.caption("Advisor tools are for licensed professionals, so we check each "
                            "request first - usually within two working days. Until then you "
-                           "can explore Northwend as an investor.")
+                           "can explore Northwend as an investor. Questions about advisor "
+                           f"access: {disclosures.CONTACT}")
                 firm = st.text_input("Firm name", key="signup_firm", max_chars=100)
                 licence = st.text_input("CRD or licence number", key="signup_licence",
                                         max_chars=40,

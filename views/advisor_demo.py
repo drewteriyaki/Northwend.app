@@ -93,7 +93,8 @@ def _render_advisor_demo():
     """The whole preview, read-only."""
     st.info(":material/hourglass_top: **This is an example.** The clients below are made up "
             "and nothing here is saved. Once your advisor access is approved - usually within "
-            "two working days - **Your clients** opens with your own clients instead.")
+            "two working days - **Your clients** opens with your own clients instead. "
+            f"Questions in the meantime: **{disclosures.CONTACT}**")
     rows = advisor_demo.book(datetime.now().date())
     st.html(_stat_row(
         "<div class='pt-stats' role='list' aria-label='Example client summary'>"

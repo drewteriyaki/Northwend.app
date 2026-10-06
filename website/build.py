@@ -218,13 +218,24 @@ def render() -> dict[str, str]:
                             "DESCRIPTION": html.escape(description),
                             "CANONICAL": SITE_URL + path,
                             "CONTENT": _fill(content, values)})
-        out[name] = page
+        out[name] = email_off(page)
     out["sitemap.xml"] = sitemap()
     for name in os.listdir(os.path.join(HERE, "assets")):
         if name.endswith((".css", ".svg", ".txt")) or name == "_headers":
             with open(os.path.join(HERE, "assets", name), encoding="utf-8") as fh:
                 out[name] = fh.read()
     return out
+
+
+_MAILTO = re.compile(r'<a\b[^>]*href="mailto:[^"]*"[^>]*>.*?</a>', re.S)
+
+
+def email_off(page: str) -> str:
+    """Wrap every email link in Cloudflare's email_off markers. Cloudflare's
+    "Email Address Obfuscation" otherwise swaps addresses for "[email
+    protected]" and a decoding script - which the site's CSP blocks, so the
+    address never shows."""
+    return _MAILTO.sub(lambda m: f"<!--email_off-->{m.group(0)}<!--/email_off-->", page)
 
 
 def build(out_dir: str = os.path.join(HERE, "public")) -> list[str]:
