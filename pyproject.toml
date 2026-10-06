@@ -42,7 +42,7 @@ northwend-tidy = "cli:tidy"
 [tool.setuptools]
 py-modules = [
     "accounts", "admin", "advising", "advisor", "advisor_demo", "ai_gateway", "ai_spend",
-    "ai_usage", "alerts",
+    "ai_usage", "alerts", "whats_new",
     "allocation", "asset_classes", "auth", "brokerages", "changes", "charts", "checkin",
     "checkin_email", "cli", "client_csv", "client_plan", "codefresh", "context_card",
     "csv_import", "dashboard", "disclosures", "error_alerts", "export", "feature_counts", "fees",

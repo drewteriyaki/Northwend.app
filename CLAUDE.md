@@ -15,6 +15,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   green, ask "Release to main?" and then `git push origin staging:main` (a
   fast-forward). `main` is protected: it takes only commits whose Tests check
   passed, no force pushes. Before starting work: `git checkout staging && git pull`.
+- **What's new.** A release to main that changes something people can see adds an entry
+  at the top of `whats_new.ENTRIES` (plain, calm words; an item for a flagged feature names
+  its `flag`, so it only shows where that feature is on). It's in the name menu with a
+  small dot until opened - never a pop-up.
 - Explain the plan before refactoring CSV import (`csv_import.py`) or price fetching
   (`live_prices.py`, `update_prices.py`, `sync_history.py`).
 - Never touch the real `portfolio.db` or `.env`. Use scratch copies (see Testing).

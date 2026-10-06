@@ -53,6 +53,7 @@ import perf
 import pgcompat
 import plans
 import prefs
+import whats_new
 import route
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate
@@ -1381,7 +1382,7 @@ if IS_ADVISOR:
     PAGES = ["Clients", *([] if HAS_HOLDINGS else _start),
              "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
-             *(_start if HAS_HOLDINGS else []), "Account", "About"]
+             *(_start if HAS_HOLDINGS else []), "Account", "What's new", "About"]
 else:
     # an advisor's client lands on Home (their advisor's next step), never
     # on Learn: it's there for them, not required
@@ -1389,7 +1390,7 @@ else:
     PAGES = [*([] if _learn_last else ["Get started"]),
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
              "Watchlist", "Activity", "Income", "AI Assistant",
-             *(["Get started"] if _learn_last else []), "Account", "About"]
+             *(["Get started"] if _learn_last else []), "Account", "What's new", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
 # while advisor access is being checked: a read-only preview of the advisor
@@ -1422,7 +1423,7 @@ else:
            *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
 NAV = [p for p in NAV if flags.page_on(p)]
 # (Advisor preview is reached from the name menu's "advisor access requested" note)
-ACCOUNT_MENU = [p for p in ("Account", "About", "Admin") if p in PAGES]
+ACCOUNT_MENU = [p for p in ("Account", "What's new", "About", "Admin") if p in PAGES]
 # the top bar's words where they're shorter than the page's own name (an
 # advisor's bar holds more); the button's tooltip gives the full name
 NAV_SHORT = ({"Clients": "Clients", "Advisor notes": "Notes", "AI Assistant": "Ask"}
@@ -1435,7 +1436,7 @@ def _nav_label(item):
 
 def _slug(page):
     """A page's name in the address: 'Ask Northwend' -> 'ask-northwend'."""
-    return _label(page).lower().replace(" ", "-")
+    return _label(page).lower().replace("'", "").replace(" ", "-")
 
 
 # addresses saved before a page was renamed still open it - and a link made in
@@ -1768,8 +1769,21 @@ _BRAND = (f"<div class='pt-brand{' pt-brand-compact' if IS_ADVISOR else ''}'>"
           "<span class='pt-brand-mark' aria-hidden='true' translate='no'>flag</span>"
           f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
 ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
+                 "What's new": ":material/campaign:",
                  "Admin": ":material/admin_panel_settings:",
                  "Advisor preview": ":material/preview:"}
+
+
+def _whats_new_unseen():
+    """True while What's new has an entry newer than the one this login last
+    opened (the login's own settings, read once per browser session)."""
+    if "_wn_seen" not in st.session_state:
+        conn = connect(DB)
+        try:
+            st.session_state["_wn_seen"] = prefs.load(conn, LOGIN_ID).get(whats_new.PREF_SEEN, "")
+        finally:
+            conn.close()
+    return whats_new.unseen({whats_new.PREF_SEEN: st.session_state["_wn_seen"]})
 
 
 def _render_viewing_pick():
@@ -1823,7 +1837,10 @@ def _render_name_menu():
             st.caption("Your request for advisor access wasn't approved. Questions: "
                        f"{disclosures.CONTACT}")
         for p in ACCOUNT_MENU:
-            st.button(f"{ACCOUNT_ICONS[p]} {_label(p)}", key=f"menu_{p}", on_click=_go, args=(p,),
+            # What's new: a small dot until its newest entry has been opened -
+            # nothing else draws attention to it (whats_new.py)
+            dot = " •" if p == "What's new" and _whats_new_unseen() else ""
+            st.button(f"{ACCOUNT_ICONS[p]} {_label(p)}{dot}", key=f"menu_{p}", on_click=_go, args=(p,),
                       width="stretch", type="primary" if PAGE == p else "tertiary")
         # flips light/dark in the browser (ui_enhancements.js); nothing runs here
         st.button(":material/contrast: Light / dark", key="pt_theme", type="tertiary",
@@ -2189,6 +2206,9 @@ _view("admin")
 
 # the signed-in person's own account (name, email, password, data)
 _view("account")
+
+# What's new: the dated list of changes, from the name menu (whats_new.py)
+_view("whats_new")
 
 
 _view("profile")
@@ -2986,7 +3006,7 @@ if "hide_amounts" not in st.session_state:
 
 # Add holdings (the top bar) or a page's own button was pressed (_open_holdings_dialog)
 _open = st.session_state.pop("open_dialog", None)
-if PAGE in ("Clients", "Admin", "Account", "About", "Advisor preview") and not _open:
+if PAGE in ("Clients", "Admin", "Account", "About", "What's new", "Advisor preview") and not _open:
     # these pages are about the login, its clients or the app - not the viewed
     # account's holdings, so they aren't read (a Holdings window needs them)
     snapshot, positions, cash_by_account, quotes, watch_tickers = None, [], {}, {}, []
@@ -3040,6 +3060,10 @@ if PAGE == "Account":
     # the login's own account, whichever account is being viewed
     _page_header("Account", data=False)
     _render_account()
+    st.stop()
+if PAGE == "What's new":
+    _page_header("What's new", data=False)
+    _render_whats_new()
     st.stop()
 if PAGE == "About":
     _page_header("About and disclosures", data=False)
