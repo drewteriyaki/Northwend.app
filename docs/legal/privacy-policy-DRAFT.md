@@ -151,7 +151,7 @@ It is shared only as needed to run the service, with:
 | Service | What it does | What it receives |
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
-| **Render** | Hosts the app (go.northwend.app), in the United States (Ohio) | Requests to the app, your IP address, server logs [OWNER: written for after the move (PLAN step 4). Until then the host is Streamlit Community Cloud, as the About page says; publish this wording only once go.northwend.app serves from Render and `disclosures.HOST_MOVED` is True] |
+| **Render** | Hosts the app (go.northwend.app), in the United States (Ohio) | Requests to the app, your IP address, server logs |
 | **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |

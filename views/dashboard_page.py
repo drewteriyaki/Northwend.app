@@ -341,7 +341,7 @@ if PAGE == "Dashboard":
         else:
             # Intraday-resolution data (minutes/hours apart) gets the gaps-compressed
             # axis; daily-resolution data (~1 day apart, weekends aside) doesn't need it.
-            _pcompress = pwin["t"].diff().median() < pd.Timedelta(hours=20)
+            _pcompress = pwin["t"].diff().dt.total_seconds().median() < 20 * 3600
 
             _pf, _pl, ppct = charts.window_change(pwin, "t", series_col)
             pmcol, _ = st.columns([0.4, 0.6])

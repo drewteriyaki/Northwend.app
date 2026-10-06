@@ -29,9 +29,7 @@ and isn't paid by anyone for what it shows.
 - **App hosting:** Render (go.northwend.app), in the United States (Ohio), behind
   Cloudflare's proxy. Cloudflare adds security headers to every page: HTTPS only
   (HSTS), no framing by other sites, no camera, microphone or location access
-  (`docs/CLOUDFLARE.md`). [OWNER: written for after the move (PLAN step 4);
-  until then the app is on Streamlit Community Cloud, without those headers.
-  Publish this only once `disclosures.HOST_MOVED` is True.]
+  (`docs/CLOUDFLARE.md`).
 - **Scheduled jobs** (price updates, history, the Monday advisor email) run on
   GitHub Actions with access to the database.
 - **Secrets** (database address, API keys) live in each host's secret settings,

@@ -183,7 +183,7 @@ LAST_UPDATED = "October 6, 2026"
 # from Render (RUNBOOK, "Move to Render"): set this to True, change
 # LAST_UPDATED to that day (who sees the app's traffic changed), and rebuild
 # the website.
-HOST_MOVED = False
+HOST_MOVED = True   # done October 6, 2026: go.northwend.app on Render
 
 # Two-step keys encrypted at rest (two_step.py, audit 1.1e). The code seals
 # them whenever NORTHWEND_TOTP_KEY is set, but only the owner can set it on

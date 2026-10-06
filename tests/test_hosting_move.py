@@ -402,8 +402,12 @@ class HostWordingTests(unittest.TestCase):
         policy = _read("docs", "legal", "privacy-policy-DRAFT.md")
         self.assertIn("| **Render** | Hosts the app", policy)
         self.assertIn("sits in front of the app", policy)
-        self.assertIn("HOST_MOVED", policy)   # the note: publish only after the move
-        self.assertIn("HOST_MOVED", _read("docs", "legal", "security-for-advisors-DRAFT.md"))
+        # the "publish only after the move" notes go once the move is done
+        for text in (policy, _read("docs", "legal", "security-for-advisors-DRAFT.md")):
+            if disclosures.HOST_MOVED:
+                self.assertNotIn("written for after the move", text)
+            else:
+                self.assertIn("HOST_MOVED", text)
 
 
 # --------------------------------------------------------------------------- #

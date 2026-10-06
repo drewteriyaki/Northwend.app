@@ -22,6 +22,13 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "A new home: go.northwend.app",
+     "items": [
+         "Northwend now lives at go.northwend.app, on its own hosting with extra protection "
+         "in front of it. Your account, holdings and settings are all exactly where you "
+         "left them - you may just need to sign in once at the new address.",
+         "The old address sends you to the new one for a while, so saved links keep working.",
+     ]},
     {"date": "2026-10-06", "title": "Your say in sharing",
      "items": [
          "If you share your account with an advisor and haven't been asked about it in "

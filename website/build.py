@@ -29,7 +29,7 @@ sys.path.insert(0, REPO)
 import disclosures  # noqa: E402
 
 SITE_URL = "https://northwend.app"
-APP_URL = "https://portfoliotracker-kh8dkygevdqrwwcg4fdcok.streamlit.app/"  # the live app (Streamlit Community Cloud)
+APP_URL = "https://go.northwend.app/"  # the live app (Render, behind Cloudflare)
 SIGNUP_URL = APP_URL + "?signup=1"                # opens the app's Create account form
 ADVISOR_SIGNUP_URL = APP_URL + "?signup=advisor"  # ...with "I'm a financial advisor" chosen
 FONTS = ("Figtree-Variable-latin.woff2", "Newsreader-Variable-latin.woff2")
