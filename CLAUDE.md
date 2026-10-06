@@ -118,7 +118,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   templates, then run `python website/build.py`; a test fails if `public/` is
   stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
   Pages: Home, New to investing, For advisors, About, 404 (`PAGES`; a page in `HELD` -
-  today the no-account decoder's - is built for tests but not published); its
+  none today - is built for tests but not published; Decode your 401(k) menu is live); its
   tables are worked out in build.py (no scripts: the CSP allows none) and
   its contour lines are the app's `static/topo-light.svg`. The design is
   the "Northwend website redesign" Claude Design canvas.

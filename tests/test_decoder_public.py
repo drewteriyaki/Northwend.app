@@ -366,20 +366,23 @@ class WebsitePageTests(unittest.TestCase):
         sys.path.insert(0, os.path.join(REPO, "website"))
         import build as site_build
         cls.site = site_build
-        # held back until its route is switched on (build.HELD): rendered
-        # here, not written to public/
+        # published since the hosting move (flag decoder_public on)
         cls.page = site_build.render(include_held=True)["decode-401k.html"]
 
     def test_built_listed_and_linking_to_the_route(self):
         self.assertIn("decode-401k.html", self.site.PAGES)
         self.assertEqual(self.site.PAGES["decode-401k.html"][3], "/decode-401k")
         self.assertIn(f'href="{self.site.APP_URL}?decode=401k"', self.page)
-        # not published, not in the sitemap, until the route is on
-        self.assertIn("decode-401k.html", self.site.HELD)
-        self.assertNotIn("decode-401k.html", self.site.render())
-        self.assertNotIn("decode-401k", self.site.render()["sitemap.xml"])
-        self.assertFalse(os.path.exists(os.path.join(REPO, "website", "public",
-                                                     "decode-401k.html")))
+        # published: on the site, in the sitemap, linked from every footer
+        self.assertNotIn("decode-401k.html", self.site.HELD)
+        built = self.site.render()
+        self.assertIn("decode-401k.html", built)
+        self.assertIn(f"{self.site.SITE_URL}/decode-401k", built["sitemap.xml"])
+        self.assertTrue(os.path.exists(os.path.join(REPO, "website", "public",
+                                                    "decode-401k.html")))
+        for name, page in built.items():
+            if name.endswith(".html"):
+                self.assertIn('<a href="/decode-401k">Decode your 401(k) menu</a>', page, name)
 
     def test_calm_and_no_scripts(self):
         self.assertNotIn("<script", self.page.lower())

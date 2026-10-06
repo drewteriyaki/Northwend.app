@@ -74,10 +74,11 @@ PAGES = {
                  "This page isn't on the map.", "/404"),
 }
 
-# written and tested, but not on the site yet: the no-account decoder's page
-# waits for its route (flag decoder_public, switched on after the hosting
-# move, PLAN step 4). Take a name out of HELD to publish it.
-HELD = {"decode-401k.html"}
+# written and tested, but not on the site yet: a page waiting for its route
+# to be switched on. Put its name here to hold it back. (The no-account
+# decoder's page was held until the hosting move; published October 6, 2026,
+# with flag decoder_public on.)
+HELD: set[str] = set()
 PUBLISHED = {k: v for k, v in PAGES.items() if k not in HELD}
 
 
