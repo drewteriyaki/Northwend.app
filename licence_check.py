@@ -194,7 +194,7 @@ def remind(conn, app_url: str | None = None, *, today: date | None = None) -> di
     if (not n["due"] or mailer.status() == "off"   # no key here: nothing to send with
             or (last is not None and today.toordinal() - last < MAIL_EVERY_DAYS)):
         return {**n, "emailed": None}
-    link = (app_url or mailer._setting("APP_URL") or "https://app.northwend.app/").split("?")[0]
+    link = (app_url or mailer._setting("APP_URL") or "https://go.northwend.app/").split("?")[0]
     sent = mailer.licence_checks_due(error_alerts.alert_to(), f"{link}?page=admin",
                                      n["due"], n["overdue"])
     if sent:

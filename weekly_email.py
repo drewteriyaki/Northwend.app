@@ -5,7 +5,7 @@ clients. Counts only: no client names or figures leave the app by email.
 
 Run weekly by .github/workflows/scheduled-sync.yml (Monday mornings):
 
-  python weekly_email.py --db "$DATABASE_URL" --app-url https://app.northwend.app/
+  python weekly_email.py --db "$DATABASE_URL" --app-url https://go.northwend.app/
 
 Sent once per advisor per week (remembered in their settings, so a re-run
 doesn't send twice), only when there's something to say, only to a

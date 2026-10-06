@@ -27,8 +27,8 @@ import weekly_email  # noqa: E402
 # public functions in mailer.py that don't build an email
 NOT_EMAILS = {"send", "dry_run", "status", "sender", "unsubscribe_headers"}
 
-LINK = "https://app.northwend.app/?page=advisor-notes&token=Zx_kQ-abcdefABCDEF"
-UNSUB = "https://app.northwend.app/?unsubscribe=Qw_er-tyUIOPasdfgh"
+LINK = "https://go.northwend.app/?page=advisor-notes&token=Zx_kQ-abcdefABCDEF"
+UNSUB = "https://go.northwend.app/?unsubscribe=Qw_er-tyUIOPasdfgh"
 TO = "dana.lee@example.com"
 ADVISOR = "Carol Reyes, Reyes Wealth Partners"
 # the advisor's standing line (standing_line.py, master brief 4.4)

@@ -6,7 +6,7 @@ or anything else about their money.
 
 Run daily by .github/workflows/scheduled-sync.yml:
 
-  python checkin_email.py --db "$DATABASE_URL" --app-url https://app.northwend.app/
+  python checkin_email.py --db "$DATABASE_URL" --app-url https://go.northwend.app/
 
 Sent at most once a month per person (remembered in their settings,
 checkin.PREF_SENT, so a re-run doesn't send twice), on or after the day

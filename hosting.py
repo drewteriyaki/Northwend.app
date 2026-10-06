@@ -1,4 +1,4 @@
-"""Running the app on its own host (L4: app.northwend.app on Render) as well
+"""Running the app on its own host (L4: go.northwend.app on Render) as well
 as on Streamlit Community Cloud. Pure logic, no Streamlit.
 
 Two settings, both environment variables:

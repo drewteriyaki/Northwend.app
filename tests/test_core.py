@@ -4488,11 +4488,11 @@ class HostingTests(unittest.TestCase):
 
     def test_moved_link_keeps_the_query(self):
         import hosting
-        self.assertEqual(hosting.moved_link("https://app.northwend.app/", {}),
-                         "https://app.northwend.app/")
-        self.assertEqual(hosting.moved_link("https://app.northwend.app",
+        self.assertEqual(hosting.moved_link("https://go.northwend.app/", {}),
+                         "https://go.northwend.app/")
+        self.assertEqual(hosting.moved_link("https://go.northwend.app",
                                             {"confirm": "abc", "page": "plan"}),
-                         "https://app.northwend.app/?confirm=abc&page=plan")
+                         "https://go.northwend.app/?confirm=abc&page=plan")
 
     def test_render_blueprint_keeps_secrets_out(self):
         with open(os.path.join(REPO, "render.yaml"), encoding="utf-8") as fh:

@@ -179,7 +179,7 @@ LAST_UPDATED = "October 6, 2026"
 # The app's move from Streamlit Community Cloud to Render behind Cloudflare
 # (PLAN step 4, audit 1.10a). A copy on either host names its own host by
 # itself (hosting_lines). Only the website's About page, built offline, can't
-# tell: until the move is done it names both. Once app.northwend.app serves
+# tell: until the move is done it names both. Once go.northwend.app serves
 # from Render (RUNBOOK, "Move to Render"): set this to True, change
 # LAST_UPDATED to that day (who sees the app's traffic changed), and rebuild
 # the website.

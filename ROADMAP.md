@@ -192,7 +192,7 @@ there.
 - [ ] **Needs you** - create the Render Blueprint from this repo and paste
       the secrets; check it on its `onrender.com` address; add `app` in
       Cloudflare DNS and the custom domain in Render. Then: website
-      `APP_URL` to `https://app.northwend.app/`, and `MOVED_TO` on the old
+      `APP_URL` to `https://go.northwend.app/`, and `MOVED_TO` on the old
       Community Cloud app.
 
 ### L5. Create an account yourself - L

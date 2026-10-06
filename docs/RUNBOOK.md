@@ -35,7 +35,7 @@ Contents:
 | The code | GitHub. Two branches matter: `staging` and `main`. |
 | The live app, today | Streamlit Community Cloud, an app that follows `main`. |
 | The staging app | Streamlit Community Cloud, an app that follows `staging`. Its banner says "Staging copy". It has its own Neon database. |
-| The live app, after step 4 | Render (`render.yaml`), at app.northwend.app, deploying `main`, behind Cloudflare's proxy (`docs/CLOUDFLARE.md`). The move: [Move to Render](#move-to-render). |
+| The live app, after step 4 | Render (`render.yaml`), at go.northwend.app, deploying `main`, behind Cloudflare's proxy (`docs/CLOUDFLARE.md`). The move: [Move to Render](#move-to-render). |
 | Database roles | One owner role for `northwend-migrate`, one for the app, one for the jobs, once `docs/DB_ROLES.md` is done. |
 | The databases | Neon. One project or branch for live, one for staging. |
 | Scheduled jobs | GitHub Actions, `.github/workflows/scheduled-sync.yml` (prices, history, the Monday email, walk reminders). |
@@ -352,7 +352,7 @@ wider.
 5. **Close the app.** There is no "closed" page yet. `MOVED_TO` is the wrong
    tool here: it says the account came along to a new address. Stop the app
    instead (delete the Streamlit app, or suspend the Render service) and
-   point app.northwend.app at a page on the website that says Northwend has
+   point go.northwend.app at a page on the website that says Northwend has
    closed.
 6. **Delete.** First keep only what the attorney says must be kept (consent
    records and access logs under B6, billing records for tax), exported and
@@ -564,7 +564,7 @@ CI, which has no key - and costs about $2 a pass on the chat model.
 ## Move to Render
 
 PLAN step 4 (audit 1.8b, 1.8c, 1.10a): the live app moves from Streamlit
-Community Cloud to Render, at app.northwend.app, behind Cloudflare. The code
+Community Cloud to Render, at go.northwend.app, behind Cloudflare. The code
 is ready (`render.yaml`, `hosting.py`, `docs/CLOUDFLARE.md`). Staging stays
 on Community Cloud. Do the steps in order; each says when it's done. About
 two hours, plus a month before the last step. Nobody is signed out and no
@@ -610,14 +610,14 @@ Don't share it.
       live app's key id with none that "won't open".
 - [ ] Render > Logs: no errors.
 
-Emails sent from this copy already link to app.northwend.app (`APP_URL`),
+Emails sent from this copy already link to go.northwend.app (`APP_URL`),
 which doesn't work yet; avoid sending any during the check.
 
 Done when: all four are ticked.
 
 ### 3. Add the domain in Render
 - [ ] The service > **Settings** > **Custom Domains** > **Add**:
-      `app.northwend.app`. Render shows the `CNAME` target to use (the
+      `go.northwend.app`. Render shows the `CNAME` target to use (the
       service's onrender.com name).
 
 ### 4. Cloudflare in front
@@ -627,10 +627,10 @@ Done when: all four are ticked.
       Email Address Obfuscation and the other script features off, and the
       Render address turned off if offered.
 
-Done when: Render shows `app.northwend.app` Verified with its certificate,
+Done when: Render shows `go.northwend.app` Verified with its certificate,
 and the record in Cloudflare is Proxied.
 
-### 5. Check app.northwend.app
+### 5. Check go.northwend.app
 - [ ] `docs/CLOUDFLARE.md` section 8: the pages work, the six headers are
       there, nothing is cached, health says `ok`.
 - [ ] securityheaders.com grade: ____ (aim: A). Date: ____
@@ -642,20 +642,20 @@ Done when: all three are ticked.
 
 ### 6. Point everything at the new address
 - [ ] The website's buttons: `APP_URL` in `website/build.py` to
-      `https://app.northwend.app/`, `python website/build.py`, commit
+      `https://go.northwend.app/`, `python website/build.py`, commit
       through staging and release (Cloudflare Pages redeploys the site).
 - [ ] GitHub > Settings > Secrets and variables > Actions: the `APP_URL`
-      secret to `https://app.northwend.app/` (links in the Monday email and
+      secret to `https://go.northwend.app/` (links in the Monday email and
       the walk reminders).
 - [ ] The uptime monitors ([Uptime check](#uptime-check)).
 
 ### 7. Turn the old app into a signpost
 - [ ] Community Cloud > the live app > Settings > **Secrets**: delete
-      everything, and add only `MOVED_TO = "https://app.northwend.app"`.
+      everything, and add only `MOVED_TO = "https://go.northwend.app"`.
       Save. The old app needs no database or key for its "has moved" page,
       so none stays on Community Cloud.
 - [ ] Open the old address with `?page=plan` on the end: it says Northwend
-      has moved, and its button goes to `https://app.northwend.app/?page=plan`
+      has moved, and its button goes to `https://go.northwend.app/?page=plan`
       (old confirm and reset links in inboxes keep working that way).
 - [ ] Recommended, since Community Cloud held them: rotate each key that
       lived there ([Rotate a key](#rotate-a-key)) at a quiet hour - the new
@@ -682,7 +682,7 @@ website named both ("moving to Render"). Now that the move is done:
 - [ ] Monthly budget: the Streamlit line ends, the Render line starts.
 
 **Done when** (PLAN step 4):
-- [ ] The app is served at app.northwend.app from Render behind Cloudflare,
+- [ ] The app is served at go.northwend.app from Render behind Cloudflare,
       with the six headers (step 5).
 - [ ] A restore drill has passed ([the drill](#restore-the-database), with
       `scripts/restore_check.py`), and its line is in the table there.
@@ -706,7 +706,7 @@ plan). With UptimeRobot:
 1. Sign up with the address that should get alerts (the same as
    `ALERT_EMAIL` is a good choice). Turn on two-step sign-in for it.
 2. **New monitor** > type **Keyword**, URL
-   `https://app.northwend.app/_stcore/health`, keyword `ok` (alert when it's
+   `https://go.northwend.app/_stcore/health`, keyword `ok` (alert when it's
    missing), every 5 minutes. Name: `Northwend app`.
    `/_stcore/health` is Streamlit's own check - the one Render uses before it
    switches to a new deploy (`render.yaml`). It says the server is up; the

@@ -222,10 +222,10 @@ def host_rows(moved: bool | None = None) -> str:
     """The Privacy Policy's table rows for who hosts the app and the website."""
     moved = disclosures.HOST_MOVED if moved is None else moved
     if moved:
-        return ("| **Render** | Hosts the app (app.northwend.app), in the United States (Ohio) "
+        return ("| **Render** | Hosts the app (go.northwend.app), in the United States (Ohio) "
                 "| Requests to the app, your IP address, server logs |\n"
                 "| **Cloudflare** | Serves the website northwend.app (Pages), and sits in front "
-                "of the app: every connection to app.northwend.app passes through it, and it "
+                "of the app: every connection to go.northwend.app passes through it, and it "
                 "adds security settings | Visitors' IP address and browser details; for the "
                 "app, the requests and pages passing through it on their way |")
     return ("| **Streamlit Community Cloud** | Hosts the app today. It's moving to Render (in "

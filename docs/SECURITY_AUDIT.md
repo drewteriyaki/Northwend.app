@@ -569,7 +569,7 @@ HSTS, nosniff, a referrer policy and a permissions policy
 them, and Render can't add response headers to a web service (as far as I
 know, only to static sites; worth confirming). A logged-in finance app that
 can be framed is a clickjacking risk. Fix: put Cloudflare's proxy in front of
-app.northwend.app (websockets work through it) with a rule that adds
+go.northwend.app (websockets work through it) with a rule that adds
 `frame-ancestors 'none'` / `X-Frame-Options: DENY`, HSTS, nosniff, a
 referrer policy and a permissions policy. A full CSP for Streamlit isn't
 practical, because of its inline scripts and styles.

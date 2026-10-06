@@ -1,4 +1,4 @@
-# Cloudflare in front of the app (app.northwend.app)
+# Cloudflare in front of the app (go.northwend.app)
 
 PLAN step 4.2, audit 1.8b. Northwend's domain is already on Cloudflare: its
 DNS, and the website (northwend.app, Cloudflare Pages, headers from
@@ -35,7 +35,7 @@ Do this after Render has the custom domain (RUNBOOK, Move to Render, step 5).
 3. **Proxy status: DNS only** (grey cloud) to start. Render checks the domain
    and issues its certificate; with the proxy on, that check can fail.
 4. In Render (the service > **Settings** > **Custom Domains**), wait until
-   `app.northwend.app` shows **Verified** and the certificate **Issued**.
+   `go.northwend.app` shows **Verified** and the certificate **Issued**.
 5. Back in Cloudflare, edit the record: **Proxy status: Proxied** (orange
    cloud). Save.
 
@@ -69,7 +69,7 @@ forgotten it. One rule stops that for the app (the website is not affected):
 1. **Caching** > **Cache Rules** > **Create rule**.
 2. Name: `App: never cache`.
 3. **Custom filter expression**: Field `Hostname`, Operator `equals`, Value
-   `app.northwend.app` (the expression reads `(http.host eq "app.northwend.app")`).
+   `go.northwend.app` (the expression reads `(http.host eq "go.northwend.app")`).
 4. **Cache eligibility: Bypass cache**. Deploy.
 
 Streamlit's own scripts then come from Render each time; it's a small app,
@@ -84,7 +84,7 @@ One response-header rule adds them to every page and file the app serves.
    Header** > **Create rule**).
 2. Name: `App: security headers`.
 3. **If incoming requests match**: **Custom filter expression**, Field
-   `Hostname`, Operator `equals`, Value `app.northwend.app`.
+   `Hostname`, Operator `equals`, Value `go.northwend.app`.
 4. **Then**: for each line below, **Set static**, the header name and the
    value exactly as written (without the backticks). Six in all.
 
@@ -92,7 +92,7 @@ One response-header rule adds them to every page and file the app serves.
 |---|---|---|
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Browsers only ever use HTTPS for the app, for a year. The website already sends the same. |
 | `X-Content-Type-Options` | `nosniff` | Browsers take each file as the type the app says, never guessing a script out of a download. |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | A link out of the app tells the other site only `https://app.northwend.app`, never the page or its `?query`. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | A link out of the app tells the other site only `https://go.northwend.app`, never the page or its `?query`. |
 | `Content-Security-Policy` | `frame-ancestors 'none'` | No other site can show the app inside a frame (clickjacking). Only this part of a CSP: see below. |
 | `X-Frame-Options` | `DENY` | The same for older browsers. |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), interest-cohort=()` | No page of the app can ask for the camera, microphone or location. The website sends the same. |
@@ -133,24 +133,24 @@ Cloudflare puts the visitor's in the `CF-Connecting-IP` header, and
 
 One gap: the service's own `onrender.com` address still answers without
 Cloudflare, and there anyone can write that header themselves to dodge the
-per-address limits. Once `app.northwend.app` works, turn the Render address
+per-address limits. Once `go.northwend.app` works, turn the Render address
 off if Render offers it (the service > **Settings** > **Custom Domains** >
 **Render Subdomain**: Disabled). If it doesn't, the limits per account and
 app-wide still hold.
 
 ## 8. Check it
 
-1. Open `https://app.northwend.app/` in a private window. Sign in with a
+1. Open `https://go.northwend.app/` in a private window. Sign in with a
    test account, open Home, Plan (the charts), Account (Export everything
    downloads), and the two-step setup page (the QR code shows). The browser's
    developer console shows no "Refused to frame" or "Refused to load" errors
    from the app's own pages.
 2. In a terminal:
-   `curl -sI https://app.northwend.app/ | grep -iE "strict-transport|x-content-type|referrer-policy|content-security|x-frame|permissions-policy|cf-cache-status"`
+   `curl -sI https://go.northwend.app/ | grep -iE "strict-transport|x-content-type|referrer-policy|content-security|x-frame|permissions-policy|cf-cache-status"`
    shows the six headers, and `cf-cache-status` is `DYNAMIC` or `BYPASS`
    (never `HIT`).
-3. `curl -s https://app.northwend.app/_stcore/health` answers `ok`.
-4. Go to <https://securityheaders.com>, enter `https://app.northwend.app/`,
+3. `curl -s https://go.northwend.app/_stcore/health` answers `ok`.
+4. Go to <https://securityheaders.com>, enter `https://go.northwend.app/`,
    tick **Hide results** (so the scan isn't listed publicly), and scan. Aim
    for **A** with all six headers green. Note the date and grade in the
    RUNBOOK's move checklist.

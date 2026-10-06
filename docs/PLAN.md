@@ -416,14 +416,14 @@ The owner steps take little code time, so start them during step 1. Then
 step 4 is finished by the time step 3 is.
 
 1. **Finish L4 (owner, M).** The Render Blueprint, checked on its
-   `onrender.com` address, then `app.northwend.app`. Add to `render.yaml`:
+   `onrender.com` address, then `go.northwend.app`. Add to `render.yaml`:
    `NORTHWEND_ADMINS`, `ALERT_EMAIL`, `APP_URL`, `NORTHWEND_ENV`,
    `NORTHWEND_GATES`, `NORTHWEND_FLAGS`,
    `STREAMLIT_SERVER_MAX_UPLOAD_SIZE=10`,
    `STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=none`,
    `STREAMLIT_BROWSER_GATHER_USAGE_STATS=false`.
 2. **Cloudflare in front of the app (owner + S, 1.8b).** Proxy on for
-   `app.northwend.app` (websockets work). A response-header rule: HSTS,
+   `go.northwend.app` (websockets work). A response-header rule: HSTS,
    `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
    `frame-ancestors 'none'` plus `X-Frame-Options: DENY`, and a
    `Permissions-Policy` denying camera, microphone and geolocation. Then
@@ -452,7 +452,7 @@ step 4 is finished by the time step 3 is.
 
 **Dropped:** a Dockerfile (Render builds from `requirements.txt`).
 
-**Done when:** the app is served at `app.northwend.app` from Render behind
+**Done when:** the app is served at `go.northwend.app` from Render behind
 Cloudflare with the headers above; a restore drill has passed; the uptime
 check is live; Community Cloud shows "has moved"; the disclosures name the
 real hosts.

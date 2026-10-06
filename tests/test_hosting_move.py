@@ -116,7 +116,7 @@ class RenderBlueprintTests(unittest.TestCase):
     def test_the_fixed_values(self):
         env = render_env()
         want = {"NORTHWEND_ENV": "production", "CLIENT_IP_HEADER": "cf-connecting-ip",
-                "APP_URL": "https://app.northwend.app/", "MAIL_DRY_RUN": "0",
+                "APP_URL": "https://go.northwend.app/", "MAIL_DRY_RUN": "0",
                 "NORTHWEND_SKIP_SCHEMA_SETUP": "0", "STREAMLIT_SERVER_MAX_UPLOAD_SIZE": "10",
                 "STREAMLIT_BROWSER_GATHER_USAGE_STATS": "false",
                 "STREAMLIT_CLIENT_SHOW_ERROR_DETAILS": "none"}
@@ -147,7 +147,7 @@ class RenderBlueprintTests(unittest.TestCase):
         from streamlit.web.server.starlette import starlette_routes
         self.assertEqual(starlette_routes.ROUTE_HEALTH, "_stcore/health")
         # the uptime monitor watches the same address
-        self.assertIn("app.northwend.app/_stcore/health", _read("docs", "RUNBOOK.md"))
+        self.assertIn("go.northwend.app/_stcore/health", _read("docs", "RUNBOOK.md"))
 
     def test_the_region_is_in_the_united_states(self):
         # the disclosures say "Render ... in the United States"
@@ -442,7 +442,7 @@ class RunbookMoveTests(unittest.TestCase):
         heads = re.findall(r"(?m)^### (\d+)\. (.+)$", page)
         self.assertEqual([int(n) for n, _ in heads], list(range(1, len(heads) + 1)))
         steps = ["Blueprint", "onrender.com", "domain in Render", "Cloudflare",
-                 "app.northwend.app", "new address", "old app into a signpost",
+                 "go.northwend.app", "new address", "old app into a signpost",
                  "real hosts", "delete the old app"]
         self.assertEqual(len(heads), len(steps))
         for (_n, head), word in zip(heads, steps):
@@ -477,7 +477,7 @@ class MovedCopyTests(unittest.TestCase):
                 if not (k.startswith(("NORTHWEND_", "PORTFOLIO_", "ANTHROPIC_", "RESEND_",
                                       "FINNHUB_")) or k in ("RENDER", "MOVED_TO", "DATABASE_URL",
                                                             "CLIENT_IP_HEADER"))}
-        env = {**keep, "NORTHWEND_ENV": "production", "MOVED_TO": "https://app.northwend.app/"}
+        env = {**keep, "NORTHWEND_ENV": "production", "MOVED_TO": "https://go.northwend.app/"}
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
         at.query_params["reset"] = "abc"
         with unittest.mock.patch.dict(os.environ, env, clear=True), \

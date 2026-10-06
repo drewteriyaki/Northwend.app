@@ -26,7 +26,7 @@ and isn't paid by anyone for what it shows.
 
 - **Database:** Neon (managed Postgres) in the United States. [OWNER: region; whether
   storage is encrypted at rest under Neon's plan - confirm from Neon's documentation.]
-- **App hosting:** Render (app.northwend.app), in the United States (Ohio), behind
+- **App hosting:** Render (go.northwend.app), in the United States (Ohio), behind
   Cloudflare's proxy. Cloudflare adds security headers to every page: HTTPS only
   (HSTS), no framing by other sites, no camera, microphone or location access
   (`docs/CLOUDFLARE.md`). [OWNER: written for after the move (PLAN step 4);

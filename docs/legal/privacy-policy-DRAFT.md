@@ -151,13 +151,13 @@ It is shared only as needed to run the service, with:
 | Service | What it does | What it receives |
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
-| **Render** | Hosts the app (app.northwend.app), in the United States (Ohio) | Requests to the app, your IP address, server logs [OWNER: written for after the move (PLAN step 4). Until then the host is Streamlit Community Cloud, as the About page says; publish this wording only once app.northwend.app serves from Render and `disclosures.HOST_MOVED` is True] |
+| **Render** | Hosts the app (go.northwend.app), in the United States (Ohio) | Requests to the app, your IP address, server logs [OWNER: written for after the move (PLAN step 4). Until then the host is Streamlit Community Cloud, as the About page says; publish this wording only once go.northwend.app serves from Render and `disclosures.HOST_MOVED` is True] |
 | **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly walk reminders people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails | Your email address and that message |
-| **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to app.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
+| **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to go.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks and your account map, which only you

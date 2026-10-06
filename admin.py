@@ -97,7 +97,7 @@ def set_admin(conn, username: str, flag: bool) -> bool:
     return cur.rowcount > 0
 
 
-DEFAULT_APP_URL = "https://app.northwend.app/"   # links in emails sent from the command line
+DEFAULT_APP_URL = "https://go.northwend.app/"   # links in emails sent from the command line
 
 
 def app_url() -> str:

@@ -192,7 +192,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   up the schema, `northwend-migrate` does), `scripts/restore_check.py` (row counts for the
   restore drill), the RUNBOOK's "Move to Render" checklist; `disclosures.hosting_lines()`
   names the real host (`HOST_MOVED` flips the website's wording after the move).
-- Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
+- Hosting (L4): `render.yaml` (the app on Render, go.northwend.app) and
   `hosting.py` (`CLIENT_IP_HEADER` for the visitor's address behind a proxy;
   `MOVED_TO` turns an old copy into a "has moved" page).
 - Packaging: `pyproject.toml` (`pip install -e .`) and `cli.py` (the `northwend*`

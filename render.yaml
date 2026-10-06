@@ -1,4 +1,4 @@
-# Northwend on Render (ROADMAP L4, PLAN step 4): the app at app.northwend.app,
+# Northwend on Render (ROADMAP L4, PLAN step 4): the app at go.northwend.app,
 # behind Cloudflare's proxy (docs/CLOUDFLARE.md). The move, step by step:
 # docs/RUNBOOK.md, "Move to Render".
 #
@@ -45,7 +45,7 @@ services:
         value: cf-connecting-ip
       # the app's address, for links in emails sent outside the app
       - key: APP_URL
-        value: https://app.northwend.app/
+        value: https://go.northwend.app/
       # the live copy sends email (staging and local runs keep 1)
       - key: MAIL_DRY_RUN
         value: "0"
