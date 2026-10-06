@@ -1402,6 +1402,18 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         deleted. Existing links got one 'migration' grant, once (`consent.backfill`,
         marked in `app_state`). The two-step intro consent (5.5-5.6) is still to come:
         it calls `consent.grant(..., how="intro")`. No flag: today's relationships
+  - [x] 5.7 Consent for advisor-made clients - done: one by one and from a file go
+        through `_add_one_client` and the setup link, which records the grant (tested
+        through the page). A client whose sharing has no grant in their own words
+        (only 'migration', or none: an admin's link, a password the advisor set) is
+        asked once at sign-in, after the agreement box, in its calm style
+        (`consent.to_ask`, `views/consent_ask.py`): Keep sharing writes a
+        'sign_in_ask' grant with `consent.ask_text` verbatim; Stop sharing confirms,
+        then `advising.end_relationship` (by the client, the revoke). Never shown to an
+        advisor or an admin. The advisor's book says "hasn't confirmed sharing yet"
+        (`consent.unconfirmed`, one read for the book); what they see until then is
+        unchanged - the question is in LEGAL_GATES' L2 row. No flag (a safeguard on
+        today's relationships). `tests/test_consent_ask.py`
   - [x] 5.8 Advisor access log - done: `access_log.py` + append-only
         `advisor_access_log` (time, advisor, client, page - never figures), written in
         dashboard.py after `PAGE` when `ON_CLIENT`, once per page opened (the same page

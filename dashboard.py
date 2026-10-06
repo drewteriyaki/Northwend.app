@@ -2078,6 +2078,10 @@ elif st.session_state["disclosures_seen"] != disclosures.LAST_UPDATED:
         st.button("Read it", key="disc_read", on_click=lambda: (_disclosures_seen(), _go("About")))
         st.button("Got it", key="disc_ok", type="tertiary", on_click=_disclosures_seen)
 
+# A client whose sharing with their advisor was never confirmed in their own
+# words is asked once, the same calm way (consent.to_ask; PLAN step 5.7)
+_view("consent_ask")
+
 
 def _resend_confirmation():
     sent, note = _send_confirmation(LOGIN_ID)

@@ -159,8 +159,9 @@ which client, which page and when - never what was on the page or any figure -
 and the client sees the list on their Account page ("Who has looked at your
 account", the last 90 days; their data download has all of it). An advisor never
 sees another advisor's visits. When a client agrees to share their account with an
-advisor (today: when they set up their login from the advisor's link), or sharing
-ends (the client stops it, the advisor ends it, we unlink them on request, or an
+advisor (today: when they set up their login from the advisor's link or - if
+sharing began another way, or before these records were kept - when they're asked
+once at sign-in and choose to keep sharing), or sharing ends (the client stops it, the advisor ends it, we unlink them on request, or an
 account is deleted), Northwend records it with the time and the exact words the
 client was shown. Section 7 says how long these records are kept. [LAWYER: wording.]
 

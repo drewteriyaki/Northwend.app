@@ -22,6 +22,14 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "Your say in sharing",
+     "items": [
+         "If you share your account with an advisor and haven't been asked about it in "
+         "Northwend before, you'll see one short question the next time you sign in: keep "
+         "sharing, or stop. Nothing changes if you keep sharing, and you can stop at any time "
+         "from Your advisor.",
+         "Advisors: Your clients now notes anyone who hasn't confirmed sharing yet.",
+     ]},
     {"date": "2026-10-06", "title": "See when your advisor looks",
      "items": [
          "If you have an advisor, your Account page now shows when they looked at your "

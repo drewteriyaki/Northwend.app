@@ -611,6 +611,8 @@ def _client_rows(today):
             f"FROM progress_reports q WHERE q.client_id = p.client_id) AND client_id IN ({_in})",
             _ids)}
         can_import = advising.clients_can_import(conn, _ids)
+        # who hasn't confirmed sharing in their own words yet (consent.py, step 5.7)
+        unconfirmed = consent.unconfirmed(conn, LOGIN_ID)
         # their settings (alert limits, asset-class choices), summaries, plans
         # and notes: each read once for the whole book
         saved = prefs.load_many(conn, _ids, _legacy_prefs_path)
@@ -636,6 +638,7 @@ def _client_rows(today):
             rows.append({**summ, "name": name, "email": emails.get(cid), "plan": plan,
                          "goal": goal, "drift": drift,
                          "can_import": cid in can_import,
+                         "unconfirmed": cid in unconfirmed,
                          "review": review, "review_days": days, "n_steps": len(steps),
                          "login_days": login_days, "proposals": props,
                          "last_report": last_reports.get(cid),
@@ -1032,6 +1035,8 @@ def _render_clients():
                                 else f"signed in {r['login_days']}d ago")
                 else:
                     bits.append("login not set up yet")
+                if r["unconfirmed"] and r["login_days"] is not None:
+                    bits.append("hasn't confirmed sharing yet")
                 # the email as plain text (st.html: no mailto link), under the name
                 email = (r["email"] if r["email"] and r["email"] != r["name"] else "")
                 st.html(
@@ -1073,7 +1078,10 @@ def _render_clients():
                    "client's own day-move limit, or down past their gain/loss limit (gains "
                    "don't count); a "
                    f"client who used to sign in is flagged after {advising.INACTIVE_DAYS} days "
-                   "away.")
+                   "away."
+                   + (" Hasn't confirmed sharing yet: we'll ask them once, the next time they "
+                      "sign in, whether to keep sharing with you - until then you see their "
+                      "account as today." if any(r["unconfirmed"] for r in rows) else ""))
         _render_all_records()
     _render_former_clients()
     st.divider()

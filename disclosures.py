@@ -117,6 +117,11 @@ Each statement about data here must stay true to the code:
   (admin.KEPT_AFTER_DELETE), for 7 years (consent.prune / access_log.prune in
   tidy.py; PLAN B6). The access log is on the client's Account page ("Who has
   looked at your account", access_log.for_client) and in their export.
+  A consent grant is written at the setup link (auth.accept_invite), or - for
+  sharing with no grant in the client's own words (a 'migration' grant, an
+  admin's link) - when the client is asked once at sign-in and keeps sharing
+  (consent.to_ask, views/consent_ask.py: 'sign_in_ask', consent.ask_text
+  verbatim); stopping there is the client's own stop (a 'client_stop' revoke).
 - Delete all my holdings: portfolio.delete_holdings / HOLDINGS_TABLES (keeps
   plans, profile, notes, settings, watchlist, login); only for an account
   that manages itself (dashboard CAN_MANAGE).
@@ -310,7 +315,9 @@ their account map.
 - **Who has looked at your account:** each time an advisor opens a page in your
   account, Northwend notes who, which page and when - never what was on it -
   and your **Account** page lists it. When you agree to share your account with
-  an advisor, or stop, that's noted too, with the words you were shown. These
+  an advisor, or stop, that's noted too, with the words you were shown (if your
+  sharing began before these records were kept, you're asked once, at sign-in,
+  whether to keep sharing). These
   records are kept for 7 years after sharing ends, even if an account is
   deleted, to protect you and your advisor. They hold who, when and those
   words - never figures.

@@ -1584,6 +1584,12 @@ class ConsentAccessTests(_PG):
         self.assertEqual(self.one("SELECT kind, how FROM consent_records WHERE client_id = ?",
                                   (dana,)), {"kind": "grant", "how": "migration"})
         self.assertEqual(consent.backfill(c), 0)
+        # asked once at sign-in (PLAN 5.7): the migration grant alone isn't a yes
+        self.assertEqual(consent.to_ask(c, dana), [carol])
+        self.assertIn(dana, consent.unconfirmed(c, carol))
+        consent.grant(c, dana, carol, consent.ask_text("Carol"), "sign_in_ask")
+        self.assertEqual(consent.to_ask(c, dana), [])
+        self.assertNotIn(dana, consent.unconfirmed(c, carol))
 
     def test_an_app_role_can_add_and_read_but_not_change_or_delete(self):
         import psycopg

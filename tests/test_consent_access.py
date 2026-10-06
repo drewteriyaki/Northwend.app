@@ -286,8 +286,9 @@ class AppendOnlyTests(_DB):
                                      and getattr(getattr(m, n), "__module__", "") == m.__name__)
                   for m in (consent, access_log)}
         self.assertEqual(public, {
-            "consent": ["advisor_label", "backfill", "between", "current", "grant", "history",
-                        "prune", "revoke", "setup_link_text", "text_sha256"],
+            "consent": ["advisor_label", "ask_text", "backfill", "between", "current", "grant",
+                        "history", "prune", "revoke", "setup_link_text", "text_sha256",
+                        "to_ask", "unconfirmed"],
             "access_log": ["for_client", "is_new_view", "prune", "record"]})
         # tidy.py is what runs the prunes
         with open(os.path.join(REPO, "tidy.py"), encoding="utf-8") as fh:

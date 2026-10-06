@@ -118,9 +118,11 @@ pasted text and screenshots are not kept. Clients can also use an example or
   was on it), and your client sees the list on their Account page. You never see
   another advisor's visits.
 - **Consent is recorded.** When a client agrees to share their account with you
-  (today: setting up their login from your link) and when sharing ends (they stop
-  it, you end it, or an account is deleted), the time and the exact words they
-  were shown are kept. When sharing ends, your access ends on your very next page
+  (today: setting up their login from your link, or - if sharing began another way
+  or before these records were kept - choosing "Keep sharing" when asked once at
+  their next sign-in) and when sharing ends (they stop it, you end it, or an
+  account is deleted), the time and the exact words they were shown are kept.
+  Until a client answers, Your clients says they haven't confirmed sharing yet. When sharing ends, your access ends on your very next page
   load. Your client record export includes your consent records with that client.
 
 ## AI and other services

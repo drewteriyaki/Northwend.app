@@ -253,7 +253,8 @@ _CONSENT_HOW = {"setup_link": "when you set up your login from their link",
                 "client_stop": "you stopped sharing", "advisor_end": "your advisor ended it",
                 "admin": "ended by Northwend support",
                 "account_deleted": "an account was closed",
-                "migration": "from before these records were kept"}
+                "migration": "from before these records were kept",
+                "sign_in_ask": "when we asked you once, at sign-in"}
 
 
 def _render_who_looked():

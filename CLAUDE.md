@@ -164,7 +164,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   no client), `licence_check.py` (BrokerCheck/IAPD evidence at approval, re-check due at
   11 months, not current after 13; nightly count email), `standing_line.py` (the "advice is
   the advisor's" line on proposals, reports, messages and their emails), `consent.py`
-  (append-only grants/revokes with the exact words shown) and `access_log.py` (each page an
+  (append-only grants/revokes with the exact words shown; `views/consent_ask.py` asks a client
+  whose sharing has no grant in their own words once, at sign-in) and `access_log.py` (each page an
   advisor opens in a client's account; the client sees it on Account). Consent and access
   rows are `admin.KEPT_AFTER_DELETE` (7 years, only their own `prune` deletes).
 - The advisor directory: `directory.py` + `views/directory.py` (flag `directory` + gate L2;

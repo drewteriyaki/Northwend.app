@@ -24,6 +24,16 @@ unlinks them ('admin'), or when either account is deleted
 'migration' grant, once (backfill). The intro flow (step 5.5) calls
 grant(..., how='intro') after the person's second, explicit consent.
 
+Asked once at sign-in (PLAN step 5.7): a client whose sharing with an
+advisor rests only on a 'migration' grant - or on no grant at all while
+linked (an admin's link of two accounts, a client who got in with a
+password the advisor set rather than the setup link) - is asked at their
+next sign-in, once (`to_ask`, views/consent_ask.py): "Keep sharing" writes a
+'sign_in_ask' grant with `ask_text` word for word; "Stop sharing" is the
+client's own stop (advising.end_relationship). The advisor's book marks
+those clients "hasn't confirmed sharing yet" (`unconfirmed`); what the
+advisor sees before then is unchanged (a question for gate L2).
+
 `current()` reads the records only. Who can see an account is still decided
 by the link itself (auth.can_view, re-read on every run), so ending sharing
 takes effect on the advisor's very next page load.
@@ -46,6 +56,7 @@ HOWS = (
     "admin",            # an admin unlinked them (Admin portal or manage_users.py)
     "account_deleted",  # the client's or the advisor's account was deleted
     "migration",        # a link from before consent records began (backfill)
+    "sign_in_ask",      # "Keep sharing" when asked once at sign-in (ask_text, to_ask)
 )
 KEEP_DAYS = 2557        # 7 years (PLAN B6), counted from when the sharing ended
 BACKFILL_MARK = "consent_backfill"   # app_state row: the one-time back-fill has run
@@ -74,6 +85,21 @@ def setup_link_text(advisor: str) -> str:
     return (f"Your account is shared with your advisor, {advisor}: they can see your "
             "holdings, plan, goals and answers, and help manage them. You can stop sharing "
             "at any time from the Your advisor page, and you keep everything.")
+
+
+def ask_text(advisor: str) -> str:
+    """What the once-only sign-in ask shows (views/consent_ask.py), naming
+    the advisor; recorded word for word with a 'sign_in_ask' grant. What the
+    advisor sees and doesn't is the Privacy Policy's "Your advisor, if you
+    have one, sees everything in your account except ..." (future_notes,
+    the Monthly Walk, the account map, the AI guide's notes)."""
+    return (f"Your account is shared with your advisor, {advisor}: they can see your "
+            "holdings, plan, goals and answers, and help manage them. They don't see your "
+            "notes to your future self, your monthly walks, your account map or the notes "
+            "the AI guide keeps for you - those are only yours. You can stop sharing at "
+            "any time from the Your advisor page, and you keep everything.\n\n"
+            "Your sharing began before Northwend asked about it here, so we're asking once: "
+            "would you like to keep sharing with them?")
 
 
 def advisor_label(conn, advisor_id: int) -> str:
@@ -131,6 +157,34 @@ def current(conn, client_id: int, advisor_id: int, scope: str = FULL_SHARING) ->
                        "AND scope = ? ORDER BY id DESC LIMIT 1",
                        (int(client_id), int(advisor_id), scope)).fetchone()
     return bool(row and row["kind"] == "grant")
+
+
+# a link whose latest record is a grant other than 'migration': the client has
+# said yes in their own words (setup link, intro, the sign-in ask)
+_CONFIRMED = ("EXISTS (SELECT 1 FROM consent_records c WHERE c.client_id = a.client_id "
+              "AND c.advisor_id = a.advisor_id AND c.scope = 'full_sharing' "
+              "AND c.kind = 'grant' AND c.how != 'migration' AND c.id = "
+              "(SELECT MAX(m.id) FROM consent_records m WHERE m.client_id = a.client_id "
+              "AND m.advisor_id = a.advisor_id AND m.scope = 'full_sharing'))")
+
+
+def to_ask(conn, client_id: int) -> list[int]:
+    """The advisors this client shares with who haven't heard a yes from them
+    in their own words: linked, and the latest record between them is a
+    'migration' grant, a revoke, or there's none. In one read, lowest
+    advisor id first. The sign-in ask (views/consent_ask.py)."""
+    return [r["advisor_id"] for r in conn.execute(
+        "SELECT a.advisor_id FROM advisor_clients a WHERE a.client_id = ? "
+        f"AND a.advisor_id != a.client_id AND NOT {_CONFIRMED} ORDER BY a.advisor_id",
+        (int(client_id),))]
+
+
+def unconfirmed(conn, advisor_id: int) -> set[int]:
+    """This advisor's clients who haven't confirmed sharing yet (to_ask, the
+    other way round) - for the whole book in one read (Your clients)."""
+    return {r["client_id"] for r in conn.execute(
+        "SELECT a.client_id FROM advisor_clients a WHERE a.advisor_id = ? "
+        f"AND a.advisor_id != a.client_id AND NOT {_CONFIRMED}", (int(advisor_id),))}
 
 
 _COLS = "c.id, c.at, c.client_id, c.advisor_id, c.kind, c.scope, c.text_shown, c.text_sha256, c.how"
