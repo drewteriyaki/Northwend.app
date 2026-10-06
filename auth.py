@@ -591,7 +591,8 @@ def accept_invite(conn, token: str, password: str, *, agreed: bool = False,
 SIGNUP_MIN_SECONDS = 3            # a form sent sooner than this is asked again
 SIGNUPS_PER_ADDRESS_PER_DAY = 3   # accounts made from one internet address
 SIGNUP_TRIES_PER_ADDRESS_PER_HOUR = 10  # any sign-up tries from one address
-SIGNUPS_PER_HOUR = 20             # accounts made app-wide, in case addresses are hidden
+SIGNUPS_PER_HOUR = 200            # accounts made app-wide, in case addresses are hidden
+                                  # (20 until the launch: room for a busy hour, still a stop)
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$")
 
 

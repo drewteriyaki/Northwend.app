@@ -585,7 +585,7 @@ settings.
 
 **1.8d Abuse controls - Partly, P2.**
 Done: sign-up has a hidden field, a too-fast check, 3 accounts per address
-per day, 10 tries per address per hour and 20 accounts app-wide per hour
+per day, 10 tries per address per hour and 200 accounts app-wide per hour (20 until October 6, 2026)
 (`auth.py:418-492`). Email links have send limits. AI has allowances.
 Advisors can check at most 200 new addresses a day (`auth.py:606-631`).
 ~~Open: no limit on how often someone uploads or saves.~~ **Done (Oct 6):**

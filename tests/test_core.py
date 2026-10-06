@@ -1444,6 +1444,9 @@ class SignUpTests(TempDBMixin, unittest.TestCase):
         self.assertTrue(self._sign_up(email="one.more@example.com", now=tomorrow)["ok"])
         # app-wide: many addresses within one hour
         later = self.NOW + timedelta(days=3)
+        # the real cap is 200 an hour; 20 here keeps the test quick (each
+        # sign-up hashes a password), the rule is the same
+        self.enterContext(unittest.mock.patch.object(auth, "SIGNUPS_PER_HOUR", 20))
         for i in range(auth.SIGNUPS_PER_HOUR):
             self.assertTrue(self._sign_up(email=f"w{i}@example.com", ip=f"10.0.{i}.1",
                                           now=later)["ok"])
