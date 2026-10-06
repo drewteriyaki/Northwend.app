@@ -410,6 +410,14 @@ def _data_text(v, limit: int = 80) -> str:
     return " ".join(str(v).split())[:limit] if v not in (None, "") else ""
 
 
+def _name_text(v, limit: int = 80) -> str:
+    """A holding's name, type or sector for the prompt (_data_text), with any
+    currency amount or long digit group in it taken out (scrub_memory): a
+    fund called "Target 2050 $1,000 min" goes as "Target 2050 [amount] min".
+    The model never sees a figure, even one inside a name (audit 1.4b)."""
+    return scrub_memory(_data_text(v, limit))
+
+
 def portfolio_summary(contexts: list[dict], cash_by_account: dict,
                       splits: dict | None = None) -> str:
     """Weights-only description of the holdings. `contexts` is dashboard.py's
@@ -425,11 +433,11 @@ def portfolio_summary(contexts: list[dict], cash_by_account: dict,
         rows.append((
             M.value("pct_of_portfolio", c) or 0.0,
             f"- {_data_text(c['pos']['symbol'], 20)} "
-            f"({_data_text(M.value('description', c)) or 'unknown'}): "
+            f"({_name_text(M.value('description', c)) or 'unknown'}): "
             f"{_pct(M.value('pct_of_portfolio', c))} of portfolio; "
             f"holds {describe(split)}; "
-            f"type {_data_text(M.value('asset_type', c), 40) or 'unknown'}; "
-            f"sector {_data_text(M.value('sector', c), 40) or 'n/a'}; "
+            f"type {_name_text(M.value('asset_type', c), 40) or 'unknown'}; "
+            f"sector {_name_text(M.value('sector', c), 40) or 'n/a'}; "
             f"gain/loss {_pct(M.value('unrealized_pct', c))}; "
             f"dividend yield {_pct(M.value('div_yield_pct', c))}; "
             f"beta {_num(M.value('beta', c))}; P/E {_num(M.value('pe_ttm', c))}",

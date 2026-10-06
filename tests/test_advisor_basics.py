@@ -296,7 +296,8 @@ class LogicTests(_DB, unittest.TestCase):
             (note,) = advising.list_notes(self.conn, cid, include_private=False)
             self.assertEqual((note["kind"], note["body"], note["advisor_id"]),
                              ("Note", "Markets were bumpy - no need to act.", carol))
-        self.assertEqual(advising.list_notes(self.conn, theirs, include_private=True), [])
+        self.assertEqual(advising.list_notes(self.conn, theirs, include_private=True,
+                                             advisor_id=carol), [])
         # the same message again a minute later (a double click): refused
         again = advising.message_clients(self.conn, carol, [a, b],
                                          "Markets were bumpy - no need to act.",

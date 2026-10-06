@@ -135,26 +135,30 @@ class ArchiveTests(_DB):
         advising.add_note(c, self.dana, self.carol, "Review", "Met to review the plan",
                           "2026-09-01")
         advising.add_note(c, self.dana, self.carol, "Next step", "Open a Roth IRA", "2026-09-01")
-        review, step = sorted(advising.list_notes(c, self.dana, include_private=True),
-                              key=lambda n: n["id"])
-        self.assertTrue(advising.archive_note(c, self.dana, step["id"], now=NOW))
-        self.assertFalse(advising.archive_note(c, self.zed, review["id"]))   # not Zed's note
+        review, step = sorted(advising.list_notes(c, self.dana, include_private=True,
+                                                  advisor_id=self.carol), key=lambda n: n["id"])
+        self.assertTrue(advising.archive_note(c, self.dana, step["id"], now=NOW,
+                                                advisor_id=self.carol))
+        self.assertFalse(advising.archive_note(c, self.zed, review["id"],
+                                                 advisor_id=self.carol))   # not Zed's note
         # hidden from the client and the advisor's normal view, and from the counts
         for private in (False, True):
-            self.assertEqual([n["id"] for n in advising.list_notes(c, self.dana,
-                                                                   include_private=private)],
+            self.assertEqual([n["id"] for n in advising.list_notes(
+                c, self.dana, include_private=private, advisor_id=self.carol)],
                              [review["id"]])
         self.assertEqual(advising.open_next_steps(
             advising.notes_for(c, [self.dana], include_private=False)[self.dana]), [])
-        advising.archive_note(c, self.dana, review["id"])
+        advising.archive_note(c, self.dana, review["id"], advisor_id=self.carol)
         self.assertIsNone(advising.last_review(c, self.dana))
         self.assertEqual(reports.build(c, self.dana, NOW.date(), NOW.date(), value_now=None,
                                        today=NOW.date())["next_steps"], [])
         # kept, and the advisor's Show archived lists them
-        archived = advising.list_notes(c, self.dana, include_private=True, archived=True)
+        archived = advising.list_notes(c, self.dana, include_private=True, archived=True,
+                                       advisor_id=self.carol)
         self.assertEqual({n["id"] for n in archived}, {review["id"], step["id"]})
         self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM advisor_notes").fetchone()["n"], 2)
-        self.assertTrue(advising.restore_note(c, self.dana, step["id"]))
+        self.assertTrue(advising.restore_note(c, self.dana, step["id"],
+                                                advisor_id=self.carol))
         self.assertEqual([n["body"] for n in advising.list_notes(c, self.dana,
                                                                  include_private=False)],
                          ["Open a Roth IRA"])
@@ -164,13 +168,15 @@ class ArchiveTests(_DB):
         c = self.conn
         advising.add_note(c, self.dana, self.carol, "Note", "Moving to $500 a month",
                           "2026-09-01")
-        (note,) = advising.list_notes(c, self.dana, include_private=True)
+        (note,) = advising.list_notes(c, self.dana, include_private=True, advisor_id=self.carol)
         self.assertTrue(advising.edit_note(c, self.dana, note["id"], "Moving to $600 a month",
-                                           now=NOW))
-        self.assertFalse(advising.edit_note(c, self.dana, note["id"], "Moving to $600 a month"))
-        self.assertFalse(advising.edit_note(c, self.zed, note["id"], "Not yours"))
+                                           now=NOW, advisor_id=self.carol))
+        self.assertFalse(advising.edit_note(c, self.dana, note["id"], "Moving to $600 a month",
+                                            advisor_id=self.carol))
+        self.assertFalse(advising.edit_note(c, self.zed, note["id"], "Not yours",
+                                            advisor_id=self.carol))
         with self.assertRaises(ValueError):
-            advising.edit_note(c, self.dana, note["id"], "  ")
+            advising.edit_note(c, self.dana, note["id"], "  ", advisor_id=self.carol)
         (note,) = advising.list_notes(c, self.dana, include_private=False)
         self.assertEqual((note["body"], note["edited_at"]),
                          ("Moving to $600 a month", "2026-10-04 12:00:00"))
@@ -189,7 +195,7 @@ class ArchiveTests(_DB):
         self.assertTrue(res["ok"])
         (msg,) = advising.list_notes(c, self.dana, include_private=False)
         self.assertEqual(msg["is_message"], 1)
-        advising.archive_note(c, self.dana, msg["id"])
+        advising.archive_note(c, self.dana, msg["id"], advisor_id=self.carol)
         self.assertNotIn("from_your_advisor_notes.csv", _unzip(export.export_zip(c, self.dana)))
 
 
@@ -201,9 +207,12 @@ class ClientRecordTests(_DB):
         advising.add_note(c, self.dana, self.carol, "Note", "Prefers email", "2026-09-02",
                           private=True)
         advising.add_note(c, self.dana, self.carol, "Note", "First draft", "2026-09-03")
-        notes = {n["body"]: n for n in advising.list_notes(c, self.dana, include_private=True)}
-        advising.edit_note(c, self.dana, notes["First draft"]["id"], "Second draft", now=NOW)
-        advising.archive_note(c, self.dana, notes["Annual review"]["id"], now=NOW)
+        notes = {n["body"]: n for n in advising.list_notes(c, self.dana, include_private=True,
+                                                           advisor_id=self.carol)}
+        advising.edit_note(c, self.dana, notes["First draft"]["id"], "Second draft", now=NOW,
+                           advisor_id=self.carol)
+        advising.archive_note(c, self.dana, notes["Annual review"]["id"], now=NOW,
+                              advisor_id=self.carol)
         advising.message_clients(c, self.carol, [self.dana], "Happy new year", now=NOW)
         pid = proposals.save(c, self.carol, self.dana, title="Steadier mix",
                              mix={"Stocks": 60, "Bonds": 40})
@@ -325,9 +334,10 @@ class PageTests(unittest.TestCase):
             cls.eve = auth.create_client(c, cls.carol, "eve@example.com")
             advising.add_note(c, cls.dana, cls.carol, "Note", "Shown note", "2026-09-01")
             advising.add_note(c, cls.dana, cls.carol, "Note", "Archived note", "2026-09-02")
-            gone = [n for n in advising.list_notes(c, cls.dana, include_private=True)
+            gone = [n for n in advising.list_notes(c, cls.dana, include_private=True,
+                                                   advisor_id=cls.carol)
                     if n["body"] == "Archived note"][0]
-            advising.archive_note(c, cls.dana, gone["id"])
+            advising.archive_note(c, cls.dana, gone["id"], advisor_id=cls.carol)
             cls.gone = gone["id"]
         finally:
             c.close()

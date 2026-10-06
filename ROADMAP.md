@@ -1066,11 +1066,21 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         `invite_codes.py` + Admin > Invite codes (8 characters, once each, revoke);
         `flags.gate("L0")` on keeps sign-up open - the live copy needs
         `NORTHWEND_GATES = "L0"` before this is released
-  - [ ] 1a.10 Principle tests (emails, two-step gate, `?client=`, the A/B matrix)
+  - [x] 1a.10 Principle tests (emails, two-step gate, `?client=`, the A/B matrix) -
+        done: `tests/test_principle_emails.py` (every `mailer` email found by
+        introspection, rendered from `SAMPLES`: no currency or digit groups),
+        `tests/test_principle_pages.py` (no `two_step_ok`: only the code or setup
+        page, on every slug; `?client=` not yours falls back to your own),
+        `tests/test_principle_matrix.py` (`MATRIX`: every `admin.ACCOUNT_TABLES`
+        table, A's helpers never read, change or delete B's rows - a new table
+        must join it). `advisor_id` is required in the `advising` note helpers;
+        fund names in the AI's summary have amounts taken out (`advisor._name_text`)
   - [x] 1a.12 Friendly save errors - the three "nothing was changed: {exc}"
         messages are `friendly_errors.save_failed`: the calm message, an error
         code, the details in the log, the admin told (X4)
-  - [ ] 1a.13 First ADRs
+  - [x] 1a.13 First ADRs - done: `docs/adr/` 0001 screenshot reading (D1),
+        0002 flags and gates, 0003 tools and layout (B9), 0004 billing by pull
+        (B2/B3)
   - [ ] 1b Phase 1: RUNBOOK, sign out everyone, admin action log, CI additions,
         layer rule test, schema version, password hashing, retention job,
         `.env.example`, ARCHITECTURE.md, staging seed

@@ -118,7 +118,8 @@ class NoteOwnerTests(_DB):
         advising.add_note(c, self.dana, self.carol, "Note", "Carol's private", "2026-09-02",
                           private=True)
         self.step, self.private = [n["id"] for n in sorted(
-            advising.list_notes(c, self.dana, include_private=True), key=lambda n: n["id"])]
+            advising.list_notes(c, self.dana, include_private=True, advisor_id=self.carol),
+            key=lambda n: n["id"])]
         auth.unlink_client(c, self.carol, self.dana)
         auth.link_client(c, self.omar, self.dana)
 

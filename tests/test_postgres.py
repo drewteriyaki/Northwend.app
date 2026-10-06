@@ -475,24 +475,26 @@ class AdvisorTests(_PG):
         advising.add_note(c, dana, carol, "Review", "Met to review the plan", "2026-09-01")
         advising.add_note(c, dana, carol, "Next step", "Open a Roth IRA", "2026-09-02")
         advising.add_note(c, dana, carol, "Note", "Prefers email", "2026-09-03", private=True)
-        notes = {n["kind"]: n for n in advising.list_notes(c, dana, include_private=True)}
+        notes = {n["kind"]: n for n in advising.list_notes(c, dana, include_private=True,
+                                                           advisor_id=carol)}
         self.assertEqual(len(advising.list_notes(c, dana, include_private=False)), 2)
         step = notes["Next step"]["id"]
         self.assertTrue(advising.edit_note(c, dana, step, "Open a Roth IRA this month",
-                                           now=NOW))
+                                           now=NOW, advisor_id=carol))
         hist = json.loads(self.one("SELECT history FROM advisor_notes WHERE id = ?",
                                    (step,))["history"])
         self.assertEqual([h["body"] for h in hist], ["Open a Roth IRA"])
-        advising.set_done(c, dana, step, True)
+        advising.set_done(c, dana, step, True, advisor_id=carol)
         self.assertEqual(self.one("SELECT done FROM advisor_notes WHERE id = ?", (step,)),
                          {"done": 1})
-        self.assertTrue(advising.archive_note(c, dana, step, now=NOW))
-        self.assertFalse(advising.archive_note(c, other, step))   # not that client's
-        self.assertNotIn(step, [n["id"] for n in advising.list_notes(c, dana,
-                                                                     include_private=True)])
+        self.assertTrue(advising.archive_note(c, dana, step, now=NOW, advisor_id=carol))
+        self.assertFalse(advising.archive_note(c, other, step, advisor_id=carol))   # not that client's
+        self.assertNotIn(step, [n["id"] for n in advising.list_notes(
+            c, dana, include_private=True, advisor_id=carol)])
         self.assertEqual([n["id"] for n in advising.list_notes(c, dana, include_private=True,
-                                                               archived=True)], [step])
-        self.assertTrue(advising.restore_note(c, dana, step))
+                                                               archived=True,
+                                                               advisor_id=carol)], [step])
+        self.assertTrue(advising.restore_note(c, dana, step, advisor_id=carol))
         self.assertIsNone(self.one("SELECT archived_at FROM advisor_notes WHERE id = ?",
                                    (step,))["archived_at"])
         self.assertEqual(advising.last_review(c, dana), "2026-09-01")
@@ -552,9 +554,10 @@ class AdvisorTests(_PG):
         omar = self.user("omar.rec", advisor=True)
         advising.add_note(c, dana, carol, "Note", "Shared note", "2026-09-01")
         advising.add_note(c, dana, carol, "Note", "Private note", "2026-09-02", private=True)
-        hidden = max(n["id"] for n in advising.list_notes(c, dana, include_private=True))
-        advising.edit_note(c, dana, hidden, "Private note, edited", now=NOW)
-        advising.archive_note(c, dana, hidden, now=NOW)
+        hidden = max(n["id"] for n in advising.list_notes(c, dana, include_private=True,
+                                                          advisor_id=carol))
+        advising.edit_note(c, dana, hidden, "Private note, edited", now=NOW, advisor_id=carol)
+        advising.archive_note(c, dana, hidden, now=NOW, advisor_id=carol)
         proposals.share(c, carol, proposals.save(c, carol, dana, title="Mix",
                                                  mix={"Stocks": 70, "Bonds": 30}))
         advisor.save_profile(c, dana, {"goal": "Retirement", "time_horizon_years": 20})

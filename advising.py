@@ -90,20 +90,21 @@ def add_note(conn, client_id: int, advisor_id: int, kind: str, body: str, on: st
 
 
 def _private_sql(include_private: bool, advisor_id: int | None) -> tuple[str, tuple]:
-    """Which private notes a reader sees: none for the client; with
-    `advisor_id`, only that advisor's own (a client who moved to a new
-    advisor doesn't hand the old one's private notes to the new one)."""
+    """Which private notes a reader sees: none for the client; for an
+    advisor (`include_private`), only that advisor's own - so `advisor_id`
+    is required then (a client who moved to a new advisor doesn't hand the
+    old one's private notes to the new one; audit 1.2a)."""
     if not include_private:
         return " AND private = 0", ()
-    if advisor_id is not None:
-        return " AND (private = 0 OR advisor_id = ?)", (advisor_id,)
-    return "", ()
+    if advisor_id is None:
+        raise ValueError("include_private needs the advisor_id of the advisor reading")
+    return " AND (private = 0 OR advisor_id = ?)", (advisor_id,)
 
 
 def list_notes(conn, client_id: int, *, include_private: bool,
                archived: bool = False, advisor_id: int | None = None) -> list[dict]:
-    """Newest first. `include_private` only for the advisor's own view, and
-    with `advisor_id` only their own private notes (_private_sql).
+    """Newest first. `include_private` only for the advisor's own view, with
+    their `advisor_id`: only their own private notes (_private_sql).
     Archived notes are left out; `archived=True` lists only those (the
     advisor's Show archived)."""
     sql = ("SELECT * FROM advisor_notes WHERE client_id = ? AND archived_at IS "
@@ -174,14 +175,17 @@ def open_next_steps(notes: list[dict]) -> list[dict]:
     return [n for n in notes if n["kind"] == "Next step" and not n["done"]]
 
 
-def _mine(advisor_id: int | None) -> tuple[str, tuple]:
-    """Only the note's own advisor changes it: given `advisor_id`, the
-    WHERE clause also needs it (the app always passes the signed-in login)."""
-    return (" AND advisor_id = ?", (advisor_id,)) if advisor_id is not None else ("", ())
+def _mine(advisor_id: int) -> tuple[str, tuple]:
+    """Only the note's own advisor changes it: the WHERE clause always needs
+    `advisor_id` (the signed-in login). It's required - there is no "any
+    advisor" (audit 1.2a)."""
+    if advisor_id is None:
+        raise ValueError("advisor_id is required: only the note's own advisor changes it")
+    return " AND advisor_id = ?", (advisor_id,)
 
 
 def set_done(conn, client_id: int, note_id: int, done: bool, *,
-             advisor_id: int | None = None) -> bool:
+             advisor_id: int) -> bool:
     mine, args = _mine(advisor_id)
     cur = conn.execute("UPDATE advisor_notes SET done = ? WHERE id = ? AND client_id = ?" + mine,
                        (1 if done else 0, note_id, client_id, *args))
@@ -202,10 +206,10 @@ def _stamp(now: datetime | None = None) -> str:
     return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def archive_note(conn, client_id: int, note_id: int, *, now: datetime | None = None,
-                 advisor_id: int | None = None) -> bool:
-    """Hide a note but keep it. False if it isn't this client's - or, with
-    `advisor_id`, that advisor's own - or is already archived."""
+def archive_note(conn, client_id: int, note_id: int, *, advisor_id: int,
+                 now: datetime | None = None) -> bool:
+    """Hide a note but keep it. False if it isn't this client's and that
+    advisor's own, or is already archived."""
     mine, args = _mine(advisor_id)
     cur = conn.execute("UPDATE advisor_notes SET archived_at = ? WHERE id = ? AND client_id = ? "
                        "AND archived_at IS NULL" + mine, (_stamp(now), note_id, client_id, *args))
@@ -213,9 +217,9 @@ def archive_note(conn, client_id: int, note_id: int, *, now: datetime | None = N
     return cur.rowcount > 0
 
 
-def restore_note(conn, client_id: int, note_id: int, *, advisor_id: int | None = None) -> bool:
-    """Bring an archived note back. False if it isn't this client's (or,
-    with `advisor_id`, that advisor's own)."""
+def restore_note(conn, client_id: int, note_id: int, *, advisor_id: int) -> bool:
+    """Bring an archived note back. False if it isn't this client's and
+    that advisor's own."""
     mine, args = _mine(advisor_id)
     cur = conn.execute("UPDATE advisor_notes SET archived_at = NULL WHERE id = ? AND "
                        "client_id = ? AND archived_at IS NOT NULL" + mine,
@@ -235,10 +239,9 @@ def note_history(note: dict) -> list[dict]:
 
 
 def edit_note(conn, client_id: int, note_id: int, body: str, *,
-              now: datetime | None = None, advisor_id: int | None = None) -> bool:
+              advisor_id: int, now: datetime | None = None) -> bool:
     """Change a note's text, keeping the text it had (note_history). False
-    if it isn't this client's (or, with `advisor_id`, that advisor's own), or
-    nothing changed. Raises ValueError for empty text."""
+    if it isn't this client's and that advisor's own, or nothing changed. Raises ValueError for empty text."""
     body = (body or "").strip()
     if not body:
         raise ValueError("a note needs some text")
@@ -253,8 +256,8 @@ def edit_note(conn, client_id: int, note_id: int, body: str, *,
                                           "written_at": row["edited_at"] or row["created_at"],
                                           "replaced_at": stamp}]
     conn.execute("UPDATE advisor_notes SET body = ?, edited_at = ?, history = ? "
-                 "WHERE id = ? AND client_id = ?",
-                 (body, stamp, json.dumps(history), note_id, client_id))
+                 "WHERE id = ? AND client_id = ?" + mine,
+                 (body, stamp, json.dumps(history), note_id, client_id, *args))
     conn.commit()
     return True
 

@@ -923,6 +923,17 @@ class AdvisorTests(TempDBMixin, unittest.TestCase):
             self.assertNotIn(dollars, text)
         self.assertIn("% of portfolio", text)
 
+    def test_portfolio_summary_takes_figures_out_of_fund_names(self):
+        # a fund's name comes from the person's file as free text (audit 1.4b)
+        ctxs, cash = self._contexts()
+        named = {**ctxs[0], "pos": {**ctxs[0]["pos"], "symbol": "TGT",
+                                    "description": "Target 2050 $1,000 min, acct 98765432",
+                                    "asset_type": "Fund 12,500 USD"}}
+        text = advisor.portfolio_summary([*ctxs, named], cash)
+        self.assertIn("TGT (Target 2050 [amount] min", text)   # the year stays
+        for leak in ("$", "1,000", "98765432", "12,500", "USD"):
+            self.assertNotIn(leak, text)
+
     def test_portfolio_summary_empty_account(self):
         self.assertIn("No holdings yet", advisor.portfolio_summary([], {}))
 
@@ -1514,7 +1525,8 @@ class MeetingPrepTests(TempDBMixin, unittest.TestCase):
         cid = auth.create_client(conn, self.user_id, "pat_client")
         today = date(2026, 10, 1)
         first = meeting.prep(conn, cid, today=today, value=None, latest_snapshot=None,
-                             actual_pct={}, targets={}, drift_threshold=5)
+                             actual_pct={}, targets={}, drift_threshold=5,
+                             advisor_id=self.user_id)
         self.assertIsNone(first["last_review"])
         self.assertIn("first review", meeting.facts_for_ai(first))
 
@@ -1543,7 +1555,8 @@ class MeetingPrepTests(TempDBMixin, unittest.TestCase):
         conn.commit()
         p = meeting.prep(conn, cid, today=today, value=44000.0, latest_snapshot=new_snap,
                          actual_pct={"Stocks": 85.0, "Bonds": 15.0},
-                         targets={"Stocks": 70.0, "Bonds": 30.0}, drift_threshold=5)
+                         targets={"Stocks": 70.0, "Bonds": 30.0}, drift_threshold=5,
+                         advisor_id=self.user_id)
         self.assertEqual(p["days_since"], (today - date(2026, 6, 3)).days)
         self.assertAlmostEqual(p["value_change_pct"], 10.0)
         self.assertEqual(p["trades"]["closed"], [f"{rows[0]['symbol']} ({rows[0]['account']})"])
@@ -2502,11 +2515,13 @@ class AdvisingTests(TempDBMixin, unittest.TestCase):
             advising.add_note(conn, client, self.user_id, "Gossip", "x", "2026-06-02")
         seen = advising.list_notes(conn, client, include_private=False)
         self.assertEqual({n["body"] for n in seen}, {"Went over the plan", "Raise monthly to $600"})
-        self.assertEqual(len(advising.list_notes(conn, client, include_private=True)), 3)
+        self.assertEqual(len(advising.list_notes(conn, client, include_private=True,
+                                                 advisor_id=self.user_id)), 3)
         step = advising.open_next_steps(seen)[0]
-        advising.set_done(conn, self.user_id, step["id"], True)       # wrong client id: no effect
+        advising.set_done(conn, self.user_id, step["id"], True,      # wrong client id: no effect
+                          advisor_id=self.user_id)
         self.assertEqual(len(advising.open_next_steps(advising.list_notes(conn, client, include_private=False))), 1)
-        advising.set_done(conn, client, step["id"], True)
+        advising.set_done(conn, client, step["id"], True, advisor_id=self.user_id)
         self.assertEqual(advising.open_next_steps(advising.list_notes(conn, client, include_private=False)), [])
         self.assertEqual(advising.last_review(conn, client), "2026-06-01")
         conn.close()

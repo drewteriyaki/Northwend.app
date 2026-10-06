@@ -235,7 +235,7 @@ class OneReadHelperTests(unittest.TestCase):
                          {i for i in ids if advising.client_can_import(c, i)})
         ends, sent = reports.sent(c, ids)
         for cid in ids:
-            notes = advising.list_notes(c, cid, include_private=True)
+            notes = advising.list_notes(c, cid, include_private=True, advisor_id=adv)
             self.assertEqual(advising.last_review_in(notes), advising.last_review(c, cid))
             self.assertEqual(ends.get(cid), reports.last_end(c, cid))
         self.assertEqual(sent, {(ids[2], "Q2 2026")})
@@ -330,8 +330,8 @@ class OneReadHelperTests(unittest.TestCase):
         import plans
         import prefs
         c = self.c
-        _, ids = self._book()
-        legacy = os.path.join(self.tmp, "legacy.json")
+        adv, ids = self._book()
+        legacy =os.path.join(self.tmp, "legacy.json")
         with open(legacy, "w", encoding="utf-8") as fh:
             fh.write('{"rules": {"day_move": 2.0}}')
         paths = {ids[5]: legacy}
@@ -341,8 +341,9 @@ class OneReadHelperTests(unittest.TestCase):
         self.assertEqual(advisor.get_profiles(c, ids), {i: advisor.get_profile(c, i) for i in ids})
         self.assertEqual(plans.get_plans(c, ids), {i: plans.get_plan(c, i) for i in ids})
         for private in (True, False):
-            self.assertEqual(advising.notes_for(c, ids, include_private=private),
-                             {i: advising.list_notes(c, i, include_private=private) for i in ids})
+            self.assertEqual(advising.notes_for(c, ids, include_private=private, advisor_id=adv),
+                             {i: advising.list_notes(c, i, include_private=private,
+                                                     advisor_id=adv) for i in ids})
         for helper in (prefs.load_many, advisor.get_profiles, plans.get_plans):
             self.assertEqual(helper(c, []), {})
 
