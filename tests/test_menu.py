@@ -120,7 +120,7 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(set(pops), {"pt_add", "pt_me"})
         self.assertEqual(pops["pt_me"].proto.popover.label, "alice")
         menu = [b.key for b in pops["pt_me"].button]
-        self.assertEqual(menu, ["menu_Account", "menu_About", "pt_theme", "menu_logout"])
+        self.assertEqual(menu, ["menu_Account", "menu_What's new", "menu_About", "pt_theme", "menu_logout"])
         self.assertEqual(self._current(at, "menu_"), ["menu_About"])
         self.assertEqual(self._keys(at, "nav_"), INVESTOR)   # About isn't a tab
         self.assertEqual(self._current(at, "nav_"), [])
@@ -140,7 +140,7 @@ class MenuTests(unittest.TestCase):
         with unittest.mock.patch.dict(os.environ, {"NORTHWEND_ADMINS": "ann"}):
             at = self._run(self.ann, "ann", "home", two_step_ok=self.ann_ok)
         menu = [b.key for b in self._popovers(at)["pt_me"].button]
-        self.assertEqual(menu, ["menu_Account", "menu_About", "menu_Admin", "pt_theme",
+        self.assertEqual(menu, ["menu_Account", "menu_What's new", "menu_About", "menu_Admin", "pt_theme",
                                 "menu_logout"])
 
     def test_money_is_one_page_with_three_tabs(self):
