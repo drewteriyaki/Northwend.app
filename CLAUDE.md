@@ -92,7 +92,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   stay via `former_clients`), `client_csv.py` (Add clients from a file, through
   dashboard `_add_one_client`), `advisor_demo.py` + `views/advisor_demo.py` (the
   in-memory example book a pending advisor sees - never written anywhere),
-  `advisor.py` (the AI guide, Claude API with prompt caching), `prefs.py`, `accounts.py`.
+  `advisor.py` (the AI guide), `ai_gateway.py` (the ONLY place the Claude API is called: a
+  register of helpers, allowance and ceiling checks, cost recorded, nothing else logged; a
+  test pins it), `context_card.py` (the typed, frozen card the chat is sent - it can't hold
+  amounts, share counts or account details), `ai_policy.py` (the conclusion policy: rules in
+  the shared prompt block, `advisor.policed` checks each streamed sentence), `evals/`
+  (`python -m evals.run`, not in CI; the offline checker is), `prefs.py`, `accounts.py`.
+  The plan PDF (`client_plan.py`) has no AI: rule-based questions.
 - Look: `.streamlit/config.toml` (the Northwend theme: colors per light/dark,
   Figtree text and Newsreader titles from `static/`, served at `app/static/`),
   and the `--pt-*` colors at the top of dashboard.py's styles. Keep both in
