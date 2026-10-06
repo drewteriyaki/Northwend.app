@@ -55,12 +55,22 @@ PAGES = {
                       "proposals, meeting prep and progress reports - clients bring holdings "
                       "from any brokerage.",
                       "/advisors"),
+    "decode-401k.html": ("decode-401k.html", "Decode your 401(k) menu · Northwend",
+                         "Paste your workplace plan's fund list and see what kind of fund each "
+                         "one is and what it charges - free, no account, nothing saved.",
+                         "/decode-401k"),
     "about.html": ("about.html", "About and disclosures · Northwend",
                    "What Northwend is, what it stores, what's sent to the AI, and who runs it.",
                    "/about"),
     "404.html": ("404.html", "Page not found · Northwend",
                  "This page isn't on the map.", "/404"),
 }
+
+# written and tested, but not on the site yet: the no-account decoder's page
+# waits for its route (flag decoder_public, switched on after the hosting
+# move, PLAN step 4). Take a name out of HELD to publish it.
+HELD = {"decode-401k.html"}
+PUBLISHED = {k: v for k, v in PAGES.items() if k not in HELD}
 
 
 # the header's links: (label, path); the current page's link is marked
@@ -139,7 +149,7 @@ def nav_links(path: str) -> str:
 
 def sitemap() -> str:
     urls = "".join(f"<url><loc>{SITE_URL}{path}</loc></url>"
-                   for _, _, _, path in PAGES.values() if path != "/404")
+                   for _, _, _, path in PUBLISHED.values() if path != "/404")
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')
 
@@ -199,8 +209,9 @@ def _fill(template: str, values: dict) -> str:
     return re.sub(r"\{\{([A-Z_]+)\}\}", sub, template)
 
 
-def render() -> dict[str, str]:
-    """Every text file of the site: {path under public/: content}."""
+def render(include_held: bool = False) -> dict[str, str]:
+    """Every text file of the site: {path under public/: content}. With
+    include_held, the HELD pages too (for their tests; never written)."""
     with open(os.path.join(HERE, "templates", "base.html"), encoding="utf-8") as fh:
         base = fh.read()
     common = {"APP_URL": APP_URL, "SIGNUP_URL": SIGNUP_URL,
@@ -208,7 +219,8 @@ def render() -> dict[str, str]:
               "YEAR": COPYRIGHT_YEAR, "GROWTH_TABLE": growth_table(),
               "FEE_TABLE": fee_table(), "RATE": f"{RATE:.0%}", "CONTOURS": contours()}
     out = {}
-    for name, (template, title, description, path) in PAGES.items():
+    for name, (template, title, description, path) in (
+            PAGES if include_held else PUBLISHED).items():
         with open(os.path.join(HERE, "templates", template), encoding="utf-8") as fh:
             content = fh.read()
         values = dict(common)

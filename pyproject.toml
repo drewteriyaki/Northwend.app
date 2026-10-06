@@ -57,6 +57,7 @@ py-modules = [
     # the investor tools: stress test, next deposit, cash check, employer match
     "stress", "next_deposit", "cash_check", "employer_match",
     "menu_decoder",   # the 401(k) Menu Decoder (ROADMAP R5)
+    "decoder_public",   # ...and without an account (?decode=401k)
     # year in review and the account map
     "recap", "account_map",
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)

@@ -1136,6 +1136,11 @@ def _login() -> bool:
     unsub = st.query_params.get("unsubscribe")
     if unsub:  # an email's one-click unsubscribe link - no sign-in (views/unsubscribe.py)
         return _unsubscribe_page(str(unsub))
+    # ?decode=401k: the 401(k) decoder without an account (views/decoder_public.py),
+    # only while its flag is on and nobody is signed in in this tab
+    if (flags.on("decoder_public") and not st.session_state.get("user_id")
+            and _decoder_public_wanted()):
+        return _decoder_public_page()
     invite = st.query_params.get("invite")
     if invite:  # a client's setup link (auth.create_invite)
         return _invite_setup(str(invite))
@@ -1257,6 +1262,8 @@ def _logout():
 _view("two_step")
 # the page an email's one-click unsubscribe link opens (unsubscribe.py)
 _view("unsubscribe")
+# the 401(k) decoder without an account, ?decode=401k (decoder_public.py)
+_view("decoder_public")
 
 if not _login():
     st.stop()

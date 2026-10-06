@@ -261,6 +261,11 @@ p, h1, h2, h3, ul, ol, dl, dd, figure { margin: 0; }
 .calc th[scope="row"], .calc thead th:first-child, .calc thead td:first-child { text-align: left; }
 .calc thead th { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-muted); }
 .calc tbody tr:last-child th, .calc tbody tr:last-child td { border-bottom: 0; }
+/* a table of words (the decoder's example): text columns read from the left */
+.calc-text { min-width: 440px; }
+.calc-text th, .calc-text td { text-align: left; }
+.calc-text th:last-child, .calc-text td:last-child { text-align: right; }
+.calc-text tbody th { font-weight: 600; }
 .cell-sub { display: block; font-size: 13px; line-height: 18px; color: var(--ink-muted); font-weight: 400; }
 
 /* questions */

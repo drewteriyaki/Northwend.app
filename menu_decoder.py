@@ -83,6 +83,14 @@ WHY = {   # why a line wasn't identified (shown under the table)
     "several_tickers": "the line has more than one ticker",
 }
 
+# said beside every table, signed in or not (views/menu_decoder.py, views/decoder_public.py)
+CALM = ("This describes each fund. It doesn't rank them or say which to choose - that's "
+        "your decision (and your plan's materials or a professional can help).")
+PLACEHOLDER = ("For example:\n"
+               "Example 500 Index Fund\n"
+               "Example Target Retirement 2050 Trust   Expense ratio 0.08%\n"
+               "Example Stable Value Fund")
+
 # ---- reading the paste ------------------------------------------------------ #
 _PCT = re.compile(r"(?<![\d.])(\d{1,2}(?:\.\d+)?|\.\d+)\s?%")
 # dollar amounts and digit groups (a balance pasted along with the menu): never kept or shown

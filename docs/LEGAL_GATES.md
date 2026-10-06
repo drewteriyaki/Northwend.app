@@ -257,19 +257,20 @@ All carry no figures today. None is prescriptive.
 | W3 | For advisors | `website/templates/advisors.html` | Advisor tool | L0; pricing copy **L1**; any directory mention **L2** | No |
 | W4 | About (from `disclosures.py`) | `website/build.py` | Education | L0 | No |
 | W5 | 404 | `website/templates/404.html` | Education | L0 | No |
+| W6 | Decode your 401(k) menu (explains the no-account decoder and links to `?decode=401k`; a made-up example table in pasted order) | `website/templates/decode-401k.html` | Education | L0 (the route it links to: L0 + `decoder_public`, section 6) | No. "It doesn't rank the funds or say which to choose", "An educational tool, not financial advice", nothing about which fund to pick. |
 
 ### 3.12 Counts
 
 | Class | Features |
 |---|---|
-| Education | 18 |
+| Education | 19 |
 | Calculator | 15 |
 | Descriptive | 25 |
 | Advisor tool | 18 |
 | Account | 17 |
 | Directory | 0 |
 | Billing | 0 |
-| **Total** | **93** |
+| **Total** | **94** |
 
 These count the rows in 3.1-3.8 and 3.11, and leave out the email and PDF
 tables, which repeat features already counted. Directory and billing are
@@ -422,7 +423,8 @@ The chat itself has no client-mode rule yet.
 | Do-Nothing Ledger (R2) | 3.2 | Descriptive | L0 + flag; L3 review | Must show both directions (ROADMAP risk list) |
 | Expedition Log (R3) | 3.2 | Descriptive | L0 + flag | |
 | Storm Drill / Storm Shelter (R4) | 3.2 | Descriptive | L0 + flag | |
-| 401(k) Menu Decoder (R5), and decoder pages without an account | 3.2, 8a | Descriptive | L0 + flag; L3 review | Reads as a pick list if sorted by fee; rate-limit per IP |
+| 401(k) Menu Decoder (R5), and decoder pages without an account | 3.2, 8a | Descriptive | L0 + flag; L3 review | Reads as a pick list if sorted by fee; rate-limit per IP. Signed in: built (flag `decoder_401k`, `menu_decoder.py`) |
+| The 401(k) decoder without an account: `?decode=401k` before sign-in (decision B12) | 8a | Calculator / Descriptive on the pasted text (kind and fee of each pasted line, in the pasted order; fee in dollars at a monthly amount the visitor types) | L0 + flag `decoder_public`; **on in production only after step 4** (Render behind Cloudflare, so the per-address limit sees real addresses) | **Built (step 3), off.** `decoder_public.py`, `views/decoder_public.py`. No AI, no fetching (fund data already kept only; no Fund overlap button), no account row, no settings or counts per person, nothing logged. The only write: a count per hashed address in `signups` (key `decoder:` + SHA-256), 20 an hour per address and 600 an hour app-wide, a calm message when reached, tidied after a day. "Describes, doesn't rank" line beside the table; one line offering an account only after a table is shown; footer "educational, not advice; nothing you paste is saved". Website page W6 links to it. |
 | Owner metrics in Admin (counts only, CSV) | 8a | Account | L0 (seat figures L1) | |
 | Anything toward in-house advice, coaching or an affiliated adviser | 6 (L4) | - | **L4: never** | Refuse and point here |
 

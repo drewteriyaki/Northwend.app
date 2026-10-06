@@ -18,7 +18,8 @@ What goes:
   stay-signed-in sessions (login_sessions) past their expiry date.
 - Wrong-password counts (login_failures) not added to for a day whose lock has
   run out, and the day-old sign-up and email-send counts (signups,
-  email_sends) - the app clears these only when the next one comes in.
+  email_sends) - the app clears these only when the next one comes in. The
+  no-account decoder's counts are signups rows too (decoder_public.py).
 - One-minute price bars (intraday_bars '1m') older than 8 days: Yahoo serves
   7 days of them (perf.INTRADAY_INTERVALS); daily bars stay. The quote table's
   minute rows are trimmed by the history sync (live_prices.trim_history).
@@ -109,6 +110,7 @@ def run(conn, *, now: datetime | None = None) -> dict:
     delete("sessions", "DELETE FROM login_sessions WHERE expires_at <= ?", (stamp,))
     delete("wrong-password counts", "DELETE FROM login_failures WHERE window_start < ? "
            "AND (locked_until IS NULL OR locked_until < ?)", (day_ago, stamp))
+    # (the no-account decoder's counts as well: signups rows keyed "decoder:...")
     delete("sign-up counts", "DELETE FROM signups WHERE created_at < ?", (day_ago,))
     delete("email-send counts", "DELETE FROM email_sends WHERE sent_at < ?", (day_ago,))
     # (`interval` is a keyword on Postgres: qualified. ts is ISO, so a day compares.)

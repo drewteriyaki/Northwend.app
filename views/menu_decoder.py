@@ -22,12 +22,8 @@ import fees
 import fund_holdings
 import menu_decoder
 
-MD_CALM = ("This describes each fund. It doesn't rank them or say which to choose - that's "
-           "your decision (and your plan's materials or a professional can help).")
-MD_PLACEHOLDER = ("For example:\n"
-                  "Example 500 Index Fund\n"
-                  "Example Target Retirement 2050 Trust   Expense ratio 0.08%\n"
-                  "Example Stable Value Fund")
+MD_CALM = menu_decoder.CALM
+MD_PLACEHOLDER = menu_decoder.PLACEHOLDER
 
 
 def _md_decode():

@@ -4506,7 +4506,7 @@ class WebsiteTests(unittest.TestCase):
         import build as site_build
         cls.site = site_build
         cls.pages = {}
-        for n in site_build.PAGES:
+        for n in site_build.PUBLISHED:
             with open(os.path.join(cls.PUBLIC, n), encoding="utf-8") as fh:
                 cls.pages[n] = fh.read()
 
@@ -4560,7 +4560,7 @@ class WebsiteTests(unittest.TestCase):
         self.assertIn(first, self.pages["index.html"])
         with open(os.path.join(self.PUBLIC, "sitemap.xml"), encoding="utf-8") as fh:
             sitemap = fh.read()
-        for _, _, _, path in self.site.PAGES.values():
+        for _, _, _, path in self.site.PUBLISHED.values():
             if path != "/404":
                 self.assertIn(f"<loc>{self.site.SITE_URL}{path}</loc>", sitemap)
         self.assertNotIn("/404", sitemap)

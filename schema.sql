@@ -441,7 +441,8 @@ CREATE TABLE IF NOT EXISTS login_failures (
 
 -- Sign-up tries, for the limits on new accounts (auth.sign_up). Keyed by a
 -- SHA-256 of the internet address ('' if unknown) - never the address or the
--- email - and kept for a day.
+-- email - and kept for a day. The no-account decoder's hourly limit counts
+-- here too, keyed 'decoder:' + that hash (decoder_public.py).
 CREATE TABLE IF NOT EXISTS signups (
     address_key  TEXT    NOT NULL,
     created_at   TEXT    NOT NULL,               -- 'YYYY-MM-DD HH:MM:SS' UTC

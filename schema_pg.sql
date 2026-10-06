@@ -398,7 +398,8 @@ CREATE TABLE IF NOT EXISTS login_failures (
     locked_until  TEXT
 );
 
--- Sign-up tries - see the matching comment in schema.sql.
+-- Sign-up tries (and the no-account decoder's counts) - see the matching
+-- comment in schema.sql.
 CREATE TABLE IF NOT EXISTS signups (
     address_key  TEXT    NOT NULL,
     created_at   TEXT    NOT NULL,               -- 'YYYY-MM-DD HH:MM:SS' UTC

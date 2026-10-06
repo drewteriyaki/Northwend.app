@@ -1255,6 +1255,17 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         everything on <day> and held cash, you'd be about X% ahead of / behind
         where your mix is now" (today's holdings at that day's close vs the
         latest), and the hindsight-cuts-both-ways line; never a grade
+  - [x] The decoder without an account (brief 8a, B12), flag `decoder_public` (needs
+        L0; on in production only after step 4) - done Oct 6: `?decode=401k` before
+        sign-in (`views/decoder_public.py`, beside the unsubscribe link's page): the
+        signed-in decoder's paste box and table (`menu_decoder.py`), pasted order,
+        the "describes, doesn't rank" line; no AI, fund data already kept only (no
+        overlap button), nothing written but a count per hashed address in
+        `signups` (`decoder_public.py`: 20 an hour per address, 600 app-wide, a calm
+        message; tidied after a day). "Want to keep track of your plan? Create a
+        free account" only after a table; footer: educational, nothing saved.
+        Website: `/decode-401k` explains it and links to the route (no scripts;
+        sitemap). `tests/test_decoder_public.py`
 - [ ] **Step 4 - Own the hosting** (Render behind Cloudflare). Steps 5-6 never go
       live before this
 - [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and

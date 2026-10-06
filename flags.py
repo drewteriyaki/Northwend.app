@@ -88,6 +88,14 @@ FEATURES = {
     # opens from a card beside the Free money check (Plan's Contributions tab,
     # Learn's "Are you ready to invest?" step).
     "decoder_401k": {"gates": (), "view": "menu_decoder"},
+    # The same decoder without an account (master brief 8a; PLAN step 3 item 6,
+    # decision B12; decoder_public.py): ?decode=401k before sign-in, linked from
+    # the website's /decode-401k page. No AI, cached fund data only, nothing
+    # kept but a rate-limit count per hashed address (LEGAL_GATES.md section 6:
+    # L0 + flag). Its first page without sign-in: switch it on in production
+    # only after step 4's hosting move (Render behind Cloudflare, so the limit
+    # sees each visitor's real address - CLIENT_IP_HEADER). Staging may have it on.
+    "decoder_public": {"gates": ("L0",), "view": "decoder_public"},
 }
 
 

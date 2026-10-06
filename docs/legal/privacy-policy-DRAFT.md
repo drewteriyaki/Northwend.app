@@ -232,6 +232,7 @@ in step.]
 | An account made through sign-up whose email was never confirmed | Deleted, with everything in it, after 30 days without a sign-in |
 | Sign-in sessions ("stay signed in") and "remember this device" for two-step sign-in | 30 days; ended sooner by logging out or changing your password |
 | Wrong-password, sign-up and email-send counts (a hash of the internet address, never the address) | 1 day |
+| How often the 401(k) decoder without an account was used from one internet address (a hash of the address, never the address or what was pasted) | 1 day [once the no-account decoder is on - PLAN step 3] |
 | Email links (stored only as hashes, each works once) | Password reset 60 minutes, confirm 3 days, an advisor's setup link 7 days |
 | Unsubscribe links in reminder emails | 1 year |
 | Minute-by-minute prices (no personal data) | 1 week, then one closing price a day |

@@ -115,7 +115,8 @@ Each statement about data here must stay true to the code:
   workflow's tidy job) - never-confirmed self-made accounts after 30 days
   without a sign-in (tidy.UNCONFIRMED_DAYS, through admin.delete_account),
   error_events 90 days, expired email links / setup links / sessions, the
-  login_failures / signups / email_sends counts after a day. Session and
+  login_failures / signups / email_sends counts after a day (signups also
+  holds the no-account decoder's hourly counts, decoder_public.py). Session and
   link lengths: auth.py, two_step.py.
 - No third-party analytics: .streamlit/config.toml gatherUsageStats = false;
   the only counting is feature_counts.py (above), inside the database.

@@ -107,7 +107,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is
   stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
-  Pages: Home, New to investing, For advisors, About, 404 (`PAGES`); its
+  Pages: Home, New to investing, For advisors, About, 404 (`PAGES`; a page in `HELD` -
+  today the no-account decoder's - is built for tests but not published); its
   tables are worked out in build.py (no scripts: the CSP allows none) and
   its contour lines are the app's `static/topo-light.svg`. The design is
   the "Northwend website redesign" Claude Design canvas.
@@ -142,6 +143,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `docs/ARCHITECTURE.md`; made-up staging people: `manage_users.py seed-staging`. One-click unsubscribe:
   `unsubscribe.py` + `views/unsubscribe.py` (`?unsubscribe=`, reusable hashed tokens in
   `email_tokens`). Legal gates and principles: `docs/LEGAL_GATES.md`, `docs/PRINCIPLES.md`.
+- The 401(k) Menu Decoder: `menu_decoder.py` + `views/menu_decoder.py` (signed in, flag
+  `decoder_401k`; pasted order, never sorted, nothing saved) and `decoder_public.py` +
+  `views/decoder_public.py` (`?decode=401k` without an account, flag `decoder_public` +
+  gate L0, a per-address limit - only after the hosting move).
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
