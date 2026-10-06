@@ -118,6 +118,11 @@ Each statement about data here must stay true to the code:
   login_failures / signups / email_sends counts after a day (signups also
   holds the no-account decoder's hourly counts, decoder_public.py). Session and
   link lengths: auth.py, two_step.py.
+- Hosts (hosting_lines, PLAN step 4.7): named from where this copy runs
+  (settings.host(); Cloudflare in front when CLIENT_IP_HEADER is
+  cf-connecting-ip, as render.yaml sets it). The website's About is built
+  offline, so until HOST_MOVED it names both: Community Cloud, moving to
+  Render. Cloudflare Pages serves the website (website/).
 - No third-party analytics: .streamlit/config.toml gatherUsageStats = false;
   the only counting is feature_counts.py (above), inside the database.
 - Account map (account_map.py, the Account page): the login's own, never shown
@@ -129,7 +134,45 @@ Change this text when any of those change.
 Plain text, no "$" (Streamlit would read a pair of them as math).
 """
 
+import settings
+
 LAST_UPDATED = "October 6, 2026"
+
+# The app's move from Streamlit Community Cloud to Render behind Cloudflare
+# (PLAN step 4, audit 1.10a). A copy on either host names its own host by
+# itself (hosting_lines). Only the website's About page, built offline, can't
+# tell: until the move is done it names both. Once app.northwend.app serves
+# from Render (RUNBOOK, "Move to Render"): set this to True, change
+# LAST_UPDATED to that day (who sees the app's traffic changed), and rebuild
+# the website.
+HOST_MOVED = False
+
+
+def hosting_lines(host: str | None = None, behind_cloudflare: bool | None = None,
+                  moved: bool | None = None) -> str:
+    """The first lines of "Services Northwend uses": who hosts the app, and
+    Cloudflare. `host` is settings.host() ("Render", "Streamlit Community
+    Cloud", or "" - this computer, or the website's build); behind_cloudflare
+    is whether Cloudflare's proxy is in front (CLIENT_IP_HEADER says
+    cf-connecting-ip); `moved` is HOST_MOVED."""
+    host = settings.host() if host is None else host
+    if behind_cloudflare is None:
+        behind_cloudflare = settings.get("CLIENT_IP_HEADER").lower() == "cf-connecting-ip"
+    moved = HOST_MOVED if moved is None else moved
+    if host == "Streamlit Community Cloud":
+        app = "- **Streamlit Community Cloud** hosts the app."
+    elif host == "Render" or moved:
+        app = "- **Render** hosts the app, in the United States."
+        behind_cloudflare = behind_cloudflare or not host   # the website: the plan as done
+    else:
+        # the website before the move, and local runs: both, honestly
+        return ("- **Streamlit Community Cloud** hosts the app today. It's moving to\n"
+                "  **Render** (in the United States), with **Cloudflare** in front of it.\n"
+                "- **Cloudflare** serves the website, northwend.app.")
+    if behind_cloudflare:
+        return (app + "\n- **Cloudflare** sits in front of the app and serves the website,\n"
+                "  northwend.app: your connection passes through it on its way to the app.")
+    return app + "\n- **Cloudflare** serves the website, northwend.app."
 MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
@@ -286,8 +329,8 @@ person, is shown only for groups of 20 or more, and is never shared, sold or
 sent to the AI. To leave yourself out, turn on **Leave me out of
 feature counts** on the **Account** page.
 """),
-    ("Services Northwend uses", """
-- **Streamlit Community Cloud** hosts the app.
+    ("Services Northwend uses", f"""
+{hosting_lines()}
 - **Neon** runs the database, in the United States.
 - **Anthropic** (Claude) powers the AI guide, the optional column guess and,
   where it's offered, the optional screenshot reader - see the next section for

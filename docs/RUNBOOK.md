@@ -19,6 +19,8 @@ Contents:
 - [Turn a feature or gate on or off](#turn-a-feature-or-gate-on-or-off)
 - [Shut down cleanly](#shut-down-cleanly)
 - [After a breach](#after-a-breach)
+- [Move to Render](#move-to-render)
+- [Uptime check](#uptime-check)
 - [Owner prerequisites](#owner-prerequisites)
 - [Before turning on a gate](#before-turning-on-a-gate)
 - [Monthly budget](#monthly-budget)
@@ -32,7 +34,8 @@ Contents:
 | The code | GitHub. Two branches matter: `staging` and `main`. |
 | The live app, today | Streamlit Community Cloud, an app that follows `main`. |
 | The staging app | Streamlit Community Cloud, an app that follows `staging`. Its banner says "Staging copy". It has its own Neon database. |
-| The live app, after step 4 | Render (`render.yaml`), at app.northwend.app, deploying `main`. |
+| The live app, after step 4 | Render (`render.yaml`), at app.northwend.app, deploying `main`, behind Cloudflare's proxy (`docs/CLOUDFLARE.md`). The move: [Move to Render](#move-to-render). |
+| Database roles | One owner role for `northwend-migrate`, one for the app, one for the jobs, once `docs/DB_ROLES.md` is done. |
 | The databases | Neon. One project or branch for live, one for staging. |
 | Scheduled jobs | GitHub Actions, `.github/workflows/scheduled-sync.yml` (prices, history, the Monday email, walk reminders). |
 | The app's settings | Streamlit: the app's menu > Settings > Secrets. Render: the service's Environment. |
@@ -78,8 +81,12 @@ Every change goes to staging first. Live only ever gets what staging had.
    `ALERT_EMAIL` (at most once an hour per kind).
 
 Database changes: the app adds new tables and columns itself when it starts.
-`northwend-migrate` (coming in this step, PLAN 1b.6) runs the same thing on
-purpose. Once step 4 splits the database roles, run it before the deploy.
+`northwend-migrate` runs the same thing on purpose. Once the database roles
+are split (`docs/DB_ROLES.md`, with `NORTHWEND_SKIP_SCHEMA_SETUP=1`), the app
+can't: when `SCHEMA_VERSION` in `portfolio.py` goes up, run
+`northwend-migrate` as the owner role on each database before its release -
+staging's before step 2, live's before step 5. See DB_ROLES.md, "Schema
+changes from now on".
 
 ---
 
@@ -125,22 +132,20 @@ Start quickly.
 4. **Get its connection string.** Connect (or Connection details) > choose
    the new branch > pooled connection. Copy it. Don't paste it anywhere but
    the places below.
-5. **Count rows** on both the live branch and the new one, and compare:
+5. **Count rows** on both the new branch and the live one, and compare. From
+   the repo on your computer (it needs only `requirements.txt` installed):
 
    ```
-   psql "<connection string>" -c "
-   SELECT 'users' AS t, COUNT(*) FROM users UNION ALL
-   SELECT 'snapshots', COUNT(*) FROM snapshots UNION ALL
-   SELECT 'positions', COUNT(*) FROM positions UNION ALL
-   SELECT 'plans', COUNT(*) FROM plans UNION ALL
-   SELECT 'investor_profiles', COUNT(*) FROM investor_profiles UNION ALL
-   SELECT 'advisor_clients', COUNT(*) FROM advisor_clients UNION ALL
-   SELECT 'advisor_notes', COUNT(*) FROM advisor_notes UNION ALL
-   SELECT 'transactions', COUNT(*) FROM transactions UNION ALL
-   SELECT 'user_prefs', COUNT(*) FROM user_prefs;"
+   python scripts/restore_check.py --db "<new branch's string>" --against "<live string>"
    ```
 
-   Look at counts only. Nobody reads anyone's holdings to check a restore.
+   It lists every table in `schema_pg.sql` with both counts and the
+   difference, and says if a table is missing from either. It only reads:
+   the session is read-only, it never sets the schema up, and it never
+   prints the connection strings. Counts only - nobody reads anyone's
+   holdings to check a restore. (No Python to hand? In Neon's SQL Editor on
+   each branch, `SELECT COUNT(*) FROM users;` and the same for `snapshots`,
+   `positions`, `plans`, `advisor_notes`.)
 6. **Swap.** Put the new branch's connection string in every place the old
    one was: `PORTFOLIO_DB` in the live app's settings (Streamlit Secrets, or
    Render's Environment), and the `DATABASE_URL` GitHub secret. Restart the
@@ -159,7 +164,10 @@ Never copy live data into staging, or onto your own computer.
 **Quarterly restore drill** (D6; first one at step 4). Don't swap anything.
 
 - [ ] Make a branch of the live project from one hour ago (steps 3 and 4).
-- [ ] Count rows on both (step 5). They match, give or take the last hour.
+- [ ] Count rows on both (step 5):
+      `python scripts/restore_check.py --db "<drill branch>" --against "<live>"`.
+      No table missing; the differences are only the last hour's (a few
+      sign-ins, prices, sessions).
 - [ ] Minutes from start to counts: ____
 - [ ] Delete the drill branch. Nothing points at it.
 - [ ] Add a line below.
@@ -355,6 +363,169 @@ CI, which has no key - and costs about $2 a pass on the chat model.
    `evals/checker.py`/`ai_policy.py` and add the answer to
    `evals/canned.py` so Tests holds the fix. Keep the `--out` files outside
    the repo: they hold the answers (made-up data only).
+
+## Move to Render
+
+PLAN step 4 (audit 1.8b, 1.8c, 1.10a): the live app moves from Streamlit
+Community Cloud to Render, at app.northwend.app, behind Cloudflare. The code
+is ready (`render.yaml`, `hosting.py`, `docs/CLOUDFLARE.md`). Staging stays
+on Community Cloud. Do the steps in order; each says when it's done. About
+two hours, plus a month before the last step. Nobody is signed out and no
+data moves: both copies use the same Neon database.
+
+Before you start:
+- [ ] A Render account, with access to the GitHub repo (Render asks when you
+      connect it).
+- [ ] The live app's Streamlit Secrets open in another tab (its menu >
+      Settings > Secrets): Render needs the same values.
+- [ ] Production keys only for production (1.5c): the Anthropic key from the
+      production workspace, the live Resend key, the live Neon string.
+      Staging keeps its own (its own Anthropic workspace, `MAIL_DRY_RUN=1` or
+      a test-only Resend key). Never paste a staging key into Render.
+
+### 1. Create the Blueprint
+- [ ] Render dashboard > **New** > **Blueprint** > pick the repo. Render
+      reads `render.yaml` and shows one web service, `northwend`, Starter
+      plan, branch `main`.
+- [ ] Render asks for each `sync: false` setting. Copy each from the live
+      app's Secrets: `PORTFOLIO_DB`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`,
+      `FINNHUB_API_KEY`, `NORTHWEND_ADMINS`, `ALERT_EMAIL`,
+      `NORTHWEND_GATES` (today `L0`), `NORTHWEND_FLAGS`,
+      `NORTHWEND_AI_CEILING_USD`. `AI_ZDR`: `0` until Anthropic has confirmed
+      zero data retention in writing. The rest (`NORTHWEND_ENV=production`,
+      `CLIENT_IP_HEADER`, `APP_URL`, the Streamlit settings) come from the
+      file - don't add them by hand.
+- [ ] **Apply**. Watch the service's Events until the deploy is **live**.
+
+Done when: the deploy is live and its health check passed.
+
+### 2. Check it on onrender.com
+The service's page shows its address, like `https://northwend.onrender.com`.
+Don't share it.
+- [ ] `https://<service>.onrender.com/_stcore/health` answers `ok`.
+- [ ] Sign in with your admin login (two-step code too). Home, Plan and
+      Account look as on the live app.
+- [ ] Admin > System: runs on Render, the version is `main`'s latest commit,
+      the database is Postgres, email is sending, every key is set, the
+      gates and flags match the live app's.
+- [ ] Render > Logs: no errors.
+
+Emails sent from this copy already link to app.northwend.app (`APP_URL`),
+which doesn't work yet; avoid sending any during the check.
+
+Done when: all four are ticked.
+
+### 3. Add the domain in Render
+- [ ] The service > **Settings** > **Custom Domains** > **Add**:
+      `app.northwend.app`. Render shows the `CNAME` target to use (the
+      service's onrender.com name).
+
+### 4. Cloudflare in front
+- [ ] Follow `docs/CLOUDFLARE.md` sections 1 to 7, in order: the `app`
+      record (DNS only until Render verifies, then Proxied), Full (strict),
+      WebSockets, the "never cache" rule, the six security headers,
+      Email Address Obfuscation and the other script features off, and the
+      Render address turned off if offered.
+
+Done when: Render shows `app.northwend.app` Verified with its certificate,
+and the record in Cloudflare is Proxied.
+
+### 5. Check app.northwend.app
+- [ ] `docs/CLOUDFLARE.md` section 8: the pages work, the six headers are
+      there, nothing is cached, health says `ok`.
+- [ ] securityheaders.com grade: ____ (aim: A). Date: ____
+- [ ] Sign up a test account with an address you own, confirm it, delete it
+      (Account > Delete my account): sign-up, email links and the
+      per-address limits work through the proxy.
+
+Done when: all three are ticked.
+
+### 6. Point everything at the new address
+- [ ] The website's buttons: `APP_URL` in `website/build.py` to
+      `https://app.northwend.app/`, `python website/build.py`, commit
+      through staging and release (Cloudflare Pages redeploys the site).
+- [ ] GitHub > Settings > Secrets and variables > Actions: the `APP_URL`
+      secret to `https://app.northwend.app/` (links in the Monday email and
+      the walk reminders).
+- [ ] The uptime monitors ([Uptime check](#uptime-check)).
+
+### 7. Turn the old app into a signpost
+- [ ] Community Cloud > the live app > Settings > **Secrets**: delete
+      everything, and add only `MOVED_TO = "https://app.northwend.app"`.
+      Save. The old app needs no database or key for its "has moved" page,
+      so none stays on Community Cloud.
+- [ ] Open the old address with `?page=plan` on the end: it says Northwend
+      has moved, and its button goes to `https://app.northwend.app/?page=plan`
+      (old confirm and reset links in inboxes keep working that way).
+- [ ] Recommended, since Community Cloud held them: rotate each key that
+      lived there ([Rotate a key](#rotate-a-key)) at a quiet hour - the new
+      ones go only to Render and GitHub. The Neon password goes with the
+      database roles (`docs/DB_ROLES.md`, step 5).
+
+### 8. Name the real hosts
+Until now the About page on each copy named its own host by itself, and the
+website named both ("moving to Render"). Now that the move is done:
+- [ ] In `disclosures.py`: `HOST_MOVED = True`, and `LAST_UPDATED` to
+      today's date (who sees the app's traffic changed, so everyone is told
+      at their next sign-in). The tests that pin the date say where to
+      change them too.
+- [ ] `docs/legal/`: remove the two "[OWNER: written for after the move ...]"
+      notes.
+- [ ] `python website/build.py`; commit through staging and release.
+
+### 9. A month later: delete the old app
+- [ ] Nobody has opened the old address for a while (its Community Cloud
+      analytics, if shown), and the date is at least a month after step 7:
+      ____
+- [ ] Community Cloud > the old live app > **Delete**. Keep the staging app.
+- [ ] Monthly budget: the Streamlit line ends, the Render line starts.
+
+**Done when** (PLAN step 4):
+- [ ] The app is served at app.northwend.app from Render behind Cloudflare,
+      with the six headers (step 5).
+- [ ] A restore drill has passed ([the drill](#restore-the-database), with
+      `scripts/restore_check.py`), and its line is in the table there.
+- [ ] The uptime check is live ([Uptime check](#uptime-check)).
+- [ ] Community Cloud shows "has moved" (step 7).
+- [ ] The disclosures name the real hosts (step 8).
+- [ ] Then, not blocking the rest: the database roles are split
+      (`docs/DB_ROLES.md`).
+
+---
+
+## Uptime check
+
+PLAN step 4.4 (G4). A free outside service checks the app and the website
+every few minutes and emails you when one stops answering. Nothing is added
+to any page: no badge, no script, no status-page widget.
+
+Any free monitor works (for example UptimeRobot's or Better Stack's free
+plan). With UptimeRobot:
+
+1. Sign up with the address that should get alerts (the same as
+   `ALERT_EMAIL` is a good choice). Turn on two-step sign-in for it.
+2. **New monitor** > type **Keyword**, URL
+   `https://app.northwend.app/_stcore/health`, keyword `ok` (alert when it's
+   missing), every 5 minutes. Name: `Northwend app`.
+   `/_stcore/health` is Streamlit's own check - the one Render uses before it
+   switches to a new deploy (`render.yaml`). It says the server is up; the
+   database and the jobs have their own alerts (error emails, "Tell the
+   admin it failed").
+3. **New monitor** > type **HTTP(s)**, URL `https://northwend.app/`, every
+   5 minutes. Name: `Northwend website`.
+4. Alert contacts: your email, on both. Leave any public status page off.
+5. Test it once: pause the Render service (Settings > Suspend) at a quiet
+   hour, wait for the email, resume it.
+
+Cloudflare's Bot Fight Mode stays off (`docs/CLOUDFLARE.md`), so the
+monitor's requests aren't challenged.
+
+| Monitor | Set up on | Alerts go to |
+|---|---|---|
+| App (`/_stcore/health`) | ____ | ____ |
+| Website | ____ | ____ |
+
+---
 
 ## Owner prerequisites
 

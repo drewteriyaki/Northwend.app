@@ -26,8 +26,12 @@ and isn't paid by anyone for what it shows.
 
 - **Database:** Neon (managed Postgres) in the United States. [OWNER: region; whether
   storage is encrypted at rest under Neon's plan - confirm from Neon's documentation.]
-- **App hosting:** Streamlit Community Cloud and/or Render (app.northwend.app).
-  [OWNER: which is live; Render region is "ohio" in `render.yaml`.]
+- **App hosting:** Render (app.northwend.app), in the United States (Ohio), behind
+  Cloudflare's proxy. Cloudflare adds security headers to every page: HTTPS only
+  (HSTS), no framing by other sites, no camera, microphone or location access
+  (`docs/CLOUDFLARE.md`). [OWNER: written for after the move (PLAN step 4);
+  until then the app is on Streamlit Community Cloud, without those headers.
+  Publish this only once `disclosures.HOST_MOVED` is True.]
 - **Scheduled jobs** (price updates, history, the Monday advisor email) run on
   GitHub Actions with access to the database.
 - **Secrets** (database address, API keys) live in each host's secret settings,

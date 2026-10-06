@@ -8,8 +8,11 @@ Two settings, both environment variables:
   address Streamlit sees is used. On Render: "x-forwarded-for" (Render adds
   the address it saw at the right-hand end; anything to its left came from
   the visitor and can't be trusted). Behind Cloudflare's proxy as well:
-  "cf-connecting-ip". Sign-up, confirm and reset limits count per address,
-  so behind a proxy without this every visitor looks the same.
+  "cf-connecting-ip" - what render.yaml sets (docs/CLOUDFLARE.md; that
+  header is only trustworthy for requests that came through Cloudflare, so
+  the onrender.com address is turned off once the domain works). Sign-up,
+  confirm and reset limits count per address, so behind a proxy without
+  this every visitor looks the same.
 - MOVED_TO - set on the old address once the app has moved: every page then
   only says where Northwend is now, with a link that keeps the ?query (so an
   old confirm or reset link in someone's inbox still works there).

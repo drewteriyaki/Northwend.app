@@ -138,13 +138,13 @@ It is shared only as needed to run the service, with:
 | Service | What it does | What it receives |
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
-| **Streamlit Community Cloud** and/or **Render** | Hosts the app | Requests to the app, your IP address, server logs [OWNER: which host is live; Render serves app.northwend.app] |
+| **Render** | Hosts the app (app.northwend.app), in the United States (Ohio) | Requests to the app, your IP address, server logs [OWNER: written for after the move (PLAN step 4). Until then the host is Streamlit Community Cloud, as the About page says; publish this wording only once app.northwend.app serves from Render and `disclosures.HOST_MOVED` is True] |
 | **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly walk reminders people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails | Your email address and that message |
-| **Cloudflare** (Pages) | Serves the website northwend.app | Visitors' IP address and browser details |
+| **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to app.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks and your account map, which only you
@@ -212,7 +212,8 @@ terms, and link them.]
 - **No cross-site tracking by others:** we don't allow third parties to collect
   personal information about your online activities over time and across other
   websites through Northwend. [OWNER/LAWYER: confirm the hosting providers' own
-  cookies (Streamlit Community Cloud / Render, Cloudflare) don't do this.]
+  cookies (Render, Cloudflare) don't do this. Cloudflare's features that set
+  cookies or add scripts stay off (docs/CLOUDFLARE.md).]
 - **Do Not Track:** Northwend does not track you across other websites or let
   others do so through it, so it treats every visitor the same whether or not
   their browser sends a Do Not Track signal. [LAWYER: also mention Global Privacy
@@ -287,7 +288,7 @@ you as the law requires. See "Security for advisors" for more detail.
 ## 10. Where data is kept
 
 Northwend is offered in the United States and its data is stored in the United
-States (Neon). [OWNER: confirm the database and app host regions.] Some service
+States (Neon; the app runs on Render in Ohio). [OWNER: confirm the Neon region.] Some service
 providers may process data elsewhere under their own terms.
 
 ## 11. Changes to this policy

@@ -138,6 +138,15 @@ def ai_zdr() -> bool:
     return get("AI_ZDR").strip().lower() in ("1", "true", "yes", "on")
 
 
+def skip_schema_setup() -> bool:
+    """NORTHWEND_SKIP_SCHEMA_SETUP: this process doesn't create or change
+    tables when it first connects (portfolio.connect); `northwend-migrate`,
+    run as the database's owner role, does it instead (docs/DB_ROLES.md,
+    audit 1.6c). For a copy whose database role can't change the schema.
+    Off unless set: the app sets its schema up itself, as it always has."""
+    return get("NORTHWEND_SKIP_SCHEMA_SETUP").strip().lower() in ("1", "true", "yes", "on")
+
+
 def server_files_ok() -> bool:
     """The "path to a CSV on this machine" box may show: local runs only -
     hosted, the path would be on the server's own disk."""

@@ -37,6 +37,14 @@ on:
     - cron: "15 13 * * *"
   workflow_dispatch: {}  # allow manual triggering from the Actions tab
 
+# Once the database roles are split (docs/DB_ROLES.md), DATABASE_URL is the
+# jobs role's, which can't change tables: set the repository *variable*
+# (Settings > Secrets and variables > Actions > Variables)
+# NORTHWEND_SKIP_SCHEMA_SETUP to 1. Unset, the jobs set the schema up at
+# start as they always have.
+env:
+  NORTHWEND_SKIP_SCHEMA_SETUP: ${{ vars.NORTHWEND_SKIP_SCHEMA_SETUP }}
+
 jobs:
   refresh:
     if: github.event.schedule == '*/15 13-20 * * 1-5' || github.event_name == 'workflow_dispatch'

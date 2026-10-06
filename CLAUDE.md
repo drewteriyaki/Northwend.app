@@ -153,6 +153,11 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   gate L0, a per-address limit - only after the hosting move).
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
+- Hosting move (PLAN step 4): `docs/CLOUDFLARE.md` (headers, proxy, obfuscation off),
+  `docs/DB_ROLES.md` (app/jobs roles; `NORTHWEND_SKIP_SCHEMA_SETUP` = the app stops setting
+  up the schema, `northwend-migrate` does), `scripts/restore_check.py` (row counts for the
+  restore drill), the RUNBOOK's "Move to Render" checklist; `disclosures.hosting_lines()`
+  names the real host (`HOST_MOVED` flips the website's wording after the move).
 - Hosting (L4): `render.yaml` (the app on Render, app.northwend.app) and
   `hosting.py` (`CLIENT_IP_HEADER` for the visitor's address behind a proxy;
   `MOVED_TO` turns an old copy into a "has moved" page).

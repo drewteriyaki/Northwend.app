@@ -1,7 +1,17 @@
-# Northwend on Render (ROADMAP L4): the app at app.northwend.app.
+# Northwend on Render (ROADMAP L4, PLAN step 4): the app at app.northwend.app,
+# behind Cloudflare's proxy (docs/CLOUDFLARE.md). The move, step by step:
+# docs/RUNBOOK.md, "Move to Render".
+#
 # Render reads this file as a Blueprint (New > Blueprint, pick this repo).
-# Secrets are marked sync: false - Render asks for each one when the
-# Blueprint is created, and they live only in Render's dashboard, never here.
+# Two kinds of setting below:
+# - `value:` - fixed and not secret; changed only by a commit here (through
+#   staging, like any change). A Blueprint sync puts these values back.
+# - `sync: false` - a secret, or something the owner switches by hand (gates,
+#   flags, the AI ceiling). Render asks for each one when the Blueprint is
+#   created; it then lives only in the service's Environment, never here, and
+#   a sync never changes it. Copy them from the live app's Streamlit Secrets.
+# Every setting's meaning is in .env.example (a test checks that every one
+# the hosted app needs is listed here).
 # The scheduled price and history jobs stay on GitHub Actions.
 services:
   - type: web
@@ -17,18 +27,63 @@ services:
       --server.port $PORT
       --server.address 0.0.0.0
       --server.headless true
+    # Streamlit's own readiness check: 200 "ok" once the server is up. Render
+    # keeps the old version serving until a new deploy passes it. The outside
+    # uptime monitor uses the same address (RUNBOOK, "Uptime check").
     healthCheckPath: /_stcore/health
     envVars:
-      - key: PYTHON_VERSION
+      # ---- Fixed values -------------------------------------------------
+      - key: PYTHON_VERSION     # Render's build reads it; CI tests on 3.13 too
         value: "3.13.7"
-      # Render's proxy adds the visitor's address at the end of this header (hosting.py)
+      # a hosted, live copy: fails closed without a Postgres PORTFOLIO_DB,
+      # no error details on screen, errors emailed (settings.py)
+      - key: NORTHWEND_ENV
+        value: production
+      # Cloudflare's proxy puts the visitor's address in this header
+      # (hosting.py); sign-up and email limits count per address
       - key: CLIENT_IP_HEADER
-        value: x-forwarded-for
-      - key: PORTFOLIO_DB          # the live Neon connection string
+        value: cf-connecting-ip
+      # the app's address, for links in emails sent outside the app
+      - key: APP_URL
+        value: https://app.northwend.app/
+      # the live copy sends email (staging and local runs keep 1)
+      - key: MAIL_DRY_RUN
+        value: "0"
+      # 1 once the database roles are split (docs/DB_ROLES.md): then only
+      # `northwend-migrate`, run as the owner role, changes the schema
+      - key: NORTHWEND_SKIP_SCHEMA_SETUP
+        value: "0"
+      # Streamlit's own settings (.streamlit/config.toml says the same for the
+      # first two; set here too so the host can't lose them)
+      - key: STREAMLIT_SERVER_MAX_UPLOAD_SIZE      # MB, audit 1.3b
+        value: "10"
+      - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS  # no usage statistics
+        value: "false"
+      # generic error messages only in the browser - no exception type,
+      # message or traceback (Streamlit 1.62: full, stacktrace, type, none)
+      - key: STREAMLIT_CLIENT_SHOW_ERROR_DETAILS
+        value: none
+      # ---- Secrets -------------------------------------------------------
+      # the live Neon connection string (the app role's, docs/DB_ROLES.md)
+      - key: PORTFOLIO_DB
         sync: false
+      # the Anthropic production workspace's key, never staging's
       - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
         sync: false
       - key: FINNHUB_API_KEY
         sync: false
-      - key: RESEND_API_KEY
+      # ---- Switched by the owner, by hand ----------------------------------
+      - key: NORTHWEND_ADMINS      # admin logins, commas or spaces
+        sync: false
+      - key: ALERT_EMAIL           # where error alerts go
+        sync: false
+      - key: NORTHWEND_GATES       # e.g. L0 - only ever with its RUNBOOK checklist
+        sync: false
+      - key: NORTHWEND_FLAGS       # the approved features, e.g. walk
+        sync: false
+      - key: NORTHWEND_AI_CEILING_USD   # the monthly AI ceiling in dollars; 0 rests AI
+        sync: false
+      - key: AI_ZDR                # 0 until Anthropic confirms zero data retention in writing
         sync: false

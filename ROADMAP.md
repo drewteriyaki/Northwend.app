@@ -1305,7 +1305,48 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         Website: `/decode-401k` explains it and links to the route (no scripts;
         sitemap). `tests/test_decoder_public.py`
 - [ ] **Step 4 - Own the hosting** (Render behind Cloudflare). Steps 5-6 never go
-      live before this
+      live before this. The code side is prepared; the owner's steps remain
+      (`docs/RUNBOOK.md`, "Move to Render", in order, with "done when")
+  - [ ] 4.1 `render.yaml` complete - prepared: every setting the live app needs
+        (secrets and hand-switched gates/flags/ceiling/AI_ZDR as `sync: false`;
+        NORTHWEND_ENV=production, CLIENT_IP_HEADER=cf-connecting-ip, APP_URL,
+        MAIL_DRY_RUN=0, STREAMLIT_SERVER_MAX_UPLOAD_SIZE=10,
+        STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=none (valid on Streamlit 1.62),
+        STREAMLIT_BROWSER_GATHER_USAGE_STATS=false), health check
+        `/_stcore/health`; `tests/test_hosting_move.py` checks it against
+        `.env.example` (skip list: DATABASE_URL, ANTHROPIC_API_KEY_EVAL,
+        MOVED_TO). Owner: create the Blueprint, check on onrender.com
+  - [ ] 4.2 Cloudflare in front - prepared: `docs/CLOUDFLARE.md` (proxied
+        record, Full (strict), WebSockets, a cache-bypass rule for the app so
+        `/media/` downloads never sit at the edge, the six headers,
+        Email Address Obfuscation / Rocket Loader / Web Analytics / Bot Fight
+        Mode off, securityheaders.com "A"). Owner: do it, note the grade
+  - [ ] 4.3 Restore drill - prepared: `scripts/restore_check.py --db ...
+        [--against ...]` (row counts of every table in schema_pg.sql, read-only,
+        never contents or the connection string); RUNBOOK's restore and drill
+        use it. Owner: run the first drill, log it
+  - [ ] 4.4 Uptime check - prepared: RUNBOOK "Uptime check" (a free keyword
+        monitor on `/_stcore/health`, one on the website, nothing on any page).
+        Owner: set them up
+  - [ ] 4.5 Separate keys per copy - in the move's "Before you start".
+        Owner: production keys only in Render and GitHub
+  - [ ] 4.6 Least-privilege roles - prepared: `docs/DB_ROLES.md` (owner for
+        `northwend-migrate`, `northwend_app` and `northwend_jobs` rows only, the
+        order to switch, consent-table revoke for 1.6f);
+        `NORTHWEND_SKIP_SCHEMA_SETUP` (off by default; on, a process only checks
+        the schema version and stops with `SchemaNotReady` if migrate hasn't
+        run; `migrate` always sets up); the jobs read it from a GitHub variable.
+        Owner: create the roles, switch staging then live
+  - [ ] 4.7 Wording - prepared: `disclosures.hosting_lines()` names the host
+        each copy runs on (Render + Cloudflare in front / Community Cloud), so
+        the About page is true on both; the website (built offline) says
+        "Streamlit Community Cloud hosts the app today. It's moving to Render,
+        with Cloudflare in front of it" until `disclosures.HOST_MOVED`; Cloudflare
+        listed for the website. Drafts written for after the move, with notes.
+        Owner, after the move: `HOST_MOVED = True`, LAST_UPDATED, rebuild
+  - [ ] 4.8 Retire Community Cloud - RUNBOOK steps 7 and 9: only `MOVED_TO` left
+        in its secrets (the "has moved" page needs no database - a test), delete
+        a month later
 - [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and
       two-step consent, access logs, the standing "advice is the advisor's" line
 - [ ] **Step 6 - Billing** behind L1 (Paddle, by pull; founding seats; owner metrics)

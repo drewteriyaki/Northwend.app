@@ -24,6 +24,7 @@ import threading
 from datetime import date, datetime, timezone
 
 import pgcompat
+import settings
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA_PATH = os.path.join(HERE, "schema.sql")
@@ -320,14 +321,39 @@ def schema_version(conn) -> dict | None:
     return {"version": row["version"], "applied_at": row["applied_at"]} if row else None
 
 
+class SchemaNotReady(RuntimeError):
+    """The database's schema is older than this code's, and this process
+    doesn't set it up itself (NORTHWEND_SKIP_SCHEMA_SETUP)."""
+
+
+def _check_schema_version(conn) -> None:
+    """With schema setup skipped: stop, with a clear message, unless
+    `northwend-migrate` has brought the schema up to this code's version -
+    otherwise the first query that needs a new table or column would fail
+    somewhere less clear."""
+    try:
+        have = schema_version(conn)
+    except Exception:   # no schema_version table: never set up
+        conn.rollback()
+        have = None
+    if have is None or have["version"] < SCHEMA_VERSION:
+        at = "not set up" if have is None else f"at version {have['version']}"
+        raise SchemaNotReady(
+            f"The database's schema is {at}; this code needs version {SCHEMA_VERSION}. "
+            "NORTHWEND_SKIP_SCHEMA_SETUP is on, so this copy doesn't set it up itself: "
+            "run northwend-migrate as the database's owner role first (docs/DB_ROLES.md).")
+
+
 def migrate(db_path: str) -> dict | None:
     """Bring a database's schema up to this code's, on purpose: the setup
     connect() runs once per process (_ensure_schema), run again even if this
-    process already did - for a deploy, before the app starts (the app still
-    runs it at start too). Returns schema_version() afterwards."""
+    process already did - for a deploy, before the app starts. It always sets
+    the schema up, NORTHWEND_SKIP_SCHEMA_SETUP or not: once the database roles
+    are split, this (as the owner role) is the only thing that does.
+    Returns schema_version() afterwards."""
     _SCHEMA_READY.discard(db_path if pgcompat.is_postgres_dsn(db_path)
                           else os.path.abspath(db_path))
-    conn = connect(db_path)
+    conn = connect(db_path, schema_setup=True)
     try:
         return schema_version(conn)
     finally:
@@ -424,11 +450,16 @@ def _widen_big_columns(conn) -> list[str]:
     return [f"{t}.{c}" for t, cols in by_table.items() for c in cols]
 
 
-def connect(db_path: str):
+def connect(db_path: str, *, schema_setup: bool | None = None):
     """Open a Row-factory connection, creating/upgrading the schema on first
     use (once per db_path per process; both schema.sql and schema_pg.sql are
     all CREATE IF NOT EXISTS, so a new table added in an update is picked up
     on the next process start).
+
+    `schema_setup` None (every caller but migrate) follows the setting
+    NORTHWEND_SKIP_SCHEMA_SETUP: off (the default), the setup runs as above;
+    on, it doesn't - the schema must already be at this code's version
+    (`northwend-migrate`, as the owner role), or SchemaNotReady says so.
 
     `db_path` is either a local SQLite file path (every local `streamlit
     run` / CLI invocation - the default, and the only path that has ever
@@ -446,8 +477,13 @@ def connect(db_path: str):
     if key not in _SCHEMA_READY:
         with _SCHEMA_LOCK:
             if key not in _SCHEMA_READY:
+                if schema_setup is None:
+                    schema_setup = not settings.skip_schema_setup()
                 try:
-                    _ensure_schema(conn)
+                    if schema_setup:
+                        _ensure_schema(conn)
+                    else:
+                        _check_schema_version(conn)
                 except Exception:
                     conn.close()  # don't hand a failed transaction back to the pool
                     raise
