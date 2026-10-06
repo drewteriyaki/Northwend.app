@@ -12,6 +12,7 @@
 # Only in a person's own account (never while an advisor views a client).
 # ruff: noqa: F821
 
+import flags
 import gear
 import recap
 
@@ -154,6 +155,11 @@ def _year_cards(r):
             body += (f"<div>{r['notes']} note{'s' if r['notes'] != 1 else ''} to future you "
                      "written</div>")
         _year_card("What you learned and kept up", body)
+
+    # the Expedition Log's lines (R3, expedition_log.py): the person's own walks
+    if r.get("walk_log") and flags.on("walk") and flags.on("walk_log") and not IS_ADVISOR:
+        _year_card("Your log", "".join(f"<div style='margin:.15rem 0'>{html.escape(t)}</div>"
+                                       for t in r["walk_log"]))
 
     st.html("<div style='font-family: Newsreader, Georgia, serif; font-style: italic; "
             f"font-size: 1.15rem; margin: .4rem 0 .2rem'>{html.escape(r['perspective'])}</div>")

@@ -1159,6 +1159,22 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         session. Counted as totals only (`feature_counts.drill_answers`, 20+,
         opt-out; Admin > Feature tests); privacy text says so. Selling on a drop
         isn't measured yet
+  - [x] The Expedition Log (R3), flag `walk_log` (needs `walk`) - done:
+        `expedition_log.py`; each finished walk keeps prefs `walk_log` (updated or
+        not, largest drift in whole points, the mix's move over the 30 days before
+        in percent from the daily closes, a sale recorded since the walk before,
+        a note written) - no amounts; "Your log" on the Walk card's done state
+        and a "Your log" card in Year in review (never the share version); never
+        drawn for an advisor, never in the AI's or advisor's files (a test).
+        Privacy text (disclosures, policy draft) says so
+  - [x] The Do-Nothing Ledger (R2), first slice, flag `ledger` (needs `walk`) -
+        done: `ledger.py`; an entry per logged walk with no SELL in the activity
+        (worked out or imported) since the walk before - any sale keeps the month
+        out, planned or not. While the storm note's condition holds
+        (storms.weather), each entry shows "Hypothetical: if you had sold
+        everything on <day> and held cash, you'd be about X% ahead of / behind
+        where your mix is now" (today's holdings at that day's close vs the
+        latest), and the hindsight-cuts-both-ways line; never a grade
 - [ ] **Step 4 - Own the hosting** (Render behind Cloudflare). Steps 5-6 never go
       live before this
 - [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and

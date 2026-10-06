@@ -11,12 +11,17 @@
 # counts toward the logbook in the kit (gear.py). Its settings - the day
 # it's offered from and the optional reminder email (off unless turned on) -
 # are on the Account page. The person's own: like the kit, never the advisor
-# app or an advisor looking at a client.
+# app or an advisor looking at a client. Its done state also carries "Your
+# log" (the Expedition Log, R3, expedition_log.py, flag walk_log) and "Your
+# ledger" (the Do-Nothing Ledger, R2, ledger.py, flag ledger).
 # ruff: noqa: F821
 
 import checkin
+import expedition_log
 import feature_counts
 import flags
+import future_notes
+import ledger
 
 
 def _checkin_shown():
@@ -67,9 +72,34 @@ def _checkin_skip():
         "Nothing is lost.")
 
 
+def _walk_log_facts(p, today):
+    """The finished walk's facts for the Expedition Log and the Ledger
+    (expedition_log.py): percentages, points and yes/no only."""
+    month = checkin.month_of(today)
+    actual = {r["label"]: r["pct"] for r in _walk_by_class()}
+    since = (today - timedelta(days=expedition_log.MARKET_DAYS + 1)).isoformat()
+    try:
+        market = expedition_log.market_move(perf.daily_values(DB, PERF_BASIS, since), today)
+    except Exception:  # noqa: BLE001 - no prices: the line just leaves the move out
+        market = None
+    c = connect(DB)
+    try:
+        sold = expedition_log.sold_since(c, USER_ID, expedition_log.previous_day(p, month),
+                                         today.isoformat())
+        note = future_notes.get(c, USER_ID, None)
+    finally:
+        c.close()
+    return {"on": today.isoformat(), "updated": str(snapshot or "")[:7] == month,
+            "drift": expedition_log.largest_drift(actual, load_alloc_targets()),
+            "market": market, "sold": sold,
+            "note": bool(note) and future_notes.written_on(note)[:7] == month}
+
+
 def _checkin_finish(verdict):
     p = _read_prefs()
     today = _checkin_today()
+    if (flags.on("walk_log") or flags.on("ledger")) and not checkin.current(p, today)["finished"]:
+        expedition_log.record(p, checkin.month_of(today), _walk_log_facts(p, today))
     if checkin.finish(p, today, verdict):
         _write_prefs(p)
         st.session_state["import_flash"] = (
@@ -217,6 +247,72 @@ def _render_checkin_steps(state):
                        "to learn whether the walk helps. You can leave yourself out on Account.")
 
 
+def _render_walk_log(p):
+    """"Your log" (ROADMAP R3, expedition_log.py): a line per finished walk,
+    newest first, and the note to future you written on that walk while it's
+    still the same note. Only on the card, which is the person's own."""
+    if not flags.on("walk_log"):
+        return
+    rows = expedition_log.lines(p)[:12]
+    if not rows:
+        return
+    note = None
+    if any(r["note"] for r in rows):
+        c = connect(DB)
+        try:
+            note = future_notes.get(c, USER_ID, None)
+        finally:
+            c.close()
+    with st.expander("Your log", icon=":material/menu_book:"):
+        for r in rows:
+            words = (f"<div class='pt-region'>{html.escape(future_notes.quote(note, _fmt_date))}"
+                     "</div>" if r["note"] and note
+                     and future_notes.written_on(note)[:7] == r["month"] else "")
+            st.html(f"<div style='margin:.15rem 0'>{html.escape(r['text'])}</div>{words}")
+        st.caption("Written from your walks - percentages only, never amounts. Only you can "
+                   "see it.")
+
+
+def _ledger_points(entries):
+    """The holdings' closes the hypotheticals need, worked out once a day per
+    statement (like _weather_now, views/kit.py)."""
+    start = ledger.since(entries)
+    key = (USER_ID, snapshot, _checkin_today().isoformat(), start)
+    kept = st.session_state.get("ledger_points")
+    if not kept or kept[0] != key:
+        kept = (key, perf.daily_values(DB, PERF_BASIS, start) if start else [])
+        st.session_state["ledger_points"] = kept
+    return kept[1]
+
+
+def _render_ledger(p):
+    """"Your ledger" (ROADMAP R2, ledger.py): each walk with no sale since the
+    one before. During a drop (the storm note's condition) each line also
+    shows the hypothetical both ways - a record, never a grade."""
+    if not flags.on("ledger"):
+        return
+    rows = ledger.entries(p)[:ledger.MONTHS_SHOWN]
+    if not rows:
+        return
+    storm = bool(HAS_HOLDINGS and _weather_now())
+    points = _ledger_points(rows) if storm else []
+    shown = False
+    with st.expander("Your ledger", icon=":material/fact_check:"):
+        for e in rows:
+            pct = ledger.what_if(points, e["on"]) if storm else None
+            extra = ""
+            if pct is not None:
+                shown = True
+                extra = ("<div class='pt-region'>"
+                         f"{html.escape(ledger.what_if_text(_fmt_date(e['on']), pct))}</div>")
+            st.html(f"<div style='margin:.15rem 0'>{html.escape(ledger.entry_text(e['month']))}"
+                    f"</div>{extra}")
+        if shown:
+            st.caption(ledger.HINDSIGHT)
+        st.caption("A finished walk with no sale since the walk before adds a line. Only you "
+                   "can see it.")
+
+
 def render_checkin_card():
     """Home's Monthly Walk: this month's walk while one is waiting
     (checkin.due), else one quiet line - walks finished and the next walk's
@@ -238,6 +334,8 @@ def render_checkin_card():
                        f"{html.escape(said)}</div>" if state["finished"] else "")
                     + f"<div class='pt-region'>{tally} · Next walk: "
                     f"{html.escape(_walk_day(checkin.next_walk(p, today)))}</div>")
+            _render_walk_log(p)
+            _render_ledger(p)
         return
     n_done = sum(1 for k in checkin.REQUIRED if k in state["done"])
     is_open = bool(st.session_state.get("checkin_open"))

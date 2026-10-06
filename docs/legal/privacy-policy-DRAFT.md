@@ -57,7 +57,10 @@ account, contact us and we will delete it.
 - Notes you write to your future self on a holding or your plan, and your monthly
   walks: the months you finished one, the day, and the kind of verdict your own
   plan gave (for example "nothing to do" or "next deposit mostly to bonds") - no
-  amounts.
+  amounts. Where the walk's log is on, also for each walk: whether you updated your
+  holdings, how far your mix was from its target (in points), how your mix moved
+  over the month before (in percent), whether a sale was recorded and whether you
+  wrote a note - never amounts, and only you see it.
 - If you make one, your account map: for each account, its kind, who to call,
   whether a beneficiary is named, where the paperwork is, and your notes for
   family (accounts you add by hand keep at most their last 3 digits).

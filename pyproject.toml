@@ -57,6 +57,7 @@ py-modules = [
     "stress", "next_deposit", "cash_check", "employer_match",
     # year in review and the account map
     "recap", "account_map",
+    "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)
 ]

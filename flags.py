@@ -55,6 +55,14 @@ FEATURES = {
     # (LEGAL_GATES.md C3: L0 is the baseline every live feature sits under,
     # not a switch; its verdict wording is L3's work in step 2).
     "walk": {"gates": (), "view": None},
+    # The Expedition Log (ROADMAP R3, expedition_log.py): a line per finished
+    # walk ("Your log" on the Walk card, the year's lines in Year in review).
+    # Drawn inside the walk's card, so it needs `walk` on too.
+    "walk_log": {"gates": (), "view": None},
+    # The Do-Nothing Ledger (ROADMAP R2, ledger.py): "You stayed with your
+    # plan" per walk with no sale, and during a drop the hypothetical both
+    # ways. Inside the walk's card too, so it needs `walk` on.
+    "ledger": {"gates": (), "view": None},
     # Reading holdings from screenshots with the AI (screenshot_read.py,
     # views/holdings_input.py): the image goes to the model, so it's off on
     # the live copy (decision D1). Paste and CSV work without it.

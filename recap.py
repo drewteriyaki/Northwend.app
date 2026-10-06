@@ -17,6 +17,8 @@ What it looks at, all already in the app:
 - milestones earned (gear dates in settings), reads opened and Learn steps
   completed that year (dated in settings: note_done), and notes to future
   you written that year (the future_notes table, when it exists)
+- the Expedition Log's lines (expedition_log.py, R3) for the year's walks -
+  percentages only, and never in the share version
 
 The share version (share_lines / share_pdf) carries percentages, counts,
 months and names of milestones only - never an amount of money.
@@ -28,6 +30,7 @@ import re
 import sqlite3
 from datetime import date
 
+import expedition_log
 import gear
 import income
 import perf
@@ -327,6 +330,10 @@ def build(conn, user_id: int, year: int, today: date, *, prefs: dict | None = No
         "months_invested": n_months, "investing_since": first,
         **learned(prefs or {}, start, end),
         "notes": notes_written(conn, user_id, start, end),
+        # the Expedition Log's lines that year (R3; shown only while its flag
+        # is on, views/year_review.py) - never in the share version
+        "walk_log": [x["text"] for x in expedition_log.lines(prefs or {}, year,
+                                                             newest_first=False)],
     }
     r["perspective"] = perspective(r)
     return r

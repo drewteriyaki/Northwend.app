@@ -61,7 +61,11 @@ Each statement about data here must stay true to the code:
 - The Monthly Walk (checkin.py, views/checkin.py): kept in the person's own
   settings (prefs checkin_log, walk_verdicts: the verdict's kind and asset
   class, and the day - no figures); never drawn while an advisor views the
-  account. Its reminder (checkin_email.py, GitHub Actions): off unless
+  account. The Expedition Log and Do-Nothing Ledger (expedition_log.py,
+  ledger.py, flags walk_log / ledger): prefs walk_log per walk - holdings
+  updated or not, the largest drift in whole points, the mix's move in
+  percent, whether a sale was recorded and whether a note was written - no
+  amounts; the person's own only, never sent to the AI. Its reminder (checkin_email.py, GitHub Actions): off unless
   turned on (prefs checkin_email), confirmed emails only, once a month
   (checkin_email_sent), says only that it's time - no figures.
 - Feature counts (feature_counts.py): totals worked out in code from the
@@ -180,7 +184,7 @@ their account map.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, with no amounts), your account map if you make one, and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), your account map if you make one, and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
