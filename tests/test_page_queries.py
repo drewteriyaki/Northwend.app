@@ -156,7 +156,8 @@ class OneReadHelperTests(unittest.TestCase):
                 auth.record_agreement(c, uid, "v", via=auth.TERMS_VIA_SIGN_IN)
             with unittest.mock.patch.dict(os.environ, {"NORTHWEND_ADMINS": "ann" if adv else ""}):
                 self.assertEqual(auth.login_facts(c, uid), {
-                    "stamp": auth.password_stamp(c, uid), "is_advisor": auth.is_advisor(c, uid),
+                    "stamp": auth.password_stamp(c, uid), "session_gen": "0.0",
+                    "is_advisor": auth.is_advisor(c, uid),
                     "is_admin": admin.is_admin(c, uid), "display_name": auth.display_name(c, uid),
                     "agreed": auth.has_agreed(c, uid)})
         self.assertIsNone(auth.login_facts(c, 9999)["stamp"])

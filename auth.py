@@ -6,9 +6,19 @@ link the advisor sends (create_invite / accept_invite), so no password is
 ever shared.
 
 Passwords are never stored in plain text: pbkdf2_hmac('sha256', ...) with a
-per-user random salt, both stored as hex in the `users` table. No external
-dependency needed - this is stdlib-only (hashlib, hmac, os), same
+per-user random salt, both stored as hex in the `users` table, with the
+iteration count each hash was made with (users.password_iterations). New
+hashes use PBKDF2_ITERATIONS; an older, smaller count still checks out and
+is replaced at the next successful sign-in (audit 1.1b, PLAN 1b.7). No
+external dependency needed - this is stdlib-only (hashlib, hmac, os), same
 "standard library only" spirit as the rest of the CLI-facing code.
+
+Signing out: a password change ends every session (the password stamp, below);
+"sign out other devices" (end_other_sessions) and the admin's "sign everyone
+out" (sign_out_everyone) bump a session generation number - per login
+(users.session_gen) and app-wide (app_state 'session_gen'). Every run compares
+both with what the tab noted at sign-in, so tabs already open are closed too,
+not just the saved cookies (audit X5, PLAN 1b.2).
 """
 
 from __future__ import annotations
@@ -21,7 +31,17 @@ import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-PBKDF2_ITERATIONS = 200_000
+import settings
+
+# New and upgraded password hashes (audit 1.1b: about 600,000 is today's
+# advice for PBKDF2-SHA256). Each users row keeps its own count.
+PBKDF2_ITERATIONS = 600_000
+# The count before 1b.7: rows that existed then were back-filled with it
+# (portfolio._ensure_schema) and are upgraded at their next sign-in.
+LEGACY_ITERATIONS = 200_000
+# A local copy (the tests) may lower the count for new hashes with this
+# setting, to keep a run quick. A hosted copy ignores it.
+ITERATIONS_SETTING = "NORTHWEND_PBKDF2_ITERATIONS"
 SESSION_DAYS = 30  # how long "stay signed in" lasts before the password is needed again
 MAX_FAILED_LOGINS = 5   # wrong passwords for one username within LOCKOUT_MINUTES...
 LOCKOUT_MINUTES = 15    # ...lock that username for this long
@@ -32,13 +52,30 @@ LOCKOUT_MINUTES = 15    # ...lock that username for this long
 MAX_FAILED_LOGINS_PER_ADDRESS = 20
 TOO_MANY_FROM_HERE = "Too many tries from here - please wait a few minutes and try again."
 MIN_PASSWORD_LENGTH = 8
-# an unknown username still takes one full hash (against this), so how long a
-# wrong sign-in takes doesn't say whether the account exists
+# an unknown username still takes one full hash (against this, at today's
+# count), so how long a wrong sign-in takes doesn't say whether the account exists
 _DUMMY_SALT = bytes(16)
 
 
-def _hash_password(password: str, salt: bytes) -> str:
-    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS).hex()
+def iterations(default: int | None = None) -> int:
+    """The PBKDF2 count for a new hash: `default` (PBKDF2_ITERATIONS when not
+    given), or - only on a local copy, never a hosted one - a smaller
+    ITERATIONS_SETTING (the tests set it)."""
+    default = default or PBKDF2_ITERATIONS
+    raw = settings.get(ITERATIONS_SETTING)
+    if raw and not settings.hosted():
+        try:
+            n = int(raw)
+        except ValueError:
+            return default
+        if 1 <= n < default:
+            return n
+    return default
+
+
+def _hash_password(password: str, salt: bytes, count: int | None = None) -> str:
+    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt,
+                               count or iterations()).hex()
 
 
 def create_user(conn: sqlite3.Connection, username: str, password: str) -> int:
@@ -47,12 +84,12 @@ def create_user(conn: sqlite3.Connection, username: str, password: str) -> int:
     portfolio.DBError) if `username` is already taken - after rolling back,
     so the connection can still be used (Postgres refuses every later query
     in a failed transaction: manage_users.py's bulk create carries on)."""
-    salt = os.urandom(16)
-    pw_hash = _hash_password(password, salt)
+    salt, count = os.urandom(16), iterations()
+    pw_hash = _hash_password(password, salt, count)
     try:
         conn.execute(
-            "INSERT INTO users (username, password_hash, password_salt) VALUES (?, ?, ?)",
-            (username, pw_hash, salt.hex()))
+            "INSERT INTO users (username, password_hash, password_salt, password_iterations) "
+            "VALUES (?, ?, ?, ?)", (username, pw_hash, salt.hex(), count))
     except Exception:
         conn.rollback()
         raise
@@ -67,32 +104,39 @@ def verify_login(conn: sqlite3.Connection, username: str, password: str) -> int 
     username enumeration) - both a missing user and a wrong password just
     return None, after the same one hash (against a dummy salt for a
     missing user, so the time taken doesn't tell them apart either). A
-    self-serve account's email works in any letter case."""
-    row = conn.execute(
-        "SELECT id, password_hash, password_salt FROM users WHERE username = ?",
-        (username,)).fetchone()
+    self-serve account's email works in any letter case.
+
+    A right password stored with a smaller count than today's is hashed
+    again at today's count (same salt, so the password stamp - and so the
+    person's other open tabs - stay as they are) and saved."""
+    cols = "id, password_hash, password_salt, password_iterations"
+    row = conn.execute(f"SELECT {cols} FROM users WHERE username = ?", (username,)).fetchone()
     if row is None and "@" in (username or ""):
-        row = conn.execute(
-            "SELECT id, password_hash, password_salt FROM users WHERE email = ?",
-            (normalize_email(username),)).fetchone()
+        row = conn.execute(f"SELECT {cols} FROM users WHERE email = ?",
+                           (normalize_email(username),)).fetchone()
     if row is None:
         hmac.compare_digest(_hash_password(password or "", _DUMMY_SALT), "0" * 64)
         return None
     salt = bytes.fromhex(row["password_salt"])
-    candidate = _hash_password(password, salt)
-    if hmac.compare_digest(candidate, row["password_hash"]):
-        return row["id"]
-    return None
+    count = row["password_iterations"] or LEGACY_ITERATIONS
+    if not hmac.compare_digest(_hash_password(password, salt, count), row["password_hash"]):
+        return None
+    now_count = iterations()
+    if count < now_count:
+        conn.execute("UPDATE users SET password_hash = ?, password_iterations = ? WHERE id = ?",
+                     (_hash_password(password, salt, now_count), now_count, row["id"]))
+        conn.commit()
+    return row["id"]
 
 
 def set_password(conn: sqlite3.Connection, username: str, new_password: str) -> bool:
     """Change an existing user's password, signing that account out of every
     browser where it stayed signed in. Returns False if no such user."""
-    salt = os.urandom(16)
-    pw_hash = _hash_password(new_password, salt)
+    salt, count = os.urandom(16), iterations()
+    pw_hash = _hash_password(new_password, salt, count)
     cur = conn.execute(
-        "UPDATE users SET password_hash = ?, password_salt = ? WHERE username = ?",
-        (pw_hash, salt.hex(), username))
+        "UPDATE users SET password_hash = ?, password_salt = ?, password_iterations = ? "
+        "WHERE username = ?", (pw_hash, salt.hex(), count, username))
     conn.execute("DELETE FROM login_sessions WHERE user_id IN "
                  "(SELECT id FROM users WHERE username = ?)", (username,))
     conn.execute("DELETE FROM login_failures WHERE username_key = ?", (_login_key(username),))
@@ -134,49 +178,100 @@ def change_password(conn, user_id: int, current: str, new: str, *,
 
 
 def password_stamp(conn, user_id: int) -> str | None:
-    """A short fingerprint of the account's current password hash, or None if
-    the account is gone. The dashboard notes it at sign-in and compares it on
-    every run, so a password change signs out tabs already open elsewhere."""
-    row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    """A short fingerprint of the account's current password, or None if the
+    account is gone. The dashboard notes it at sign-in and compares it on
+    every run, so a password change signs out tabs already open elsewhere.
+    Taken from the salt, which every new password replaces - not from the
+    hash, which a sign-in can re-make at a higher count (verify_login)
+    without the password changing."""
+    row = conn.execute("SELECT password_salt FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         return None
-    return _stamp_of(row["password_hash"])
+    return _stamp_of(row["password_salt"])
 
 
-def _stamp_of(password_hash) -> str:
-    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+def _stamp_of(password_salt) -> str:
+    return hashlib.sha256((password_salt or "").encode("utf-8")).hexdigest()[:16]
+
+
+# --------------------------------------------------------------------------- #
+# signing out tabs that are already open (audit X5, PLAN 1b.2)
+# --------------------------------------------------------------------------- #
+# app_state's row for the app-wide number sign_out_everyone() bumps
+EVERYONE_GEN = "session_gen"
+# read beside the login's own row on every run (login_facts, two_step's gate)
+EVERYONE_GEN_SQL = (f"(SELECT g.number FROM app_state g WHERE g.name = '{EVERYONE_GEN}') "
+                    "AS everyone_gen")
+
+
+def _value(row, name):
+    """row[name], or None when the row wasn't read with that column."""
+    try:
+        return row[name]
+    except (IndexError, KeyError, ValueError):   # sqlite3.Row / dict / pgcompat.Row
+        return None
+
+
+def session_gen_of(row) -> str | None:
+    """The session generation a tab notes at sign-in and compares on every
+    run: this login's own number (users.session_gen, bumped by "sign out
+    other devices") and the app-wide one (app_state, bumped by "sign
+    everyone out"). None for a login that no longer exists."""
+    if row is None:
+        return None
+    return f"{_value(row, 'session_gen') or 0}.{_value(row, 'everyone_gen') or 0}"
+
+
+def session_gen(conn, user_id: int) -> str | None:
+    """session_gen_of() for a login, read now."""
+    return login_facts(conn, user_id)["session_gen"]
+
+
+def sign_out_everyone(conn) -> int:
+    """The incident switch (Admin > System, manage_users.py sign-out-all):
+    every stay-signed-in session ends, and the app-wide number goes up, so
+    every tab already open lands on sign-in at its next click - the admin's
+    own included. Returns how many stay-signed-in sessions ended."""
+    conn.execute("INSERT INTO app_state (name, number) VALUES (?, 1) "
+                 "ON CONFLICT (name) DO UPDATE SET number = app_state.number + 1",
+                 (EVERYONE_GEN,))
+    cur = conn.execute("DELETE FROM login_sessions")
+    conn.commit()
+    return cur.rowcount
 
 
 # What the app reads about the signed-in login on every run - its password
-# stamp, roles, name, email state and AI allowance - all from one read of its
-# users row. two_step.status_and_login reads these along with two-step's own
-# state (the sign-in gate, first thing every run) and hands them on, so the
-# rest of that run doesn't read the row again: login_facts_of, email_status_of,
-# ai_usage.status(user=...) and the Account page.
-LOGIN_COLUMNS = ("username", "password_hash", "is_advisor", "is_admin", "terms_version",
-                 "terms_via", "email", "email_verified_at", "display_name", "ai_unlimited",
-                 "created_at", "last_login_at")
+# stamp, session generation, roles, name, email state and AI allowance - all
+# from one read of its users row (plus the app-wide sign-out number,
+# EVERYONE_GEN_SQL). two_step.status_and_login reads these along with
+# two-step's own state (the sign-in gate, first thing every run) and hands
+# them on, so the rest of that run doesn't read the row again: login_facts_of,
+# email_status_of, ai_usage.status(user=...) and the Account page.
+LOGIN_COLUMNS = ("username", "password_salt", "session_gen", "is_advisor", "is_admin",
+                 "terms_version", "terms_via", "email", "email_verified_at", "display_name",
+                 "ai_unlimited", "created_at", "last_login_at")
 
 
 def login_facts(conn, user_id: int) -> dict:
     """What the app checks about the signed-in login on every run, from one
-    read of its users row: {"stamp": password_stamp(), "is_advisor":
-    is_advisor(), "is_admin": admin.is_admin(), "display_name":
-    display_name(), "agreed": has_agreed()} - the same answers as those
-    five, in one query."""
-    row = conn.execute(f"SELECT {', '.join(LOGIN_COLUMNS)} FROM users WHERE id = ?",
-                       (user_id,)).fetchone()
+    read of its users row: {"stamp": password_stamp(), "session_gen":
+    session_gen_of(), "is_advisor": is_advisor(), "is_admin":
+    admin.is_admin(), "display_name": display_name(), "agreed":
+    has_agreed()} - the same answers as those, in one query."""
+    row = conn.execute(f"SELECT {', '.join(LOGIN_COLUMNS)}, {EVERYONE_GEN_SQL} FROM users "
+                       "WHERE id = ?", (user_id,)).fetchone()
     return login_facts_of(row)
 
 
 def login_facts_of(row) -> dict:
-    """login_facts() from a users row already read (LOGIN_COLUMNS; None for
-    a login that no longer exists)."""
+    """login_facts() from a users row already read (LOGIN_COLUMNS, and
+    everyone_gen; None for a login that no longer exists)."""
     import admin  # admin imports auth; not at the top
     if row is None:
-        return {"stamp": None, "is_advisor": False, "is_admin": False, "display_name": None,
-                "agreed": False}
-    return {"stamp": _stamp_of(row["password_hash"]), "is_advisor": bool(row["is_advisor"]),
+        return {"stamp": None, "session_gen": None, "is_advisor": False, "is_admin": False,
+                "display_name": None, "agreed": False}
+    return {"stamp": _stamp_of(row["password_salt"]), "session_gen": session_gen_of(row),
+            "is_advisor": bool(row["is_advisor"]),
             "is_admin": bool(admin._admin_row(row, admin.listed_admins())),
             "display_name": row["display_name"] or None,
             "agreed": bool(row["terms_version"])}
@@ -942,10 +1037,15 @@ def confirm_email_change(conn, token: str, *, now: datetime | None = None) -> di
 
 def end_other_sessions(conn, user_id: int, keep_token: str | None) -> int:
     """Sign out every other device; this browser's stay-signed-in session
-    (keep_token) stays. Returns how many ended."""
+    (keep_token) stays. The login's session number goes up too, so tabs
+    already open elsewhere land on sign-in at their next click (audit X5) -
+    the caller notes the new number for its own tab (session_gen). Returns
+    how many stay-signed-in sessions ended."""
     keep = _token_hash(keep_token) if keep_token else ""
     cur = conn.execute("DELETE FROM login_sessions WHERE user_id = ? AND token_hash != ?",
                        (user_id, keep))
+    conn.execute("UPDATE users SET session_gen = COALESCE(session_gen, 0) + 1 WHERE id = ?",
+                 (user_id,))
     conn.commit()
     return cur.rowcount
 

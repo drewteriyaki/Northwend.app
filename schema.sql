@@ -620,3 +620,26 @@ CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date)
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account);
+
+-- App-wide numbers (auth.py). 'session_gen' goes up by one each time the admin
+-- signs everyone out (auth.sign_out_everyone; Admin > System or manage_users.py
+-- sign-out-all); every open tab compares it on each run, with its login's own
+-- users.session_gen, and lands on sign-in when either has moved (audit X5).
+CREATE TABLE IF NOT EXISTS app_state (
+    name    TEXT    PRIMARY KEY,
+    number  INTEGER NOT NULL DEFAULT 0
+);
+
+-- The admin action log (admin_log.py; PLAN 1b.3, audit X2): who did what to
+-- which login, and when. Append-only - only admin_log.prune removes rows (after
+-- a year). Never holdings or figures. Deleting an account clears admin_id /
+-- target_id (admin.ACCOUNT_REFERENCES); the row stays.
+CREATE TABLE IF NOT EXISTS admin_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
+    admin_id    INTEGER,                         -- the admin's login; NULL: the command line
+    action      TEXT    NOT NULL,                -- one of admin_log.ACTIONS
+    target_id   INTEGER,                         -- the account it was done to, if any
+    detail      TEXT                             -- a few words made by the code
+);
+CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log (at);

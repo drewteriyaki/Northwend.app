@@ -8,7 +8,8 @@ other people's portfolios); anyone else can turn it on on the Account page.
   readable to check codes, so it's shown only during setup - never again,
   never exported, never to an admin.
 - BACKUP_CODES one-time backup codes, shown once (at setup, or when new ones
-  are made) and stored only as hashes; each works once.
+  are made) and stored only as slow hashes (PBKDF2, _backup_match); each
+  works once.
 - Wrong codes count toward a lock exactly like wrong passwords
   (login_failures, under a key of their own per account), and a code that
   worked can't be used again (last_token_step).
@@ -107,9 +108,24 @@ def _clean(code: str | None) -> str:
 # --------------------------------------------------------------------------- #
 # backup codes
 # --------------------------------------------------------------------------- #
+# Each code is about 40 random bits. The lock covers guessing online; against
+# offline guessing from a copy of the database, the stored hashes are slow
+# ones (PLAN 1b.8, audit 1.1e): PBKDF2-SHA256 with a salt per set, stored as
+# "p2$<count>$<salt hex>$<hash hex>" per code, space-separated. Sets made
+# before that are plain SHA-256 (_backup_hash): still accepted, each one gone
+# once it's used, and all of them replaced by a new set (new_backup_codes).
+BACKUP_ITERATIONS = 100_000   # 8 codes are hashed at setup, so lower than a password's
+_SLOW = "p2"
+
+
 def _backup_hash(user_id: int, code: str) -> str:
-    # ~40 random bits each and behind the lock, so a plain SHA-256 is enough
+    """The old stored form of a backup code (plain SHA-256), still accepted."""
     return hashlib.sha256(f"{user_id}:{_clean(code)}".encode("utf-8")).hexdigest()
+
+
+def _backup_slow(user_id: int, code: str, salt_hex: str, count: int) -> str:
+    return hashlib.pbkdf2_hmac("sha256", f"{user_id}:{_clean(code)}".encode("utf-8"),
+                               bytes.fromhex(salt_hex), count).hex()
 
 
 def _new_backup_codes(user_id: int) -> tuple[list[str], str]:
@@ -118,7 +134,34 @@ def _new_backup_codes(user_id: int) -> tuple[list[str], str]:
     for _ in range(BACKUP_CODES):
         raw = "".join(secrets.choice(_BACKUP_ALPHABET) for _ in range(_BACKUP_LEN))
         codes.append(f"{raw[:4]}-{raw[4:]}")
-    return codes, " ".join(_backup_hash(user_id, c) for c in codes)
+    salt, count = os.urandom(16).hex(), auth.iterations(BACKUP_ITERATIONS)
+    return codes, " ".join(f"{_SLOW}${count}${salt}${_backup_slow(user_id, c, salt, count)}"
+                           for c in codes)
+
+
+def _backup_match(user_id: int, code: str, stored: list[str]) -> str | None:
+    """The stored entry (one of `stored`) that `code` - already _clean -
+    matches, or None. Slow entries are hashed once per salt (a set shares
+    one); old SHA-256 ones are compared as they are."""
+    if not _is_backup_shape(code):
+        return None
+    made: dict[tuple[str, str], str] = {}
+    hit = None
+    for entry in stored:
+        if entry.startswith(_SLOW + "$"):
+            try:
+                _, count, salt, digest = entry.split("$")
+                key = (count, salt)
+                if key not in made:
+                    made[key] = _backup_slow(user_id, code, salt, int(count))
+            except ValueError:   # not a well-formed entry: matches nothing
+                continue
+            candidate = made[key]
+        else:
+            candidate, digest = _backup_hash(user_id, code), entry
+        if hmac.compare_digest(candidate, digest) and hit is None:
+            hit = entry
+    return hit
 
 
 def _is_backup_shape(code: str) -> bool:
@@ -185,13 +228,15 @@ def status(conn, user_id: int) -> dict:
 
 
 def status_and_login(conn, user_id: int) -> tuple[dict, dict | None]:
-    """(status(), the login's users row it came from - auth.LOGIN_COLUMNS, or
-    None when there's no such login), in status()'s one query. The sign-in
+    """(status(), the login's users row it came from - auth.LOGIN_COLUMNS and
+    the app-wide everyone_gen, or None when there's no such login), in
+    status()'s one query. The sign-in
     gate reads this first thing on every run, and the rest of that run uses
     the row instead of reading it again (auth.login_facts_of)."""
     import admin  # admin imports auth; not at the top, to keep auth's import light
     row = conn.execute(
         "SELECT " + ", ".join(f"u.{c}" for c in auth.LOGIN_COLUMNS) + ", "
+        + auth.EVERYONE_GEN_SQL + ", "
         "t.totp_secret, t.enabled_at, t.backup_codes_hash FROM users u "
         "LEFT JOIN two_step t ON t.user_id = u.id WHERE u.id = ?", (user_id,)).fetchone()
     if row is None:
@@ -203,7 +248,7 @@ def status_and_login(conn, user_id: int) -> tuple[dict, dict | None]:
              "required": bool(row["is_advisor"]) or admin._admin_row(row, admin.listed_admins()),
              "stamp": stamp,
              "backup_left": len((row["backup_codes_hash"] or "").split()) if on else 0},
-            {c: row[c] for c in auth.LOGIN_COLUMNS})
+            {c: row[c] for c in (*auth.LOGIN_COLUMNS, "everyone_gen")})
 
 
 def is_on(conn, user_id: int) -> bool:
@@ -266,10 +311,11 @@ def verify(conn, user_id: int, code: str, *, now: datetime | None = None) -> dic
     code = _clean(code)
     hashes = (row["backup_codes_hash"] or "").split()
     step = _match(row["totp_secret"], code, now, row["last_token_step"] or 0)
+    backup = None if step is not None else _backup_match(user_id, code, hashes)
     if step is not None:
         conn.execute("UPDATE two_step SET last_token_step = ? WHERE user_id = ?", (step, user_id))
-    elif _is_backup_shape(code) and _backup_hash(user_id, code) in hashes:
-        hashes.remove(_backup_hash(user_id, code))
+    elif backup is not None:
+        hashes.remove(backup)   # used up
         conn.execute("UPDATE two_step SET backup_codes_hash = ? WHERE user_id = ?",
                      (" ".join(hashes), user_id))
         out["used_backup"] = True
@@ -307,8 +353,7 @@ def _confirm_it_is_them(conn, user_id: int, answer: str, now: datetime) -> str |
                          (step, user_id))
             conn.commit()
             return None
-        if _is_backup_shape(code) and _backup_hash(user_id, code) in (
-                row["backup_codes_hash"] or "").split():
+        if _backup_match(user_id, code, (row["backup_codes_hash"] or "").split()):
             return None
     result = auth.attempt_login(conn, username, answer or "", now=now)
     if result["user_id"] == user_id:

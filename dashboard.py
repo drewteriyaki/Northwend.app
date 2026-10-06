@@ -1446,7 +1446,8 @@ if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
 # kept when an advisor switches accounts; everything else is per-account
-_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token", "pw_stamp", "two_step_ok")
+_KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token", "pw_stamp", "session_gen",
+                   "two_step_ok")
 
 
 def _go(page):

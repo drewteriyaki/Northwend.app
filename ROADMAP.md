@@ -1102,6 +1102,27 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         `--reset-passwords`); refuses production, Postgres without
         `NORTHWEND_ENV=staging`, and a local portfolio.db.
         `sample_data.snapshot_rows`; `tests/test_staging_seed.py`
+  - [x] 1b.2 Sign out everyone (X5) - done: a session number per login
+        (`users.session_gen`, bumped by "Sign out other devices") and app-wide
+        (`app_state` 'session_gen', bumped by `auth.sign_out_everyone`: Admin >
+        System's ticked button, `manage_users.py sign-out-all`), noted by each tab
+        and checked first thing every run in the two-step gate - open tabs land on
+        sign-in, the admin's own too. The password stamp now comes from the salt
+  - [x] 1b.3 Admin action log (X2, D8) - done: `admin_log.py` + `admin_log` table
+        (add / recent / `prune(conn, older_than_days=365)` for the tidy job; a
+        test greps that nothing else changes or deletes rows), written by every
+        `_admin_do` action (the action word is required) and every changing
+        `manage_users.py` command; the last 100 on Admin > System; ids cleared on
+        delete (`ACCOUNT_REFERENCES`). The temporary-password path is said in the
+        disclosures, the Privacy and advisor-security drafts
+  - [x] 1b.7 Password hashing (1.1b) - done: PBKDF2-SHA256 at 600,000,
+        `users.password_iterations` (old rows back-filled with 200,000), re-made
+        at the next sign-in with the same salt; `NORTHWEND_PBKDF2_ITERATIONS`
+        lowers it for local test runs only (never on a hosted copy)
+  - [x] 1b.8 Backup codes (1.1e) - done: PBKDF2 (100,000, one salt per set);
+        older SHA-256 sets still work, each goes on use and all on regenerate.
+        TOTP secrets stay unencrypted: D14 needs the `cryptography` package,
+        not approved yet
 - [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
 - [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)

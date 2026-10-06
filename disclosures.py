@@ -20,13 +20,17 @@ Each statement about data here must stay true to the code:
 - Market data: tickers only (update_prices.py / live_prices.py / news.py ->
   Finnhub, sync_history.py / live_prices.py -> Yahoo Finance); the scheduled
   jobs run on GitHub Actions (.github/workflows/scheduled-sync.yml).
-- Passwords: PBKDF2 with a per-user salt; stay-signed-in cookies hold a random
-  token whose hash is stored; 5 wrong passwords lock a username for 15
-  minutes (auth.py).
+- Passwords: PBKDF2-SHA256 with a per-user salt, 600,000 iterations, the count
+  kept per login (users.password_iterations; older hashes are re-made at the
+  next sign-in); stay-signed-in cookies hold a random token whose hash is
+  stored; 5 wrong passwords lock a username for 15 minutes (auth.py). "Sign
+  out other devices" and the admin's "Sign everyone out" also close tabs
+  already open (users.session_gen, app_state).
 - Two-step sign-in (two_step.py): TOTP; the key is stored readable (needed to
-  check codes), backup codes as SHA-256 hashes; never exported or shown to
-  an admin; wrong codes lock like passwords; "remember this device" is a
-  date on the stay-signed-in session (login_sessions.two_step_until).
+  check codes), backup codes as PBKDF2 hashes (older sets as SHA-256 until
+  used or replaced); never exported or shown to an admin; wrong codes lock
+  like passwords; "remember this device" is a date on the stay-signed-in
+  session (login_sessions.two_step_until).
 - Sign-up: the email is the login, not shown to others or sent to the AI; only
   Resend gets it, to deliver the confirm / reset emails (mailer.py, auth.sign_up);
   bot checks keep only a SHA-256 of the internet address for a day (signups table); the version agreed to is stored (users.terms_version), with
@@ -70,7 +74,13 @@ Each statement about data here must stay true to the code:
   hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
   role, created, last sign-in (users.last_login_at), locks; no holdings,
-  plans or profile answers; feature counts as totals only (above).
+  plans or profile answers; feature counts as totals only (above). For an
+  account without an email the admin can set a temporary password, shown to
+  them once - a way back into that account (decision D8), so it's said in
+  "Who can see it". Every admin action, there or in manage_users.py, is
+  written to the admin action log (admin_log.py: when, which admin, a fixed
+  action word, which account, a few words - never holdings or figures; kept
+  a year, admin_log.prune), shown on Admin > System.
 - Uploads: read from a temporary copy that's deleted (portfolio.temp_upload);
   account numbers cut to 3 digits on save (accounts.mask_number via
   portfolio.write_snapshot). Example / percentages portfolios: sample_data.py,
@@ -184,7 +194,9 @@ their account map.
 - **Who can see it:** you, and - if your account is managed by an advisor -
   that advisor. To look after accounts, the person who runs Northwend can see
   login details (your email or username, your role, when the account was made
-  and last signed in) - not your holdings, plan or answers. It isn't sold,
+  and last signed in) - not your holdings, plan or answers. If an account has
+  no email address, they can set a temporary password to help its owner back
+  in, and every action they take on accounts is recorded. It isn't sold,
   rented or shared for advertising.
 - **How long it's kept:** until you delete it. The database provider keeps a
   short rolling backup (currently about 6 hours) so data can be recovered after

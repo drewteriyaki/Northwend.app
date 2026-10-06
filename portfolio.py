@@ -203,7 +203,13 @@ def _ensure_schema(conn) -> None:
                            # the admin portal (admin.py)
                            ("is_admin", "INTEGER"), ("last_login_at", "TEXT"),
                            # the Account page (auth.set_display_name)
-                           ("display_name", "TEXT")]),
+                           ("display_name", "TEXT"),
+                           # each hash's PBKDF2 count: rows from before 1b.7
+                           # get the count they were made with
+                           # (auth.LEGACY_ITERATIONS), upgraded at sign-in
+                           ("password_iterations", "INTEGER NOT NULL DEFAULT 200000"),
+                           # "sign out other devices" (auth.end_other_sessions)
+                           ("session_gen", "INTEGER NOT NULL DEFAULT 0")]),
                 # archived, not deleted; edits keep the earlier text (advising.py)
                 ("advisor_notes", [("archived_at", "TEXT"), ("edited_at", "TEXT"),
                                    ("history", "TEXT"), ("is_message", "INTEGER")]),

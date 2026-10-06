@@ -98,10 +98,13 @@ def _acct_sign_out_others():
     try:
         n = auth.end_other_sessions(c, st.session_state["user_id"],
                                     st.session_state.get("session_token"))
+        # the login's session number went up: this tab notes the new one and
+        # stays signed in; tabs open anywhere else land on sign-in (audit X5)
+        st.session_state["session_gen"] = auth.session_gen(c, st.session_state["user_id"])
     finally:
         c.close()
-    _acct_msg("success", f"Signed out {n} other device{'s' if n != 1 else ''}." if n
-              else "No other devices were signed in.")
+    _acct_msg("success", f"Signed out {n} other device{'s' if n != 1 else ''}, and any other "
+              "open tabs." if n else "Signed out anywhere else this account was open.")
 
 
 def _acct_two_step_start():

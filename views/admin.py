@@ -8,12 +8,15 @@
 # while gate L0 is off (invite_codes.py),
 # and which experience the admin's own account shows. Only admins see it
 # (admin.is_admin, set from the command line). Logins only - never anyone's
-# holdings or plans. Every action re-checks admin rights in the database.
+# holdings or plans. Every action re-checks admin rights in the database, and
+# is written to the admin action log (admin_log.py, shown on System) - both in
+# _admin_do.
 # ruff: noqa: F821
 
 import secrets
 
 import admin
+import admin_log
 import ai_spend
 import error_alerts
 import feature_counts
@@ -23,14 +26,25 @@ import invite_codes
 import two_step
 
 
-def _admin_do(fn):
-    """Run fn(conn) as the signed-in admin, or refuse; a message for the page."""
+def _admin_do(fn, action, target=None, detail=""):
+    """Run fn(conn) as the signed-in admin, or refuse; a message for the page.
+    Every admin action comes through here, so every one is logged: when it
+    was done - fn's message is a success or a warning - `action` (an
+    admin_log.ACTIONS word) goes in the admin action log (admin_log.py),
+    naming `target` (an account id, if any). fn may return (level, message,
+    target, detail) when only it knows those (a new account's id, how many
+    codes). Never holdings or figures in `detail`."""
     c = connect(DB)
     try:
         if not admin.is_admin(c, st.session_state["user_id"]):
             st.session_state["admin_msg"] = ("error", "Only an admin can do that.")
             return
-        st.session_state["admin_msg"] = fn(c)
+        msg = fn(c)
+        if len(msg) == 4:
+            msg, target, detail = msg[:2], msg[2], msg[3]
+        if action and msg[0] in ("success", "warning"):
+            admin_log.add(c, st.session_state["user_id"], action, target, detail)
+        st.session_state["admin_msg"] = msg
     finally:
         c.close()
 
@@ -39,7 +53,9 @@ def _admin_set_own_role():
     want_advisor = st.session_state.get("admin_own_role") == "Advisor app"
     _admin_do(lambda c: (auth.set_advisor(c, st.session_state["username"], want_advisor),
                          ("success", "Your account now shows the "
-                          + ("advisor app." if want_advisor else "investor app.")))[1])
+                          + ("advisor app." if want_advisor else "investor app.")))[1],
+              "own_role", st.session_state["user_id"],
+              "advisor app" if want_advisor else "investor app")
 
 
 def _admin_told(res):
@@ -49,18 +65,25 @@ def _admin_told(res):
             None: ""}[res["emailed"]]
 
 
+def _admin_emailed(res):
+    """The approve / decline email, for the action log."""
+    return {True: "emailed", False: "email failed", None: "no email"}[res["emailed"]]
+
+
 def _admin_decide(username, approve):
     """An advisor request: approve or decline it, and email them either way
     (admin.approve_advisor / decline_advisor)."""
     def act(c):
         if approve:
             res = admin.approve_advisor(c, username, _app_address())
-            return ("success", f"{username} is now an advisor." + _admin_told(res))
+            return ("success", f"{username} is now an advisor." + _admin_told(res),
+                    auth.get_user_id(c, username), "request approved; " + _admin_emailed(res))
         res = admin.decline_advisor(c, username, _app_address())
         if not res["ok"]:
             return ("info", f"{username} has no advisor request waiting.")
-        return ("success", f"Declined {username}'s advisor request." + _admin_told(res))
-    _admin_do(act)
+        return ("success", f"Declined {username}'s advisor request." + _admin_told(res),
+                auth.get_user_id(c, username), _admin_emailed(res))
+    _admin_do(act, "approve_advisor" if approve else "decline_advisor")
 
 
 def _admin_reset_link(user_id):
@@ -73,7 +96,7 @@ def _admin_reset_link(user_id):
                                      auth.RESET_MINUTES)
         return (("success", f"Sent a password reset link to {res['to']}.") if sent
                 else ("error", "The email couldn't be sent just now."))
-    _admin_do(act)
+    _admin_do(act, "reset_password", user_id, "reset link emailed")
 
 
 def _admin_temp_password(user_id):
@@ -83,13 +106,17 @@ def _admin_temp_password(user_id):
         st.session_state["admin_temp"] = (user_id, temp)
         return ("success", "Temporary password set - shown below once. The account is signed "
                            "out everywhere.")
-    _admin_do(act)
+    # the password itself is never logged
+    _admin_do(act, "temp_password", user_id, "shown to the admin once")
 
 
 def _admin_unlock(username):
-    _admin_do(lambda c: (auth.unlock_login(c, username),
-                         two_step.unlock(c, auth.get_user_id(c, username)),
-                         ("success", f"Unlocked {username}."))[2])
+    def act(c):
+        uid = auth.get_user_id(c, username)
+        auth.unlock_login(c, username)
+        two_step.unlock(c, uid)
+        return ("success", f"Unlocked {username}.", uid, "")
+    _admin_do(act, "unlock")
 
 
 def _admin_reset_two_step(user_id, username):
@@ -99,25 +126,28 @@ def _admin_reset_two_step(user_id, username):
                            "everywhere. They sign in with their password"
                 + (" and set it up again straight away." if two_step.status(c, user_id)["required"]
                    else "; they can turn it on again on their Account page."))
-    _admin_do(act)
+    _admin_do(act, "reset_two_step", user_id)
 
 
 def _admin_advisor(username, flag):
     """An account's role: making someone an advisor approves them, so they get
     the same "your advisor access is ready" email."""
     def act(c):
+        uid = auth.get_user_id(c, username)
         if flag:
             res = admin.approve_advisor(c, username, _app_address())
-            return ("success", f"{username} is now an advisor." + _admin_told(res))
+            return ("success", f"{username} is now an advisor." + _admin_told(res), uid,
+                    _admin_emailed(res))
         auth.set_advisor(c, username, False)
-        return ("success", f"{username} is no longer an advisor.")
-    _admin_do(act)
+        return ("success", f"{username} is no longer an advisor.", uid, "")
+    _admin_do(act, "approve_advisor" if flag else "remove_advisor")
 
 
 def _admin_ai(user_id, username, unlimited):
     _admin_do(lambda c: (ai_usage.set_unlimited(c, user_id, unlimited),
                          ("success", f"{username} {'has no' if unlimited else 'has the normal'} "
-                                     "monthly AI limits."))[1])
+                                     "monthly AI limits."))[1],
+              "ai_limits", user_id, "no limits" if unlimited else "normal limits")
 
 
 def _admin_link(client_id, client_name):
@@ -128,14 +158,16 @@ def _admin_link(client_id, client_name):
     def act(c):
         auth.link_client(c, advisor_id, client_id)
         return ("success", f"{client_name} is now a client of {auth.get_username(c, advisor_id)}.")
-    _admin_do(act)
+    _admin_do(act, "link_client", client_id, f"advisor #{advisor_id}")
 
 
 def _admin_unlink(advisor_name, client_id, client_name):
     def act(c):
-        auth.unlink_client(c, auth.get_user_id(c, advisor_name), client_id)
-        return ("success", f"{client_name} is no longer {advisor_name}'s client.")
-    _admin_do(act)
+        advisor_id = auth.get_user_id(c, advisor_name)
+        auth.unlink_client(c, advisor_id, client_id)
+        return ("success", f"{client_name} is no longer {advisor_name}'s client.", client_id,
+                f"advisor #{advisor_id}")
+    _admin_do(act, "unlink_client")
 
 
 def _admin_delete(user_id, username):
@@ -151,7 +183,9 @@ def _admin_delete(user_id, username):
         return ("success", f"Deleted {username} and all its data."
                 + (f" {res['orphaned_clients']} client(s) no longer have an advisor."
                    if res["orphaned_clients"] else ""))
-    _admin_do(act)
+    # the account is gone, so the row names none - as delete_account clears
+    # it from older rows that did (admin.ACCOUNT_REFERENCES)
+    _admin_do(act, "delete_account", None, "the login and everything it held")
 
 
 def _admin_create():
@@ -168,18 +202,23 @@ def _admin_create():
         elif client_of:
             auth.link_client(c, client_of, res["user_id"])
         st.session_state["admin_new_login"] = ""
+        kind = ("advisor" if as_advisor else f"client of advisor #{client_of}" if client_of
+                else "investor")
         if res["email"]:
             link = auth.setup_link(c, res["user_id"])
             sent = link["ok"] and mailer.account_created(
                 link["to"], f"{_app_address()}?reset={link['token']}", auth.SETUP_DAYS)
             return (("success", f"Created {res['username']} and emailed a link to choose a "
-                                f"password (works for {auth.SETUP_DAYS} days).") if sent else
+                                f"password (works for {auth.SETUP_DAYS} days).",
+                     res["user_id"], f"{kind}; setup link emailed") if sent else
                     ("warning", f"Created {res['username']}, but the email couldn't be sent - "
-                                "use Send password reset email on the account."))
+                                "use Send password reset email on the account.",
+                     res["user_id"], f"{kind}; setup email failed"))
         st.session_state["admin_temp"] = (res["user_id"], res["temp_password"])
         return ("success", f"Created {res['username']}. Its temporary password is shown below "
-                           "once - pass it on privately.")
-    _admin_do(act)
+                           "once - pass it on privately.",
+                res["user_id"], f"{kind}; temporary password shown once")
+    _admin_do(act, "create_account")
 
 
 def _admin_make_codes():
@@ -190,15 +229,19 @@ def _admin_make_codes():
         made = invite_codes.make(c, how_many, by=LOGIN_ID, note=note)
         st.session_state["admin_codes_note"] = ""
         st.session_state["admin_codes_made"] = [invite_codes.shown(x) for x in made]
+        # how many - never the codes, which work until used
         return ("success", f"Made {len(made)} invite code{'s' if len(made) != 1 else ''}. "
-                           "Each works once.")
-    _admin_do(act)
+                           "Each works once.", None,
+                f"{len(made)} code{'s' if len(made) != 1 else ''}")
+    _admin_do(act, "make_codes")
 
 
 def _admin_revoke_code(code):
+    # a stopped code no longer works, so naming it is safe
     _admin_do(lambda c: ("success", f"{invite_codes.shown(code)} won't work any more.")
               if invite_codes.revoke(c, code) else
-              ("info", f"{invite_codes.shown(code)} was already used or stopped."))
+              ("info", f"{invite_codes.shown(code)} was already used or stopped."),
+              "revoke_code", None, invite_codes.shown(code))
 
 
 def _render_invite_codes(c):
@@ -249,7 +292,23 @@ def _render_invite_codes(c):
 def _admin_clear_cache():
     _admin_do(lambda c: (st.cache_data.clear(),
                          ("success", "Cleared the cached prices, charts and news - they "
-                                     "reload on the next page."))[1])
+                                     "reload on the next page."))[1], "clear_cache")
+
+
+def _admin_sign_out_all():
+    """The incident switch (audit X5): every account signed out at once - the
+    saved sign-ins end, and every open tab lands on sign-in at its next
+    click. The admin's own tab too: simplest, and the right thing when a
+    session may have been stolen."""
+    if not st.session_state.get("admin_sign_out_all_ok"):
+        st.session_state["admin_msg"] = ("error", "Tick the box first to confirm.")
+        return
+
+    def act(c):
+        n = auth.sign_out_everyone(c)
+        return ("success", "Everyone is signed out, you included.", None,
+                f"{n} saved sign-in{'s' if n != 1 else ''} ended")
+    _admin_do(act, "sign_out_all")
 
 
 def _admin_test_email():
@@ -262,11 +321,47 @@ def _admin_test_email():
                            "If you can read it, email sending works.")
         return (("success", f"Sent a test email to {email}.") if sent else
                 ("error", "It couldn't be sent - check RESEND_API_KEY and the server log."))
-    _admin_do(act)
+    _admin_do(act, "test_email", LOGIN_ID)
 
 
 def _admin_clear_errors():
-    _admin_do(lambda c: (error_alerts.clear(c), ("success", "Cleared the list of errors."))[1])
+    _admin_do(lambda c: (error_alerts.clear(c), ("success", "Cleared the list of errors."))[1],
+              "clear_errors")
+
+
+def _render_admin_log(c):
+    """The admin action log (admin_log.py; audit X2): the newest rows, who did
+    what to which login. Logins only - never holdings."""
+    rows = admin_log.recent(c)
+    st.markdown("**Admin actions**")
+    if not rows:
+        st.caption("None yet. Every action taken here or with manage_users.py is listed, "
+                   f"and kept for {admin_log.KEEP_DAYS // 365} year.")
+        return
+    st.caption(f"The last {admin_log.SHOWN} actions taken here or with manage_users.py, newest "
+               f"first. Kept for {admin_log.KEEP_DAYS // 365} year; nothing here can be edited.")
+    st.dataframe(pd.DataFrame([{
+        "When": _admin_when(r["at"]),
+        "Admin": r["admin"] or ("command line" if r["detail"].startswith(admin_log.COMMAND_LINE)
+                                else "(deleted)"),
+        "Action": r["action"].replace("_", " "),
+        "Account": r["target"] or "",
+        "Detail": r["detail"],
+    } for r in rows]), hide_index=True, width="stretch")
+
+
+def _render_sign_out_all():
+    """Admin > System's "Sign everyone out", behind a tick box (System is an
+    expander already, so a box here, not another one)."""
+    with st.container(border=True):
+        st.markdown("**Sign everyone out**")
+        st.caption("For an emergency, such as a leaked password or a stolen device: every "
+                   "account is signed out at once, on every device and every open tab - "
+                   "yours too. Saved sign-ins stop working, so everyone signs in again with "
+                   "their password (and two-step code). Nothing else changes.")
+        st.checkbox("Yes, sign out every account, mine included", key="admin_sign_out_all_ok")
+        st.button("Sign everyone out", key="admin_sign_out_all", type="primary",
+                  on_click=_admin_sign_out_all)
 
 
 def _render_errors(c):
@@ -342,7 +437,9 @@ def _render_system(c):
     st.caption("Settings like keys and NORTHWEND_ADMINS live in the app's Secrets (Streamlit "
                "Cloud: Manage app, Settings, Secrets; Render: Environment). Only whether a key "
                "is set is shown here, never its value.")
+    _render_sign_out_all()
     _render_errors(c)
+    _render_admin_log(c)
 
 
 def _admin_when(stamp):

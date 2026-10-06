@@ -21,6 +21,9 @@ from datetime import date, datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+# quick password hashes for the whole run (see tests/__init__.py): discover
+# imports every test module before running any, so this one line covers them
+os.environ.setdefault("NORTHWEND_PBKDF2_ITERATIONS", "1000")
 
 import accounts  # noqa: E402
 import advising  # noqa: E402
@@ -1388,7 +1391,8 @@ class AdminTests(TempDBMixin, unittest.TestCase):
             covered.setdefault(t, set()).update(cols)
         for (table,) in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'"):
             cols = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
-            account_cols = cols & {"user_id", "advisor_id", "client_id", "created_by", "set_by"}
+            account_cols = cols & {"user_id", "advisor_id", "client_id", "created_by", "set_by",
+                                   "used_by", "admin_id", "target_id"}
             if table != "users" and account_cols:
                 self.assertEqual(account_cols - covered.get(table, set()), set(),
                                  f"{table} isn't cleared by admin.delete_account")

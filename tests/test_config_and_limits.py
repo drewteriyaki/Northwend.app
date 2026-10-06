@@ -378,9 +378,9 @@ class SignInLimitTests(unittest.TestCase):
         calls = []
         real = auth._hash_password
 
-        def counting(password, salt):
+        def counting(password, salt, count=None):
             calls.append(salt)
-            return real(password, salt)
+            return real(password, salt, count)
         with unittest.mock.patch.object(auth, "_hash_password", counting):
             unknown = auth.attempt_login(self.conn, "nobody", "Password1", ip=IP, now=T0)
             self.assertEqual(len(calls), 1)

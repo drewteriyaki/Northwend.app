@@ -392,6 +392,95 @@ class TwoStepTests(_PG):
         self.assertEqual(self.seen("SELECT * FROM two_step WHERE user_id = ?", (uid,)), [])
         self.assertEqual(self.seen("SELECT * FROM login_sessions WHERE user_id = ?", (uid,)), [])
 
+    def test_old_backup_codes_still_work_and_new_ones_are_slow_hashes(self):
+        # PLAN 1b.8: PBKDF2 hashes; a set from before (plain SHA-256) still works
+        c = self.conn
+        uid = self.user("bea")
+        secret = two_step.new_secret()
+        on = two_step.enable(c, uid, secret, two_step.totp(secret, NOW), now=NOW)
+        stored = self.one("SELECT backup_codes_hash FROM two_step WHERE user_id = ?",
+                          (uid,))["backup_codes_hash"].split()
+        self.assertTrue(all(e.startswith("p2$") for e in stored))
+        later = NOW + timedelta(seconds=60)
+        self.assertTrue(two_step.verify(c, uid, on["backup_codes"][1], now=later)["ok"])
+        c.execute("UPDATE two_step SET backup_codes_hash = ? WHERE user_id = ?",
+                  (two_step._backup_hash(uid, "abcd-efgh"), uid))
+        c.commit()
+        used = two_step.verify(c, uid, "abcd-efgh", now=later)
+        self.assertEqual((used["ok"], used["used_backup"], used["backup_left"]), (True, True, 0))
+        self.assertEqual(self.one("SELECT backup_codes_hash FROM two_step WHERE user_id = ?",
+                                  (uid,))["backup_codes_hash"], "")
+
+
+class SignOutAndLogTests(_PG):
+    """PLAN 1b.2, 1b.3 and 1b.7 on Postgres: the session numbers, the admin
+    action log, and passwords at 600,000 iterations."""
+    TAG = "signout"
+
+    def test_sign_out_everyone_and_other_devices(self):
+        c = self.conn
+        a, b = self.user("gen.a"), self.user("gen.b")
+        before = auth.session_gen(c, a)
+        tok = auth.create_session(c, b)
+        self.assertGreaterEqual(auth.sign_out_everyone(c), 1)       # the upsert, first time
+        self.assertIsNone(auth.session_user(c, tok))
+        auth.sign_out_everyone(c)                                  # ...and again
+        self.assertEqual(self.one("SELECT number FROM app_state WHERE name = ?",
+                                  (auth.EVERYONE_GEN,))["number"], 2)
+        now = auth.session_gen(c, a)
+        self.assertNotEqual(now, before)
+        _, row = two_step.status_and_login(c, a)
+        self.assertEqual(auth.session_gen_of(row), now)
+        here = auth.create_session(c, a)
+        auth.create_session(c, a)
+        b_gen = auth.session_gen(c, b)
+        self.assertEqual(auth.end_other_sessions(c, a, here), 1)
+        self.assertNotEqual(auth.session_gen(c, a), now)
+        self.assertEqual(auth.session_gen(c, b), b_gen)
+        self.assertEqual(self.one("SELECT session_gen FROM users WHERE id = ?",
+                                  (a,))["session_gen"], 1)
+
+    def test_the_admin_log_append_read_prune_and_a_deleted_account(self):
+        import admin_log
+        c = self.conn
+        boss, sam = self.user("log.boss"), self.user("log.sam")
+        admin.set_admin(c, "log.boss", True)
+        admin_log.add(c, boss, "temp_password", sam, "shown to the admin once",
+                      now=NOW - timedelta(days=400))
+        admin_log.add(c, None, "make_admin", boss)
+        admin_log.add(c, boss, "reset_password", sam)
+        self.assertEqual(len(self.seen("SELECT id FROM admin_log")), 3)   # committed
+        rows = admin_log.recent(c)
+        self.assertEqual([(r["action"], r["admin"], r["target"]) for r in rows],
+                         [("reset_password", "log.boss", "log.sam"),
+                          ("make_admin", None, "log.boss"),
+                          ("temp_password", "log.boss", "log.sam")])
+        self.assertEqual(admin_log.prune(c), 1)
+        self.assertTrue(admin.delete_account(c, sam, by=boss)["ok"])
+        self.assertEqual(self.seen("SELECT target_id FROM admin_log WHERE action = "
+                                   "'reset_password'"), [{"target_id": None}])
+
+    def test_passwords_at_600k_and_an_old_hash_upgraded(self):
+        import hashlib
+        c = self.conn
+        env = {k: v for k, v in os.environ.items() if k != auth.ITERATIONS_SETTING}
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            uid = self.user("hash.new")
+            self.assertEqual(self.one("SELECT password_iterations FROM users WHERE id = ?",
+                                      (uid,))["password_iterations"], 600_000)
+            old = self.user("hash.old")
+            salt = os.urandom(16)
+            c.execute("UPDATE users SET password_hash = ?, password_salt = ?, "
+                      "password_iterations = 200000 WHERE id = ?",
+                      (hashlib.pbkdf2_hmac("sha256", PW.encode(), salt, 200_000).hex(),
+                       salt.hex(), old))
+            c.commit()
+            self.assertIsNone(auth.verify_login(c, "hash.old", "wrong-one"))
+            self.assertEqual(auth.attempt_login(c, "hash.old", PW)["user_id"], old)
+            self.assertEqual(self.one("SELECT password_iterations FROM users WHERE id = ?",
+                                      (old,))["password_iterations"], 600_000)
+            self.assertEqual(auth.verify_login(c, "hash.old", PW), old)
+
 
 # --------------------------------------------------------------------------- #
 # advisors: access, clients, notes, proposals, reports, records
@@ -1655,8 +1744,12 @@ class UpgradeTests(_KeepModules):
             users = cols("users")
             for col in ("is_advisor", "email", "terms_version", "terms_via", "is_admin",
                         "display_name", "ai_unlimited", "last_login_at", "age_confirmed_at",
-                        "us_resident_at"):
+                        "us_resident_at", "password_iterations", "session_gen"):
                 self.assertIn(col, users)
+            # passwords from before 1b.7 keep the count they were made with
+            self.assertEqual(conn.execute("SELECT password_iterations, session_gen FROM users "
+                                          "WHERE username = 'olive'").fetchone()[:],
+                             (200_000, 0))
             self.assertIn("client_name", cols("advisor_clients"))
             self.assertTrue({"archived_at", "edited_at", "history", "is_message"}
                             <= set(cols("advisor_notes")))
@@ -1667,7 +1760,7 @@ class UpgradeTests(_KeepModules):
             self.assertEqual(cols("daily_bars")["volume"], "bigint")
             for table in ("fund_top_holdings", "proposals", "progress_reports", "two_step",
                           "error_events", "email_tokens", "advisor_requests", "csv_layouts",
-                          "former_clients", "invite_codes"):
+                          "former_clients", "invite_codes", "app_state", "admin_log"):
                 self.assertTrue(cols(table), table)
             self.assertEqual([r["account"] for r in conn.execute(
                 "SELECT account FROM positions UNION ALL SELECT account FROM transactions")],

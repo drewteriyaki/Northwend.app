@@ -48,12 +48,15 @@ pasted text and screenshots are not kept. Clients can also use an example or
 ## Passwords and sign-in
 
 - **Passwords** are stored only as PBKDF2-SHA256 hashes with a per-user salt and
-  200,000 iterations - never as text.
+  600,000 iterations - never as text. Passwords saved before that count are
+  re-hashed at the next sign-in.
 - **Lockout:** 5 wrong passwords for a username lock it for 15 minutes. Wrong
   two-step codes lock the same way.
 - **"Stay signed in"** stores a random token in a cookie on the device; only its
   SHA-256 hash is kept, and it lasts at most 30 days. Logging out ends it; a
-  password change signs out every other device.
+  password change signs out every other device. "Sign out other devices" (on
+  the Account page) also closes tabs already open elsewhere, and the admin can
+  sign every account out at once in an emergency.
 - **Email links** (confirm, reset) are one-time and stored as hashes: confirm
   links last 3 days, reset links 60 minutes. Client setup links last 7 days.
 
@@ -62,15 +65,20 @@ pasted text and screenshots are not kept. Clients can also use an example or
 - **Required for every advisor and admin account**; available to everyone else.
 - A 6-digit code from an authenticator app (TOTP). The key is stored readable,
   because it's needed to check codes; it is never exported or shown to an admin.
-- 8 one-time backup codes, stored only as SHA-256 hashes, shown once.
+- 8 one-time backup codes, stored only as salted PBKDF2-SHA256 hashes, shown once.
 - "Remember this device" skips the code on that device for 30 days.
 - For someone who lost their phone, an admin can reset their two-step sign-in (in
   the admin portal or with a command-line tool). That signs them out everywhere,
   and an advisor must set it up again straight away. An admin can also unlock a
-  locked username and send a password-reset link to the account's own email. The
-  admin portal never shows or sets a password; the operator's command-line tool
-  can set one (used when creating accounts). [OWNER: policy - for example, a
-  password is set this way only at the account holder's request.]
+  locked username and send a password-reset link to the account's own email. For
+  an account without an email (one an advisor or the admin made), the admin
+  portal can set a temporary password, shown to the admin once; the operator's
+  command-line tool can also set one (used when creating accounts). Either is a
+  way into that account, so every admin action - in the portal or the
+  command-line tool - is written to an append-only admin action log (when, which
+  admin, what, which login; never holdings or figures), kept for a year.
+  [OWNER: policy - for example, a password is set this way only at the account
+  holder's request.]
 
 ## What the operator can and can't see
 

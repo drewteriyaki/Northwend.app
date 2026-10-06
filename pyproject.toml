@@ -55,4 +55,5 @@ py-modules = [
     "stress", "next_deposit", "cash_check", "employer_match",
     # year in review and the account map
     "recap", "account_map",
+    "admin_log",   # the admin action log (PLAN 1b.3)
 ]

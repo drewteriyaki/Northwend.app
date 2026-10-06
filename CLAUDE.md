@@ -69,7 +69,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `two_step_ok`, see tests/test_menu.py; `manage_users.py reset-two-step`), `admin.py` + `views/admin.py` (the
   Admin portal: logins only, never holdings; admins made only from outside the app: `manage_users.py make-admin` or the
   `NORTHWEND_ADMINS` secret (a list of logins); its System panel shows the copy's
-  version, database, email and keys (set or not, never values); a new table with account data must be added to
+  version, database, email and keys (set or not, never values), "Sign everyone out" (`auth.sign_out_everyone`,
+  also `manage_users.py sign-out-all`) and the last 100 rows of `admin_log.py` (append-only admin action
+  log: every `_admin_do` names an action word, every changing `manage_users.py` command logs too; only
+  `admin_log.prune` deletes, after a year); a new table with account data must be added to
   `admin.ACCOUNT_TABLES` - a test checks), `route.py` (the route's two stages, Learn - only
   required for the brand new - and Start investing; the investor home's next step),
   `brokerages.py` (Choose a brokerage: names and links only, alphabetical, never a fee

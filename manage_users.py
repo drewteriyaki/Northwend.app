@@ -12,6 +12,10 @@ created (there is no signup anywhere in the web app itself).
   python manage_users.py make-admin | remove-admin <username>
   python manage_users.py reset-two-step <username>
   python manage_users.py seed-staging --db <staging dsn or scratch file> [--reset-passwords]
+  python manage_users.py sign-out-all        (every account, every device and tab)
+
+Every command that changes an account is written to the admin action log
+(admin_log.py), shown on Admin > System.
 
 --db can go before or after the command. Without it: the PORTFOLIO_DB
 environment variable if it's set, else ./portfolio.db. Commands that change
@@ -31,9 +35,16 @@ import os
 import secrets
 import sys
 
+import admin_log
 import auth
 import settings
 from portfolio import DBError, DEFAULT_DB, connect
+
+
+def _log(conn, action: str, target: int | None = None, detail: str = "") -> None:
+    """Every command that changes an account goes in the admin action log
+    (admin_log.py), as done from the command line (no admin login)."""
+    admin_log.add(conn, None, action, target, detail)
 
 
 def cmd_create(args) -> int:
@@ -51,6 +62,7 @@ def cmd_create(args) -> int:
     except DBError as exc:
         print(f"Could not create user (username already taken?): {exc}")
         return 1
+    _log(conn, "create_account", user_id, "password typed in")
     print(f"Created user '{args.username}' (id={user_id}).")
     return 0
 
@@ -66,6 +78,7 @@ def cmd_passwd(args) -> int:
         print("Password can't be blank.")
         return 1
     if auth.set_password(conn, args.username, pw):
+        _log(conn, "set_password", auth.get_user_id(conn, args.username))
         print(f"Password updated for '{args.username}'.")
         return 0
     print(f"No such user: '{args.username}'.")
@@ -115,6 +128,7 @@ def cmd_bulk_create(args) -> int:
         except DBError:
             rows.append((username, "already exists - skipped", None))
             continue
+        _log(conn, "create_account", user_id, "bulk-create")
         rows.append((username, f"created (id={user_id})", pw if generated else "(as supplied)"))
 
     w = max(len(r[0]) for r in rows)
@@ -159,6 +173,8 @@ def cmd_set_advisor(args, flag: bool) -> int:
     if not found:
         print(f"No such user: '{args.username}'.")
         return 1
+    _log(conn, "approve_advisor" if flag else "remove_advisor",
+         auth.get_user_id(conn, args.username))
     print(f"'{args.username}' is {'now' if flag else 'no longer'} an advisor. "
           + _emailed_note(res["emailed"]))
     return 0
@@ -182,6 +198,7 @@ def cmd_set_admin(args, flag: bool) -> int:
     if not admin.set_admin(conn, args.username, flag):
         print(f"No such user: '{args.username}' in {where(args.db)}.")
         return 1
+    _log(conn, "make_admin" if flag else "remove_admin", auth.get_user_id(conn, args.username))
     print(f"'{args.username}' is now an admin: the Admin page appears on their next page load."
           if flag else f"'{args.username}' is no longer an admin.")
     print(f"(changed in {where(args.db)})")
@@ -212,6 +229,7 @@ def cmd_decline_advisor(args) -> int:
     if not res["ok"]:
         print(f"'{args.username}' has no advisor request waiting.")
         return 1
+    _log(conn, "decline_advisor", auth.get_user_id(conn, args.username))
     print(f"Declined '{args.username}''s advisor request - the account stays an investor "
           "account. " + _emailed_note(res["emailed"]))
     return 0
@@ -234,6 +252,7 @@ def cmd_link(args) -> int:
         print(f"'{args.advisor}' isn't an advisor - run make-advisor first.")
         return 1
     auth.link_client(conn, a, c)
+    _log(conn, "link_client", c, f"advisor #{a}")
     print(f"'{args.client}' is now a client of '{args.advisor}'.")
     return 0
 
@@ -244,6 +263,7 @@ def cmd_unlink(args) -> int:
     if a is None or c is None:
         return 1
     auth.unlink_client(conn, a, c)
+    _log(conn, "unlink_client", c, f"advisor #{a}")
     print(f"'{args.client}' is no longer a client of '{args.advisor}'.")
     return 0
 
@@ -251,6 +271,7 @@ def cmd_unlink(args) -> int:
 def cmd_unlock(args) -> int:
     conn = connect(args.db)
     if auth.unlock_login(conn, args.username):
+        _log(conn, "unlock", auth.get_user_id(conn, args.username))
         print(f"Cleared failed logins for '{args.username}' - they can try again now.")
     else:
         print(f"'{args.username}' had no failed logins or lock to clear.")
@@ -267,11 +288,27 @@ def cmd_reset_two_step(args) -> int:
         print(f"No such user: '{args.username}'.")
         return 1
     was_on = two_step.reset(conn, uid)
+    _log(conn, "reset_two_step", uid, "" if was_on else "it wasn't on")
     print((f"Two-step sign-in reset for '{args.username}'" if was_on
            else f"'{args.username}' didn't have two-step sign-in on") +
           f" in {where(args.db)}; signed out everywhere. Advisors and admins set it up "
           "again when they next sign in.")
     return 0
+
+
+# --- sign-out-all (PLAN 1b.2, audit X5) ------------------------------------ #
+def cmd_sign_out_all(args) -> int:
+    """The incident switch: every account signed out at once - saved
+    sign-ins end, and every open tab lands on sign-in at its next click
+    (auth.sign_out_everyone). The same as Admin > System's button."""
+    conn = connect(args.db)
+    n = auth.sign_out_everyone(conn)
+    _log(conn, "sign_out_all", None, f"{n} saved sign-in{'s' if n != 1 else ''} ended")
+    print(f"Signed everyone out in {where(args.db)}: {n} saved sign-in"
+          f"{'s' if n != 1 else ''} ended, and every open tab goes to sign-in at its next "
+          "click.")
+    return 0
+# --- end sign-out-all ------------------------------------------------------- #
 
 
 def cmd_set_ai_unlimited(args, flag: bool) -> int:
@@ -282,6 +319,7 @@ def cmd_set_ai_unlimited(args, flag: bool) -> int:
         print(f"No such user: '{args.username}'.")
         return 1
     ai_usage.set_unlimited(conn, uid, flag)
+    _log(conn, "ai_limits", uid, "no limits" if flag else "normal limits")
     print(f"'{args.username}' {'now has no' if flag else 'has the normal'} monthly AI limits.")
     return 0
 
@@ -521,6 +559,9 @@ def main(argv=None) -> int:
                    ).add_argument("username")
     sub.add_parser("reset-two-step", help="turn off two-step sign-in for someone who lost "
                    "their phone (signs them out everywhere)").add_argument("username")
+    # sign-out-all (PLAN 1b.2)
+    sub.add_parser("sign-out-all", help="sign every account out now, on every device and "
+                   "open tab (an emergency switch)")
     for name, help_text in (("ai-unlimited", "lift the monthly AI limits for an account"),
                             ("ai-limited", "give an account the normal monthly AI limits")):
         sub.add_parser(name, help=help_text).add_argument("username")
@@ -559,6 +600,8 @@ def main(argv=None) -> int:
         return cmd_unlock(args)
     if args.cmd == "reset-two-step":
         return cmd_reset_two_step(args)
+    if args.cmd == "sign-out-all":   # PLAN 1b.2
+        return cmd_sign_out_all(args)
     if args.cmd in ("ai-unlimited", "ai-limited"):
         return cmd_set_ai_unlimited(args, args.cmd == "ai-unlimited")
     if args.cmd == "ai-usage":

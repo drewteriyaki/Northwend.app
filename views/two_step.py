@@ -173,6 +173,14 @@ def _two_step_gate() -> bool:
                       and two_step.device_remembered(c, token, uid))
     finally:
         c.close()
+    # "Sign out other devices" (this login) or the admin's "Sign everyone
+    # out" (every login) since this tab signed in: back to sign-in, so a tab
+    # left open somewhere is closed too, not just the saved cookies (audit X5).
+    # Noted here, first thing on every run, rather than once the app opens,
+    # so a tab still on the code page is caught as well.
+    gen = auth.session_gen_of(row)
+    if gen is not None and st.session_state.setdefault("session_gen", gen) != gen:
+        _two_step_sign_out("You've been signed out. Please sign in again.")
     if (passed and passed.startswith(f"{uid}:") and passed != f"{uid}:None"
             and not s["on"]):
         # it was on when this tab got in, and has been turned off or reset

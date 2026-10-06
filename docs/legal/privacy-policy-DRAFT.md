@@ -146,6 +146,13 @@ ones they mark private).
 The person who runs Northwend can see, on an admin page, only login details:
 username, email, role, when the account was made and last signed in, and locks -
 not your holdings, plans or answers - and the feature counts, as totals only.
+For an account without an email address (one an advisor or the admin made), the
+admin can reset the login without email by setting a temporary password, which
+is shown to them once - so it could also be used to sign in to that account.
+Every admin action (this one, resets, role changes, deletions, signing everyone
+out) is written to an admin action log: when, which admin, what was done and to
+which login - never holdings or figures. The log is kept for a year.
+[LAWYER: wording.]
 
 We may also disclose information if the law requires it, to protect someone's
 safety, or as part of a transfer of the service (we'd tell you first).
@@ -253,7 +260,7 @@ terms, and link them.]
 
 ## 9. Security
 
-Passwords are stored as salted PBKDF2-SHA256 hashes; after 5 wrong passwords a
+Passwords are stored as salted PBKDF2-SHA256 hashes (600,000 iterations); after 5 wrong passwords a
 username is locked for 15 minutes. Two-step sign-in is required for advisors and
 admins and available to everyone. The site is served over HTTPS. Uploads are
 deleted after reading and account numbers are cut to 3 digits. No system is

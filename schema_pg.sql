@@ -553,3 +553,20 @@ CREATE INDEX IF NOT EXISTS idx_positions_snapshot   ON positions (snapshot_date)
 CREATE INDEX IF NOT EXISTS idx_positions_symbol     ON positions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol  ON transactions (symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account);
+
+-- App-wide numbers - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS app_state (
+    name    TEXT    PRIMARY KEY,
+    number  INTEGER NOT NULL DEFAULT 0
+);
+
+-- The admin action log - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS admin_log (
+    id          SERIAL  PRIMARY KEY,
+    at          TEXT    NOT NULL,                -- 'YYYY-MM-DD HH:MM:SS' UTC
+    admin_id    INTEGER,
+    action      TEXT    NOT NULL,
+    target_id   INTEGER,
+    detail      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log (at);

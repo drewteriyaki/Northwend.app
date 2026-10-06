@@ -46,7 +46,10 @@ ADVISOR_RECORD_TABLES = ("advisor_notes", "proposals", "progress_reports", "form
 ACCOUNT_REFERENCES = {"plans": ("set_by",), "money_out": ("set_by",),
                       # who made and who used an invite code: cleared, so the
                       # code stays used (invite_codes.py)
-                      "invite_codes": ("created_by", "used_by")}
+                      "invite_codes": ("created_by", "used_by"),
+                      # the admin action log (admin_log.py): the row stays,
+                      # without the deleted account's id
+                      "admin_log": ("admin_id", "target_id")}
 
 
 def listed_admins() -> set[str]:
