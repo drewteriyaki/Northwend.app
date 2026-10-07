@@ -297,6 +297,7 @@ def delete_account(conn, user_id: int, *, by: int,
                             (user_id,)).fetchone()["n"]
     links = conn.execute("SELECT advisor_id, client_id FROM advisor_clients WHERE "
                          "advisor_id = ? OR client_id = ?", (user_id, user_id)).fetchall()
+    import client_book
     with conn:
         # sharing this account was part of ends: a revoke each (consent.py),
         # in the same transaction. Consent records and access logs themselves
@@ -307,6 +308,9 @@ def delete_account(conn, user_id: int, *, by: int,
             # and Bring to my advisor's sharing, when it was in force (advisor_pack.py)
             advisor_pack.on_unlink(conn, link["client_id"], link["advisor_id"],
                                    "account_deleted")
+            # and sharing their walks (client_book.py)
+            client_book.on_unlink(conn, link["client_id"], link["advisor_id"],
+                                  "account_deleted")
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
             params = (user_id,) * len(cols)

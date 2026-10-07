@@ -292,6 +292,37 @@ Each statement about data here must stay true to the code:
   first set and the day it was last changed. The login's own only: never drawn
   while an advisor is in a client's account and never read for them, never
   sent to the AI. In the person's own export (settings).
+- Teach It Back (teach_back.py, views/teach_back.py, flag teach_back): an
+  optional box under each Learn basics topic. On "Check my explanation" the AI
+  gateway's grader helper (ai_gateway.HELPERS "grader", the cheap tier, the
+  chat allowance) gets only the topic's key, its fixed reference text
+  (teach_back.reference: the same for everyone) and the person's words after
+  teach_back.scrub (emails, dollar amounts, account numbers and long digit
+  runs via advisor.scrub_memory, ticker-looking tokens) - no card, profile or
+  holdings. The reply passes ai_policy.check and teach_back.check_feedback or
+  a fixed line is shown. Kept: prefs teach_back, per topic held true/false and
+  an ISO date - never the words (not in prefs, the database or a log; the
+  gateway keeps token counts only). The login's own: never drawn while an
+  advisor is in a client's account, not in an advisor's client record. In the
+  person's own export (settings).
+- The Client-Owned Book (client_book.py, views/client_book.py, flag
+  client_owned_book and gate L2 - off, so none of this shows until the
+  lawyer's L2 review): no new table. A client signed in as themselves may
+  turn on "Let my advisor see when I've done my monthly walk" on their Your
+  advisor page: a consent grant (scope walk_signal, how walk_choice) with
+  client_book.WALK_CONSENT word for word and its SHA-256; off is a revoke, and
+  any end of the link (Stop sharing, End relationship, an admin's unlink, a
+  deleted account) writes a revoke (client_book.on_unlink), so a new link
+  starts unshared. Only then does the advisor's book read that client's
+  checkin.PREF_LOG - whether a walk was finished this month and the month of
+  the last one; never the verdict, a figure or anything typed. The book also
+  shows counts only (walked this month, of those who share; holdings brought
+  in within 30 days) over the advisor's own links (client_book.own_clients:
+  is_advisor, advisor_agreement.tools_open, advisor_clients), and
+  "Client-reported, as of <date>" by each card's figures (the latest
+  snapshots.imported_at). Nothing is written by the advisor's side. The
+  privacy wording for when it's on is in docs/legal/privacy-policy-DRAFT.md
+  only (the published policy changes when the gate opens).
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -425,7 +456,7 @@ suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
 their account map, their Lost & Found list, their Trail Forks, their Inheritance Rehearsal, their preparedness drills,
-the rule of thumb they picked on Pay yourself and their Shadow Trail.
+the Learn topics they've explained back, the rule of thumb they picked on Pay yourself and their Shadow Trail.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
 and it leaves your view when they untick it or the relationship ends.
@@ -437,7 +468,7 @@ and it leaves your view when they untick it or the relationship ends.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), the Inheritance Rehearsal's steps you've walked through and the day you finished, if you try it (not which choices you tapped, nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), your Shadow Trail mixes if you set any (each mix as percentages of kinds of funds, and the days you set and last changed it - never an amount), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), the Inheritance Rehearsal's steps you've walked through and the day you finished, if you try it (not which choices you tapped, nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), your Shadow Trail mixes if you set any (each mix as percentages of kinds of funds, and the days you set and last changed it - never an amount), the Learn topics you've explained back where Teach It Back is offered (whether each held and the day - never your words), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
@@ -464,6 +495,7 @@ and it leaves your view when they untick it or the relationship ends.
   is a fund fact sheet you have the app read, where that's offered: it's read
   in memory by the app itself (not by AI) and not kept. Account statements
   aren't read there - text that looks like one is cleared without being read.
+  Nor is what you write when you explain a topic back on Learn.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
@@ -575,8 +607,8 @@ feature counts** on the **Account** page.
 {hosting_lines()}
 - **Neon** runs the database, in the United States.
 - **Anthropic** (Claude) powers the AI guide, the optional column guess and,
-  where it's offered, the optional screenshot reader - see the next section for
-  exactly what's sent.
+  where it's offered, the optional screenshot reader and Teach It Back's check -
+  see the next section for exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
 - **GitHub** runs the scheduled price updates and the scheduled emails
@@ -623,6 +655,13 @@ Uploaded files are read by the app itself. Only if a file's columns can't be
 matched and you press **Let AI guess the columns** is anything sent: the
 **column names and the kind of each cell** ("text", "number", "money") - never
 the values, holdings or account numbers in it.
+
+Where **Teach It Back** is offered, "Check my explanation" sends only the topic
+(its name and Northwend's own short text about it) and your words, with dollar
+amounts, long numbers, email addresses and anything that looks like a fund
+symbol taken out first - nothing about your holdings, profile or account. The AI
+says whether the explanation holds and points at what the topic says; it never
+comments on your own money, it can be wrong, and your words aren't saved.
 
 The AI is told to explain, never to recommend buying, selling or holding a
 specific investment or a specific mix for you. AI answers can still be wrong or

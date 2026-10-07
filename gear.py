@@ -62,6 +62,10 @@ GEAR = (
     ("flag", "Summit flag", "The summit: you reached your goal",
      "Keep going toward your goal - see where you are on Plan.", "The summit",
      ('<path d="M5 21V4"/>', '<path d="M5 4h11l-2 4 2 4H5"/>')),
+    ("mapcase", "Map case", "Field notes: three ideas explained back",
+     "Explain a topic from the basics on Learn back in your own words.", None,
+     ('<rect x="3" y="9" width="18" height="8" rx="4"/>', '<path d="M8 9v8"/>',
+      '<path d="M16 9v8"/>', '<path d="M7 9l5-5 5 5"/>')),
 )
 KEYS = tuple(g[0] for g in GEAR)
 BY_KEY = {g[0]: g for g in GEAR}
@@ -69,12 +73,14 @@ STORM_DROP_PCT = 10.0
 STREAK_MONTHS = 3
 CHECKINS = 3   # the logbook: monthly walks finished (checkin.LOGBOOK_CHECKINS)
 DRILLS = 3     # the whistle: preparedness drills rehearsed (drills.GEAR_AT)
+TAUGHT = 3     # the map case: Learn topics explained back that hold (teach_back.GEAR_AT)
 _NUMBER_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
 
 # the fact (earned()'s `facts`) that earns each piece
 NEED = {"map": "profile_done", "compass": "goal_set", "tent": "basics_done",
         "rope": "practice_done", "boots": "statement_in", "lantern": "steady",
-        "logbook": "checkins", "whistle": "drills_done", "cloak": "storm", "flag": "goal_reached"}
+        "logbook": "checkins", "whistle": "drills_done", "cloak": "storm", "flag": "goal_reached",
+        "mapcase": "taught_back"}
 
 # What each piece is for, in one short line - shown wherever it appears.
 FOR = {
@@ -92,6 +98,7 @@ FOR = {
                "or good.",
     "cloak": "For holding steady through a market drop instead of selling.",
     "flag": "For reaching the goal you set.",
+    "mapcase": "For putting what you've learned into your own words.",
 }
 
 # How each is earned: the rule earned() and the facts behind it really use
@@ -115,6 +122,8 @@ HOW = {
               "high and you don't sell anything between the high and the low."),
     "flag": "Earned when your holdings reach your goal's amount (the example portfolio "
             "doesn't count).",
+    "mapcase": (f"Earned when {_NUMBER_WORDS[TAUGHT]} topics from the basics on Learn hold "
+                "when you explain them back in your own words - try as often as you like."),
 }
 
 # Why it matters, in one sentence - the "milestone reached" window.
@@ -139,6 +148,8 @@ WHY = {
              "your investments the chance to recover.",
     "flag": "You set a goal and stayed with it until you got there - a good moment to "
             "enjoy, then pick the next one.",
+    "mapcase": "Putting an idea in your own words is one of the surest ways to find out "
+               "you've really got it.",
 }
 
 # Where to go to earn it: (button label, ("learn", Get started waypoint) |
@@ -156,6 +167,7 @@ GO = {
     "logbook": ("Start this month's walk", ("checkin", "Dashboard")),
     "whistle": ("Open this week's drill", ("drill", "Dashboard")),
     "flag": ("See your plan", ("page", "Plan")),
+    "mapcase": ("Explain a topic back", ("learn", "basics")),
 }
 
 # per theme: earned (dawn on dawn-soft) and not yet (line-strong) - the design system's
@@ -200,20 +212,23 @@ def weathered_storm(values: list[tuple[str, float]], sells: list[str]) -> bool:
 
 
 def kit_keys(managed: bool = False, walk: bool = True,
-             drills: bool = True) -> tuple[str, ...]:
+             drills: bool = True, teach: bool = True) -> tuple[str, ...]:
     """The pieces in this person's kit. An advisor's client has no practice
     money on Learn (its example funds could cross their advisor's advice), so
     no rope; the rest - learning and habits - are theirs too. Without the
     Monthly Walk (`walk` False: its flag is off, flags.py) there's no logbook
     to earn, so nothing points to a walk that isn't there; the same for the
-    preparedness drills (`drills`) and the whistle."""
+    preparedness drills (`drills`) and the whistle, and Teach It Back
+    (`teach`) and the map case."""
     return tuple(k for k in KEYS if not (managed and k in NOT_FOR_CLIENTS)
                  and (walk or k not in NEEDS_WALK)
-                 and (drills or k not in NEEDS_DRILLS))
+                 and (drills or k not in NEEDS_DRILLS)
+                 and (teach or k not in NEEDS_TEACH))
 
 
 NEEDS_WALK = ("logbook",)
 NEEDS_DRILLS = ("whistle",)
+NEEDS_TEACH = ("mapcase",)
 
 
 NOT_FOR_CLIENTS = ("rope",)
@@ -222,7 +237,7 @@ NOT_FOR_CLIENTS = ("rope",)
 def earned(facts: dict, keys: tuple[str, ...] = KEYS) -> list[str]:
     """The keys of the gear earned, in kit order. `facts`: profile_done,
     goal_set, basics_done, practice_done, statement_in, steady, checkins,
-    drills_done, storm, goal_reached (booleans). `keys`: the kit (kit_keys())."""
+    drills_done, storm, goal_reached, taught_back (booleans). `keys`: the kit (kit_keys())."""
     return [k for k in keys if facts.get(NEED[k])]
 
 

@@ -5,8 +5,9 @@ when that ended - with the exact words they were shown.
 One row per event in `consent_records`: the time (ISO UTC), the client, the
 advisor, 'grant' or 'revoke', the scope ('full_sharing': the advisor sees
 the whole account - today's `advisor_clients` link; 'advisor_pack': the
-client shows them items that are otherwise only theirs, advisor_pack.py),
-the text shown, stored
+client shows them items that are otherwise only theirs, advisor_pack.py;
+'walk_signal': the client lets them see whether they've walked this month,
+client_book.py), the text shown, stored
 verbatim with its SHA-256, and how it happened (HOWS).
 
 Append-only. This module only adds rows (`grant`, `revoke`, `backfill`) and
@@ -47,11 +48,14 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 
 KINDS = ("grant", "revoke")
-SCOPES = ("full_sharing", "advisor_pack")
+SCOPES = ("full_sharing", "advisor_pack", "walk_signal")
 FULL_SHARING = "full_sharing"
 # Bring to my advisor (advisor_pack.py): the client shows their advisor items
 # that are otherwise only theirs - its own grant and revoke, beside full sharing
 ADVISOR_PACK = "advisor_pack"
+# The Client-Owned Book (client_book.py): the client lets their advisor see
+# whether they walked this month and the month of their last walk - nothing else
+WALK_SIGNAL = "walk_signal"
 # how each record came about
 HOWS = (
     "setup_link",       # the client created their login from their advisor's setup link
@@ -63,6 +67,7 @@ HOWS = (
     "migration",        # a link from before consent records began (backfill)
     "sign_in_ask",      # "Keep sharing" when asked once at sign-in (ask_text, to_ask)
     "pack_choice",      # the client's own ticks in Bring to my advisor (scope advisor_pack)
+    "walk_choice",      # the client's own switch for sharing their walks (scope walk_signal)
 )
 KEEP_DAYS = 2557        # 7 years (PLAN B6), counted from when the sharing ended
 BACKFILL_MARK = "consent_backfill"   # app_state row: the one-time back-fill has run

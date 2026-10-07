@@ -1774,6 +1774,9 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         "questions to ask a professional")
   - [ ] AI: the glossary fallback and the grader (with R13) - the gateway,
         the conclusion policy, the eval set, counted allowances (L3)
+        (Oct 6: the grader is built - gateway helper `grader`, the output
+        check, `evals/grader.py`, kind "grader" in the chat allowance; the
+        glossary fallback is still to do)
   - [ ] AI: advisor drafts - an editable box only, sent by the advisor under
         their name with the standing line (L1/L2)
 - **Phase E - bigger Ritual items:**
@@ -1784,11 +1787,13 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         statements only after local redaction is proven; zero data retention)
         -> fact sheets built Oct 6 (flag `decoder_factsheet`, paste only, no AI);
         statements not yet, so this stays open
-- **Phase F - tier 3, explore:** R13 Teach It Back (grades understanding,
-  never money choices); [x] R14 Shadow Trail (hypothetical, labelled, kinds of
+- **Phase F - tier 3, explore:** [x] R13 Teach It Back (grades understanding,
+  never money choices) -> built Oct 6 (off): flag `teach_back`, the gateway's `grader`; [x] R14 Shadow Trail (hypothetical, labelled, kinds of
   funds only, changed at most quarterly; L3 review) -> built Oct 6 (off; L3
-  before on): flag `shadow_trail` + gate L3, a Plan tab; R16 Client-Owned Book
-  (L2; the advisor's records stay with the advisor); Someday: Walk Together,
+  before on): flag `shadow_trail` + gate L3, a Plan tab; [x] R16 Client-Owned
+  Book (L2; the advisor's records stay with the advisor) -> built Oct 6 (off;
+  L2): flag `client_owned_book` + gate L2, `client_book.py`, in Your clients
+  and the client's Your advisor page; Someday: Walk Together,
   Base Camp (privacy: they show another person that someone uses a finance
   app; Base Camp needs moderation).
   - [x] The Inheritance Rehearsal - built Oct 6, off: flag
@@ -2206,6 +2211,10 @@ Northwend; gear is awarded when the explanation holds.
 **Risk:** low (education); AI grading can be wrong.
 **Mitigation:** generous grading; a "try again" with no penalty; gear never
 depends on returns.
+-> built (Oct 6), off: flag `teach_back`, `teach_back.py`, `views/teach_back.py`,
+the gateway's `grader` helper (cheap tier, chat allowance), eval cases in
+`evals/grader.py`; the map case after three topics hold. Kept: held and the day
+per topic, never the words. See LEGAL_GATES section 6.
 
 ### R14. Shadow Trail - M
 Up to two hypothetical paths run alongside the real mix on real prices: no
@@ -2243,7 +2252,18 @@ data) - see the list below.
 - never per-fund;
 - covered in the disclosures.
 
-### R16. The Client-Owned Book (advisors) - L
+### R16. The Client-Owned Book (advisors) - L -> built (off; L2)
+Oct 6: flag `client_owned_book` + gate L2 (`client_book.py`,
+`views/client_book.py`, no new table). A client's walks stay theirs: the
+advisor sees "Walked this month / Last walk: <month>" only for a client who
+turns it on (consent scope `walk_signal`, the exact words; any end of the
+link revokes it). Counts only in Your clients (walked this month, of those
+who share; holdings updated in 30 days), over the advisor's own links. Each
+card's figures "Client-reported, as of <date>". Stop sharing now lists what
+the client keeps and what the advisor keeps (tested end to end). "How your
+book works" on Your clients and in the security note for advisors. The
+record-keeping questions are in LEGAL_GATES.md section 6.
+
 **What:**
 - The client's walk (R1) updates the advisor's book.
 - The advisor gets counts-only signals.

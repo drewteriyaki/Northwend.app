@@ -26,6 +26,19 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "Your walks and your advisor",
+     "items": [
+         {"text": "If you work with an advisor, you can now choose to let them see whether "
+                  "you've done your monthly walk this month - just yes or not yet, and the "
+                  "month of your last one, never what your plan said or any amount. It's off "
+                  "until you turn it on, on the Your advisor page. Stop sharing there now also "
+                  "spells out what you keep (everything in your account) and what your "
+                  "advisor keeps (their own notes).", "flag": "client_owned_book"},
+         {"text": "Advisors: Your clients has a short note on how the book works, counts of "
+                  "clients who walked this month and who updated their holdings lately, and "
+                  "each client's figures marked client-reported with the day they were last "
+                  "updated.", "flag": "client_owned_book"},
+     ]},
     {"date": "2026-10-06", "title": "The Inheritance Rehearsal",
      "items": [
          {"text": "The Inheritance Rehearsal, on the Account page, is a gentle practice run "
@@ -43,6 +56,15 @@ ENTRIES = [
                   "mix. Percentages only, and each shadow changes at most once a quarter. "
                   "Hypothetical - a path you didn't take, not a forecast and not advice. Only "
                   "you see it.", "flag": "shadow_trail"},
+     ]},
+    {"date": "2026-10-06", "title": "Teach it back",
+     "items": [
+         {"text": "Under each of the basics on Learn there's now an optional box to explain "
+                  "the idea back in your own words. Northwend's AI tells you whether it "
+                  "holds and points at what the topic says - generously, never with a score, "
+                  "and never about your own money. Try again as often as you like; your "
+                  "words aren't saved. Three topics that hold earn the map case for your kit.",
+          "flag": "teach_back"},
      ]},
     {"date": "2026-10-06", "title": "Trail Conditions",
      "items": [

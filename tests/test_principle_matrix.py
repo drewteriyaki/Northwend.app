@@ -40,6 +40,7 @@ import advisor_agreement  # noqa: E402
 import advisor_pack  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
+import client_book  # noqa: E402
 import directory  # noqa: E402
 import explain_share  # noqa: E402
 import consent  # noqa: E402
@@ -145,7 +146,10 @@ MATRIX = {
     # kept after deletion (admin.KEPT_AFTER_DELETE), still one account's own
     "consent_records": ("consent.history", "consent.between", "consent.current",
                         "consent.grant", "consent.revoke", "advising.end_relationship",
-                        "auth.unlink_client", "export.collect"),
+                        "auth.unlink_client", "export.collect",
+                        # the Client-Owned Book: walk sharing lives in these records
+                        "client_book.signals", "client_book.set_walk_sharing",
+                        "client_book.on_unlink"),
     "advisor_access_log": ("access_log.for_client", "access_log.record", "export.collect"),
     # Bring to my advisor (advisor_pack.py): the client's ticks, their advisor's read
     "advisor_pack": ("advisor_pack.shared", "advisor_pack.consented", "advisor_pack.for_advisor",
@@ -156,7 +160,8 @@ MATRIX = {
 ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
-                                    advisor_agreement, advisor_pack, ai_usage, auth, consent, directory,
+                                    advisor_agreement, advisor_pack, ai_usage, auth, client_book, consent,
+                                    directory,
                                     explain_share, export, future_notes, intros, licence_check, perf, plans,
                                     portfolio, prefs, price_report, proposals, reports, txn_import,
                                     two_step, watchlist)}
@@ -283,6 +288,9 @@ class IsolationMatrix(unittest.TestCase):
         # Bring to my advisor (advisor_pack.py): the client ticked two items
         advisor_pack.start(c, cid, ["one_pager", "q:fees"], by=cid,
                            text_shown=f"{tag} pack words")
+        # the Client-Owned Book (client_book.py): the client shares their walks
+        prefs.save(c, cid, {"checkin_log": ["2026-09"]})
+        client_book.set_walk_sharing(c, cid, True, by=cid, text_shown=f"{tag} walk words")
         advising.add_note(c, cid, a, "Next step", f"{tag} step", "2026-09-01")
         advising.add_note(c, cid, a, "Note", f"{tag} private", "2026-09-02", private=True)
         notes = advising.list_notes(c, cid, include_private=True, advisor_id=a)
@@ -688,6 +696,16 @@ class IsolationMatrix(unittest.TestCase):
         self.assertTrue(consent.current(c, dana, carol))
         consent.revoke(c, dana, carol, "admin")
         self.assertFalse(consent.current(c, dana, carol))
+        # the Client-Owned Book: carol's signals never include omar's client,
+        # and zed's walk sharing isn't hers to change or end
+        sig = self.clean(client_book.signals(c, carol, [dana, self.zed, self.bob],
+                                             date(2026, 10, 6)))
+        self.assertNotIn(self.zed, sig)
+        self.assertEqual(client_book.signals(c, self.alice, [self.zed], date(2026, 10, 6)), {})
+        with self.assertRaises(PermissionError):
+            client_book.set_walk_sharing(c, self.zed, False, by=carol)
+        client_book.on_unlink(c, self.zed, carol, "admin")
+        self.assertFalse(client_book.shares_walk(c, self.zed, carol))
 
     def check_advisor_access_log(self):
         c, carol, dana = self.c, self.carol, self.dana

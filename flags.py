@@ -246,6 +246,17 @@ FEATURES = {
     # advisor in client mode or an admin; the intro version (with an intro
     # request) isn't built - that would sit behind `intros` and L2.
     "advisor_pack": {"gates": (), "view": "advisor_pack"},
+    # The Client-Owned Book (ROADMAP R16, client_book.py, views/client_book.py):
+    # in Your clients, "How your book works" (no custody, no aggregation,
+    # client-reported figures, the advisor's own notes are theirs), counts only
+    # (clients who walked this month - of those who share it - and who brought
+    # in holdings in the last 30 days), "Client-reported, as of <date>" beside
+    # each card's figures, and "Walked this month / Last walk" for a client who
+    # chose to share it (consent scope walk_signal, on their Your advisor
+    # page). The client's Stop sharing step says what each side keeps. Gate
+    # L2: what an advisor must keep after an exit (books and records) and
+    # whether "client-reported" is enough are the lawyer's (LEGAL_GATES.md).
+    "client_owned_book": {"gates": ("L2",), "view": "client_book"},
     # The plain-words read of the mix on Home (PLAN step 7, docs/AI_PLAN.md
     # section 9 row 1; allocation.summary_words): one line under Allocation
     # from fixed templates - shares, counts, the largest holding's share. No
@@ -259,6 +270,17 @@ FEATURES = {
     # Northwend reads. Education: no gate. dashboard.what_this_means()
     # checks on("glossary").
     "glossary": {"gates": (), "view": None},
+    # Teach It Back (ROADMAP R13, docs/AI_PLAN.md section 9 row 8; teach_back.py,
+    # views/teach_back.py): under each Learn basics topic, an optional "Explain
+    # it back in your own words" box checked by the AI gateway's "grader"
+    # (cheap tier, the chat allowance) - generous, "holds" or "not yet", never a
+    # score and never about the person's own money; the conclusion policy's
+    # output check applies. Only the topic and the scrubbed words are sent;
+    # kept: held or not and the day per topic, never the words. Three that
+    # hold earn the map case. Education (LEGAL_GATES.md section 6): no gate.
+    # The person's own only - never while an advisor is in a client's account.
+    # views/get_started.py checks on("teach_back").
+    "teach_back": {"gates": (), "view": "teach_back"},
 }
 
 

@@ -1346,7 +1346,8 @@ class AiUsageTests(TempDBMixin, unittest.TestCase):
         # $17 a month in all: chat $8, drafts $6, decode $3
         self.assertEqual({k: ai_usage.limit_for(conn, self.user_id, k) for k in ai_usage.KINDS},
                          {"chat": 8_000_000, "plan": 6_000_000, "prep": 6_000_000,
-                          "screenshot": 3_000_000, "csv": 3_000_000})
+                          "screenshot": 3_000_000, "csv": 3_000_000,
+                          "grader": 8_000_000})   # Teach It Back: the chat allowance
         self.assertEqual(sum(b["month"] for b in ai_usage.ALLOWANCES["advisor"].values()),
                          17_000_000)
         manage_users.main(["--db", self.db, "ai-unlimited", "testuser"])
@@ -1911,7 +1912,7 @@ class GearTests(unittest.TestCase):
         import gear
         self.assertEqual(gear.earned({"goal_set": True, "profile_done": True, "storm": True}),
                          ["map", "compass", "cloak"])
-        self.assertEqual(len(gear.KEYS), 10)
+        self.assertEqual(len(gear.KEYS), 11)
 
     def test_first_visit_after_the_update_is_quiet(self):
         import gear

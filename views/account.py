@@ -288,7 +288,8 @@ _CONSENT_HOW = {"setup_link": "when you set up your login from their link",
                 "account_deleted": "an account was closed",
                 "migration": "from before these records were kept",
                 "sign_in_ask": "when we asked you once, at sign-in",
-                "pack_choice": "your choice in Bring to my advisor"}
+                "pack_choice": "your choice in Bring to my advisor",
+                "walk_choice": "your choice on the Your advisor page"}
 # access log pages that aren't one of PAGES (advisor_pack.ACCESS_PAGE)
 _ACCESS_PAGES = {"advisor_pack": "What you chose to bring"}
 
@@ -329,9 +330,13 @@ def _render_who_looked():
         with st.expander("Your sharing record"):
             for r in shared:
                 pack = r["scope"] == consent.ADVISOR_PACK   # Bring to my advisor
+                walk = r["scope"] == consent.WALK_SIGNAL    # your walks (client_book.py)
                 verb = (("You chose things to bring to" if pack else
+                         "You chose to show whether you've walked to" if walk else
                          "You agreed to share your account with") if r["kind"] == "grant"
-                        else "Bring to my advisor ended with" if pack else "Sharing ended with")
+                        else "Bring to my advisor ended with" if pack
+                        else "Sharing your monthly walks ended with" if walk
+                        else "Sharing ended with")
                 st.markdown(f"**{_fmt_date(r['at'])}** · {verb} "
                             f"{_md_name(who(r['advisor_id'], r['advisor']))} "
                             f"({_CONSENT_HOW.get(r['how'], r['how'])})")

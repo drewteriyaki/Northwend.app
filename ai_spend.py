@@ -56,10 +56,11 @@ ALERT_AT = (50, 80)                 # the admin is emailed at these percents
 CHAT_MAX_TOKENS_REDUCED = 1500      # a chat answer's length from 80% (AI_COSTS 7.1)
 CHAT_EFFORT_REDUCED = "low"
 # the helpers that rest from 80% (ai_usage kinds); chat keeps going to 95%
-OPTIONAL = ("screenshot", "csv", "plan", "prep")
+OPTIONAL = ("screenshot", "csv", "plan", "prep", "grader")
 # how each feature is named in the resting line
 FEATURES = {"chat": None, "screenshot": "Reading screenshots", "csv": "Guessing the columns",
-            "plan": "Writing suggested next steps", "prep": "Drafting talking points"}
+            "plan": "Writing suggested next steps", "prep": "Drafting talking points",
+            "grader": "Checking explanations"}
 
 USAGE_FIELDS = (("input_tokens", "input_tokens"), ("output_tokens", "output_tokens"),
                 ("cache_write_tokens", "cache_creation_input_tokens"),

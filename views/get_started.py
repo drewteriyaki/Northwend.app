@@ -524,6 +524,8 @@ def _basics_window(key, monthly, years):
             st.markdown(f"### {icon} {title}")
             st.markdown(body)
             learn_more(BASICS_LINKS.get(k))
+            if flags.on("teach_back"):   # explain it back (views/teach_back.py)
+                render_teach_back(k)
     # (in a window: switch pages with a full rerun, which also closes it)
     if st.button(f":material/forum: Ask {GUIDE} about this", key="basics_ask", type="tertiary"):
         _ask_coach("basics")

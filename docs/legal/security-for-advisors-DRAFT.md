@@ -124,7 +124,8 @@ pasted text and screenshots are not kept. Clients can also use an example or
   something happens to me" list), their Lost & Found list (where they've
   looked for old accounts), their Trail Forks (life events they've marked), their
   Inheritance Rehearsal (the practice run's steps they've walked through), their
-  preparedness drills (what they tapped), the rule of thumb they picked on Pay
+  preparedness drills (what they tapped), the Learn topics they've explained back
+  (whether each held), the rule of thumb they picked on Pay
   yourself (you can look at the same picture with a rule you pick; yours isn't
   saved), their Shadow Trail (hypothetical mixes of kinds of funds they've
   set) and
@@ -166,6 +167,46 @@ pasted text and screenshots are not kept. Clients can also use an example or
   the exact words they were shown are kept. Until a client answers, Your clients
   says they haven't confirmed sharing yet. When sharing ends, your access ends on your very next page
   load. Your client record export includes your consent records with that client.
+
+## How your book works: no custody, no aggregation
+
+Not on yet: this part waits on the lawyer's review of advisor records (gate
+L2). Where it's on, Your clients opens with a short "How your book works" note
+that says the same.
+
+- **No custody.** Northwend never holds, moves or touches money. It has no
+  accounts of its own for clients and can't place a trade.
+- **No aggregation.** Northwend never connects to a brokerage, bank or
+  custodian and never asks for those logins. There is no data feed from a
+  custodian; nothing is pulled in the background.
+- **Client-reported figures.** Holdings are what you or your client bring in -
+  a statement file, pasted text, a screenshot or typed by hand. Prices come
+  from market data (ticker symbols only go to the data providers). Northwend
+  doesn't check holdings against the custodian, so each client's card marks
+  its figures "Client-reported, as of <date>", the day their holdings were
+  last updated, and the book's total says "client-reported". Your custodian's
+  records are the record of what a client holds.
+- **The client's walk keeps the book current.** A client's monthly walk starts
+  with updating their holdings, so your book is as current as their last
+  walk. Whether a client walked is theirs: you see "Walked this month" and
+  "Last walk: <month>" only for a client who turns that on, after seeing the
+  exact words (kept with the consent records); never what their plan said,
+  their mix, amounts or anything they typed.
+- **Counts only.** The book also shows how many of your clients walked this
+  month (of those who share it) and how many updated their holdings in the
+  last 30 days - plain numbers across your own clients, never a list or a
+  ranking, and never anyone else's clients.
+- **Your notes are yours; the client's account is theirs.** When a
+  relationship ends - either of you can end it in one step - the client keeps
+  their whole account (holdings and history, plan, goals, answers, their
+  walks and notes, and a copy of what you shared with them). You keep your own
+  records: your notes (private and archived ones too, with their edit
+  history), the proposals and reports you sent, the name and email you had
+  for them, and the dated consent records - under Former clients, and in that
+  client's record export. You no longer see their account. [LAWYER: whether
+  this is enough for an adviser's books and records (SEC Rule 204-2, state
+  rules), or whether a dated read-only copy of the client-reported figures
+  you reviewed should stay with you after an exit.]
 
 ## AI and other services
 

@@ -11,7 +11,8 @@ calendar month (UTC), in buckets:
                  drafts   $6 a month (meeting prep, plan write-ups)
                  decode   $3 a month             ($17 a month in all)
 
-An individual's plan write-up comes out of their chat bucket. The habit
+An individual's plan write-up comes out of their chat bucket, and so does
+Teach It Back's explanation check (kind "grader", teach_back.py). The habit
 bonus is earned by habits only, never bought: +$0.10 to the month's chat
 allowance for each Monthly Walk finished in this month and the four before
 (checkin.PREF_LOG), so at most +$0.50.
@@ -35,7 +36,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-KINDS = ("chat", "screenshot", "csv", "plan", "prep")
+KINDS = ("chat", "screenshot", "csv", "plan", "prep", "grader")
 # micro-dollars (docs/AI_COSTS.md section 6, approved October 2026)
 ALLOWANCES = {
     "individual": {"chat": {"day": 250_000, "month": 1_000_000},
@@ -50,14 +51,15 @@ HABIT_BONUS_MAX = 500_000        # +$0.50 at most
 # what one use typically costs (docs/AI_COSTS.md sections 3-4), for the
 # approximate count until the person has an average of their own
 TYPICAL_MICRO = {"chat": 13_000, "plan": 24_000, "prep": 13_000, "screenshot": 26_000,
-                 "csv": 700}
+                 "csv": 700, "grader": 1_500}
 OWN_AVERAGE_AFTER = 3            # uses this month before their own average counts
 # self-serve accounts use the AI only once their email is confirmed
 CONFIRM_FOR_AI = True
 # how each allowance is named to people: (one, many)
 NOUNS = {"chat": ("message", "messages"), "screenshot": ("screenshot read", "screenshot reads"),
          "csv": ("CSV read", "CSV reads"), "plan": ("plan write-up", "plan write-ups"),
-         "prep": ("set of talking points", "sets of talking points")}
+         "prep": ("set of talking points", "sets of talking points"),
+         "grader": ("explanation check", "explanation checks")}
 
 
 def month_of(now: datetime | None = None) -> str:

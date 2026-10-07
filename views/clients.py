@@ -132,6 +132,9 @@ def _render_notes():
         with st.expander(":material/link_off: End the relationship"):
             _render_end_confirm(USER_ID, "notes")
     elif IS_MANAGED_CLIENT:
+        # the client's own choice to show their walks (views/client_book.py; R16)
+        if flags.on("client_owned_book"):
+            render_walk_share()
         _render_stop_sharing()
 
 
@@ -406,6 +409,10 @@ def _render_stop_sharing():
                     "see your account. You keep everything - your holdings, plan and goals - "
                     "and manage them yourself from now on.")
         st.markdown(words[1])
+        if flags.on("client_owned_book"):
+            # what each side keeps, in full (views/client_book.py; R16) - the
+            # words go with the consent revoke too
+            st.session_state["_stop_sharing_text"] = "\n\n".join(words + render_exit_keeps())
         st.checkbox("I understand - stop sharing my account", key="stop_sharing_ok")
         st.button("Stop sharing", key="stop_sharing", type="primary", on_click=_stop_sharing)
 
@@ -997,6 +1004,12 @@ def _render_clients():
         # what clients are reading this season (views/advisor_pack.py; R7)
         if flags.on("advisor_pack"):
             render_pack_season_note(today)
+        # the Client-Owned Book (views/client_book.py; R16): how the book works,
+        # counts only, and the client-reported label on each card
+        _book = flags.on("client_owned_book")
+        _book_sig = book_signals(rows, today) if _book else {}
+        if _book:
+            render_book_note()
 
         st.html(_stat_row(
                 "<div class='pt-stats' role='list' aria-label='Client summary'>"
@@ -1004,11 +1017,15 @@ def _render_clients():
                 f"<div class='pt-stat-value'>{len(rows)}</div></div>"
                 f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Total value</div>"
                 f"<div class='pt-stat-value'>{fmt_money0(sum(r['portfolio_value'] or 0 for r in rows))}"
-                "</div></div>"
+                "</div>" + ("<div class='pt-stat-sub'>client-reported</div>" if _book else "")
+                + "</div>"
                 f"<div class='pt-stat' role='listitem'><div class='pt-stat-label'>Need attention</div>"
                 f"<div class='pt-stat-value'>{sum(1 for r in rows if r['reasons'])}</div>"
                 f"<div class='pt-stat-sub'>{sum(1 for r in rows if r['review'] != 'ok')} review(s) due"
                 "</div></div></div>"))
+
+        if _book:
+            render_book_counts(_book_sig, today)
 
         _render_reports_bulk(rows)
         _render_message_clients(rows)
@@ -1074,6 +1091,7 @@ def _render_clients():
                        if r["has_data"] else "<span class='pt-muted'>no statement yet</span>")
                     + "</div>"
                     + (f"<div class='pt-goal-sub'>{html.escape(email)}</div>" if email else "")
+                    + (book_card_html(r, _book_sig) if _book else "")
                     + f"<div style='margin:.45rem 0'>{chips}</div>"
                     f"<div class='pt-goal-sub'>{' · '.join(bits)}</div>")
                 with st.container(horizontal=True, vertical_alignment="center"):

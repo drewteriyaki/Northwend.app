@@ -1238,9 +1238,11 @@ def unlink_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> 
                        (advisor_id, client_id))
     if cur.rowcount:
         import advisor_pack
+        import client_book
         import consent
         consent.revoke(conn, client_id, advisor_id, "admin", commit=False)
         advisor_pack.on_unlink(conn, client_id, advisor_id, "admin")
+        client_book.on_unlink(conn, client_id, advisor_id, "admin")
     conn.commit()
 
 

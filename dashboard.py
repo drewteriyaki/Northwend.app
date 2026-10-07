@@ -2415,11 +2415,18 @@ _view("trail_forks")
 # Bring to my advisor, flag advisor_pack (advisor_pack.py): the client's
 # choices on Account, the advisor's card over meeting prep, the season note
 _view("advisor_pack")
+# the Client-Owned Book, flag client_owned_book + gate L2 (client_book.py):
+# counts, client-reported labels and walk signals in Your clients; the
+# client's walk-sharing switch and what each side keeps after an exit
+_view("client_book")
 # and under that: the Inheritance Rehearsal, flag inheritance_rehearsal
 # (inheritance_rehearsal.py)
 _view("inheritance_rehearsal")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
 _view("seasons")
+# Teach It Back (flag teach_back): "Explain it back in your own words" in
+# Learn's basics window - defined here, drawn by views/get_started.py
+_view("teach_back")
 
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")

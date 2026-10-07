@@ -731,7 +731,7 @@ CREATE TABLE IF NOT EXISTS consent_records (
     client_id   INTEGER NOT NULL,
     advisor_id  INTEGER NOT NULL,
     kind        TEXT    NOT NULL,                -- 'grant' | 'revoke'
-    scope       TEXT    NOT NULL,                -- 'full_sharing' | 'advisor_pack' (consent.SCOPES)
+    scope       TEXT    NOT NULL,                -- 'full_sharing' | 'advisor_pack' | 'walk_signal' (consent.SCOPES)
     text_shown  TEXT,                            -- verbatim; a revoke may have none
     text_sha256 TEXT,
     how         TEXT    NOT NULL                 -- consent.HOWS: 'setup_link', 'client_stop'...

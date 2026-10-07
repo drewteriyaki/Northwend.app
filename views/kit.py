@@ -13,6 +13,7 @@ import drills
 import flags
 import gear
 import storms
+import teach_back
 
 
 def _gear_facts(value):
@@ -48,6 +49,8 @@ def _read_gear_facts(value):
             "steady": gear.steady_months(added, datetime.now().date()),
             "checkins": checkin.logbook(_read_prefs()),   # monthly walks (views/checkin.py)
             "drills_done": drills.third_done(_read_prefs()),   # drills (views/drills.py)
+            # Teach It Back: three Learn topics that held (views/teach_back.py)
+            "taught_back": teach_back.third_held(_read_prefs()),
             "storm": gear.weathered_storm(values, sells), "goal_reached": reached}
 
 
@@ -61,10 +64,12 @@ def _kit_keys():
     """The pieces in this account's kit (gear.kit_keys): an advisor's client's
     has no rope, as Learn has no practice money for them (CLIENT_MODE). The
     logbook only while the walk is on (flags.py) - or once earned: it stays;
-    the whistle the same with the preparedness drills."""
+    the whistle the same with the preparedness drills, and the map case with
+    Teach It Back."""
     p = _read_prefs()
     return gear.kit_keys(CLIENT_MODE, walk=flags.on("walk") or checkin.logbook(p),
-                         drills=flags.on("drills") or drills.third_done(p))
+                         drills=flags.on("drills") or drills.third_done(p),
+                         teach=flags.on("teach_back") or teach_back.third_held(p))
 
 
 def _milestone_done():

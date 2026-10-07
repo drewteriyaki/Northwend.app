@@ -80,7 +80,7 @@ class KitTests(unittest.TestCase):
         env = {k: v for k, v in os.environ.items()
                if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
         env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused",
-                   NORTHWEND_FLAGS="walk drills")   # the Walk and the drills on (flags.py)
+                   NORTHWEND_FLAGS="walk drills teach_back")   # the Walk, drills, Teach It Back
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
                 unittest.mock.patch("socket.socket.connect", offline):
@@ -103,7 +103,7 @@ class KitTests(unittest.TestCase):
     def test_home_card_names_every_piece_and_opens_the_window(self):
         with self._run(self.kim, "kim") as at:
             body = self._html(at)
-            self.assertIn("Your kit · 2 of 10 earned", body)
+            self.assertIn("Your kit · 2 of 11 earned", body)
             for k in gear.KEYS:
                 name = gear.BY_KEY[k][1]
                 self.assertIn(f">{name}</span>", body)          # a visible label

@@ -405,6 +405,11 @@ class AIGuardrailTests(unittest.TestCase):
         for name in set(advice) - {"advisor.py"}:
             with open(os.path.join(REPO, name), encoding="utf-8") as fh:
                 self.assertIn("system=advisor.system_prompt(", fh.read(), name)
+        # Teach It Back's grader writes for people with its own short prompt,
+        # which carries the conclusion policy's rules (teach_back.system_prompt)
+        self.assertEqual(callers.get("grader"), "teach_back.py")
+        with open(os.path.join(REPO, "teach_back.py"), encoding="utf-8") as fh:
+            self.assertIn("SYSTEM + ai_policy.rules_text()", fh.read())
         # the API's own client is still made elsewhere (a key, a timeout), but
         # never asked anything outside the gateway; and the gateway logs nothing
         with open(os.path.join(REPO, "ai_gateway.py"), encoding="utf-8") as fh:

@@ -60,7 +60,8 @@ class HelperSpec:
 
 
 # The register (the plan PDF has no AI call any more, AI_PLAN step 15).
-# carries_dollars is False for all five today: the chat
+# carries_dollars is False for all of them today (the grader's words are
+# scrubbed of amounts first, teach_back.scrub): the chat
 # and prep send percentages only (context_card.py, advisor.portfolio_summary,
 # meeting.facts_for_ai) and the column guesses send column names and cell
 # kinds. Screenshot reads are the exception the policy has to settle (PLAN
@@ -75,6 +76,11 @@ HELPERS = {
                              False, 90.0),
     "csv": HelperSpec("csv", HAIKU, 400, None, False, "csv", "decode", False, 30.0),
     "txn": HelperSpec("txn", HAIKU, 400, None, False, "csv", "decode", False, 30.0),
+    # Teach It Back (ROADMAP R13, AI_PLAN section 9 row 8; teach_back.py): the
+    # cheap tier, a short answer, out of the person's chat allowance. Sends
+    # only a Learn topic's key, its fixed reference text and the person's own
+    # words, scrubbed (teach_back.scrub) - never a figure.
+    "grader": HelperSpec("grader", HAIKU, 300, None, False, "grader", "chat", False, 30.0),
 }
 
 # the cache layout (step 9): the shared block lives an hour, the person's card

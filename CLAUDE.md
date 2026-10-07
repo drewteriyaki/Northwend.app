@@ -191,6 +191,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Home under Your kit, one drill a week, taps are things to weigh - never trades, never
   graded; the readiness map; prefs `drills` keys only; the whistle in `gear.py`; never
   in a client's account, the client record or the AI; wording test in `tests/test_drills.py`).
+  `teach_back.py` + `views/teach_back.py` (Teach It Back, R13, flag `teach_back`: a box
+  in Learn's basics window; the gateway's `grader` helper - cheap tier, kind "grader" in
+  the chat allowance - gets the topic key, its fixed reference and the words after
+  `teach_back.scrub`; holds / not yet, never a score; `ai_policy.check` + no-score check
+  or a fixed line; prefs `teach_back` keep held + day only, never the words; the map case
+  in `gear.py` after three; eval cases `evals/grader.py`, offline in `tests/test_teach_back.py`).
   `trail_conditions.py` (Trail Conditions, flag `trail_conditions`: the opt-in Monday
   email, switch on Account; calm unless a storm / season / walk / readiness gap, fixed
   lines, no figures; once an ISO week; unsubscribe kind "trail"; sends nothing while
@@ -201,6 +207,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   exact words; table `advisor_pack` keys + day only; the advisor reads only ticked items via
   `advisor_pack.for_advisor` on a card over meeting prep, each opening an access-log row;
   any link ending calls `advisor_pack.on_unlink`; "This season for your clients" in the book).
+  `client_book.py` + `views/client_book.py` (R16 Client-Owned Book, flag `client_owned_book`
+  + gate L2: "How your book works", counts only and "Client-reported, as of <date>" in Your
+  clients; a client's walk shows only if they turn it on (consent scope `walk_signal`);
+  Stop sharing lists what each side keeps; any link ending calls `client_book.on_unlink`).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature

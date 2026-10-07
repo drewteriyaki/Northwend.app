@@ -102,6 +102,9 @@ account, contact us and we will delete it.
 - Where Shadow Trail is offered, if you set a shadow mix there (at most two):
   each mix as percentages of kinds of funds, the day you set it and the day you
   last changed it - never an amount or a fund's name. Only you see it.
+- Where Teach It Back is offered, for each topic in Learn's basics you explain
+  back in your own words: whether your explanation held, and the day - never
+  your words. Only you see it.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -135,6 +138,8 @@ mode work without any.
   read there: text that looks like one is cleared without being read.
 - Screenshots you choose to have read (where that's offered) are not saved.
 - Your brokerage username and password: Northwend never asks for them.
+- What you write in Teach It Back's box (where it's offered): it's checked and
+  then forgotten - never saved, never logged.
 - Your AI chat messages are kept only for your current visit (in the app's
   memory) and are not saved to the database. Only the guide's own short notes
   are saved (see above).
@@ -196,7 +201,7 @@ It is shared only as needed to run the service, with:
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
 | **Render** | Hosts the app (go.northwend.app), in the United States (Ohio) | Requests to the app, your IP address, server logs |
-| **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
+| **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, screenshot reading only where it's offered and you choose it, and Teach It Back's check where it's offered | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
@@ -205,8 +210,8 @@ It is shared only as needed to run the service, with:
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
-list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills the rule of thumb you
-picked on Pay yourself and your Shadow Trail, which only you see (the account map is never emailed, and its PDF is only
+list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills, the topics you've explained
+back on Learn, the rule of thumb you picked on Pay yourself and your Shadow Trail, which only you see (the account map is never emailed, and its PDF is only
 downloaded by you) - unless you choose to bring some of them to your advisor
 (below);
 you see your own portfolio, plan and the notes your advisor shares with you (not
@@ -232,6 +237,22 @@ what's ticked, as it is when they look, dated and marked as shared by you, and
 each time they open it is listed with their other visits. Unticking takes an
 item out of their view at once; it all goes when the relationship ends. What
 your advisor writes down from it is part of their own records.
+
+**Your monthly walks and your advisor's book.** Where it's offered (not yet:
+it waits on the lawyer's review of advisor records), a client can choose to let
+their advisor see whether they've done their monthly walk this month and the
+month of their last one - never what their plan said, their mix, an amount or
+anything they typed. It's off until you turn it on; we keep a record of the
+words you saw, and turning it off (or the relationship ending) stops it at
+once. Your advisor's list of clients shows the holdings figures marked
+"client-reported", with the day they were last updated, and counts across
+their own clients only (how many walked this month, of those who share it;
+how many updated their holdings in the last 30 days). **If you stop sharing**,
+you keep everything in your account, and your advisor keeps their own records:
+their notes, the proposals and reports they sent, the name and email they had
+for you, and the dated record of when sharing began and ended. [LAWYER: the
+consent words, `client_book.WALK_CONSENT`; whether an adviser must keep more
+than this after an exit (books and records).]
 
 **Share links ("Explain it to someone").** Where it's offered, you can make a
 private link to show a partner or family member your plan in plain words.
@@ -308,6 +329,14 @@ sends nothing to the AI.
 A file's **column names and kinds of cell** ("text", "number") are sent only if you
 press "Let AI guess the columns" - never the values. Your email address is never
 sent to the AI.
+
+**Teach It Back**, where it's offered: when you press "Check my explanation",
+Northwend sends only the topic (its name and Northwend's own short text about
+it) and your words, with dollar amounts, long numbers, email addresses and
+anything that looks like a fund symbol taken out first - nothing about your
+holdings, your profile or your account. The AI says whether the explanation
+holds and points at what the topic says; it never comments on your own money,
+and it can be wrong.
 
 [OWNER/LAWYER: state Anthropic's data handling for API use - retention period and
 that API data isn't used to train models - from the current Anthropic commercial

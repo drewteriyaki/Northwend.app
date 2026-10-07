@@ -7,6 +7,10 @@
                hypothetical labels, case patterns, over-refusal)
 - canned.py  - good and bad answers per checker rule; tests/test_evals.py
                proves the checker flags every bad one and passes every good one
+- grader.py  - Teach It Back's grader (ROADMAP R13): topics, made-up learners'
+               words (a portfolio question in disguise among them) and canned
+               good / bad replies, checked offline with a fake model
+               (tests/test_teach_back.py)
 - run.py     - asks the real model (python -m evals.run --samples 3). Never
                run in CI: it needs ANTHROPIC_API_KEY_EVAL and costs money.
 

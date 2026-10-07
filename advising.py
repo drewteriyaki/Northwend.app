@@ -382,6 +382,7 @@ def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
     import admin
     import advisor_pack
     import auth
+    import client_book
     import consent
 
     if by not in ENDED_BY:
@@ -411,6 +412,9 @@ def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
         # goes with it - the advisor keeps nothing of it live
         advisor_pack.on_unlink(conn, client_id, advisor_id,
                                "client_stop" if by == "client" else "advisor_end", now=now)
+        # the Client-Owned Book (client_book.py): sharing their walks ends too
+        client_book.on_unlink(conn, client_id, advisor_id,
+                              "client_stop" if by == "client" else "advisor_end", now=now)
         conn.commit()
     except Exception:
         conn.rollback()
