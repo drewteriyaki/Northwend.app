@@ -76,6 +76,9 @@ OWN = [
     # Explain it to someone (explain_share.py): the links they made - when,
     # until when, first name shown or not, visits (never the token or its hash)
     ("share_links", "share_links", "user_id", ""),
+    # Bring to my advisor (advisor_pack.py): what a client chose to show their
+    # advisor and the day (without the advisor's account id: LEFT_OUT_COLUMNS)
+    ("brought_to_your_advisor", "advisor_pack", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -89,7 +92,9 @@ LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"},
                     # the sender's account id: someone else's login
                     "introductions_to_you": {"person_id"},
                     # a share link's hash: never needed, never exported (SECRET_PARTS too)
-                    "share_links": {"token_hash"}}
+                    "share_links": {"token_hash"},
+                    # someone else's login
+                    "brought_to_your_advisor": {"advisor_id"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -125,6 +130,8 @@ Open them in any spreadsheet. Dates are UTC.
   work - when you made each one, when it stops working, whether it shows your
   first name, and how many times it was opened (the links themselves are never
   kept)
+- brought_to_your_advisor.csv: what you chose to show your advisor in Bring to
+  my advisor, and the day you shared each one
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

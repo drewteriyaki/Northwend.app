@@ -106,7 +106,9 @@ def _tf_fork(f, saved):
         if IS_MANAGED_CLIENT:
             st.caption(f"Your advisor, {_md_name(_advisor_display_name())}, is someone else "
                        "you could ask - only if you choose to tell them. Nothing here is "
-                       "shared with them.")
+                       "shared with them"
+                       + (" unless you pick this fork's name in Bring to my advisor, on "
+                          "this page." if flags.on("advisor_pack") else "."))
         st.markdown(f"**{trail_forks.NOT_RUSH}**  \n"
                     + "\n".join(f"- {_tf_md(c)}" for c in f["not_rush"]))
         st.markdown("  \n".join(f"[{t}]({u})" for t, u in f["links"]))

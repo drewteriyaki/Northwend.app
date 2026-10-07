@@ -731,7 +731,7 @@ CREATE TABLE IF NOT EXISTS consent_records (
     client_id   INTEGER NOT NULL,
     advisor_id  INTEGER NOT NULL,
     kind        TEXT    NOT NULL,                -- 'grant' | 'revoke'
-    scope       TEXT    NOT NULL,                -- 'full_sharing' (consent.SCOPES)
+    scope       TEXT    NOT NULL,                -- 'full_sharing' | 'advisor_pack' (consent.SCOPES)
     text_shown  TEXT,                            -- verbatim; a revoke may have none
     text_sha256 TEXT,
     how         TEXT    NOT NULL                 -- consent.HOWS: 'setup_link', 'client_stop'...
@@ -809,3 +809,17 @@ CREATE TABLE IF NOT EXISTS price_reports (
     created_at   TEXT    NOT NULL                 -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
 );
 CREATE INDEX IF NOT EXISTS idx_price_reports_user ON price_reports (user_id, created_at);
+-- Bring to my advisor (advisor_pack.py, flag advisor_pack): one row per item a
+-- client chose to show their advisor - a fixed key (a kind, a Trail Fork's
+-- key or a question's key), never free text, and the day they ticked it.
+-- Unticking deletes the row at once; the relationship ending deletes them all
+-- (advisor_pack.on_unlink). Deleted with either account (admin.ACCOUNT_TABLES);
+-- in the client's own export. The consent to it is in consent_records.
+CREATE TABLE IF NOT EXISTS advisor_pack (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,                -- the client, who chose it
+    advisor_id  INTEGER NOT NULL,                -- the advisor it's shown to
+    item        TEXT    NOT NULL,                -- 'one_pager', 'fork:new_job', 'q:fees'...
+    shared_on   TEXT    NOT NULL,                -- 'YYYY-MM-DD'
+    UNIQUE (user_id, advisor_id, item)
+);

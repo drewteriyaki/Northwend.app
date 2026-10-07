@@ -55,6 +55,10 @@ def _render_meeting_prep(value, alloc_rows, contexts, cash):
     """Advisor only, on a client's Advisor notes page."""
     import advisor
 
+    # what the client chose to bring (views/advisor_pack.py), above the prep
+    if flags.on("advisor_pack"):
+        _render_pack_advisor()
+
     today = datetime.now().date()
     actual = {r["label"]: r["pct"] or 0.0 for r in (alloc_rows or [])}
     c = connect(DB)

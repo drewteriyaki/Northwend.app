@@ -185,6 +185,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   email, switch on Account; calm unless a storm / season / walk / readiness gap, fixed
   lines, no figures; once an ISO week; unsubscribe kind "trail"; sends nothing while
   `mailer.POSTAL_ADDRESS` is empty - CAN-SPAM; its own job in scheduled-sync.yml).
+  `advisor_pack.py` + `views/advisor_pack.py` (Bring to my advisor, Phase C2, flag
+  `advisor_pack`: on Account a client signed in as themselves ticks private items to show
+  their advisor - all off, first share records `consent.grant(scope="advisor_pack")` with the
+  exact words; table `advisor_pack` keys + day only; the advisor reads only ticked items via
+  `advisor_pack.for_advisor` on a card over meeting prep, each opening an access-log row;
+  any link ending calls `advisor_pack.on_unlink`; "This season for your clients" in the book).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature
@@ -202,7 +208,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - The 401(k) Menu Decoder: `menu_decoder.py` + `views/menu_decoder.py` (signed in, flag
   `decoder_401k`; pasted order, never sorted, nothing saved) and `decoder_public.py` +
   `views/decoder_public.py` (`?decode=401k` without an account, flag `decoder_public` +
-  gate L0, a per-address limit - only after the hosting move).
+  gate L0, a per-address limit - only after the hosting move). The Fact Sheet Decoder
+  (R6, fact sheets only): `factsheet_decoder.py` + `views/factsheet_decoder.py` (signed
+  in, flag `decoder_factsheet`; paste only, no AI, nothing saved; text that looks like a
+  statement is stopped and cleared unread - statements wait for proven local redaction).
 - Advisor safeguards (PLAN step 5): `advisor_agreement.py` + `views/advisor_agreement.py`
   (flag `advisor_agreement`; until the current version is accepted `auth.can_view` opens
   no client), `licence_check.py` (BrokerCheck/IAPD evidence at approval, re-check due at

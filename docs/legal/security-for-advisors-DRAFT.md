@@ -129,6 +129,18 @@ pasted text and screenshots are not kept. Clients can also use an example or
   their share links. A client whose account you manage can't make share links,
   and any they made before stop working. Every per-account query is filtered
   by account.
+- **What a client chooses to bring** (Bring to my advisor, where it's
+  offered): a client can tick some of those private things to show you -
+  their plan in plain words (no figures), the name of a life event they've
+  marked (never its details), which drills they've rehearsed (never their
+  answers), their storm drill answer in their own words, where they've looked
+  for old accounts, and questions from a fixed list. You see only what's
+  ticked, labelled "Shared by <client> on <date>; client-reported", on a card
+  over meeting prep; each time you open it is logged and shown to the client.
+  Unticking removes an item at once, and nothing of it stays with you after
+  the relationship ends - only the dated consent record. Keep what you need
+  for your own books and records in your own notes. [LAWYER: whether an
+  adviser must keep a copy of client-shared material they reviewed.]
 - **Your client:** their own portfolio, plan, and the notes you share (not notes you
   mark private).
 - **No other advisor or user.** [OWNER: firms with several advisors - not supported

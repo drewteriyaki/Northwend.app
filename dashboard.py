@@ -2395,6 +2395,9 @@ _view("free_money")
 # beside it: the 401(k) Menu Decoder, flag decoder_401k (menu_decoder.py)
 _view("menu_decoder")
 
+# and the Fact Sheet Decoder, flag decoder_factsheet (factsheet_decoder.py)
+_view("factsheet_decoder")
+
 # Home: Year in review, private, and a version to share (recap.py)
 _view("year_review")
 
@@ -2406,6 +2409,9 @@ _view("lost_found")
 
 # and under that: Trail Forks, flag trail_forks (trail_forks.py)
 _view("trail_forks")
+# Bring to my advisor, flag advisor_pack (advisor_pack.py): the client's
+# choices on Account, the advisor's card over meeting prep, the season note
+_view("advisor_pack")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
 _view("seasons")
 

@@ -224,7 +224,9 @@ def render_storm_drill_field():
     note = _fn_read(future_notes.DRILL)
     with st.container(border=True, key="pt_storm_drill"):
         st.markdown(f":material/edit_note: **{future_notes.DRILL_QUESTION}**")
-        st.caption(DRILL_LINE + future_notes.PRIVATE_LINE + " " + DRILL_COUNT_LINE)
+        st.caption(DRILL_LINE + future_notes.PRIVATE_LINE + " " + DRILL_COUNT_LINE
+                   + (" You can choose to bring it to your advisor, on Account."
+                      if IS_MANAGED_CLIENT and flags.on("advisor_pack") else ""))
         _render_note_body(future_notes.DRILL, note)
         if note and not st.session_state.get("fn_edit_drill") \
                 and not st.session_state.get("fn_del_drill"):

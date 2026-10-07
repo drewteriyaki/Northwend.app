@@ -1237,8 +1237,10 @@ def unlink_client(conn: sqlite3.Connection, advisor_id: int, client_id: int) -> 
     cur = conn.execute("DELETE FROM advisor_clients WHERE advisor_id = ? AND client_id = ?",
                        (advisor_id, client_id))
     if cur.rowcount:
+        import advisor_pack
         import consent
         consent.revoke(conn, client_id, advisor_id, "admin", commit=False)
+        advisor_pack.on_unlink(conn, client_id, advisor_id, "admin")
     conn.commit()
 
 

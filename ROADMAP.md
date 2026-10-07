@@ -1652,6 +1652,26 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         and their pick is never saved; an advisor's client signed in doesn't get it.
         Privacy text (both), the security draft and disclosures say so.
         `tests/test_pay_yourself.py`
+  - [x] The Fact Sheet Decoder (R6, fact sheets only), flag `decoder_factsheet` (L0 +
+        flag; L3 review as for R5) - done Oct 6: `factsheet_decoder.py`,
+        `views/factsheet_decoder.py`, a card beside the Free money check (Plan's
+        Contributions tab, Learn's ready step). Paste a fund fact sheet's text (no PDF
+        upload yet: no PDF reader in requirements.txt - pypdf would be a new pinned
+        dependency, the owner's call); read locally, no AI. Rows in a fixed order,
+        each "as the fact sheet states it" with a "what this means" line: name,
+        ticker(s), expense ratio (net before gross; the gross shown beside it), index
+        or active (the sheet's words, else its name), asset class (the sheet's category
+        with the Menu Decoder's kinds), share in the top holdings, number of holdings,
+        inception date, benchmark; "couldn't find" rows otherwise. Fee in dollars per
+        $10,000 and on a year of the monthly amount typed (`menu_decoder.yearly_dollars`).
+        Never rates, ranks or says should/best/cheap (tested). Statement guard: an
+        account number, an account value or balance, or a name-and-address block stops
+        it before anything is read - a calm "statements aren't read yet", the box
+        cleared, nothing kept (tested on the page and in the database). Nothing saved,
+        not even counts. Signed in only (no `?decode=` version). Not built: statements
+        (until local redaction is proven), a PDF reader, the AI button (classify kinds
+        via the gateway, counted with `_ai_status`/`_ai_record`; ZDR is the owner's
+        question). `tests/test_factsheet_decoder.py`
 - [x] **Alongside, any time** (PLAN "Alongside, any time")
   - [x] A status page (G7) - done Oct 6: northwend.app/status, hand-edited in
         `website/build.py` (`STATUS_NOW`, `STATUS_UPDATED`, `NOTICES`); "All systems
@@ -1728,7 +1748,8 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         person's own words)
   - [ ] "This month's world, for your mix" (L3 review: past facts only,
         hand-written and reviewed, never a forecast) - last of the four
-- **Phase C2 - "Bring to my advisor"** (see below).
+- **Phase C2 - "Bring to my advisor"** (see below): [x] built Oct 6, flag
+  `advisor_pack` (`advisor_pack.py`, table `advisor_pack`); the intro version waits on L2.
 - **Phase D - Step 7 helpers, rules first** (`docs/AI_PLAN.md` section 9):
   - [x] As rules: Home summary, Log line, storm narrator, glossary, the plan
         PDF's next steps (today's closest thing to a conclusion; becomes
@@ -1743,6 +1764,8 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         review before it's on anywhere but staging (see Step 9)
   - [ ] R6 Statement and fact-sheet decoder (privacy: fact sheets first;
         statements only after local redaction is proven; zero data retention)
+        -> fact sheets built Oct 6 (flag `decoder_factsheet`, paste only, no AI);
+        statements not yet, so this stays open
 - **Phase F - tier 3, explore:** R13 Teach It Back (grades understanding,
   never money choices); R14 Shadow Trail (hypothetical, labelled, kinds of
   funds only, changed at most quarterly; L3 review); R16 Client-Owned Book
@@ -1788,18 +1811,31 @@ A pack the client builds for a first review (or any review). Today a
 person's own reflections are private from their advisor (`future_notes.py`,
 `views/kit.py`); this keeps that, and adds a choice.
 
-- [ ] The client ticks what goes in, each off by default: the R10 one-pager;
+- [x] The client ticks what goes in, each off by default: the R10 one-pager;
       "I'm on a fork" (which fork only, never what they typed); the R12
       readiness map (rehearsed or not, never their answers); a storm drill
       note or Sealed Envelope (one at a time); the R9 "places I've looked"
-      ticks; questions they want to ask.
-- [ ] Meeting prep (`meeting.py`) and the advisor's new-client view read only
+      ticks; questions they want to ask. Oct 6: on Account for a client
+      signed in as themselves (never client mode or an admin); one tick per
+      fork; the storm drill answer is one item (the envelope is the same
+      words); questions from a fixed list of nine (no free text); the first
+      share records `consent.grant(scope="advisor_pack", how="pack_choice")`
+      with the exact words; unticking the last one is a revoke.
+- [x] Meeting prep (`meeting.py`) and the advisor's new-client view read only
       what's ticked; unticking removes it at once; each view goes in the
-      access log.
+      access log. Oct 6: "What <client> chose to bring" over meeting prep on
+      Advisor notes, closed until opened; each opening is an access-log row
+      (page `advisor_pack`); "Shared by <client> on <date>; client-reported";
+      never in the AI's facts. Records: the advisor keeps nothing live - on
+      any end of the link the rows go and a revoke is written; only the
+      dated consent records stay (record-keeping question in LEGAL_GATES).
 - [ ] Through an intro (L2), the pack can go with the request, beside the
-      figure-free outline `intros.outline` already sends.
-- [ ] The advisor's side of R7: a seasonal review calendar that matches what
-      clients see (education; a note, never a sales prompt).
+      figure-free outline `intros.outline` already sends. (Oct 6: not built -
+      it needs the intro request to carry the items; waits on L2.)
+- [x] The advisor's side of R7: a seasonal review calendar that matches what
+      clients see (education; a note, never a sales prompt). Oct 6: "This
+      season for your clients" in Your clients (`advisor_pack.season_note`,
+      `seasons.season_of`), behind the same flag.
 
 **Legal:** sharing reflections is wider than today's full-sharing consent, so
 it gets its own consent words recorded like `consent.grant`; what an advisor
@@ -2010,6 +2046,8 @@ come back, and it leads straight into the Walk (R1).
 **Mitigation:** fact sheets first (public documents, no personal data);
 statements only once local redaction is proven by tests. Opt-in, like
 screenshots today.
+-> fact sheets built (statements not yet) - Oct 6, flag `decoder_factsheet`: see
+Step 9 above.
 
 ### R7. The Four Seasons - M (content-heavy)
 **User problem:** "look at your balance" is a bad reason to open a finance

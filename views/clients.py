@@ -994,6 +994,9 @@ def _render_clients():
         _summary = advising.weekly_summary(rows)
         with st.expander(":material/event_upcoming: This week", expanded=_summary["any"]):
             _render_week_summary(_summary, where="clients")
+        # what clients are reading this season (views/advisor_pack.py; R7)
+        if flags.on("advisor_pack"):
+            render_pack_season_note(today)
 
         st.html(_stat_row(
                 "<div class='pt-stats' role='list' aria-label='Client summary'>"

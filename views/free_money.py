@@ -149,7 +149,7 @@ def open_free_money_window():
 def render_free_money_card(where):
     """The one-line card that opens the window: `where` is "learn" or "plan"
     (the button's key). With flag decoder_401k on, the 401(k) Menu Decoder's
-    card follows it."""
+    card follows it, and with decoder_factsheet the Fact Sheet Decoder's."""
     with st.container(border=True, horizontal=True, vertical_alignment="center",
                       key=f"pt_free_money_{where}"):
         st.markdown(":material/redeem: **Free money check** - what your employer's 401(k) "
@@ -159,3 +159,5 @@ def render_free_money_card(where):
             open_free_money_window()
     if flags.on("decoder_401k"):
         render_decoder_card(where)   # the 401(k) Menu Decoder (views/menu_decoder.py)
+    if flags.on("decoder_factsheet"):
+        render_factsheet_card(where)   # the Fact Sheet Decoder (views/factsheet_decoder.py)

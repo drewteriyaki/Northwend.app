@@ -110,6 +110,14 @@ FEATURES = {
     # only after step 4's hosting move (Render behind Cloudflare, so the limit
     # sees each visitor's real address - CLIENT_IP_HEADER). Staging may have it on.
     "decoder_public": {"gates": ("L0",), "view": "decoder_public"},
+    # The Fact Sheet Decoder (ROADMAP R6, fact sheets first; factsheet_decoder.py):
+    # paste a fund fact sheet's text, see its name, ticker, fee, kind, holdings,
+    # inception and benchmark in plain words - descriptive, no AI, nothing saved
+    # (LEGAL_GATES.md section 6: L0 + flag; L3 looks at it, as for R5).
+    # Statements are never read: text that looks like one is stopped and
+    # cleared. Signed in only; its card follows the Free money check's (views/
+    # free_money.py checks on("decoder_factsheet")).
+    "decoder_factsheet": {"gates": (), "view": "factsheet_decoder"},
     # Lost & Found (ROADMAP R9, lost_found.py): where to look for old 401(k)s,
     # unclaimed property, old HSAs, FSAs and IRAs and savings bonds (official
     # links only), an old 401(k)'s common choices side by side with questions
@@ -205,6 +213,19 @@ FEATURES = {
     # views/clients.py check on("intros")). Gate L2: its copy and the consent
     # text are the lawyer's. Off, the button says introductions open soon.
     "intros": {"gates": ("L2",), "view": "intros"},
+    # Bring to my advisor (ROADMAP Phase C2, advisor_pack.py, views/advisor_pack.py):
+    # a client signed in as themselves ticks, on Account, what of their own
+    # (the plan in plain words, a fork's name, the readiness map, the storm
+    # drill answer, places looked, questions from a fixed list) their advisor
+    # may see - all off by default, its own consent words (consent scope
+    # advisor_pack). The advisor reads only the ticked items, dated and
+    # client-reported, in "What <client> chose to bring" over meeting prep
+    # (each opening goes in the access log), and gets "This season for your
+    # clients" in their book (R7's advisor side, education only). An Advisor
+    # tool for existing advisor-client links: no gate. Never drawn for an
+    # advisor in client mode or an admin; the intro version (with an intro
+    # request) isn't built - that would sit behind `intros` and L2.
+    "advisor_pack": {"gates": (), "view": "advisor_pack"},
     # The plain-words read of the mix on Home (PLAN step 7, docs/AI_PLAN.md
     # section 9 row 1; allocation.summary_words): one line under Allocation
     # from fixed templates - shares, counts, the largest holding's share. No

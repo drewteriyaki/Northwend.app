@@ -93,6 +93,9 @@ account, contact us and we will delete it.
   last sent, and which season, month or week a line in it was last about.
 - Where Pay yourself is offered, if you pick a rule of thumb there: which rule
   you picked - never an amount. Only you see it.
+- Where Bring to my advisor is offered, if you have an advisor and use it:
+  which items you chose to show them and the day you shared each one - a fixed
+  list, nothing you type. Gone when you untick them or the relationship ends.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -121,6 +124,9 @@ mode work without any.
 - Pasted text is read by the app itself (not by AI) and isn't saved; only symbols,
   share counts, cost and cash are taken from it. A fund list pasted into the
   401(k) menu decoder isn't saved at all - it stays in your current visit only.
+- A fund fact sheet you have the app read (where that's offered) is read in
+  memory by the app itself (not by AI) and not kept. Account statements aren't
+  read there: text that looks like one is cleared without being read.
 - Screenshots you choose to have read (where that's offered) are not saved.
 - Your brokerage username and password: Northwend never asks for them.
 - Your AI chat messages are kept only for your current visit (in the app's
@@ -195,7 +201,8 @@ Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
 list, your Trail Forks, your preparedness drills and the rule of thumb you
 picked on Pay yourself, which only you see (the account map is never emailed, and its PDF is only
-downloaded by you);
+downloaded by you) - unless you choose to bring some of them to your advisor
+(below);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
 
@@ -206,6 +213,19 @@ Their answer is seen only by you. Sharing your full account with them is a
 separate choice you make afterwards, in two steps that say exactly what they
 would see; only then do they see your account as described above, including the
 name and email on it. [LAWYER: the two-step consent text, `intros.SHARE_LINES`.]
+
+**Bring to my advisor.** Where it's offered, a client can choose things that
+are otherwise only theirs to show their advisor before a review: their plan in
+plain words (percentages and words, no amounts), the names of the Trail Forks
+they're on (never the steps they ticked), their readiness map (which drills
+they've rehearsed, never what they tapped), their storm drill answer in their
+own words, the places they've looked for money left behind, and questions
+picked from a fixed list. Everything starts unticked; the first time, we show
+the words you're agreeing to and keep a record of them. Your advisor sees only
+what's ticked, as it is when they look, dated and marked as shared by you, and
+each time they open it is listed with their other visits. Unticking takes an
+item out of their view at once; it all goes when the relationship ends. What
+your advisor writes down from it is part of their own records.
 
 **Share links ("Explain it to someone").** Where it's offered, you can make a
 private link to show a partner or family member your plan in plain words.

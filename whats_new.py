@@ -44,6 +44,29 @@ ENTRIES = [
                   "and not advice - with questions to ask a licensed professional about "
                   "retirement income.", "flag": "pay_yourself"},
      ]},
+    {"date": "2026-10-06", "title": "Bring to my advisor",
+     "items": [
+         {"text": "If you work with an advisor, Bring to my advisor on the Account page lets "
+                  "you choose things that are otherwise only yours to show them before a "
+                  "review: your plan in plain words, the forks you're on (just their names), "
+                  "your readiness map, your storm drill answer, the places you've looked, and "
+                  "questions you'd like to ask. Everything starts unticked, you're asked once "
+                  "before anything is shared, and unticking takes it out of their view at "
+                  "once.", "flag": "advisor_pack"},
+         {"text": "Advisors see only what a client ticked, dated and marked as shared by the "
+                  "client, and a short note on what clients are reading this season.",
+          "flag": "advisor_pack"},
+     ]},
+    {"date": "2026-10-06", "title": "Read a fund fact sheet",
+     "items": [
+         {"text": "Read a fund fact sheet: paste the text of a fund's fact sheet and see, in "
+                  "plain words, what the fund is, what it charges each year (in dollars too, "
+                  "at what you put in each month), whether it follows an index, what it "
+                  "holds and when it started - with a line on what each one means. Nothing "
+                  "you paste is kept, and no AI reads it. It's beside the Free money check "
+                  "on Plan. Fact sheets only for now: account statements aren't read.",
+          "flag": "decoder_factsheet"},
+     ]},
     {"date": "2026-10-06", "title": "Find a guide: how advisors are paid",
      "items": [
          {"text": "Find a guide now explains, in plain words, the usual ways advisors are paid "

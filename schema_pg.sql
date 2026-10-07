@@ -692,3 +692,11 @@ CREATE TABLE IF NOT EXISTS price_reports (
     created_at   TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_price_reports_user ON price_reports (user_id, created_at);
+CREATE TABLE IF NOT EXISTS advisor_pack (
+    id          SERIAL  PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    advisor_id  INTEGER NOT NULL,
+    item        TEXT    NOT NULL,
+    shared_on   TEXT    NOT NULL,
+    UNIQUE (user_id, advisor_id, item)
+);

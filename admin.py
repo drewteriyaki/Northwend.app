@@ -17,6 +17,7 @@ import secrets
 from collections.abc import Iterable
 from datetime import datetime, timezone
 
+import advisor_pack
 import auth
 import consent
 import settings
@@ -47,6 +48,9 @@ ACCOUNT_TABLES = {
     # Explain it to someone's share links (explain_share.py): the owner's own
     "share_links": ("user_id",),
     "price_reports": ("user_id",),   # "Price look wrong?" notes (price_report.py)
+    # Bring to my advisor (advisor_pack.py): what a client chose to show
+    # their advisor - gone with either account
+    "advisor_pack": ("user_id", "advisor_id"),
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)
@@ -300,6 +304,9 @@ def delete_account(conn, user_id: int, *, by: int,
         for link in links:
             consent.revoke(conn, link["client_id"], link["advisor_id"], "account_deleted",
                            commit=False)
+            # and Bring to my advisor's sharing, when it was in force (advisor_pack.py)
+            advisor_pack.on_unlink(conn, link["client_id"], link["advisor_id"],
+                                   "account_deleted")
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
             params = (user_id,) * len(cols)

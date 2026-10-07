@@ -124,6 +124,12 @@ Each statement about data here must stay true to the code:
   reads security_info only. Its optional overlap button fetches the identified
   funds' public top holdings like Home's Fund overlap (fund_top_holdings,
   shared market data, no user id).
+- Fact Sheet Decoder (factsheet_decoder.py, views/factsheet_decoder.py, flag
+  decoder_factsheet): the pasted fact sheet text and its table live only in
+  the session (st.session_state), never written to the database, logs or the
+  AI; nothing is fetched and no prefs are written. Text that looks like a
+  statement (factsheet_decoder.looks_like_statement) is not read: the result
+  holds only which kinds of signs were seen, and the box is cleared.
 - Export everything (export.py): the account's own rows as CSV; never password
   hashes, tokens, IP hashes, private advisor notes or other accounts' data.
 - Admin portal (admin.py, views/admin.py): logins only - username, email,
@@ -248,6 +254,27 @@ Each statement about data here must stay true to the code:
   saved and the client's pick is never read for them; an advisor's client
   signed in doesn't get the tab. Never sent to the AI. In the person's own
   export (settings).
+- Bring to my advisor (advisor_pack.py, views/advisor_pack.py, flag
+  advisor_pack): on Account, a client signed in as themselves (never an
+  advisor in a client's account, never an admin - advisor_pack.advisor_for)
+  ticks items to show their advisor, all off by default: the plan in plain
+  words (explain_share.page's content, no figures), a Trail Fork's name (never
+  its ticks), the readiness map (rehearsed or not, never a tap), the Storm
+  Drill answer (their own words), the Lost & Found statuses, and questions
+  from a fixed list (no free text). Table advisor_pack: one row per ticked
+  item - a fixed key and the day; unticking deletes it at once. The first
+  share records a consent grant (scope advisor_pack, how pack_choice) with
+  advisor_pack.CONSENT word for word and its SHA-256; unticking the last item,
+  "Stop sharing", the relationship ending, an admin's unlink or a deleted
+  account write a revoke and delete the rows (advisor_pack.on_unlink). The
+  advisor reads only ticked items through advisor_pack.for_advisor (can_view,
+  their own link, consent in force), on a card over meeting prep that is
+  closed until opened; each opening is an advisor_access_log row (page
+  advisor_pack). The advisor keeps nothing live after an exit - only the dated
+  consent records in their client record. Never sent to the AI. Deleted with
+  either account; in the client's export (brought_to_your_advisor, without
+  the advisor's id). The advisor's book also shows "This season for your
+  clients" (seasons.season_of; education topics only).
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -382,6 +409,9 @@ to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
 their account map, their Lost & Found list, their Trail Forks, their preparedness drills
 and the rule of thumb they picked on Pay yourself.
+Where Bring to my advisor is offered, a client can choose to show you some of
+those: you then see only what they tick, dated and marked as shared by them,
+and it leaves your view when they untick it or the relationship ends.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
@@ -390,7 +420,7 @@ and the rule of thumb they picked on Pay yourself.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
@@ -413,7 +443,10 @@ and the rule of thumb they picked on Pay yourself.
   cut to its last 3 digits before it's saved. Pasted text is read by the app
   itself (not by AI) and isn't saved; only symbols, share counts, cost and cash
   are taken from it. Screenshots, where they can be read, aren't saved either.
-  A fund list pasted into the 401(k) menu decoder isn't saved at all.
+  A fund list pasted into the 401(k) menu decoder isn't saved at all, and nor
+  is a fund fact sheet you have the app read, where that's offered: it's read
+  in memory by the app itself (not by AI) and not kept. Account statements
+  aren't read there - text that looks like one is cleared without being read.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
@@ -421,7 +454,10 @@ and the rule of thumb they picked on Pay yourself.
   username or password, and never connects to your brokerage. It only reads
   what you choose to paste, upload, type in or photograph.
 - **Who can see it:** you, and - if your account is managed by an advisor -
-  that advisor. Where introductions are offered, an advisor you write to from
+  that advisor. Your notes to future you, monthly walks, account map, Lost &
+  Found list, Trail Forks and drills stay yours alone unless, where Bring to my
+  advisor is offered, you tick some of them to show your advisor; unticking
+  takes them out of their view at once. Where introductions are offered, an advisor you write to from
   Find a guide sees only the name you give, your message and the parts you
   choose to include (your mix by asset class in percents, goals, a timeline
   range, where you are on the route) - never amounts, holdings or your email -

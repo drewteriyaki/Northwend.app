@@ -94,7 +94,9 @@ def _render_drill_map(p):
         st.html(f"<div class='pt-region'>{n} of {len(drills.KEYS)} situations rehearsed</div>"
                 + _drill_map_html(p))
         st.caption("Each situation you've thought through once is marked. There's no "
-                   "order to finish them in, and no hurry. Only you can see it.")
+                   "order to finish them in, and no hurry. Only you can see it"
+                   + (" - unless you choose to bring it to your advisor (Account)."
+                      if IS_MANAGED_CLIENT and flags.on("advisor_pack") else "."))
 
 
 def render_drill_card():

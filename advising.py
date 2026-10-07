@@ -380,6 +380,7 @@ def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
     "client_email", "setup_token" (for the email, "setup link" only)}. Sends
     nothing: the caller emails both sides."""
     import admin
+    import advisor_pack
     import auth
     import consent
 
@@ -406,6 +407,10 @@ def end_relationship(conn, advisor_id: int, client_id: int, *, by: str,
         consent.revoke(conn, client_id, advisor_id,
                        "client_stop" if by == "client" else "advisor_end",
                        text_shown=text_shown, now=now, commit=False)
+        # Bring to my advisor (advisor_pack.py): what the client chose to show
+        # goes with it - the advisor keeps nothing of it live
+        advisor_pack.on_unlink(conn, client_id, advisor_id,
+                               "client_stop" if by == "client" else "advisor_end", now=now)
         conn.commit()
     except Exception:
         conn.rollback()

@@ -43,7 +43,8 @@ northwend-licence-check = "cli:licence_check"
 
 [tool.setuptools]
 py-modules = [
-    "accounts", "admin", "advising", "advisor", "advisor_demo", "ai_gateway", "ai_spend",
+    "accounts", "admin", "advising", "advisor", "advisor_demo", "advisor_pack", "ai_gateway",
+    "ai_spend",
     "ai_usage", "alerts", "whats_new",
     "allocation", "asset_classes", "auth", "brokerages", "changes", "charts", "checkin",
     "checkin_email", "cli", "client_csv", "client_plan", "codefresh", "context_card",
@@ -61,6 +62,7 @@ py-modules = [
     "stress", "next_deposit", "cash_check", "employer_match",
     "menu_decoder",   # the 401(k) Menu Decoder (ROADMAP R5)
     "decoder_public",   # ...and without an account (?decode=401k)
+    "factsheet_decoder",   # the Fact Sheet Decoder (ROADMAP R6, fact sheets only)
     # year in review and the account map
     "recap", "account_map",
     "lost_found",   # Lost & Found: finding old accounts (ROADMAP R9)

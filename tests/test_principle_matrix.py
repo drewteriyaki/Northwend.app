@@ -37,6 +37,7 @@ import admin  # noqa: E402
 import advising  # noqa: E402
 import advisor  # noqa: E402
 import advisor_agreement  # noqa: E402
+import advisor_pack  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
 import directory  # noqa: E402
@@ -146,12 +147,16 @@ MATRIX = {
                         "consent.grant", "consent.revoke", "advising.end_relationship",
                         "auth.unlink_client", "export.collect"),
     "advisor_access_log": ("access_log.for_client", "access_log.record", "export.collect"),
+    # Bring to my advisor (advisor_pack.py): the client's ticks, their advisor's read
+    "advisor_pack": ("advisor_pack.shared", "advisor_pack.consented", "advisor_pack.for_advisor",
+                     "advisor_pack.start", "advisor_pack.tick", "advisor_pack.stop",
+                     "advisor_pack.on_unlink", "export.collect"),
 }
 # every table the matrix must cover
 ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
-                                    advisor_agreement, ai_usage, auth, consent, directory,
+                                    advisor_agreement, advisor_pack, ai_usage, auth, consent, directory,
                                     explain_share, export, future_notes, intros, licence_check, perf, plans,
                                     portfolio, prefs, price_report, proposals, reports, txn_import,
                                     two_step, watchlist)}
@@ -275,6 +280,9 @@ class IsolationMatrix(unittest.TestCase):
         auth.create_invite(c, a, cid)
         consent.grant(c, cid, a, f"{tag} shares with their advisor", "setup_link")
         access_log.record(c, a, cid, "Dashboard")
+        # Bring to my advisor (advisor_pack.py): the client ticked two items
+        advisor_pack.start(c, cid, ["one_pager", "q:fees"], by=cid,
+                           text_shown=f"{tag} pack words")
         advising.add_note(c, cid, a, "Next step", f"{tag} step", "2026-09-01")
         advising.add_note(c, cid, a, "Note", f"{tag} private", "2026-09-02", private=True)
         notes = advising.list_notes(c, cid, include_private=True, advisor_id=a)
@@ -691,6 +699,30 @@ class IsolationMatrix(unittest.TestCase):
         self.assertEqual(access_log.for_client(c, dana, self.omar), [])
         access_log.record(c, carol, dana, "Plan")
         self.clean(export.collect(c, dana).get("advisor_visits"))
+
+    def check_advisor_pack(self):
+        c, carol, dana, zed = self.c, self.carol, self.dana, self.zed
+        # another advisor's client: nothing to read, nothing to change
+        self.assertEqual(advisor_pack.shared(c, zed, carol), {})
+        self.assertFalse(advisor_pack.consented(c, zed, carol))
+        with self.assertRaises(PermissionError):
+            advisor_pack.for_advisor(c, carol, zed)
+        with self.assertRaises(PermissionError):
+            advisor_pack.for_advisor(c, self.omar, dana)
+        for attempt in (lambda: advisor_pack.start(c, zed, ["q:fees"], by=dana, text_shown="x"),
+                        lambda: advisor_pack.tick(c, zed, "q:fees", False, by=dana),
+                        lambda: advisor_pack.stop(c, zed, by=carol)):
+            with self.assertRaises(PermissionError):
+                attempt()
+        advisor_pack.on_unlink(c, dana, self.omar, "admin")   # no such pair: nothing
+        # A's own (earlier checks on this copy may have ended carol and dana already)
+        self.clean(advisor_pack.shared(c, dana, carol))
+        self.clean(export.collect(c, dana).get("brought_to_your_advisor"))
+        if advisor_pack.advisor_for(c, dana, dana) == carol:
+            self.clean(advisor_pack.for_advisor(c, carol, dana))
+            advisor_pack.tick(c, dana, "q:fees", False, by=dana)
+            advisor_pack.stop(c, dana, by=dana)
+        self.assertEqual(advisor_pack.shared(c, dana, carol), {})
 
     def check_account_map(self):
         c, a = self.c, self.alice

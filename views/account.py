@@ -287,7 +287,10 @@ _CONSENT_HOW = {"setup_link": "when you set up your login from their link",
                 "admin": "ended by Northwend support",
                 "account_deleted": "an account was closed",
                 "migration": "from before these records were kept",
-                "sign_in_ask": "when we asked you once, at sign-in"}
+                "sign_in_ask": "when we asked you once, at sign-in",
+                "pack_choice": "your choice in Bring to my advisor"}
+# access log pages that aren't one of PAGES (advisor_pack.ACCESS_PAGE)
+_ACCESS_PAGES = {"advisor_pack": "What you chose to bring"}
 
 
 def _render_who_looked():
@@ -316,7 +319,8 @@ def _render_who_looked():
     if seen:
         st.dataframe(pd.DataFrame([{"When": _fmt_when(r["at"]),
                                     "Who": who(r["advisor_id"], r["advisor"]),
-                                    "Page": _label(r["page"])} for r in seen]),
+                                    "Page": _ACCESS_PAGES.get(r["page"], _label(r["page"]))}
+                                   for r in seen]),
                      hide_index=True, width="stretch", height=min(36 * (len(seen) + 1) + 2, 320))
     else:
         st.caption(f"No advisor has opened your account in the last {access_log.SHOWN_DAYS} "
@@ -324,8 +328,10 @@ def _render_who_looked():
     if shared:
         with st.expander("Your sharing record"):
             for r in shared:
-                verb = ("You agreed to share your account with" if r["kind"] == "grant"
-                        else "Sharing ended with")
+                pack = r["scope"] == consent.ADVISOR_PACK   # Bring to my advisor
+                verb = (("You chose things to bring to" if pack else
+                         "You agreed to share your account with") if r["kind"] == "grant"
+                        else "Bring to my advisor ended with" if pack else "Sharing ended with")
                 st.markdown(f"**{_fmt_date(r['at'])}** · {verb} "
                             f"{_md_name(who(r['advisor_id'], r['advisor']))} "
                             f"({_CONSENT_HOW.get(r['how'], r['how'])})")
@@ -497,6 +503,9 @@ def _render_account():
     # ---- Explain it to someone: a figure-free share link (views/explain_share.py) #
     if flags.on("explain_share"):
         render_explain_share()
+    # ---- Bring to my advisor: a client's own choices (views/advisor_pack.py) - #
+    if flags.on("advisor_pack"):
+        render_advisor_pack()
 
     # ---- delete the account ------------------------------------------------ #
     st.subheader("Delete your account", anchor=False)
