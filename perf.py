@@ -483,6 +483,46 @@ def adjusted_closes(db, tickers, since: str) -> dict[str, list[tuple[str, float]
     return out
 
 
+def full_adjusted_closes(db, tickers) -> dict[str, list[tuple[str, float]]]:
+    """{ticker: [(date, price)]} - every kept day, oldest first: the adjusted
+    close (dividends included), else the close (the practice portfolio on
+    Learn). One query per ticker, in the order given; dates as stored.
+    `db` may be a path or an open connection (see _open)."""
+    out = {}
+    with _open(db) as conn:
+        for t in tickers:
+            out[t] = [(r["date"], float(r["adj_close"] if r["adj_close"] is not None
+                                        else r["close"]))
+                      for r in conn.execute(
+                          "SELECT date, adj_close, close FROM daily_bars WHERE ticker = ? "
+                          "AND COALESCE(adj_close, close) IS NOT NULL ORDER BY date", (t,))]
+    return out
+
+
+def closes_since(db, tickers, since: str) -> list:
+    """Rows (ticker, date, close) from daily_bars on or after `since`, by
+    ticker then date, closes only (the storm note's falls) - one query.
+    `db` may be a path or an open connection (see _open)."""
+    tickers = tuple(tickers)
+    if not tickers:
+        return []
+    with _open(db) as conn:
+        return conn.execute(
+            f"SELECT ticker, date, close FROM daily_bars WHERE ticker IN "
+            f"({', '.join('?' for _ in tickers)}) AND date >= ? AND close IS NOT NULL "
+            "ORDER BY ticker, date", (*tickers, since)).fetchall()
+
+
+def logged_values(db, user_id: int) -> list[tuple[str, float]]:
+    """[(logged_at, portfolio_value)] of this account's value log, rows with
+    a value only, as stored (milestones: a storm weathered).
+    `db` may be a path or an open connection (see _open)."""
+    with _open(db) as conn:
+        return [(r["logged_at"], r["portfolio_value"]) for r in conn.execute(
+            "SELECT logged_at, portfolio_value FROM value_log WHERE user_id = ? AND "
+            "portfolio_value IS NOT NULL", (user_id,))]
+
+
 def has_bars(db_path: str) -> bool:
     conn = connect(db_path)
     try:

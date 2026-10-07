@@ -14,6 +14,7 @@ import flags
 import gear
 import storms
 import teach_back
+import txn_import
 
 
 def _gear_facts(value):
@@ -35,12 +36,8 @@ def _read_gear_facts(value):
     try:
         added = [m["date"] for m in plans.money_moves(c, USER_ID)
                  if m["counted"] and m["amount"] > 0]
-        values = [(r["logged_at"], r["portfolio_value"]) for r in c.execute(
-            "SELECT logged_at, portfolio_value FROM value_log WHERE user_id = ? AND "
-            "portfolio_value IS NOT NULL", (USER_ID,))]
-        sells = [r["trade_date"] for r in c.execute(
-            "SELECT trade_date FROM transactions WHERE user_id = ? AND action = 'SELL'",
-            (USER_ID,))]
+        values = perf.logged_values(c, USER_ID)
+        sells = txn_import.sell_dates(c, USER_ID)
     finally:
         c.close()
     return {"profile_done": state["done"]["profile"], "goal_set": state["done"]["goal"],

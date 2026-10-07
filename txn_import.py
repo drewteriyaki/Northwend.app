@@ -331,6 +331,21 @@ def row_keys(rows: list[dict]) -> list[str]:
     return keys
 
 
+def all_for(conn, user_id: int) -> list[dict]:
+    """Every transaction of this account, imported and worked out, newest
+    first (the Activity page), one query."""
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM transactions WHERE user_id = ? ORDER BY trade_date DESC, id DESC",
+        (user_id,))]
+
+
+def sell_dates(conn, user_id: int) -> list:
+    """The trade date of every SELL in this account's activity."""
+    return [r["trade_date"] for r in conn.execute(
+        "SELECT trade_date FROM transactions WHERE user_id = ? AND action = 'SELL'",
+        (user_id,))]
+
+
 def covered(conn, user_id: int) -> dict[str, str]:
     """{account: the last date its imported history covers}."""
     return {r["account"]: r["d"] for r in conn.execute(

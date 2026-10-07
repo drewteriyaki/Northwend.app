@@ -506,10 +506,8 @@ def _render_system(c):
     """Developer facts about this copy of the app - never a secret's value."""
     from manage_users import where
     sha = hosting.version(HERE)
-    last_price = c.execute("SELECT MAX(fetched_at) AS t FROM price_history").fetchone()["t"]
-    last_bar = c.execute("SELECT MAX(date) AS d FROM daily_bars").fetchone()["d"]
-    flagged = [r["username"] for r in c.execute(
-        "SELECT username FROM users WHERE is_admin = 1 ORDER BY username")]
+    last_price, last_bar = admin.data_freshness(c)
+    flagged = admin.flagged_admins(c)
     listed = sorted(admin.listed_admins())
     admins = [x for x in (", ".join(flagged) + " (make-admin)" if flagged else "",
                           ", ".join(listed) + " (NORTHWEND_ADMINS)" if listed else "") if x]
@@ -570,10 +568,7 @@ def _render_admin():
         accounts = admin.list_accounts(c)
         requests = auth.pending_advisor_requests(c)
         licence_due = licence_check.due(c)   # advisors whose check is old or missing (D15)
-        usage = c.execute("SELECT u.username, a.kind, a.used, a.cost_micro FROM ai_usage a "
-                          "JOIN users u "
-                          "ON u.id = a.user_id WHERE a.month = ? ORDER BY u.username, a.kind",
-                          (ai_usage.month_of(),)).fetchall()
+        usage = ai_usage.month_rows(c, ai_usage.month_of())
         spend = ai_spend.summary(c)   # the app-wide month total, counts only
     finally:
         c.close()

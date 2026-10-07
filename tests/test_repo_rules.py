@@ -135,22 +135,12 @@ class LayerRuleTests(unittest.TestCase):
                         todo.append(nxt)
 
 
-# SQL in views/ (the brief's "no SQL in pages"): what's there today, per file -
-# the number of string literals holding a SQL statement. It may only shrink:
-# a view that gains SQL fails, and so does one that lost some until its number
-# here is lowered. New reads and writes go in a module (with a test) that the
-# view calls.
-VIEW_SQL_ALLOWED = {
-    "account.py": 2,
-    "account_map.py": 1,
-    "activity.py": 1,
-    "admin.py": 4,
-    "clients.py": 5,
-    "future_notes.py": 1,
-    "get_started.py": 1,
-    "holdings_input.py": 1,
-    "kit.py": 2,
-}
+# SQL in views/ (the brief's "no SQL in pages"): every view's reads and writes
+# are module functions with their own tests (Step 8 Phase 3, Oct 8 - the last
+# ones moved then), so no view may hold a SQL statement - the number of string
+# literals holding one. Keep it empty: a view that gains SQL fails; put the
+# new read or write in the module that owns its table and call that.
+VIEW_SQL_ALLOWED: dict[str, int] = {}
 SQL_RE = re.compile(r"\b(SELECT\b.*\bFROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|"
                     r"CREATE\s+(UNIQUE\s+)?(TABLE|INDEX)|ALTER\s+TABLE|DROP\s+(TABLE|INDEX))\b",
                     re.S)

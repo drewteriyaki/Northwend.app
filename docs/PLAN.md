@@ -640,7 +640,8 @@ out).** Don't build FastAPI now. Nothing needs an API; a second way in
 means a second sign-in system, CSRF, CORS and every access check written
 again. Rough cost: 4-6 weeks plus upkeep. Instead:
 1. When a view is touched, move its SQL into a module function with a test
-   (the allowlist from step 1 shrinks).
+   (the allowlist from step 1 shrinks). Done Oct 8: no SQL is left in
+   `views/` and the allowlist (`VIEW_SQL_ALLOWED`) is empty.
 2. Keep calculation modules free of Streamlit (the step 1 test).
 3. If billing uses option B, that service stays one route that writes seat
    status only.

@@ -159,10 +159,7 @@ def _storm_falls(symbols, since):
         return {}
     c = connect(DB)
     try:
-        rows = c.execute(
-            f"SELECT ticker, date, close FROM daily_bars WHERE ticker IN "
-            f"({', '.join('?' for _ in symbols)}) AND date >= ? AND close IS NOT NULL "
-            "ORDER BY ticker, date", (*symbols, since)).fetchall()
+        rows = perf.closes_since(c, symbols, since)
     finally:
         c.close()
     out, high, last = {}, {}, {}

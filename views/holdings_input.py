@@ -1039,9 +1039,7 @@ def _import_txn_file(rows, source_name):
     conn = connect(DB)
     try:
         known = txn_import.remembered(conn, header)
-        existing = [r["account"] for r in conn.execute(
-            "SELECT DISTINCT account FROM positions WHERE user_id = ? ORDER BY account",
-            (USER_ID,))]
+        existing = accounts.held(conn, USER_ID)
     finally:
         conn.close()
     st.markdown(":material/receipt_long: This is your **activity history** - buys, sells, "

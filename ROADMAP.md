@@ -1559,6 +1559,8 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         then dropped
   - [ ] Still to do: the document decoder and the grader (AI_PLAN section 9)
 - [ ] **Step 8 - Service seams** (no new frontend now)
+  - [x] No SQL left in views/ (Oct 8) - moved to module functions with tests;
+        VIEW_SQL_ALLOWED is empty
 - [ ] **Step 9 - Ritual R6-R12**
   - [x] Lost & Found (R9), flag `lost_found` (no gate: education) - done Oct 6:
         `lost_found.py`, `views/lost_found.py`, under the account map on Account (it

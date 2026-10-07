@@ -355,14 +355,11 @@ def _acct_facts(c):
     if gate is not None and gate[1] is not None:
         state, row = gate
     else:
-        row = c.execute("SELECT username, email, email_verified_at, display_name, created_at, "
-                        "last_login_at FROM users WHERE id = ?", (LOGIN_ID,)).fetchone()
+        row = auth.account_row(c, LOGIN_ID)
         state = two_step.status(c, LOGIN_ID)
     me = {k: row[k] for k in ("username", "email", "email_verified_at", "display_name",
                               "created_at", "last_login_at")}
-    sessions = c.execute("SELECT COUNT(*) AS n FROM login_sessions WHERE user_id = ? AND "
-                         "expires_at > ?", (LOGIN_ID, datetime.now(timezone.utc)
-                                            .strftime("%Y-%m-%d %H:%M:%S"))).fetchone()["n"]
+    sessions = auth.live_sessions(c, LOGIN_ID)
     advisor_id = advising.advisor_of(c, LOGIN_ID)
     advisor = auth.get_username(c, advisor_id) if advisor_id else None
     pending = auth.pending_email_change(c, LOGIN_ID)

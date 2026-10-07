@@ -161,6 +161,21 @@ def get(conn, proposal_id: int) -> dict | None:
     return _row(row) if row else None
 
 
+def open_counts(conn, client_ids) -> dict:
+    """{client_id: {status: n}} of shared and accepted proposals not archived,
+    one query for the whole book (clients with none are left out)."""
+    ids = tuple(client_ids)
+    out: dict = {}
+    if not ids:
+        return out
+    for r in conn.execute("SELECT client_id, status, COUNT(*) AS n FROM proposals WHERE "
+                          f"client_id IN ({', '.join('?' for _ in ids)}) AND status IN "
+                          "('shared', 'accepted') AND archived_at IS NULL "
+                          "GROUP BY client_id, status", ids):
+        out.setdefault(r["client_id"], {})[r["status"]] = r["n"]
+    return out
+
+
 def for_client(conn, client_id: int, *, include_drafts: bool,
                archived: bool = False) -> list[dict]:
     """Newest first. A client sees only what was shared with them. Archived

@@ -111,6 +111,14 @@ def labels(conn, user_id: int) -> dict[str, str]:
         "SELECT account, nickname FROM account_labels WHERE user_id = ?", (user_id,))}
 
 
+def held(conn, user_id: int) -> list[str]:
+    """Every account name this user's holdings have had (any snapshot),
+    alphabetical - one query."""
+    return [r["account"] for r in conn.execute(
+        "SELECT DISTINCT account FROM positions WHERE user_id = ? ORDER BY account",
+        (user_id,))]
+
+
 def set_label(conn, user_id: int, account: str, nickname: str | None) -> None:
     """Save a nickname, or clear it when `nickname` is blank."""
     nickname = (nickname or "").strip()[:MAX_LEN]

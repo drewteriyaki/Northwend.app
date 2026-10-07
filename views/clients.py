@@ -608,28 +608,18 @@ def _client_rows(today):
     """One row per client of this advisor: their summary, goal, review and
     why they need a look - the Clients page and the weekly summary."""
     import overview
+    import proposals
+    import reports
 
     conn = connect(DB)
     try:
         # only the tickers these clients hold
         _ids = tuple(cid for cid, _ in CLIENTS)
-        _in = ", ".join("?" for _ in _ids)
-        quotes = overview.latest_quotes(conn, [r["symbol"] for r in conn.execute(
-            f"SELECT DISTINCT symbol FROM positions WHERE user_id IN ({_in})", _ids)])
+        quotes = overview.latest_quotes(conn, overview.held_symbols(conn, _ids))
         # read for the whole book at once, not once per client
-        logins, emails = {}, {}
-        for r in conn.execute(f"SELECT id, last_login_at, email FROM users WHERE id IN ({_in})",
-                              _ids):
-            logins[r["id"]], emails[r["id"]] = r["last_login_at"], r["email"]
-        all_props = {}
-        for r in conn.execute("SELECT client_id, status, COUNT(*) AS n FROM proposals WHERE "
-                              f"client_id IN ({_in}) AND status IN ('shared', 'accepted') AND archived_at IS NULL "
-                              "GROUP BY client_id, status", _ids):
-            all_props.setdefault(r["client_id"], {})[r["status"]] = r["n"]
-        last_reports = {r["client_id"]: r["period_label"] for r in conn.execute(
-            "SELECT client_id, period_label FROM progress_reports p WHERE id = (SELECT MAX(id) "
-            f"FROM progress_reports q WHERE q.client_id = p.client_id) AND client_id IN ({_in})",
-            _ids)}
+        logins, emails = overview.login_facts(conn, _ids)
+        all_props = proposals.open_counts(conn, _ids)
+        last_reports = reports.latest_labels(conn, _ids)
         can_import = advising.clients_can_import(conn, _ids)
         # who hasn't confirmed sharing in their own words yet (consent.py, step 5.7)
         unconfirmed = consent.unconfirmed(conn, LOGIN_ID)
@@ -907,11 +897,7 @@ def _send_message():
                                        today=datetime.now().date())
         to_email, waited = [], 0
         if res["ok"]:
-            ids = tuple(res["sent_to"])
-            confirmed = [r["email"] for r in c.execute(
-                "SELECT email FROM users WHERE id IN (" + ", ".join("?" for _ in ids) + ") "
-                "AND email IS NOT NULL AND email_verified_at IS NOT NULL "
-                "AND last_login_at IS NOT NULL ORDER BY id", ids)]
+            confirmed = auth.confirmed_emails(c, res["sent_to"])
             # at most one "you have a message" email an hour per client: more
             # messages are still on their page, only the email waits
             to_email = [e for e in confirmed if auth.notice_ok(c, "message", e)]

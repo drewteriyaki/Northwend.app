@@ -181,13 +181,7 @@ def _waypoint_footer(at, keys, titles, done, pressed, *, ready=True, why_not=Non
 def _practice_prices(conn):
     """{ticker: [(date, price)]} for the practice funds, dividends included
     (adjusted close, falling back to close)."""
-    out = {}
-    for t in learn.PRACTICE_TICKERS.values():
-        out[t] = [(r["date"], float(r["adj_close"] if r["adj_close"] is not None else r["close"]))
-                  for r in conn.execute(
-                      "SELECT date, adj_close, close FROM daily_bars WHERE ticker = ? "
-                      "AND COALESCE(adj_close, close) IS NOT NULL ORDER BY date", (t,))]
-    return out
+    return perf.full_adjusted_closes(conn, learn.PRACTICE_TICKERS.values())
 
 
 def _render_mix_bar(weights):

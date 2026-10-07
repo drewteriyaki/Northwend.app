@@ -96,6 +96,21 @@ def is_admin(conn, user_id: int) -> bool:
     return bool(row and _admin_row(row, listed_admins()))
 
 
+def flagged_admins(conn) -> list[str]:
+    """Logins made admins from the command line (users.is_admin), A-Z -
+    NORTHWEND_ADMINS is listed_admins()."""
+    return [r["username"] for r in conn.execute(
+        "SELECT username FROM users WHERE is_admin = 1 ORDER BY username")]
+
+
+def data_freshness(conn) -> tuple:
+    """(when the newest price was fetched, the newest daily bar's date), each
+    None while there are none - shared market data, the System panel."""
+    last_price = conn.execute("SELECT MAX(fetched_at) AS t FROM price_history").fetchone()["t"]
+    last_bar = conn.execute("SELECT MAX(date) AS d FROM daily_bars").fetchone()["d"]
+    return last_price, last_bar
+
+
 def set_admin(conn, username: str, flag: bool) -> bool:
     """Command line only (manage_users.py). False if no such user."""
     cur = conn.execute("UPDATE users SET is_admin = ? WHERE username = ?",

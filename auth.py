@@ -1137,6 +1137,32 @@ def get_username(conn: sqlite3.Connection, user_id: int) -> str | None:
     return row["username"] if row else None
 
 
+def account_row(conn, user_id: int):
+    """The login's own row as the Account page shows it (name, email and its
+    confirmation, joined, last sign-in), or None."""
+    return conn.execute("SELECT username, email, email_verified_at, display_name, created_at, "
+                        "last_login_at FROM users WHERE id = ?", (user_id,)).fetchone()
+
+
+def live_sessions(conn, user_id: int, *, now: datetime | None = None) -> int:
+    """How many stay-signed-in sessions of this login haven't expired."""
+    now = now or datetime.now(timezone.utc)
+    return conn.execute("SELECT COUNT(*) AS n FROM login_sessions WHERE user_id = ? AND "
+                        "expires_at > ?", (user_id, _utc(now))).fetchone()["n"]
+
+
+def confirmed_emails(conn, user_ids) -> list[str]:
+    """The emails of these logins that are confirmed and have signed in at
+    least once, in id order (who an advisor's "you have a message" goes to)."""
+    ids = tuple(user_ids)
+    if not ids:
+        return []
+    return [r["email"] for r in conn.execute(
+        "SELECT email FROM users WHERE id IN (" + ", ".join("?" for _ in ids) + ") "
+        "AND email IS NOT NULL AND email_verified_at IS NOT NULL "
+        "AND last_login_at IS NOT NULL ORDER BY id", ids)]
+
+
 # --------------------------------------------------------------------------- #
 # advisor mode
 # --------------------------------------------------------------------------- #

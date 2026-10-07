@@ -314,6 +314,8 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   font-size: 1rem; opacity: 1; }
 .pt-eyebrow { font-family: Newsreader, Georgia, serif; font-style: italic; font-size: 1rem;
   opacity: .78; margin: 0 0 -1.1rem; }
+/* the hide-amounts eye beside the title: a finger-sized tap target on phones */
+.st-key-pt_hide button { min-width: 44px; min-height: 44px; justify-content: center; }
 /* first steps (views/first_steps.py): progress dots, and each screen slides in */
 .pt-fs-dots { display: flex; gap: 6px; margin: 0 0 .25rem; }
 .pt-fs-dot { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--pt-sunken);

@@ -269,8 +269,7 @@ def render_account_map_nudge():
         return
     c = connect(DB)
     try:
-        made = c.execute("SELECT 1 FROM account_map WHERE user_id = ? LIMIT 1",
-                         (LOGIN_ID,)).fetchone() is not None
+        made = account_map.exists(c, LOGIN_ID)
     finally:
         c.close()
     if not account_map.nudge(n, made, False):

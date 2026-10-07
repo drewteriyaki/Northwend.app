@@ -58,9 +58,7 @@ def _load_activity():
     """Every transaction of this account, newest first (one query)."""
     c = connect(DB)
     try:
-        txns = [dict(r) for r in c.execute(
-            "SELECT * FROM transactions WHERE user_id = ? ORDER BY trade_date DESC, id DESC",
-            (USER_ID,))]
+        txns = txn_import.all_for(c, USER_ID)
     finally:
         c.close()
     for t in txns:

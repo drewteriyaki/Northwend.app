@@ -25,6 +25,29 @@ def attention_alerts(fired) -> int:
                 if a.rule_key != "total_gl" or a.direction == "down"})
 
 
+def held_symbols(conn, user_ids) -> list[str]:
+    """Every ticker these accounts hold (any snapshot), one query - so the
+    book reads prices only for what its clients hold."""
+    ids = tuple(user_ids)
+    if not ids:
+        return []
+    return [r["symbol"] for r in conn.execute(
+        f"SELECT DISTINCT symbol FROM positions WHERE user_id IN ({', '.join('?' for _ in ids)})",
+        ids)]
+
+
+def login_facts(conn, user_ids) -> tuple[dict, dict]:
+    """({id: last_login_at}, {id: email}) for these accounts, one query."""
+    ids = tuple(user_ids)
+    logins, emails = {}, {}
+    if not ids:
+        return logins, emails
+    for r in conn.execute("SELECT id, last_login_at, email FROM users WHERE id IN "
+                          f"({', '.join('?' for _ in ids)})", ids):
+        logins[r["id"]], emails[r["id"]] = r["last_login_at"], r["email"]
+    return logins, emails
+
+
 def latest_quotes(conn, tickers=None) -> dict:
     """{ticker: latest successful price_history row} - shared market data.
     Pass `tickers` to read only those (price_history grows every minute, so

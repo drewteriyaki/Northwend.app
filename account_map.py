@@ -138,6 +138,12 @@ def _rows(conn, user_id: int) -> list[dict]:
         "SELECT * FROM account_map WHERE user_id = ? ORDER BY entry, id", (user_id,))]
 
 
+def exists(conn, user_id: int) -> bool:
+    """Has this login made a map (any entry at all)?"""
+    return conn.execute("SELECT 1 FROM account_map WHERE user_id = ? LIMIT 1",
+                        (user_id,)).fetchone() is not None
+
+
 def load(conn, user_id: int, nicknames: dict | None = None) -> dict:
     """The whole map: {"accounts": every brought-in account with what was
     filled in for it (and those filled in before that are no longer in the

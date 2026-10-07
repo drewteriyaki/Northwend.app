@@ -134,6 +134,18 @@ def sent(conn, client_ids) -> tuple[dict, set]:
     return ends, labels
 
 
+def latest_labels(conn, client_ids) -> dict:
+    """{client_id: period_label of their newest report} - only clients with
+    a report, one query for the whole book."""
+    ids = tuple(client_ids)
+    if not ids:
+        return {}
+    return {r["client_id"]: r["period_label"] for r in conn.execute(
+        "SELECT client_id, period_label FROM progress_reports p WHERE id = (SELECT MAX(id) "
+        "FROM progress_reports q WHERE q.client_id = p.client_id) AND client_id IN "
+        f"({', '.join('?' for _ in ids)})", ids)}
+
+
 def mark_read(conn, client_id: int, report_id: int) -> None:
     conn.execute("UPDATE progress_reports SET read_at = COALESCE(read_at, ?) WHERE id = ? AND "
                  "client_id = ?", (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),

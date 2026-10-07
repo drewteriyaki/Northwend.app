@@ -131,6 +131,14 @@ def used(conn, user_id: int, kind: str, now: datetime | None = None) -> int:
     return row["used"] if row else 0
 
 
+def month_rows(conn, month: str) -> list:
+    """Everyone's use in one month (YYYY-MM): rows of username, kind, used,
+    cost_micro, by login then kind - the Admin portal's AI use table."""
+    return conn.execute("SELECT u.username, a.kind, a.used, a.cost_micro FROM ai_usage a "
+                        "JOIN users u ON u.id = a.user_id WHERE a.month = ? "
+                        "ORDER BY u.username, a.kind", (month,)).fetchall()
+
+
 def habit_bonus(saved_prefs: dict | None, now: datetime | None = None) -> int:
     """The month's habit bonus in micro-dollars: HABIT_BONUS_PER_WALK for each
     Monthly Walk finished in this month and the HABIT_BONUS_MONTHS - 1 before
