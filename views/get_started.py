@@ -510,9 +510,10 @@ def _basics_topics(monthly, years):
 
 @st.dialog("The basics", width="medium")
 def _basics_window(key, monthly, years):
-    p = _read_prefs()
-    if recap.note_done(p, recap.LEARN_READS, f"basics:{key}"):   # for Year in review
-        _write_prefs(p)
+    if USER_ID == LOGIN_ID:   # only the person's own reading, never an advisor's in theirs
+        p = _read_prefs()
+        if recap.note_done(p, recap.LEARN_READS, f"basics:{key}"):   # for Year in review
+            _write_prefs(p)
     for k, icon, title, _line, body in _basics_topics(monthly, years):
         if k == key:
             st.markdown(f"### {icon} {title}")

@@ -90,6 +90,11 @@ class LearnMorePageTests(unittest.TestCase):
         import portfolio
         import sample_data
 
+        # the app's first run reloads the repo's modules (codefresh.py): put
+        # back the ones other test files imported, so their mocks still reach
+        cls.modules = {n: m for n, m in sys.modules.items()
+                       if os.path.dirname(os.path.abspath(getattr(m, "__file__", None) or ""))
+                       == HERE}
         cls.dir = tempfile.mkdtemp(prefix="pt_learn_more_")
         cls.db = os.path.join(cls.dir, "app.db")
         portfolio._SCHEMA_READY.discard(os.path.abspath(cls.db))
@@ -106,6 +111,7 @@ class LearnMorePageTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        sys.modules.update(cls.modules)
         shutil.rmtree(cls.dir, ignore_errors=True)
 
     @contextlib.contextmanager
@@ -159,6 +165,96 @@ class LearnMorePageTests(unittest.TestCase):
     def test_plan(self):
         with self._run("Plan") as at:   # no goal yet: the goal form, Target mix below
             self.assertIn(learn.LEARN_MORE["asset_allocation"][1], self._links(at))
+
+
+class LearnReadsTests(unittest.TestCase):
+    """Opening a basics topic notes it for Year in review (recap.LEARN_READS) -
+    only in the login's own account, never while an advisor is in a client's."""
+
+    @classmethod
+    def setUpClass(cls):
+        import auth
+        import portfolio
+        import prefs
+        import sample_data
+        import two_step
+
+        # the app's first run reloads the repo's modules (codefresh.py): put
+        # back the ones other test files imported, so their mocks still reach
+        cls.modules = {n: m for n, m in sys.modules.items()
+                       if os.path.dirname(os.path.abspath(getattr(m, "__file__", None) or ""))
+                       == HERE}
+        cls.dir = tempfile.mkdtemp(prefix="pt_learn_reads_")
+        cls.db = os.path.join(cls.dir, "app.db")
+        portfolio._SCHEMA_READY.discard(os.path.abspath(cls.db))
+        c = portfolio.connect(cls.db)
+        try:
+            cls.carol = auth.create_user(c, "carol", "pw-123456789")
+            auth.set_advisor(c, "carol", True)
+            secret = two_step.new_secret()
+            two_step.enable(c, cls.carol, secret, two_step.totp(secret))
+            cls.carol_ok = f"{cls.carol}:{two_step.status(c, cls.carol)['stamp']}"
+            cls.dana = auth.create_user(c, "dana", "pw-123456789")
+            sample_data.load(c, cls.dana)
+            auth.link_client(c, cls.carol, cls.dana)
+            prefs.save(c, cls.dana, {"first_steps": {"done": True}})
+            c.commit()
+        finally:
+            c.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.update(cls.modules)
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    @contextlib.contextmanager
+    def _run(self, uid, name, **state):
+        import yfinance
+        from streamlit.testing.v1 import AppTest
+
+        def offline(*a, **k):
+            raise RuntimeError("offline in tests")
+        at = AppTest.from_file(os.path.join(HERE, "dashboard.py"), default_timeout=120)
+        for k, v in {"user_id": uid, "username": name, "page": "Get started",
+                     "gs_at": "basics", "fs_hide": True, "auto_backfilled": True,
+                     **state}.items():
+            at.session_state[k] = v
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS", "NORTHWEND_FLAGS",
+                            "NORTHWEND_GATES", "RESEND_API_KEY", "ANTHROPIC_API_KEY")}
+        env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1")
+        with unittest.mock.patch.dict(os.environ, env, clear=True), \
+                unittest.mock.patch("settings.load_env", lambda *a, **k: {}), \
+                unittest.mock.patch.object(yfinance, "Ticker", offline), \
+                unittest.mock.patch("socket.socket.connect", offline):
+            at.run()
+            self.assertEqual([e.message for e in at.exception], [])
+            yield at
+            self.assertEqual([e.message for e in at.exception], [])
+
+    def _prefs(self, uid):
+        import portfolio
+        import prefs
+        c = portfolio.connect(self.db)
+        try:
+            return prefs.load(c, uid)
+        finally:
+            c.close()
+
+    def test_an_advisor_in_a_clients_account_leaves_her_prefs_alone(self):
+        import recap
+        before = self._prefs(self.dana)
+        with self._run(self.carol, "carol", two_step_ok=self.carol_ok,
+                       active_user_id=self.dana) as at:
+            at.button(key="basics_funds").click().run()
+            self.assertIn("### :material/category: Stocks, bonds and funds",
+                          [m.value for m in at.markdown])     # the window did open
+        self.assertEqual(self._prefs(self.dana), before)
+        self.assertEqual(self._prefs(self.carol).get(recap.LEARN_READS), None)
+        # her own reading is still noted
+        with self._run(self.dana, "dana") as at:
+            at.button(key="basics_funds").click().run()
+        self.assertIn("basics:funds", self._prefs(self.dana)[recap.LEARN_READS])
 
 
 if __name__ == "__main__":
