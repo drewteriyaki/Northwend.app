@@ -298,8 +298,8 @@ When you use the AI guide, Northwend sends Anthropic:
   are taken out before a note is saved). A note to your future self is sent only
   when you ask the guide about that note, as part of your question.
 
-An advisor's meeting talking points send the client's profile answers - here
-including the "Other notes" box, as the client typed it - and a holdings
+An advisor's meeting talking points send the client's profile answers (the
+chat's set, without "Other notes") and a holdings
 summary: each holding's ticker, name, share of the portfolio, type and sector,
 gain or loss as a percent, and figures like dividend yield, beta and P/E. With
 it go facts in percentages (how the portfolio and goal moved since the last

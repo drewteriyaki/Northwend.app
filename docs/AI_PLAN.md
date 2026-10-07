@@ -102,7 +102,9 @@ a request for "3 to 6 concrete, educational steps tied to their goals and
 risk tolerance" (`client_plan.py:34-43`). Out: lines printed in a PDF under
 "Suggested next steps".
 
-**3. Meeting prep:** the client's profile and holdings summary (no memory),
+**3. Meeting prep:** the client's profile and holdings summary (no memory;
+since October 2026 the profile is `advisor.allowlisted_profile` - the
+ContextCard's fixed-choice answers, no "Other notes"),
 plus facts as text (`meeting.facts_for_ai`, `meeting.py:95-125`): days since
 the last review, value change %, symbols added / reduced / sold, goal % of
 target and months left, drift by class in points, count of open next steps,

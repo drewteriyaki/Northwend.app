@@ -77,9 +77,10 @@ Each statement about data here must stay true to the code:
   advisor_clients link in one transaction (intros.share_account). Deleted with
   either account (admin.ACCOUNT_TABLES); in both sides' export.
 - Meeting prep talking points (meeting.facts_for_ai / talking_points): the
-  profile through advisor.system_prompt - every PROFILE_FIELDS answer as
-  stored, "Other notes" included and not scrubbed (unlike the chat's
-  ContextCard) - advisor.portfolio_summary (tickers, names, weights, type,
+  profile through advisor.system_prompt, which keeps only
+  advisor.allowlisted_profile (the ContextCard's fixed-choice answers, the
+  time horizon and target return as numbers - never "Other notes") -
+  advisor.portfolio_summary (tickers, names, weights, type,
   sector, gain/loss %, yield, beta, P/E) and percentage facts - no dollars
   from the portfolio, no advisor note text.
 - Advisor drafts (advisor_drafts.py, flag advisor_drafts + gates L1, L2): the
@@ -700,8 +701,8 @@ you use it, the app sends:
   sees or changes them.
 
 If you have an advisor, they can ask the AI to draft **talking points** before
-a meeting. That sends your profile answers - here including your "Other notes"
-box, as you typed it - and a holdings summary: each holding's ticker, name and
+a meeting. That sends your profile answers (the same ones as the chat, without
+your "Other notes" box) and a holdings summary: each holding's ticker, name and
 share of the portfolio, its type and sector, gain or loss as a percent, and
 figures like dividend yield, beta and P/E. With it go facts in percentages -
 how your portfolio and goal have moved since the last review, which holdings

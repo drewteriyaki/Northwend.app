@@ -103,8 +103,8 @@ MEMORY_MAX_NOTES = 12
 REFUSAL_TEXT = "Sorry - I can't help with that one. Try asking it a different way."
 
 # The rules every AI answer in the app follows - Ask Northwend's chat
-# (chat_rules(), the shared first block), meeting prep's talking points and
-# the plan PDF's suggested next steps (system_prompt()) put these first.
+# (chat_rules(), the shared first block) and meeting prep's talking points
+# (system_prompt()) put these first.
 # Education, never personalized advice: recommending specific securities or
 # a specific mix to a person is what an investment adviser does, and the
 # app isn't one. (key, rule); tests/test_legal_guardrails.py checks every
@@ -692,10 +692,43 @@ def chat_rules() -> str:
     ])
 
 
+def _number_in(v, low: float, high: float):
+    """A stored number within [low, high], as a whole number when it is one;
+    None for anything else (text, out of range)."""
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return None
+    if not low <= n <= high:
+        return None
+    return int(n) if n == int(n) else round(n, 1)
+
+
+def allowlisted_profile(profile: dict) -> dict:
+    """The profile answers a prompt may carry, the same allowlist as the
+    chat's ContextCard (context_card._profile_parts): pick-one answers that
+    are one of CHOICES, pick-any answers kept only for the listed options,
+    the time horizon and target return as plain numbers. The "Other notes"
+    free text is never kept - it can hold amounts, account numbers, emails
+    or names (AI_PLAN 3.2). Anything that isn't an allowed value is left
+    out (None), so it reads as unknown."""
+    p = profile or {}
+    out = {f: None for f in PROFILE_FIELDS}
+    for f, options in MULTI_CHOICES.items():
+        kept = [x for x in split_multi(p.get(f)) if x in options]
+        out[f] = MULTI_SEP.join(kept) or None
+    for f, options in CHOICES.items():
+        out[f] = p.get(f) if p.get(f) in options else None
+    out["time_horizon_years"] = _number_in(p.get("time_horizon_years"), 0, 100)
+    out["target_return_pct"] = _number_in(p.get("target_return_pct"), 0, 50)
+    return out   # "notes" stays None
+
+
 def system_prompt(profile: dict, summary: str, memory: str = "") -> str:
-    """The system prompt for meeting prep and the plan PDF (the chat's is
-    chat_rules() and the person's card). `memory` is the assistant's own
-    saved notes (get_memory)."""
+    """The system prompt for meeting prep (the chat's is chat_rules() and the
+    person's card). `memory` is the assistant's own saved notes (get_memory).
+    Only allowlisted_profile()'s answers go in: never "Other notes"."""
+    profile = allowlisted_profile(profile)
     known = [f"- {PROFILE_FIELDS[f]}: {_data_text(profile[f], 600)}" for f in PROFILE_FIELDS
              if profile.get(f) not in (None, "")]
     missing = missing_fields(profile)

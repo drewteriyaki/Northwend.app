@@ -218,10 +218,10 @@ counts, account names or numbers, email addresses or your notes' text. What a pe
 types into the chat is sent as typed; the guide's own notes between conversations
 keep goals, dates and decisions, with dollar amounts and account numbers taken out
 before they're saved. Meeting prep's talking points send the client's profile
-answers including their "Other notes" box as they typed it (the chat leaves that box
-out), and a holdings summary with each holding's type, sector, gain or loss as a
-percent, dividend yield, beta and P/E. [OWNER: "Other notes" goes unscrubbed here -
-consider leaving it out, as the chat does.] Draft with Northwend (where it's offered)
+answers from fixed choices, the same set as the chat (never the "Other notes" box -
+you can read it yourself in the client's profile), and a holdings summary with each
+holding's type, sector, gain or loss as a percent, dividend yield, beta and P/E.
+Draft with Northwend (where it's offered)
 sends the client's profile answers (without "Other notes") and their mix and
 holdings as percentages - no notes, no names - a proposal's title and mix or a
 report's period and movement in percents, and the words you type for that draft,

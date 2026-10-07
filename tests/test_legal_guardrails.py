@@ -366,6 +366,40 @@ class AIGuardrailTests(unittest.TestCase):
         self.assertIn("don't recommend buying, selling or holding a specific security",
                       call["messages"][0]["content"])
 
+    def test_meeting_prep_never_sends_other_notes(self):
+        # the profile goes through advisor.allowlisted_profile (the chat card's
+        # set): the free-text "Other notes" box never reaches the request
+        notes = ("Has $12,345 at the credit union, acct 99887766, email "
+                 "jane.client@example.com, married to Robert Quimby")
+        profile = {**self.FULL, "notes": notes,
+                   "risk_tolerance": "Robert Quimby $12,345",   # not one of the choices
+                   "goal": "Retirement; acct 99887766"}
+        client = _FakeClient()
+        meeting.talking_points(client, profile, "No holdings yet", "facts")
+        call, = client.calls
+        sent = repr(call)
+        for leak in ("12,345", "12345", "99887766", "jane.client", "@example.com",
+                     "Robert", "Quimby", "credit union", "Other notes"):
+            self.assertNotIn(leak, sent)
+        self.assertIn("Retirement", call["system"])          # the allowed answers still go
+        self.assertIn(self.FULL["drawdown_reaction"], call["system"])
+        self.assertIn("Risk tolerance", call["system"])      # unknown now, so it's asked about
+
+    def test_allowlisted_profile(self):
+        p = advisor.allowlisted_profile({
+            "notes": "anything", "goal": "Retirement; Buy a boat", "preferences": "x",
+            "time_horizon_years": "25", "target_return_pct": 900, "age_range": "35-44",
+            "emergency_fund": "lots"})
+        self.assertEqual(set(p), set(advisor.PROFILE_FIELDS))
+        self.assertIsNone(p["notes"])
+        self.assertEqual(p["goal"], "Retirement")
+        self.assertIsNone(p["preferences"])
+        self.assertEqual(p["time_horizon_years"], 25)
+        self.assertIsNone(p["target_return_pct"])
+        self.assertEqual(p["age_range"], "35-44")
+        self.assertIsNone(p["emergency_fund"])
+        self.assertEqual(advisor.allowlisted_profile(None)["goal"], None)
+
     def test_plan_pdf_has_no_ai(self):
         # AI_PLAN step 15: rule-based "Questions to look into", no AI call
         with open(os.path.join(REPO, "client_plan.py"), encoding="utf-8") as fh:
