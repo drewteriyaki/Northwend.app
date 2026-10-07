@@ -92,15 +92,16 @@ if PAGE in ("Dashboard", "Watchlist"):
             _price = M.eff_price(_ctx)
             _dchg_pct = M.value("day_change_pct", _ctx)
             _dchg_usd = M.value("day_change_usd", _ctx)
-            # a held ticker: the holding's move in dollars; a watched one has no
-            # shares, so the move per share, as on its watchlist row
+            # under Price, the price's own move per share (as on a watchlist
+            # row); the holding's move in dollars is Today's Return under Your
+            # position. Without a per-share move, just the percent.
             _dchg_share = (_ctx.get("quote") or {}).get("change")
-            _dchg_text = (fmt_money(_dchg_usd) if _is_held or _dchg_share is None
-                          else f"{_dchg_share:+,.2f}")
             with hc2:
                 st.metric("Price", fmt_price(_price),
                           delta=(None if hide_amounts or _dchg_pct is None
-                                 else f"{_dchg_text} ({_dchg_pct:+.2f}%) today"))
+                                 else f"{_dchg_share:+,.2f} ({_dchg_pct:+.2f}%) today"
+                                 if _dchg_share is not None
+                                 else f"{_dchg_pct:+.2f}% today"))
             _price_at = M.value("price_at", _ctx)
             _asof = price_report.as_of_line(
                 _price_at, price_report.kind(_sym, _pos.get("asset_type"),

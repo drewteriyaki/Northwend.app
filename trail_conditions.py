@@ -85,20 +85,25 @@ GAP_EVERY_WEEKS = 4
 
 # ---- the words: fixed templates only ----------------------------------------- #
 SWITCH_LABEL = "Trail Conditions"
-SWITCH_HELP = ("A short Monday note. Most weeks it says all is calm. It never has amounts, "
-               "holdings or anything else about your money, and you can stop it at any time.")
-SUBJECT_CALM = "Trail Conditions: calm"
-SUBJECT_NEWS = "Trail Conditions this week"
-CALM = "Calm on the trail - nothing to do."
-STORM = ("Markets have fallen a long way recently. Home has a calm note on what past storms "
-         "have looked like.")
-SEASON = {key: f"A new season has begun in the app - {title}. It's on Home whenever suits you."
-          for key, _months, title, *_ in seasons.SEASONS}
-WALK = "Your monthly walk is waiting on Home, whenever suits you."
-GAP = "One situation on your readiness map is waiting, whenever suits you."
-WORLD = "There's a new note on this month's world on Home, whenever suits you."
-OUTRO = ("Trail Conditions never suggests buying or selling anything. To stop it, turn it off "
-         "on the Account page, or use the link below.")
+SWITCH_HELP = ("A short email on Mondays. Most weeks it just says nothing needs your "
+               "attention. It never has amounts, holdings or anything else about your money, "
+               "and you can turn it off at any time.")
+SUBJECT_CALM = "Trail Conditions: nothing to do this week"
+SUBJECT_NEWS = "Trail Conditions: a few things this week"
+CALM = "Nothing needs your attention this week."
+STORM = "Markets have dropped a lot lately. Your Home page shows how past drops played out."
+# one plain line per season (seasons.SEASONS' keys; a test checks they match)
+SEASON = {
+    "january": "It's the start of a new year. There's a short guide on your Home page.",
+    "april": "It's tax form season. There's a short guide on your Home page.",
+    "enrollment": "It's open enrollment season. There's a short guide on your Home page.",
+    "december": "It's the end of the year. There's a short guide on your Home page.",
+}
+WALK = "Your monthly check-in is ready on your Home page."
+GAP = "There's a new practice question on your Home page."
+WORLD = "There's a new note about this month's markets on your Home page."
+OUTRO = ("This email never tells you to buy or sell anything. To stop it, turn it off on the "
+         "Account page, or use the link below.")
 
 
 def all_lines() -> list[str]:

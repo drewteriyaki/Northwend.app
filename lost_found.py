@@ -88,7 +88,7 @@ SECTIONS = (
     )),
     ("unclaimed", "Unclaimed property held by a state", ":material/account_balance:", (
         "When a bank account, an uncashed check, a refund, an insurance payout or a "
-        "brokerage account goes quiet for some years, the company hands it to the state. "
+        "brokerage account isn't used for some years, the company hands it to the state. "
         "The state keeps it for you until you claim it, however long that takes.",
         "**Each state has its own unclaimed property office.** Look in every state "
         "you've lived or worked in. unclaimed.org, from the association of those offices "
@@ -97,8 +97,8 @@ SECTIONS = (
         "**Searching and claiming through a state's own office is free.** Some companies "
         "offer to find or claim money for a fee. You never need one - you can always go "
         "to the state's own site yourself.",
-        "USA.gov lists other places money can wait for you, such as some federal "
-        "agencies.",
+        "USA.gov lists other places that may be holding money for you, such as some "
+        "federal agencies.",
     ), (
         ("unclaimed.org - find your state's office (NAUPA)", "https://unclaimed.org/"),
         ("MissingMoney.com - search many states at once", "https://www.missingmoney.com/"),

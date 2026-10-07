@@ -585,7 +585,7 @@ class GuideLinkTests(unittest.TestCase):
                 flipped = {**base, off: not base[off]}
                 self.assertFalse(directory.guide_link_shown(**flipped))
         self.assertEqual((directory.GUIDE_LINE, directory.GUIDE_BUTTON),
-                         ("Want a second opinion?", "Find a guide"))
+                         ("Want to talk with a financial advisor?", "Find a guide"))
 
 
 class FeeExplainerTests(unittest.TestCase):

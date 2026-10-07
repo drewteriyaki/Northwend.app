@@ -49,8 +49,8 @@ REASONS = {
 PER_DAY = 5   # reports a day per login, across all tickers (and one per ticker a day)
 ADMIN_ROWS = 50
 
-THANKS = ("Thank you - we've noted it. Prices come from outside data providers, and "
-          "a note like this helps us look into one that seems off.")
+THANKS = ("Thank you - we've noted it. Prices come from outside data companies, and "
+          "notes like this help us check prices that look wrong.")
 SAME_TICKER = "Thank you - you've already told us about this price today."
 TOO_MANY = "Thank you - that's all the notes we can take today. You can send more tomorrow."
 
@@ -123,9 +123,9 @@ def as_of_line(ts, k: str = "stock", now: datetime | None = None) -> str:
         return ""
     extra = ""
     if k == "fund":
-        extra = " · funds are priced once a day, after the close"
+        extra = " · funds are priced once a day, after the market closes"
     elif a["older"]:
-        extra = " · the latest we have"
+        extra = " · older than usual, the newest price we have"
     return f"As of {a['text']}{extra} · may be delayed"
 
 

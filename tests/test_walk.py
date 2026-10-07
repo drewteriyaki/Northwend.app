@@ -38,10 +38,11 @@ import prefs  # noqa: E402
 import two_step  # noqa: E402
 
 OCT5 = date(2026, 10, 5)
-WITHIN = "Your mix is within the band you set - your plan says nothing to do this month."
-NO_TARGET = "Set a target mix to get a monthly verdict."
-TO_BONDS = ("Your target has more bonds than you hold now, so your plan points your next "
-            "deposit to bonds.")
+WITHIN = ("Your mix is within the band you set, so your plan says there's nothing to do this "
+          "month.")
+NO_TARGET = "Set a target mix on your Plan page to see what your plan says each month."
+TO_BONDS = ("Your target has more bonds than you hold now. Under your plan, your next "
+            "deposit would go to bonds.")
 
 
 def _calm(test, text):
@@ -102,14 +103,14 @@ class VerdictTests(unittest.TestCase):
                             2000.0)
         self.assertEqual((v["class"], v["how"]), ("Bonds", "most"))
         self.assertEqual(checkin.verdict_text(v),
-                         "Your target has more bonds than you hold now, so your plan points "
-                         "your next deposit mostly to bonds.")
-        self.assertIn("much of your next deposit to cash",
+                         "Your target has more bonds than you hold now. Under your plan, "
+                         "most of your next deposit would go to bonds.")
+        self.assertIn("the largest part of your next deposit would go to cash",
                       checkin.verdict_text({"kind": "next", "class": "Cash", "how": "much",
                                             "below": True}))
         self.assertEqual(checkin.verdict_text({"kind": "next", "class": "Other", "how": "all",
                                                "below": False}),
-                         "Your plan points your next deposit to other holdings.")
+                         "Under your plan, your next deposit would go to other holdings.")
 
     def test_never_sell_a_fund_or_a_figure(self):
         texts = [NO_TARGET, WITHIN, checkin.verdict_text({"kind": "next", "class": None})]
@@ -167,7 +168,7 @@ class WalkTests(unittest.TestCase):
         self.assertEqual(set(p[checkin.PREF_VERDICTS]), {"2026-10", "2026-11"})
         self.assertEqual(checkin.count(p), 4)
         self.assertEqual(checkin.verdict_past(checkin.verdict_of(p, "2026-10")),
-                         "Your plan pointed your next deposit mostly to bonds.")
+                         "Your plan said most of your next deposit would go to bonds.")
 
     def test_a_missed_month_takes_nothing_away(self):
         p = {checkin.PREF_SINCE: "2026-01", checkin.PREF_LOG: ["2026-05", "2026-06", "2026-07"]}
@@ -446,7 +447,7 @@ class AppTests(_WalkApp):
             at.button(key="walk_finish").click().run()
             text = self._text(at)
             self.assertIn("walk is done. Walks finished: 1. Next walk:", text)
-            self.assertIn("Your plan said nothing to do this month", text)    # the quiet card
+            self.assertIn("Your plan said there was nothing to do this month", text)    # the quiet card
             self.assertIn("Walks finished: 1 · Next walk:", text)
         self.assertEqual(checkin.verdict_of(self._prefs(self.wren), checkin.month_of(today)),
                          {"kind": "within", "on": today.isoformat()})
@@ -504,13 +505,13 @@ class AppTests(_WalkApp):
         with self._run(self.carol, "carol", active_user_id=self.dana,
                        two_step_ok=self.carol_ok) as at:
             text = self._text(at)
-            for words in ("Walks finished", "monthly walk", "Your plan pointed",
-                          "next deposit to bonds"):
+            for words in ("Walks finished", "monthly walk", "Your plan said",
+                          "next deposit would go to bonds"):
                 self.assertNotIn(words, text)
             self.assertFalse([k for k in self._keys(at) if k.startswith("walk_")])
         with self._run(self.dana, "dana") as at:                 # while she sees her own
             text = self._text(at)
-            self.assertIn("Your plan pointed your next deposit to bonds.", text)
+            self.assertIn("Your plan said your next deposit would go to bonds.", text)
             self.assertIn("Walks finished: 1", text)
 
     def test_leave_me_out_of_feature_counts(self):

@@ -21,7 +21,7 @@ The rules, enforced here and tested (tests/test_directory.py):
   one-time review filter is an L2 question).
 - **Beside the listings**, "How advisors are paid" (FEES_*): each fee model
   in plain words, questions to ask, official sites only. And on Learn and
-  Plan, one quiet "Want a second opinion? Find a guide" line
+  Plan, one quiet "Want to talk with a financial advisor? Find a guide" line
   (guide_link_shown) - nothing counted about who sees or presses it.
 - **Nothing is counted about who browses** (brief 3.4). Browsing, filtering
   and pressing "Request an introduction" write nothing - no views,
@@ -197,7 +197,7 @@ ONE_TIME_NOTE = "Paid to the advisor directly; Northwend takes no part of it."
 # One quiet line once someone has finished Learn or set a goal - no pop-up,
 # nothing counted about who sees or presses it. Only for an individual on
 # their own account (guide_link_shown).
-GUIDE_LINE = "Want a second opinion?"
+GUIDE_LINE = "Want to talk with a financial advisor?"
 GUIDE_BUTTON = "Find a guide"
 
 # ---- "How advisors are paid": a beginner's explainer beside the listings ---- #
@@ -231,8 +231,8 @@ FEES_EXPLAINED = (
      "company behind the product. Ask which products pay them a commission, and how much."),
 )
 FEES_CONFLICTS = ("Any way of being paid can create a conflict of interest - a reason, even a "
-                  "small one, for an advisor to lean one way. Registered advisers and brokers "
-                  "have to describe how they're paid and their conflicts in writing, and you "
+                  "small one, for an advisor to favour one choice over another. Registered "
+                  "advisers and brokers have to describe how they're paid and their conflicts in writing, and you "
                   "can read their public records on the official sites below.")
 FEES_QUESTIONS_TITLE = "Questions you can ask any advisor"
 FEES_QUESTIONS = (
@@ -651,9 +651,9 @@ def describe(profile: dict) -> dict:
 # ---- the calm link on Learn and Plan --------------------------------------- #
 def guide_link_shown(*, directory_on: bool, is_advisor: bool, is_admin: bool,
                      client_mode: bool, has_advisor: bool) -> bool:
-    """Whether Learn and Plan may show the quiet "Want a second opinion? Find
-    a guide" line (GUIDE_LINE): only with `directory` on (its gate L2 too),
-    only for an individual on their own account - never an advisor, an
+    """Whether Learn and Plan may show the quiet "Want to talk with a financial
+    advisor? Find a guide" line (GUIDE_LINE): only with `directory` on (its
+    gate L2 too), only for an individual on their own account - never an advisor, an
     admin, client mode, or someone who already has an advisor. Where on the
     page (Learn finished, a goal set) is the page's to decide."""
     return bool(directory_on and not is_advisor and not is_admin and not client_mode

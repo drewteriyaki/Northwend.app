@@ -39,7 +39,7 @@ TERMS = (
              "in value; what it earns changes with interest rates."),
     ("Money market fund", "a fund holding very short-term loans; it aims to keep a steady "
                           "price and pays interest. Not bank-insured."),
-    ("Sweep account", "where a brokerage parks uninvested cash by default. What it pays "
+    ("Sweep account", "where a brokerage keeps cash that isn't invested. What it pays "
                       "varies a lot between brokerages."),
     ("High-yield savings account", "a bank savings account paying a higher rate than most; "
                                    "usually insured up to legal limits."),
@@ -61,17 +61,18 @@ TERMS = (
     ("Balanced fund", "one fund holding a fixed mix of stocks and bonds."),
     ("Expense ratio", "a fund's yearly fee, as a percentage of what you hold, taken out of the "
                       "fund's value a little each day - there's no bill to see."),
-    ("Diversification", "spreading money across many holdings and kinds, so no single one can "
-                        "sink the whole."),
+    ("Diversification", "spreading money across many holdings and kinds, so a big drop in any "
+                        "one of them hurts the whole less."),
     ("Concentration", "a large share in one holding. Northwend points out any single position "
                       "above a set share of the portfolio, as a fact."),
     ("Overlap", "two funds holding many of the same companies, so the money is less spread "
                 "out than the number of funds suggests."),
     ("Rebalancing", "moving a mix back toward its target - by where new money goes, or by "
                     "selling some of what grew."),
-    ("Drift", "how far a mix has moved from its target as prices change, in points."),
-    ("Band", "the number of points either way a person lets their mix drift before they look "
-             "at it - their own rule."),
+    ("Drift", "how far a mix has moved from its target as prices change, in percentage "
+              "points."),
+    ("Band", "how many percentage points a person lets their mix move away from its target, "
+             "either way, before they look at it - their own rule."),
     ("Large, mid and small cap", "companies grouped by their total market value."),
     ("Growth and value", "two styles: companies expected to grow fast, and companies priced "
                          "low for what they earn."),
@@ -84,8 +85,8 @@ TERMS = (
                          "next dividend; whoever held it the day before does."),
     ("Yield", "the income an investment pays in a year - dividends or interest - as a "
               "percentage of its price."),
-    ("Interest rate risk", "bond prices fall when interest rates rise, and longer bonds move "
-                           "more - measured by duration."),
+    ("Interest rate risk", "bond prices fall when interest rates rise, and bonds that run "
+                           "for more years fall more."),
     ("Inflation", "prices rising over time, so money buys less."),
     ("Real return", "a return after inflation; the nominal return is before it."),
     ("Total return", "price change plus dividends or interest."),

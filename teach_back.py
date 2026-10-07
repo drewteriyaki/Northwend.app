@@ -98,20 +98,20 @@ BOX_HELP = ("Optional. A sentence or two is plenty. Only the idea is checked, ne
             "accounts or funds. Your words aren't saved.")
 SEND_LABEL = "Check my explanation"
 AGAIN_LABEL = "Try again"
-HELD_TITLE = "That holds."
-NOT_YET_TITLE = "Not quite yet - here's a pointer."
-HELD_BEFORE = "You've explained this one back before, and it held."
+HELD_TITLE = "You've got the main idea."
+NOT_YET_TITLE = "Not quite yet - here's what to look at again."
+HELD_BEFORE = "You've explained this topic before and got the main idea."
 # used instead of the model's sentences when they fail a check
 FIXED = {HOLDS: "Your explanation gets at the main point of this topic.",
          NOT_YET: "Have another look at the topic above, then try putting its main point in "
                   "your own words - as many tries as you like."}
-OWN_MONEY_LINE = ("This only looks at the idea itself, not at your own money or choices - "
-                  "those are yours to weigh.")
+OWN_MONEY_LINE = ("This only checks how you explained the idea. It doesn't look at your own "
+                  "money or choices - those are yours to decide.")
 COME_BACK = "You can come back to this later."
 UNAVAILABLE = "Checking explanations isn't available right now. " + COME_BACK
 TOO_SHORT = "Write a sentence or two first - a rough version is fine."
-ABOUT = ("The check is done by AI and can be wrong. It's generous on purpose and never "
-         "scored. Only the topic and your words, with any amounts, numbers, email "
+ABOUT = ("The check is done by AI and can be wrong. It's meant to be generous, and it "
+         "never gives a score. Only the topic and your words, with any amounts, numbers, email "
          "addresses and fund symbols taken out, are sent.")
 
 # ---- the prompt ------------------------------------------------------------- #

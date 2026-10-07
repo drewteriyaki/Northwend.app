@@ -178,7 +178,7 @@ class DrillAppTests(tfn.AppTests):
             self.assertIn("Saved. Only you can see it.", self._text(at))
         with self._run(self.uma, "uma") as at:
             text = self._text(at)
-            self.assertIn("A storm on the trail", text)
+            self.assertIn("A big market drop", text)
             self.assertIn("Your storm drill", text)
             self.assertIn("You wrote this when you looked at 2008", text)
             self.assertIn(WORDS, text)
@@ -194,7 +194,7 @@ class DrillAppTests(tfn.AppTests):
     def test_no_answer_one_quiet_line(self):
         with self._run(self.kai, "kai") as at:
             text = self._text(at)
-            self.assertIn("A storm on the trail", text)
+            self.assertIn("A big market drop", text)
             self.assertIn("You can write down what you'd do in a drop like this", text)
             self.assertNotIn("Your storm drill", text)
 
@@ -205,7 +205,7 @@ class DrillAppTests(tfn.AppTests):
             self.assertNotIn("fn_save_drill", self._keys(at))
         with self._run(self.vic, "vic") as at:
             text = self._text(at)
-            self.assertIn("A storm on the trail", text)               # the storm note as before
+            self.assertIn("A big market drop", text)               # the storm note as before
             self.assertNotIn("Your storm drill", text)
             self.assertNotIn("breathe", text)
             self.assertNotIn("You can write down what you'd do", text)

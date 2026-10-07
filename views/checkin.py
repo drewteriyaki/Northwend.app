@@ -169,15 +169,15 @@ def _render_walk_verdict():
     with st.container(border=True, key="pt_walk_verdict"):
         st.markdown(f"**{checkin.verdict_text(v)}**")
         if v["kind"] == checkin.NONE:
-            st.caption("Your target mix is the rule the walk reads each month: how much you "
-                       "want in stocks, bonds and cash."
+            st.caption("Your target mix is how much you want in stocks, bonds and cash. Each "
+                       "month, the walk compares your holdings with it."
                        + ("" if CAN_MANAGE else " Your advisor can set one with you."))
         else:
             st.caption(checkin.rule_text(targets, band) + " "
                        + ("You can change both on the Plan, under Target mix." if CAN_MANAGE
                           else "Your advisor set these with you - ask them about a change.")
-                       + " By asset class only: which funds, and whether to add money at "
-                         "all, is up to you.")
+                       + " This only looks at kinds of investments, like stocks and bonds: "
+                         "which funds to use, and whether to add money at all, is up to you.")
         # still Northwend's example mix, untouched: say so, and ask (LEGAL_GATES C3)
         from_example = (CAN_MANAGE and v["kind"] != checkin.NONE
                         and checkin.target_from_example(_read_prefs(), targets))
@@ -236,9 +236,9 @@ def _render_checkin_steps(state):
         if not load_alloc_targets():
             st.caption("No target mix yet - you can choose one on Plan, under Target mix.")
         else:
-            st.caption(f"Your band is {load_drift_threshold():g} points either way: a kind "
-                       "further than that from its target is flagged. A few points either way "
-                       "is normal.")
+            st.caption(f"Your band is {load_drift_threshold():g} points either way: if a kind "
+                       "of investment moves further than that from its target, the walk points "
+                       "it out. A few points either way is normal.")
         st.button("Looked at it", key="walk_mix", type="primary", width="stretch",
                   on_click=_checkin_tick, args=("mix",))
 

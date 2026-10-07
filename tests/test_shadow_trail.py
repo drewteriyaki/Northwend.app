@@ -74,8 +74,8 @@ class WordingTests(unittest.TestCase):
                 self.assertEqual(ai_policy.findings(line, allowed_tickers=set()), [])
 
     def test_the_hypothetical_label(self):
-        self.assertEqual(sh.HYPOTHETICAL, "Hypothetical - a path you didn't take, on past "
-                                          "prices. Not a forecast, not advice.")
+        self.assertEqual(sh.HYPOTHETICAL, "Hypothetical - a made-up mix you don't hold, on "
+                                          "past prices. Not a forecast, not advice.")
         self.assertIn("Kinds of funds, represented by", sh.PROXY_LINE)
         self.assertIn("cash is counted flat", sh.PROXY_LINE)
         self.assertIn("Only you see it", sh.KEPT_LINE)

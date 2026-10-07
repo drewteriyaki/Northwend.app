@@ -390,7 +390,7 @@ class AppTests(unittest.TestCase):
             self.assertEqual(self._prefs(self.alice)[tf.PREF],
                              {"forks": ["new_baby"], "done": {}})
             at.button(key="tf_clear").click().run()
-            self.assertIn("Your forks were cleared.", self._text(at))
+            self.assertIn("Your marks and ticks were cleared.", self._text(at))
         self.assertNotIn(tf.PREF, self._prefs(self.alice))
 
     def test_the_plan_button_opens_the_plan(self):

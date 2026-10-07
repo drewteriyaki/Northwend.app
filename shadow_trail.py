@@ -57,36 +57,38 @@ REAL = "Your mix"
 
 # ---- fixed text (every line here is checked by tests/test_shadow_trail.py) -- #
 TITLE = "Shadow Trail"
-HYPOTHETICAL = ("Hypothetical - a path you didn't take, on past prices. Not a forecast, "
-                "not advice.")
-INTRO = ("Set up to two shadow mixes of kinds of funds and see how each path has moved since "
-         "the day you set it, beside your own mix. It's a way to see how different kinds of "
-         "funds have moved - nothing here says what anyone ought to hold.")
-PROXY_LINE = ("Kinds of funds, represented by the past prices of {proxies}, the same stand-ins "
-              "as the practice portfolio; cash is counted flat, with no interest. Dividends "
-              "are included where the price history has them. Each shadow is invested on the "
-              "day it was set and left alone - nothing added, taken out or rebalanced. Real "
-              "funds, fees and timing differ.")
-REAL_LINE = ("Your mix is your holdings today, on the same past prices - money you added or "
-             "took out isn't counted, so it shows the market's effect alone.")
-LOCK_LINE = ("A shadow can change at most once every {months} months, so it stays a slow "
-             "comparison rather than a chase.")
+HYPOTHETICAL = ("Hypothetical - a made-up mix you don't hold, on past prices. Not a "
+                "forecast, not advice.")
+INTRO = ("A shadow is a made-up mix of kinds of funds that you don't actually hold. Set up "
+         "to two, and see how much each one would have gone up or down since the day you set "
+         "it, next to your own holdings. It shows how different kinds of funds have moved - "
+         "nothing here says what anyone ought to hold.")
+PROXY_LINE = ("Kinds of funds, represented by the past prices of {proxies} - the same funds "
+              "the practice portfolio uses; cash is counted flat, with no interest. Dividends "
+              "are included where the price history has them. Each shadow is bought on the "
+              "day it was set and then left alone - nothing added, taken out or rebalanced. "
+              "Real funds, fees and timing differ.")
+REAL_LINE = ("Your mix is your holdings today, on the same past prices. Money you added or "
+             "took out isn't counted, so it shows only how prices moved.")
+LOCK_LINE = ("A shadow can be changed at most once every {months} months, so it compares "
+             "mixes over a longer stretch of time.")
 NONE_YET = ("No shadows yet. A shadow is a mix of kinds of funds - for example 60% US stocks "
-            "and 40% bonds - that runs beside your own from the day you set it.")
-NO_PRICES = ("Past prices for these kinds of funds aren't on this copy yet, so the paths "
-             "can't be drawn. Your shadows are kept, and their paths show once the prices "
-             "are here.")
+            "and 40% bonds - that is tracked next to your own holdings from the day you set "
+            "it.")
+NO_PRICES = ("Past prices for these kinds of funds aren't loaded yet, so the lines can't be "
+             "drawn. Your shadows are saved, and their lines will appear once the prices are "
+             "loaded.")
 STARTS_SOON = ("{name} starts with the next closing prices after {start}.")
 NO_REAL = ("Your own mix isn't drawn: there are no past prices for your holdings over these "
            "days.")
-CHART_NOTE = ("Each shadow branches off your mix's line on the day it was set. Percentage "
-              "change only; prices through {through}.")
+CHART_NOTE = ("Each shadow's line starts from your mix's line on the day the shadow was set. "
+              "Percentage change only; prices through {through}.")
 TABLE_NOTE = ("Change since each shadow was set, on the same days for your mix. Listed in "
               "the order they were made.")
 SLOT_SET = "Set {start}; this mix since {changed}."
 SLOT_NEXT = "It can change on {next}."
 SLOT_NOW = "It can change now."
-SLOT_EMPTY_LOCKED = "This place can hold a new shadow from {next}."
+SLOT_EMPTY_LOCKED = "A new shadow can be set up here from {next}."
 SLOT_EMPTY = "Empty."
 TOTAL_LINE = "Adds up to {total}% - it needs to be 100%."
 SET_NOTE = ("Once it's set, it can change again on {next}.")

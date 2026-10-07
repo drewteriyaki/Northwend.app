@@ -467,7 +467,7 @@ class AppTests(unittest.TestCase):
     def test_the_storm_note_shows_their_own_words(self):
         with self._run(self.rae, "rae") as at:
             text = self._text(at)
-            self.assertIn("A storm on the trail", text)
+            self.assertIn("A big market drop", text)
             self.assertIn("In your own words", text)
             self.assertIn("You wrote on Mar 4, 2026: “" + HOUSE.replace("'", "&#x27;"), text)
             self.assertIn("You wrote on Mar 3, 2026: “" + HOLD.replace("'", "&#x27;"), text)

@@ -195,7 +195,7 @@ class WalkOffTests(test_walk._WalkApp):
         before = self._prefs(self.dana)
         with self._run(self.dana, "dana") as at:
             text = self._text(at)
-            for words in ("monthly walk", "Walks finished", "Your plan pointed", "Logbook"):
+            for words in ("monthly walk", "Walks finished", "Your plan said", "Logbook"):
                 self.assertNotIn(words, text)
             self.assertFalse([k for k in self._keys(at) if k.startswith("walk_")])
             # the kit, without the logbook (nor the rope: she's an advisor's client)

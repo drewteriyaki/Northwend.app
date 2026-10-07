@@ -258,13 +258,13 @@ def _hide_weather(w):
     _write_prefs(p)
 
 
-@st.dialog("What storms have looked like", width="medium", on_dismiss=_dialog_closed)
+@st.dialog("How past market drops played out", width="medium", on_dismiss=_dialog_closed)
 def _storms_window():
     # (every word here is storms.py's fixed narrator: AI_PLAN section 9, row 4)
     st.caption(storms.WINDOW_CAPTION)
     rows = "".join(f"<tr><td>{html.escape(name)}</td><td>{fall}%</td><td>{html.escape(back)}</td></tr>"
                    for name, fall, back in storms.PAST_STORMS)
-    st.html("<table class='pt-storm-table'><thead><tr><th>Storm</th><th>Fell</th>"
+    st.html("<table class='pt-storm-table'><thead><tr><th>Drop</th><th>Fell</th>"
             f"<th>Back to the old high</th></tr></thead><tbody>{rows}</tbody></table>")
     st.markdown(storms.WINDOW_NOTE)
     learn_more("market_drops")
@@ -285,17 +285,17 @@ def render_weather():
     cloak = (storm and _kit_shown()
              and "cloak" not in (_read_prefs().get("gear_seen") or []))
     with st.container(border=True, key="pt_storm"):
-        st.html("<div class='pt-eyebrow' style='margin:0'>Weather on the trail</div>"
+        st.html("<div class='pt-eyebrow' style='margin:0'>Recent market moves</div>"
                 f"<div class='pt-storm-title'>{title}</div>"
                 f"<div>{html.escape(lead)} {html.escape(body)}</div>"
                 f"<div class='pt-region' style='margin-top:.4rem'>{html.escape(nothing)}"
-                + (" Holding steady through a storm earns the <b>storm cloak</b> for "
+                + (" Staying invested through a big drop earns the <b>storm cloak</b> for "
                    "your kit." if cloak else "") + "</div>")
         if own:   # their own words back, never an advisor's view (views/future_notes.py)
             render_storm_notes(w)
             render_storm_drill()   # the Storm Drill answer (R4, flag storm_drill)
         with st.container(horizontal=True):
-            if st.button("What storms have looked like", key="storm_more", type="tertiary"):
+            if st.button("How past drops played out", key="storm_more", type="tertiary"):
                 st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
                 _storms_window()
             st.button(f"Ask {GUIDE}", key="storm_ask", type="tertiary",

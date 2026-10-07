@@ -82,13 +82,14 @@ _TICKER = re.compile(r"\$?\b[A-Z]{2,5}\b")
 _MONTH = re.compile(r"^(\d{4})-(0[1-9]|1[0-2])$")
 
 TITLE = "This month's world"
-INTRO = ("What happened in the world last month, in plain words - past facts only, "
-         "never a forecast.")
+INTRO = ("A short note on what happened in the markets and the economy last month - only "
+         "what already happened, never a forecast.")
 NOT_ADVICE = ("Educational, not advice: it describes what happened, the same for everyone, "
               "and says nothing about what comes next or what to do.")
-GENERAL_ONLY = "Once you've added holdings, a line for your own mix shows here too."
+GENERAL_ONLY = ("Once you add your holdings, a line about the kinds of investments you hold "
+                "shows here too.")
 SOURCES_LEAD = "Sources"
-OPEN = "Read this month's world"
+OPEN = "Read this month's note"
 CLOSE = "Close"
 
 # --------------------------------------------------------------------------- #

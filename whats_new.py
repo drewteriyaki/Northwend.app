@@ -34,10 +34,10 @@ ENTRIES = [
     {"date": "2026-10-06", "title": "This month's world",
      "items": [
          {"text": "Some months, the drill card on Home has a short note on what happened in "
-                  "the world last month, in plain words - past facts only, never a forecast - "
-                  "with a line for someone with a mix like yours and links to the official "
-                  "sources. Each note is written by hand and reviewed before it appears. "
-                  "Nothing about you goes into it, and it's never sent to the AI.",
+                  "the markets and the economy last month - only what already happened, never "
+                  "a forecast. It has a line about investments like yours and links to the "
+                  "official sources. Each note is written by hand and checked before it "
+                  "appears. Nothing about you goes into it, and it's never sent to the AI.",
           "flag": "month_world"},
      ]},
     {"date": "2026-10-06", "title": "Your walks and your advisor",
@@ -65,58 +65,61 @@ ENTRIES = [
      ]},
     {"date": "2026-10-06", "title": "The Inheritance Rehearsal",
      "items": [
-         {"text": "The Inheritance Rehearsal, on the Account page, is a gentle practice run "
-                  "with a made-up family: you walk through looking after a parent's accounts "
-                  "one small step at a time - finding out what there is, whom to call, which "
-                  "papers people are often asked for, and taking care of yourself. Nothing is "
-                  "graded, and it never tells you what to do; it's there so the real thing "
-                  "feels less unfamiliar.", "flag": "inheritance_rehearsal"},
+         {"text": "The Inheritance Rehearsal, on the Account page, is a practice run with a "
+                  "made-up family: it goes through looking after a parent's accounts after "
+                  "they die, one small step at a time - finding out what accounts there are, "
+                  "who to call, which papers people are often asked for, and taking care of "
+                  "yourself. Nothing is graded, and it never tells you what to do; it's there "
+                  "so you'll know what to expect if it ever happens for real.",
+          "flag": "inheritance_rehearsal"},
      ]},
     {"date": "2026-10-06", "title": "Shadow Trail",
      "items": [
-         {"text": "A new Shadow Trail tab on the Plan page lets you set up to two shadow mixes "
-                  "of kinds of funds - say, 60% US stocks and 40% bonds - and see how each "
-                  "path has moved on past prices since the day you set it, beside your own "
-                  "mix. Percentages only, and each shadow changes at most once a quarter. "
-                  "Hypothetical - a path you didn't take, not a forecast and not advice. Only "
-                  "you see it.", "flag": "shadow_trail"},
+         {"text": "A new Shadow Trail tab on the Plan page lets you set up to two made-up "
+                  "mixes of kinds of funds - say, 60% US stocks and 40% bonds - and see how "
+                  "much each would have gone up or down on past prices since the day you set "
+                  "it, next to your own holdings. Percentages only, and each mix can be "
+                  "changed at most once every three months. Hypothetical - not a forecast "
+                  "and not advice. Only you see it.", "flag": "shadow_trail"},
      ]},
     {"date": "2026-10-06", "title": "Teach it back",
      "items": [
          {"text": "Under each of the basics on Learn there's now an optional box to explain "
-                  "the idea back in your own words. Northwend's AI tells you whether it "
-                  "holds and points at what the topic says - generously, never with a score, "
-                  "and never about your own money. Try again as often as you like; your "
-                  "words aren't saved. Three topics that hold earn the map case for your kit.",
+                  "the idea back in your own words. Northwend's AI tells you whether you've "
+                  "got the main idea and points to what the topic says - generously, never "
+                  "with a score, and never about your own money. Try again as often as you "
+                  "like; your words aren't saved. Explaining three topics earns the map case "
+                  "for your kit.",
           "flag": "teach_back"},
      ]},
     {"date": "2026-10-06", "title": "Trail Conditions",
      "items": [
          {"text": "Trail Conditions is a short Monday email you can turn on from the Account "
-                  "page. Most weeks it says all is calm and there's nothing to do. It only "
-                  "changes when something has - a new season's note, your monthly walk, a "
-                  "situation to rehearse, or a stormy stretch in the markets. It never has "
+                  "page. Most weeks it just says nothing needs your attention. It mentions "
+                  "something only when there's something new: a seasonal guide, your monthly "
+                  "check-in, a practice question, or a big drop in the markets. It never has "
                   "amounts or anything else about your money, and one click stops it.",
           "flag": "trail_conditions"},
      ]},
     {"date": "2026-10-06", "title": "Pay yourself",
      "items": [
-         {"text": "A new Pay yourself tab on the Plan page pictures your savings as a monthly "
-                  "paycheck: what your investments are estimated to pay each month, and what a "
-                  "rule of thumb you pick from a short list would give. It shows which month "
-                  "pays the least, and a hypothetical 20% fall - illustrations, not a forecast "
-                  "and not advice - with questions to ask a licensed professional about "
+         {"text": "A new Pay yourself tab on the Plan page shows your savings as a monthly "
+                  "paycheck: what your investments are estimated to pay each month, and how "
+                  "much a rule of thumb you pick from a short list would give. It shows which "
+                  "month pays the least, and what the paycheck would be if investments fell "
+                  "20% - hypothetical, not a forecast and not advice - with questions to ask a licensed professional about "
                   "retirement income.", "flag": "pay_yourself"},
      ]},
     {"date": "2026-10-06", "title": "Bring to my advisor",
      "items": [
          {"text": "If you work with an advisor, Bring to my advisor on the Account page lets "
-                  "you choose things that are otherwise only yours to show them before a "
-                  "review: your plan in plain words, the forks you're on (just their names), "
-                  "your readiness map, your storm drill answer, the places you've looked, and "
-                  "questions you'd like to ask. Everything starts unticked, you're asked once "
-                  "before anything is shared, and unticking takes it out of their view at "
-                  "once.", "flag": "advisor_pack"},
+                  "you pick private things to show them before a meeting: your plan in plain "
+                  "words, the life events you've marked in Trail Forks (just their names), "
+                  "which practice drills you've done, your Storm Drill answer, the places "
+                  "you've looked for forgotten money, and questions you'd like to ask. Nothing "
+                  "is ticked to start with, you're asked once before anything is shared, and "
+                  "if you untick something they stop seeing it straight away.",
+          "flag": "advisor_pack"},
          {"text": "Advisors see only what a client ticked, dated and marked as shared by the "
                   "client, and a short note on what clients are reading this season.",
           "flag": "advisor_pack"},
@@ -140,27 +143,30 @@ ENTRIES = [
          {"text": "An advisor's listing can say whether they offer a one-time review, and its "
                   "price as they state it. You'd pay the advisor directly; Northwend takes no "
                   "part of it.", "flag": "directory"},
-         {"text": "Once you've finished Learn or set a goal, Learn and Plan show one quiet "
-                  "line, \"Want a second opinion? Find a guide\". It's entirely optional.",
+         {"text": "Once you've finished Learn or set a goal, Learn and Plan show one short "
+                  "line, \"Want to talk with a financial advisor? Find a guide\". It's "
+                  "entirely optional.",
           "flag": "directory"},
      ]},
     {"date": "2026-10-06", "title": "Trail Forks",
      "items": [
-         {"text": "Trail Forks, on the Account page, is a calm route for big life changes - a "
-                  "new job, a layoff, a new baby, an inheritance, a divorce or the death of a "
-                  "parent. Each one shows what changes, what to gather, what to ask and whom, "
-                  "and what not to rush. It never tells you what to do. You can mark the fork "
-                  "you're on and tick steps as you go; only you see them.",
+         {"text": "Trail Forks, on the Account page, has a checklist for big life events - "
+                  "a new job, a layoff, a new baby, an inheritance, a divorce or the "
+                  "death of a parent. Each one lists what changes, which papers to gather, "
+                  "what to ask and who to ask, and which decisions can wait. It never tells "
+                  "you what to do. You can mark the one that's happening to you and tick off "
+                  "steps as you do them; only you see them.",
           "flag": "trail_forks"},
      ]},
     {"date": "2026-10-06", "title": "The four seasons",
      "items": [
-         {"text": "Four moments in the year now bring something worth a look that isn't your "
-                  "balance: in January, this year's contribution limits and what your funds' "
-                  "fees add up to; in April, your tax forms explained; in October and November, "
+         {"text": "Four times a year, Home now has a short guide to something that comes up "
+                  "at that time of year: in January, this year's contribution limits and "
+                  "what your funds' fees add up to; in April, your tax forms explained; in October and November, "
                   "open enrollment and health savings accounts; in December, your year in "
-                  "review and a letter to future you. A card shows on Home in season - put it "
-                  "away with Not now - and Learn has all four any time.", "flag": "seasons"},
+                  "review and a letter to future you. The card shows on Home during those "
+                  "months - Not now hides it - and Learn has all four any time.",
+          "flag": "seasons"},
      ]},
     {"date": "2026-10-06", "title": "What's new and Status, on northwend.app",
      "items": [
@@ -173,33 +179,35 @@ ENTRIES = [
      "items": [
          {"text": "Explain it to someone, on the Account page, makes a private link that shows "
                   "a partner or family member your plan in plain words: your mix in "
-                  "percentages, what you're investing for and roughly when, and where you are "
-                  "on the route - never an amount, a holding or an account. You choose 7 or "
+                  "percentages, what you're investing for and roughly when, and whether "
+                  "you're still learning or already investing - never an amount, a holding "
+                  "or an account. You choose 7 or "
                   "30 days, your first name stays off unless you tick it, and you can turn a "
                   "link off at any time.", "flag": "explain_share"},
      ]},
     {"date": "2026-10-06", "title": "When each price is from",
      "items": [
          "Each price now says when it's from: a time, like 3:45 pm ET, while the market is "
-         "open, or the day's close, like Oct 3 close, once it shuts. You'll see it under a "
-         "ticker's price, on your watchlist and in the Price as of column on Home.",
-         {"text": "If a price ever looks off, tap Price look wrong? under it and pick what "
-                  "seems wrong. It helps us look into it.", "flag": "price_report"},
+         "open, or the day's closing price, like Oct 3 close, once the market has closed. "
+         "You'll see it under a ticker's price, on your watchlist and in the Price as of "
+         "column on Home.",
+         {"text": "If a price ever looks wrong, tap Price look wrong? under it and pick what "
+                  "seems wrong. It helps us check that price.", "flag": "price_report"},
      ]},
     {"date": "2026-10-06", "title": "A sealed envelope",
      "items": [
          {"text": "Once you've written what you'd do in a drop on the Plan's Stress test, you "
                   "can make it a sealed envelope: a one-page PDF of your own words and the day "
-                  "you wrote them, to print, seal and open if the market ever falls a long "
-                  "way. It has no numbers about your money, and it isn't saved anywhere.",
+                  "you wrote them, to print, seal and open if the market ever drops a lot. "
+                  "It has no numbers about your money, and it isn't saved anywhere.",
           "flag": "sealed_envelope"},
      ]},
     {"date": "2026-10-06", "title": "Preparedness drills",
      "items": [
          {"text": "A short drill on Home, once a week: a situation like a market drop, a job "
                   "loss, a raise or a windfall - set against your own mix and timeline, or "
-                  "for practice if you're not investing yet. Tap what you'd weigh first and "
-                  "see what people often think about. Nothing is graded, there's no right "
+                  "for practice if you're not investing yet. Tap what you'd think about first "
+                  "and see what other people often consider. Nothing is graded, there's no right "
                   "answer on an investment choice, and a missed week costs nothing. Your "
                   "readiness map shows which situations you've rehearsed; only you see what "
                   "you tapped.", "flag": "drills"},

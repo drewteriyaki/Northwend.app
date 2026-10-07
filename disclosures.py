@@ -497,7 +497,7 @@ and it leaves your view when they untick it or the relationship ends.
   to anyone else or sent to the AI - and which version of this page you agreed
   to. Northwend sends no newsletters or advertising email. Where it's offered,
   Trail Conditions is a short Monday email you can turn on: most weeks it
-  says all is calm, and otherwise only that something is waiting in the app
+  says nothing needs your attention, and otherwise only that something is ready in the app
   (a season's note, your monthly walk, a situation to rehearse) or that
   markets have fallen a long way recently - never an amount, a percentage,
   a holding, a forecast or a suggestion to buy or sell. Every one has a link

@@ -93,8 +93,8 @@ def _render_drill_map(p):
     with st.expander("Your readiness map", icon=":material/map:"):
         st.html(f"<div class='pt-region'>{n} of {len(drills.KEYS)} situations rehearsed</div>"
                 + _drill_map_html(p))
-        st.caption("Each situation you've thought through once is marked. There's no "
-                   "order to finish them in, and no hurry. Only you can see it"
+        st.caption("Each situation you've thought through is marked. You can do them in "
+                   "any order, at your own pace. Only you can see this"
                    + (" - unless you choose to bring it to your advisor (Account)."
                       if IS_MANAGED_CLIENT and flags.on("advisor_pack") else "."))
 
@@ -121,9 +121,8 @@ def render_drill_card():
             render_month_world()   # this month's world, if there's a note (views/month_world.py)
         is_open = bool(st.session_state.get("drill_open"))
         if done_key and not is_open:
-            st.caption("Done for this week. The next one is here from "
-                       f"{_fmt_date(drills.next_week_start(today).isoformat())} - "
-                       "whenever you're ready.")
+            st.caption("Done for this week. The next one is ready on "
+                       f"{_fmt_date(drills.next_week_start(today).isoformat())}.")
             _render_drill_map(p)
             return
         if not is_open:
@@ -140,7 +139,7 @@ def render_drill_card():
             st.caption(" ".join(lines))
         mine = drills.chosen(p, key) if done_key == key else None
         if mine is None:
-            st.markdown("**What would you weigh first?**")
+            st.markdown("**What would you think about first?**")
             for choice, words in drills.choices_of(key):
                 st.button(words, key=f"drill_tap_{choice}", width="stretch",
                           on_click=_drill_tap, args=(key, choice))
@@ -151,9 +150,9 @@ def render_drill_card():
                 st.markdown(f"**{drills.THINK_LEAD}**")
                 st.markdown(drills.think_of(key))
                 st.caption(drills.NO_RIGHT_ANSWER)
-            st.caption("Next week brings a new situation - from "
+            st.caption("A new one is ready on "
                        f"{_fmt_date(drills.next_week_start(today).isoformat())}. "
-                       "Nothing is lost if you skip a week.")
+                       "It's fine to skip a week.")
             if not feature_counts.left_out(p):
                 st.caption("Northwend counts how many people come back for a third drill, "
                            "in totals only - never you by name, never what you tapped. You "

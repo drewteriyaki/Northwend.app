@@ -124,7 +124,7 @@ def _shadow_places(places, today):
             if slot and slot["mix"]:
                 c2.button(sh.REMOVE_LABEL.format(name=name), key=f"shadow_remove_{i}",
                           type="tertiary", on_click=_shadow_remove, args=(i,),
-                          help="Removing it doesn't move its next change date.")
+                          help="Removing it doesn't let you set a new mix here any sooner.")
 
 
 def _shadow_chart(rows):

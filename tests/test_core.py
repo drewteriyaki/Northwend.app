@@ -1958,7 +1958,7 @@ class GearTests(unittest.TestCase):
             self.assertTrue(gear.BY_KEY[k][3].endswith("."), k)
         # the owner's example: the cloak says plainly what it's for
         self.assertEqual(gear.FOR["cloak"],
-                         "For holding steady through a market drop instead of selling.")
+                         "For staying invested through a market drop instead of selling.")
 
     def test_how_its_earned_matches_the_real_rule(self):
         import gear

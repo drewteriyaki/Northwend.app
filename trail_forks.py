@@ -39,17 +39,18 @@ OFFICIAL_SITES = (
     "www.usa.gov",               # the federal government's own guide
 )
 
-INTRO = ("Life changes - a new job, a baby, a loss - and money questions come with them. "
-         "Pick the fork you're on: each one shows what changes, what to gather, what to ask "
-         "(and whom), and what not to rush.")
-PRIVATE = ("Which forks you mark and the steps you tick are kept with your own settings. "
-           "Only you see them - not an advisor - and none of it is sent to the AI. Nothing "
-           "you write is kept: there's nowhere to write.")
+INTRO = ("Big life events - a new job, a baby, a death in the family - bring money questions "
+         "with them. Open the one that matches what's happening to you. Each one lists what "
+         "changes, which papers to gather, what to ask and who to ask, and which decisions "
+         "can wait.")
+PRIVATE = ("Which life events you mark and the steps you tick are saved in your own "
+           "settings. Only you see them - not an advisor - and none of it is sent to the AI. "
+           "There's no box to type in, so nothing you write is saved.")
 NOT_ADVICE = ("Educational, not advice: Northwend never says what to do at a life event. For "
               "your own situation, an attorney, a tax preparer or the plan administrator can "
               "help.")
-MINE_LABEL = "This is a fork I'm on"
-MINE_HELP = "Marks it as yours, so you can tick the steps as you go. Only you see it."
+MINE_LABEL = "This is happening to me"
+MINE_HELP = "Marks it as yours, so you can tick off the steps as you do them. Only you see it."
 
 # who to ask (a fork's questions are grouped under these)
 HR = "HR or the benefits team"
@@ -69,19 +70,19 @@ ASK = "What to ask, and whom"
 NOT_RUSH = "What not to rush"
 
 # where each fork ends: into the Walk (flag walk), or the Plan without it
-WALK_END = ("When things feel steadier, the monthly walk is a calm way to look at your plan "
-            "again. Your investments don't have to change on the same day your life does.")
+WALK_END = ("When things settle down, use your monthly walk to check your plan again. You "
+            "don't have to change your investments on the same day your life changes.")
 WALK_BUTTON = "Go to your monthly walk"
-PLAN_END = ("When things feel steadier, your Plan is a calm place to look at your goal and "
-            "mix again. Your investments don't have to change on the same day your life does.")
+PLAN_END = ("When things settle down, open your Plan to check your goal and your mix again. "
+            "You don't have to change your investments on the same day your life changes.")
 PLAN_BUTTON = "Open your Plan"
 
 # a fork's pointer to another part of the Account page
 SEE_ALSO = {
     "lost_found": ("Lost & Found, on this page, lays out an old 401(k)'s common choices side "
                    "by side, with questions to ask."),
-    "account_map": ("When you're ready, your own account map, on this page, is a way to make "
-                    "things simpler for your own family later on."),
+    "account_map": ("When you're ready, the account map on this page lets you list your own "
+                    "accounts, so your family knows where to look later on."),
 }
 
 # Each fork: key, title, icon, opening (one soft line), changes, gather
@@ -142,8 +143,8 @@ FORKS = (
 
     {"key": "layoff", "title": "A layoff or job loss", "icon": ":material/work_off:",
      "opening": ("Losing a job is hard. A lot arrives at once, and not all of it needs an "
-                 "answer today. This route helps you sort what has a date on it from what "
-                 "can wait."),
+                 "answer today. This list helps you sort out what has a date attached from "
+                 "what can wait."),
      "changes": (
          "Your paycheck stops. The last one may include unused vacation or a severance "
          "payment - the employer can explain how theirs is worked out.",
@@ -206,8 +207,8 @@ FORKS = (
      "see_also": ("lost_found",)},
 
     {"key": "new_baby", "title": "A new baby", "icon": ":material/child_care:",
-     "opening": ("Congratulations. A new baby changes a lot at once - money is only a small "
-                 "part of it, and most of it can be sorted in the quiet moments."),
+     "opening": ("Congratulations. A new baby changes a lot at once. Money is only a small "
+                 "part of it, and most of it can be sorted out a little at a time."),
      "changes": (
          "Health insurance: a birth usually lets you add the baby to your plan, or change "
          "plans, outside the usual season. The plan can tell you its window.",
@@ -260,8 +261,8 @@ FORKS = (
      "see_also": ()},
 
     {"key": "inheritance", "title": "An inheritance", "icon": ":material/family_history:",
-     "opening": ("If this comes after losing someone, go gently. What you've been left will "
-                 "keep while you take the time you need."),
+     "opening": ("If this comes after losing someone, go gently with yourself. What you've "
+                 "been left will still be there while you take the time you need."),
      "changes": (
          "What you receive may be cash, investments, a home, or an account such as an IRA or "
          "401(k) - and each kind has its own rules.",
@@ -314,9 +315,9 @@ FORKS = (
      "see_also": ()},
 
     {"key": "divorce", "title": "A separation or divorce", "icon": ":material/call_split:",
-     "opening": ("Going through a separation or divorce is a lot to carry. This route never "
-                 "says what to do - it helps you gather what you'll be asked for, and what to "
-                 "ask the people who can advise you."),
+     "opening": ("Going through a separation or divorce is a lot to carry. This list never "
+                 "says what to do. It helps you gather the papers you'll be asked for, and "
+                 "the questions to ask the people who can advise you."),
      "changes": (
          "How accounts, a home and debts are divided is worked out through the divorce "
          "itself - by agreement or by the court - with your attorney.",
@@ -367,9 +368,9 @@ FORKS = (
      "see_also": ()},
 
     {"key": "parent_death", "title": "The death of a parent", "icon": ":material/local_florist:",
-     "opening": ("We're sorry for your loss. Nothing here needs to happen today. This route "
-                 "is a gentle list for when you're ready - what to gather, and what to ask "
-                 "the people helping you."),
+     "opening": ("We're sorry for your loss. Nothing here needs to happen today. This is a "
+                 "list for when you're ready: what to gather, and what to ask the people "
+                 "helping you."),
      "changes": (
          "Someone - usually the executor named in the will - looks after the estate: "
          "gathering the accounts, paying debts and passing on what's left.",

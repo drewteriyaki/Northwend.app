@@ -89,7 +89,8 @@ class AsOfTests(unittest.TestCase):
         self.assertEqual(pr.as_of_line("2026-10-06T19:45:00Z", now=now),
                          "As of 3:45 pm ET · may be delayed")
         self.assertEqual(pr.as_of_line("2026-10-06T19:00:00Z", now=now),
-                         "As of 3:00 pm ET · the latest we have · may be delayed")
+                         "As of 3:00 pm ET · older than usual, the newest price we have · "
+                         "may be delayed")
         self.assertIn("funds are priced once a day",
                       pr.as_of_line("2026-10-06T19:00:00Z", "fund", now=now))
         # stored forms: 'Z', a space, no zone, a datetime

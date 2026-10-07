@@ -193,7 +193,7 @@ FEATURES = {
     # Trail Conditions (ROADMAP "The weekly rhythm", Phase C; trail_conditions.py):
     # an opt-in Monday email, off by default (Account > Trail Conditions, the
     # login's own switch; views/account.py checks on("trail_conditions")).
-    # "Calm on the trail - nothing to do" almost every week; fixed lines only
+    # "Nothing needs your attention this week" almost every week; fixed lines only
     # when a storm, a season, the walk or the readiness map changed. No
     # figures, no forecasts. Education (LEGAL_GATES.md section 6): no gate.
     # CAN-SPAM: one-click unsubscribe and a postal address in every email -

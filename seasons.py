@@ -103,8 +103,8 @@ BY_KEY = {s[0]: s for s in SEASONS}
 MONTH_NAMES = ("January", "February", "March", "April", "May", "June", "July", "August",
                "September", "October", "November", "December")
 
-INTRO = ("Four moments in the year, each with something worth a look that isn't your "
-         "balance.")
+INTRO = ("Four short guides a year, each about something that comes up at that time of "
+         "year, like taxes or work benefits.")
 CHECK = ("Rules and amounts change from year to year - check with your plan or a tax "
          "professional before acting on any of it.")
 NOT_ADVICE = "Educational, not advice: this explains how things work, the same for everyone."
@@ -184,7 +184,7 @@ FALL_PARAS = (
     "**A flexible spending account (FSA)** is chosen for the year ahead and is usually "
     "use-it-or-lose-it within the plan year, though some employers allow a short grace "
     "period or carry a small amount over.",
-    "**Your 401(k) or similar plan:** enrollment is a natural moment to look at how much you "
+    "**Your 401(k) or similar plan:** enrollment is a good time to look at how much you "
     "put in, what it's invested in and who's named as your beneficiary. Many plans let you "
     "change the amount at any time of year.",
     "**Coverage not through work:** the Health Insurance Marketplace has its own open "
@@ -203,7 +203,7 @@ FALL_LINKS = (
 
 # ---- December -------------------------------------------------------------- #
 DEC_PARAS = (
-    "December is a natural time to look back: what you added, what you learned and what the "
+    "December is a good time to look back: what you added, what you learned and what the "
     "year was like - not only where the balance ended up.",
 )
 LETTER_TITLE = "A letter to future you"

@@ -147,13 +147,13 @@ class NarratorTests(unittest.TestCase):
         w = {"level": "storm", "drop_pct": 12.4, "high_date": "2026-08-01",
              "as_of": "2026-09-30"}
         words = storms.narrate(w)
-        self.assertEqual(words["title"], "A storm on the trail")
+        self.assertEqual(words["title"], "A big market drop")
         self.assertEqual(words["lead"], "Your holdings are about 12% below their high on "
                                         "2026-08-01 (as of the close on 2026-09-30).")
         self.assertEqual(words["body"], storms.BODIES["storm"])
         self.assertEqual(words["steady"], storms.STEADY)
         rough = storms.narrate({**w, "level": "rough", "drop_pct": 6.0}, lambda d: "DAY")
-        self.assertEqual(rough["title"], "Rough weather")
+        self.assertEqual(rough["title"], "A market dip")
         self.assertIn("6% below their high on DAY", rough["lead"])
 
     def test_history_never_a_prediction(self):

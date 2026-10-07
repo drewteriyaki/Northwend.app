@@ -35,41 +35,42 @@ from trail_forks import OFFICIAL_SITES  # noqa: F401 - the same official hosts, 
 PREF = "inheritance_rehearsal"   # user_prefs key: {"done": [step, ...], "finished": "YYYY-MM-DD"}
 
 TITLE = "The Inheritance Rehearsal"
-INTRO = ("This is a practice run with a made-up family, so the real thing feels less "
-         "unfamiliar. You'll walk through looking after a parent's accounts, one small step "
-         "at a time. Nothing is graded - each tap is just something to find out or ask.")
+INTRO = ("This is a practice run with a made-up family, so you'll know what to expect if it "
+         "ever happens for real. It goes through looking after a parent's accounts after they "
+         "die, one small step at a time. Nothing is graded - each choice is just "
+         "something to find out or ask.")
 FAMILY = ("Meet Pat, a made-up parent. In this story Pat has died, and you're the one helping "
           "to sort things out. Pat had a retirement plan from an old employer, an account at a "
           "brokerage, a savings account at a bank, and a paper savings bond in a desk drawer.")
-PRIVATE = ("Which steps you've walked through, and the day you finished, are kept with your "
+PRIVATE = ("Which steps you've gone through, and the day you finished, are saved in your "
            "own settings. Only you see them - not an advisor - and none of it is sent to the "
-           "AI. Which choices you tap isn't kept, and there's nowhere to type.")
+           "AI. Which choices you pick isn't saved, and there's no box to type in.")
 NOT_ADVICE = ("Educational, not advice: Pat and the accounts are made up, and every real estate "
               "is different. For a real one, the executor, an attorney, a tax preparer or the "
               "plan administrator can help.")
 TAP_LEAD = "What would you find out first?"
 NOTE_LEAD = "What people often find"
-NO_RIGHT_ANSWER = ("There's no right order and no wrong tap. In real life most of these "
-                   "happen side by side.")
+NO_RIGHT_ANSWER = ("There's no right order and no wrong choice. In real life most of these "
+                   "happen at the same time.")
 START = "Start the practice run"
-AGAIN = "Walk through it again"
+AGAIN = "Go through it again"
 NEXT = "Next"
 FINISH = "Finish"
 LEAVE = "Leave the practice run"
 
 END_TITLE = "The end of the practice run"
-END = ("That's the whole story. The real thing is rarely this tidy, and that's alright - "
-       "nobody does it perfectly, and nobody does it all at once. If you'd like, there are "
-       "two gentle next steps, whenever you're ready.")
+END = ("That's the end of the practice run. Real life is usually messier than this, and "
+       "that's normal - nobody gets all of it right, and nobody does it all at once. If "
+       "you'd like, here are two things you can do next, when you're ready.")
 # where the story ends: the person's own account map (always on Account) and,
 # where its flag is on, Trail Forks' route for the death of a parent
 END_LINKS = {
     "account_map": ("Make your own account map",
-                    "On this page, your own account map is a way to make things simpler for "
-                    "your own family later on."),
+                    "On this page, the account map lets you list your own accounts, so your "
+                    "family knows where to look later on."),
     "trail_forks": ("Trail Forks: the death of a parent",
-                    "Just above, Trail Forks has a calm route for the death of a parent - what "
-                    "to gather and what to ask, for when it's real."),
+                    "Just above, Trail Forks has a list for the death of a parent - what to "
+                    "gather and what to ask, for if it happens for real."),
 }
 
 # Each step: key, title, situation, choices ((choice, words, people often...), ...),
@@ -220,9 +221,9 @@ STEPS = (
      "situation": ("It's been a long stretch of calls and paperwork, and you miss Pat. "
                    "You're tired."),
      "choices": (
-         ("pause", "Put the folder down for a while - the papers will keep",
+         ("pause", "Take a break from the paperwork for a while",
           "People often find most of this can be done in small pieces, and that it's alright "
-          "to stop for a while. Grief takes its own time."),
+          "to stop for a while. Grieving takes time."),
          ("share", "Ask someone to share the calls or the paperwork",
           "Many families split the work - one person on the phone, another keeping the "
           "folder. Asking for help is part of doing this well."),

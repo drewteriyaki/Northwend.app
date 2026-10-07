@@ -63,7 +63,7 @@ people already learning on Northwend.
    paid" explainer (flat fee or one-time review, hourly, subscription, a
    percentage of assets, commissions; questions to ask about pay and conflicts;
    links to investor.gov, BrokerCheck and IAPD only). On the individual side, one
-   quiet "Want a second opinion? Find a guide" line appears once someone has
+   quiet "Want to talk with a financial advisor? Find a guide" line appears once someone has
    finished the Learn section or set a goal - never for someone who already has
    an advisor, and nothing is counted about who sees or presses it.
 2. **Introductions:** a person sends a message and, if they choose, a figure-free

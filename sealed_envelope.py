@@ -12,7 +12,7 @@ amounts, holdings, tickers, account names, email or login - render_pdf
 takes nothing it could print them from. The person's name only if they tick
 it. The PDF is made when they click and never saved; the only thing kept is
 the day they made it (prefs PREF_MADE, a date), so Home's storm note can say
-"You wrote yourself a sealed envelope for a day like this". Never offered
+"Earlier, you made a sealed envelope for a drop like this one". Never offered
 while an advisor is in a client's account, never sent to the AI.
 """
 
@@ -29,7 +29,7 @@ REMINDER = ("You wrote this on a calm day. Read it slowly. Nothing has to be dec
 OFFER_LINE = ("A one-page PDF of your answer, in your own words, to print, seal and keep "
               "somewhere you'll find it. It holds no numbers about your money. It's made "
               "when you click and isn't saved anywhere.")
-STORM_LINE = "You wrote yourself a sealed envelope for a day like this."
+STORM_LINE = "Earlier, you made a sealed envelope for a drop like this one."
 FOOTER = "Your own words, kept by you."
 
 _ASCII = str.maketrans({

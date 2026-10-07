@@ -55,8 +55,8 @@ GEAR = (
      "Rehearse this week's drill on Home - three of them, one a week.", None,
      ('<circle cx="9" cy="14" r="5"/>', '<path d="M12.5 10.5L20 6v4l-5.5 2"/>',
       '<path d="M9 14h.01"/>')),
-    ("cloak", "Storm cloak", "Storm weathered: you held steady through a drop",
-     "Nothing to do now - it comes if the market has a rough patch and you stay in.", None,
+    ("cloak", "Storm cloak", "Storm weathered: you stayed invested through a drop",
+     "Nothing to do now. You earn it if the market drops a lot and you stay invested.", None,
      ('<path d="M3 15h18"/>', '<path d="M6 15c0-4 2.7-7 6-7s6 3 6 7"/>',
       '<path d="M12 4v2"/>', '<path d="M5 9l1.5 1"/>', '<path d="M19 9l-1.5 1"/>')),
     ("flag", "Summit flag", "The summit: you reached your goal",
@@ -93,10 +93,10 @@ FOR = {
             "real money.",
     "boots": "For starting to follow your own investments here.",
     "lantern": "For a steady habit of adding money - any amount counts.",
-    "logbook": "For a calm habit of looking in once a month - not every day.",
-    "whistle": "For rehearsing what you'd weigh when something unexpected happens, hard "
-               "or good.",
-    "cloak": "For holding steady through a market drop instead of selling.",
+    "logbook": "For checking in on your plan once a month - not every day.",
+    "whistle": "For thinking ahead about what you'd do when something unexpected happens, "
+               "good or bad.",
+    "cloak": "For staying invested through a market drop instead of selling.",
     "flag": "For reaching the goal you set.",
     "mapcase": "For putting what you've learned into your own words.",
 }

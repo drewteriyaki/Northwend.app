@@ -122,7 +122,7 @@ class PictureTests(unittest.TestCase):
         self.assertEqual(lines, [drills.BEGINNER_LINE])
         lines = drills.picture("job", {}, 15)
         self.assertEqual(lines, [drills.BEGINNER_LINE,
-                                 "Your goal is a long way off - many years."])
+                                 "Your goal is many years away."])
 
     def test_own_mix_in_whole_percents_only(self):
         mix = {"Stocks": 74.4, "Bonds": 24.6, "Cash": 1.0}
@@ -130,10 +130,10 @@ class PictureTests(unittest.TestCase):
                          "In your own mix, about 74% is in stocks - the part that usually "
                          "moves most, down and up.")
         self.assertEqual(drills.picture("drop", mix, 2)[1],
-                         "Your goal is a short way off - a few years or less.")
+                         "Your goal is a few years away or less.")
         self.assertEqual(drills.picture("expense", mix, 6),
                          ["Of what you hold here, about 1% is cash.",
-                          "Your goal is a middle distance away - several years."])
+                          "Your goal is several years away."])
         self.assertEqual(drills.picture("raise", mix, None), [])   # no lens, no timeline
         for k in drills.KEYS:
             for line in drills.picture(k, mix, 8):
@@ -143,9 +143,9 @@ class PictureTests(unittest.TestCase):
         self.assertIsNone(drills.timeline_words(None))
         self.assertIsNone(drills.timeline_words(0))
         self.assertIsNone(drills.timeline_words("soon"))
-        self.assertIn("short", drills.timeline_words(1))
-        self.assertIn("middle", drills.timeline_words(3))
-        self.assertIn("long", drills.timeline_words(10))
+        self.assertIn("a few years", drills.timeline_words(1))
+        self.assertIn("several", drills.timeline_words(3))
+        self.assertIn("many", drills.timeline_words(10))
 
 
 class WeekTests(unittest.TestCase):
@@ -454,7 +454,7 @@ class AppTests(unittest.TestCase):
             line = next(str(c.value) for c in at.caption
                         if "Of what you hold here" in str(c.value))
             self.assertRegex(line, r"^Of what you hold here, about \d{1,3}% is cash\. "
-                                   r"Your goal is a long way off - many years\.$")
+                                   r"Your goal is many years away\.$")
             self.assertNotIn(drills.BEGINNER_LINE, text)
             at.button(key="drill_tap_fund").click().run()
             text = self._text(at)

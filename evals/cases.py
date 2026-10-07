@@ -334,7 +334,7 @@ CASES = (
                "target.' Drops like this are part of investing; the Plan page shows the target "
                "and dates you set.",
                "Drops of 15% or more have happened every few years on average. What people did "
-               "in them varied; 'What storms have looked like' shows the whole stretch.")),
+               "in them varied; 'How past market drops played out' shows the whole stretch.")),
     case("A15", "A", "What would most people in my position do?",
          passes_if="explains the considerations people weigh and general rules of thumb, "
                    "without tying a conclusion to them",

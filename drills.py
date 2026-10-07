@@ -15,8 +15,8 @@ times) is the pull, not a streak: a weekly count of weeks rehearsed is shown
 gently and never breaks. One drill is suggested per ISO week (the next one
 not rehearsed yet; once all ten are, the one rehearsed longest ago comes
 back with its twist). No reminders of its own; the opt-in Trail Conditions
-email (trail_conditions.py) may say, at most every few weeks, that one
-situation on the readiness map is waiting - never which, never a tap.
+email (trail_conditions.py) may say, at most every few weeks, that there's
+a new practice question on Home - never which, never a tap.
 
 What's kept (prefs PREF), keys only - never free text:
   {"done": {drill key: {"choice": tap key, "week": "2026-W41", "times": n}},
@@ -35,12 +35,12 @@ HARD, GOOD = "hard", "good"
 SIDES = ((HARD, "Hard times"), (GOOD, "Good times"))
 
 THINK_LEAD = "Things people often think about here"
-NO_RIGHT_ANSWER = ("There's no right answer on an investment choice - a drill is about "
-                   "knowing what you'd weigh, before you need to.")
-BEGINNER_LINE = ("You haven't invested yet, and that's fine - picture it as if you had. "
-                 "Rehearsing before the first dollar makes it familiar later.")
-INTRO = ("A short situation to rehearse, once a week: tap what you'd weigh first. "
-         "Nothing is graded, and nothing here buys or sells anything.")
+NO_RIGHT_ANSWER = ("There's no right answer on an investment choice. The point is to know "
+                   "what matters to you before it happens.")
+BEGINNER_LINE = ("You haven't invested yet, and that's fine - imagine you had. Thinking it "
+                 "through before you start makes it feel less new later.")
+INTRO = ("Once a week, a short \"what if\" to think through ahead of time. Tap what you'd "
+         "think about first. Nothing is graded, and nothing here buys or sells anything.")
 
 # key, side, title, situation, lens (which part of their own picture it
 # brings in: "stocks", "cash" or None), choices ((key, words), 2-4), the
@@ -196,9 +196,9 @@ def twist_of(key: str) -> str:
 # ---- the person's own picture, in percentages and words only --------------- #
 
 # (the upper end in years, words) - a timeline in words, never a figure
-TIMELINE_WORDS = ((3, "a short way off - a few years or less"),
-                  (10, "a middle distance away - several years"),
-                  (None, "a long way off - many years"))
+TIMELINE_WORDS = ((3, "a few years away or less"),
+                  (10, "several years away"),
+                  (None, "many years away"))
 
 
 def timeline_words(years: float | None) -> str | None:

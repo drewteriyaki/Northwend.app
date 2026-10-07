@@ -299,7 +299,8 @@ class WordingTests(_DB):
                 self.assertNotIn("$", line)
                 for pat in self.BANNED:
                     self.assertNotRegex(line.lower(), pat)
-        self.assertEqual(tc.CALM, "Calm on the trail - nothing to do.")
+        self.assertEqual(tc.CALM, "Nothing needs your attention this week.")
+        self.assertEqual(set(tc.SEASON), set(seasons.KEYS))   # a line for every season
 
     def test_the_email_has_nothing_about_the_persons_money(self):
         """A seeded account with holdings, a storm, the walk, a season and a

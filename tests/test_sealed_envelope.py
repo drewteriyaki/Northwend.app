@@ -3,7 +3,7 @@ Drill answer as a one-page PDF - the person's words exactly as written, the
 day, a calm label and a fixed reminder; never a figure, holding, account
 name, email or login; their name only if ticked. Offered under the drill
 answer on the Plan's Stress test (needs storm_drill), never in an advisor's
-session; Home's storm note says "You wrote yourself a sealed envelope..."
+session; Home's storm note says "Earlier, you made a sealed envelope..."
 once one was made. Runs dashboard.py with streamlit's AppTest on a scratch
 database in a temp dir (test_future_notes' scratch app), plus the pure pieces.
 

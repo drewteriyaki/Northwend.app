@@ -58,7 +58,7 @@ STEPS = (
     ("read", "One short read",
      "A couple of minutes on one idea worth knowing."),
     ("verdict", "What your plan says",
-     "Your own rule - your target mix and your band - read for this month."),
+     "What your own target mix and band mean for this month."),
 )
 REQUIRED = ("holdings", "mix", "read")   # then the verdict, and Finish
 STEP_KEYS = tuple(s[0] for s in STEPS)
@@ -256,10 +256,10 @@ def class_name(cls: str) -> str:
 def _deposit_words(v: dict) -> str:
     name = class_name(v["class"])
     if v.get("how") == "all":
-        return f"your next deposit to {name}"
+        return f"your next deposit would go to {name}"
     if v.get("how") == "most":
-        return f"your next deposit mostly to {name}"
-    return f"much of your next deposit to {name}"
+        return f"most of your next deposit would go to {name}"
+    return f"the largest part of your next deposit would go to {name}"
 
 
 def verdict_text(v: dict) -> str:
@@ -267,29 +267,31 @@ def verdict_text(v: dict) -> str:
     Never "sell", never a fund, a ticker or a figure."""
     kind = (v or {}).get("kind")
     if kind == WITHIN:
-        return ("Your mix is within the band you set - your plan says nothing to do this "
-                "month.")
+        return ("Your mix is within the band you set, so your plan says there's nothing to do "
+                "this month.")
     if kind == NEXT and v.get("class"):
-        lead = (f"Your target has more {class_name(v['class'])} than you hold now, so your "
-                "plan points " if v.get("below") else "Your plan points ")
-        return f"{lead}{_deposit_words(v)}."
+        lead = (f"Your target has more {class_name(v['class'])} than you hold now. "
+                if v.get("below") else "")
+        return f"{lead}Under your plan, {_deposit_words(v)}."
     if kind == NEXT:
-        return ("Your mix is outside the band you set - the Target mix on your Plan shows "
-                "where new money could go.")
-    return "Set a target mix to get a monthly verdict."
+        return ("Your mix has moved outside the band you set. The Target mix tab on your Plan "
+                "page shows where new money could go.")
+    return "Set a target mix on your Plan page to see what your plan says each month."
 
 
 def verdict_past(v: dict | None) -> str:
     """A finished walk's kept verdict, looking back ("Your plan said ...")."""
     kind = (v or {}).get("kind")
     if kind == WITHIN:
-        return "Your plan said nothing to do this month - your mix was within your band."
+        return ("Your plan said there was nothing to do this month - your mix was within your "
+                "band.")
     if kind == NEXT and v.get("class"):
-        return f"Your plan pointed {_deposit_words(v)}."
+        return f"Your plan said {_deposit_words(v)}."
     if kind == NEXT:
-        return "Your mix was outside your band - your plan pointed new money back toward it."
+        return ("Your mix was outside your band, so your plan said new money could go back "
+                "toward your target.")
     if kind == NONE:
-        return "No verdict this month - there was no target mix to read it from."
+        return "No target mix was set, so there was nothing to check this month."
     return ""
 
 

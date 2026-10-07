@@ -138,11 +138,10 @@ def render_inheritance_rehearsal():
             done = len(ir.done_steps(saved))
             if finished:
                 st.caption(f"You finished the practice run on "
-                           f"{_fmt_date(finished.isoformat())}. You can walk through it "
+                           f"{_fmt_date(finished.isoformat())}. You can go through it "
                            "again any time.")
             elif done:
-                st.caption(f"You've walked through {done} of {len(ir.STEPS)} steps - at your "
-                           "own pace.")
+                st.caption(f"You've gone through {done} of {len(ir.STEPS)} steps.")
             st.button(ir.AGAIN if finished else ir.START, key="ir_start",
                       icon=":material/family_history:", on_click=_ir_start)
     if saved and (ir.done_steps(saved) or ir.finished_on(saved)) and at is None:

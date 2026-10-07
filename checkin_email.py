@@ -40,7 +40,7 @@ from portfolio import DEFAULT_DB, connect
 SUBJECT = "Time for your monthly walk"
 LINES = ("Time for your monthly walk - about 3 minutes.",
          ("A quick look at your holdings and your mix, one short read, and what your own "
-          "plan says for the month. It's waiting on Home whenever suits you."),
+          "plan says for the month. It's ready on your Home page."),
          "To stop these emails, turn off the reminder under Account > Monthly walk.")
 
 

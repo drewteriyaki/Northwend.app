@@ -64,20 +64,22 @@ SOURCES = {READINESS: "drills", STORM_NOTE: "storm_drill", PLACES: "lost_found",
 
 # ---- the words ---------------------------------------------------------------- #
 TITLE = "Bring to my advisor"
-INTRO = ("Your advisor already sees your account. A few things in Northwend are only yours - "
-         "the forks you're on, your drills, your storm note, the places you've looked. If "
-         "you'd like them to see any of it before a review, tick it here. Everything starts "
-         "unticked, and unticking takes it out of their view at once.")
+INTRO = ("Your advisor can already see your account. A few things in Northwend are private "
+         "to you - the life events you've marked in Trail Forks, your practice drills, your "
+         "Storm Drill answer, and the places you've looked for forgotten money. If you'd like "
+         "your advisor to see any of these before a meeting, tick them here. Nothing is "
+         "ticked to start with, and if you untick something they stop seeing it straight "
+         "away.")
 QUESTIONS_LEAD = "Questions I'd like to ask"
 QUESTIONS_NOTE = ("The questions are a fixed list, so there's nothing to type - pick any you'd "
                   "like to talk about.")
 NOT_YET = "Nothing is shared until you tick something and say yes."
 CONSENT = ("You're choosing to show your advisor, {advisor}, the things you tick in Bring to "
-           "my advisor. They already see your account; these are things that are otherwise "
-           "only yours. They'll see only what's ticked, as it is when they look, with the day "
-           "you shared each one, marked as shared by you. Untick anything and it leaves their "
-           "view at once; untick everything and this sharing ends. What they write down from "
-           "it is part of their own records.")
+           "my advisor. They can already see your account, but not these things. They'll see "
+           "only what you tick, as it is when they look, with the day you shared each one and "
+           "a note that you shared it. If you untick something, they stop seeing it straight "
+           "away. If you untick everything, this sharing ends. Anything they write down from "
+           "it stays in their own records.")
 CONFIRM = "Yes, share what I ticked"
 STOP = "Stop sharing all of these"
 STOPPED = "Done - your advisor no longer sees any of these."
@@ -86,26 +88,28 @@ NOT_ALLOWED = ("Bring to my advisor is for a client signed in to their own accou
 
 ADVISOR_TITLE = "What {client} chose to bring"
 ADVISOR_INTRO = ("Things {client} chose to show you from the parts of Northwend that are "
-                 "otherwise only theirs. Opening this is noted in the list of visits they see.")
+                 "otherwise private to them. Each time you open this, it's added to the list "
+                 "of your visits that they can see.")
 ADVISOR_OPEN = "Open"
 ADVISOR_CLOSE = "Close"
 NOTHING_SHARED = "{client} hasn't chosen to share anything here."
 SHARED_BY = "Shared by {client} on {date}; client-reported."
 ADVISOR_FOOT = ("This is {client}'s own information, as they reported it - Northwend hasn't "
-                "checked it. It isn't kept for you: if they untick something, or the "
-                "relationship ends, it leaves this card.")
+                "checked it. You don't keep a copy: if they untick something, or you stop "
+                "working together, it disappears from this card.")
 
 # the client's checkbox label, and the advisor's heading, per kind
 LABELS = {
     ONE_PAGER: ("My plan in plain words - percentages and words, no amounts",
                 "Their plan in plain words"),
-    READINESS: ("My readiness map - which drills I've rehearsed, never my answers",
-                "Their readiness map"),
-    STORM_NOTE: ("My storm drill answer, in my own words",
-                 "Their storm drill answer, in their own words"),
-    PLACES: ("The places I've looked for money left behind",
-             "Places they've looked for money left behind"),
-    FORK: ("I'm on a fork: {fork}", "A fork they're on"),
+    READINESS: ("My readiness map - which practice drills I've done, never my answers",
+                "Their readiness map (practice drills done)"),
+    STORM_NOTE: ("My Storm Drill answer - what I wrote I'd do if the market fell",
+                 "Their Storm Drill answer, in their own words"),
+    PLACES: ("The places I've looked for forgotten money (Lost & Found)",
+             "Places they've looked for forgotten money"),
+    FORK: ("A life event I've marked in Trail Forks: {fork}",
+           "A life event they've marked in Trail Forks"),
 }
 STORM_WRITTEN = "Written on {date}."
 
@@ -135,8 +139,8 @@ SEASON_TOPICS = {
     "december": "Clients see their year in review, a letter to their future self and a few "
                 "year-end reminders.",
 }
-SEASON_NOTE = ("So you know what they're reading: education, the same for everyone - "
-               "nothing here asks you to reach out.")
+SEASON_NOTE = ("This is so you know what your clients are reading. It's general education, "
+               "the same for everyone - nothing here asks you to contact them.")
 
 
 # ---- keys ----------------------------------------------------------------- #

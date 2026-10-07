@@ -77,8 +77,8 @@ _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
 OWNER_TITLE = "Explain it to someone"
 OWNER_INTRO = ("Make a private link that shows a partner or family member your plan in plain "
                "words: your mix in percentages, what you're investing for and roughly when, "
-               "and where you are on the route. They can read it without signing in, and "
-               "start learning too if they'd like.")
+               "and whether you're still learning the basics or already investing. They can "
+               "read it without signing in, and start learning too if they'd like.")
 OWNER_NEVER = ("The page never shows an amount, a holding, an account name or number, or your "
                "email - only percentages and plain words.")
 OWNER_EXPIRY = ("A link works for the days you choose, and you can turn it off here at any "
@@ -96,13 +96,12 @@ PAGE_TITLE = "A plan, in plain words"
 PAGE_INTRO = ("Someone who uses Northwend shared this page so you can see how their investing "
               "is set up. It shows percentages and plain words only - never amounts, "
               "holdings or account details.")
-PAGE_EMPTY = ("There isn't much to show here yet - they're just getting started. That's a "
-              "fine place to be.")
+PAGE_EMPTY = "There isn't much to show here yet - they're just getting started."
 LEARN_TITLE = "Want to understand it from the start?"
-LEARN_TEXT = ("Northwend's Learn route walks through the basics a few minutes at a time: what "
+LEARN_TEXT = ("Northwend's Learn section explains the basics a few minutes at a time: what "
               "stocks, bonds and cash are, why people mix them, and how a plan like this one "
               "is put together. It's free, and you go at your own pace.")
-LEARN_BUTTON = "Start the Learn route"
+LEARN_BUTTON = "Start learning the basics"
 FOOTER = ("Northwend is an educational tool. This page describes one person's own plan - it "
           "isn't financial advice, and it isn't a suggestion for anyone else.")
 
@@ -120,14 +119,14 @@ CLASS_WORDS = {
     "Stocks": "small pieces of companies. Their value moves up and down the most.",
     "Bonds": "loans to governments or companies that pay interest. Usually steadier than "
              "stocks.",
-    "Cash": "money waiting in the account or in a savings-like fund. Steady, and grows slowly.",
+    "Cash": "money held in the account or in a savings-like fund. Steady, and grows slowly.",
     "Other": "anything that isn't one of those, like real estate funds or gold.",
 }
 # the route, in order (context_card.STAGES' keys), and the line for each
 ROUTE = (("learn", "Learn the basics"), ("invest", "Get ready and start investing"),
          ("investing", "Investing, with a plan to follow"))
 STAGE_LINES = {
-    "learn": "They're on the first part of the route: learning the basics before investing.",
+    "learn": "They're at the first step: learning the basics before they start investing.",
     "invest": "They've learned the basics and are getting ready to start investing.",
     "investing": "They're investing, and their own holdings are in Northwend.",
 }
@@ -431,8 +430,8 @@ def lines(raw) -> list[tuple[str, str, str]]:
     if p.get("target"):
         text = f"The mix they're aiming for: {_mix_line(p['target'])}."
         if p.get("band"):
-            text += (f" When any part drifts more than {p['band']} percentage points from its "
-                     "target, they take another look and decide whether to bring it back.")
+            text += (f" If any part moves more than {p['band']} percentage points away from its "
+                     "target, they look at it again and decide whether to move it back.")
         out.append(("target", "Their plan", text))
     if any(recap.has_money(t) for _, _, t in out):
         raise ValueError("a share page never carries an amount")

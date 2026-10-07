@@ -144,9 +144,9 @@ def render_future_note(symbol=None):
     with st.container(border=True, key=f"pt_fnote_{_fn_key(symbol)}"):
         st.markdown(":material/edit_note: **Note to future you**")
         st.caption(("Why you hold this, in your own words - shown back to you if markets "
-                    "get rough. " if symbol else
+                    "drop a lot. " if symbol else
                     "What this money is for, in your own words - shown back to you if "
-                    "markets get rough. ") + future_notes.PRIVATE_LINE)
+                    "markets drop a lot. ") + future_notes.PRIVATE_LINE)
         _render_note_body(symbol, note)
 
 

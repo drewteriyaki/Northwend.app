@@ -9,7 +9,7 @@ never says to buy or sell. Holding steady through one earns the storm
 cloak (gear.py); nothing is ever earned for selling or buying.
 
 The narrator (docs/AI_PLAN.md section 9, row 4 - rules, not AI): every
-word on the storm note and in "What storms have looked like" is a fixed
+word on the storm note and in "How past market drops played out" is a fixed
 template here (narrate(), WINDOW_CAPTION, WINDOW_NOTE), filled only from
 weather() and PAST_STORMS. History in the past tense, never a prediction:
 no "will recover", no "soon", no bottom called (a test checks every
@@ -39,12 +39,12 @@ PAST_STORMS = (
 # (the storms window's "Learn more" is learn.LEARN_MORE["market_drops"])
 
 # ---- the narrator: fixed words only ------------------------------------------ #
-TITLES = {"storm": "A storm on the trail", "rough": "Rough weather"}
+TITLES = {"storm": "A big market drop", "rough": "A market dip"}
 BODIES = {
-    "storm": "Drops of 10% or more have come along about once every year or two on "
-             "average, and the market has climbed past every one so far - sometimes in "
-             "months, sometimes in years.",
-    "rough": "Dips like this have come a few times in a typical year, and most passed "
+    "storm": "Drops of 10% or more have happened about once every year or two on "
+             "average. So far the market has always climbed back above its old high - "
+             "sometimes within months, sometimes after years.",
+    "rough": "Dips like this have happened a few times in a typical year, and most passed "
              "without much notice.",
 }
 # (COPY_AUDIT.md "Same problem" 19: describes, never a hold message)
@@ -53,12 +53,13 @@ STEADY = ("Drops like this are part of investing. Your plan's target and dates h
 WINDOW_CAPTION = ("The S&P 500 - the 500 largest US companies - from its high to its low, "
                   "and how long until it passed that high again. Rounded; its price without "
                   "dividends.")
-WINDOW_NOTE = ("Every one of these passed, though some took years - and nobody knew at the "
-               "time how long it would last. That's why people investing for goals years "
-               "away often plan for storms instead of trying to dodge them: selling after a "
-               "fall turns a drop on paper into a real loss, and some of the market's "
-               "strongest days have come within days of its weakest. Past storms don't promise "
-               "what the next one will do.")
+WINDOW_NOTE = ("The market got back above its old high after every one of these drops, "
+               "though some took years - and at the time, nobody knew how long it would "
+               "take. That's why people investing for goals years away often plan for drops "
+               "ahead of time instead of trying to avoid them. Selling after a fall turns a "
+               "drop on paper into a real loss, and some of the market's strongest days have "
+               "come within days of its weakest. Past drops don't promise anything about the "
+               "next one.")
 
 
 def _iso_date(d) -> str:

@@ -52,7 +52,7 @@ def _tf_clear():
         st.session_state.pop(f"tf_on_{fork}", None)
         for step in trail_forks.steps(fork):
             st.session_state.pop(f"tf_{fork}_{step}", None)
-    st.session_state["tf_msg"] = "Your forks were cleared."
+    st.session_state["tf_msg"] = "Your marks and ticks were cleared."
 
 
 def _tf_walk_on():
@@ -94,7 +94,7 @@ def _tf_fork(f, saved):
         st.checkbox(trail_forks.MINE_LABEL, value=is_mine, key=f"tf_on_{key}",
                     help=trail_forks.MINE_HELP, on_change=_tf_mark, args=(key,))
         if is_mine:
-            st.caption(f"{n} of {of} steps ticked - at your own pace.")
+            st.caption(f"{n} of {of} steps ticked.")
         st.markdown(f"**{trail_forks.CHANGES}**  \n"
                     + "\n".join(f"- {_tf_md(c)}" for c in f["changes"]))
         st.markdown(f"**{trail_forks.GATHER}**")
@@ -107,8 +107,8 @@ def _tf_fork(f, saved):
             st.caption(f"Your advisor, {_md_name(_advisor_display_name())}, is someone else "
                        "you could ask - only if you choose to tell them. Nothing here is "
                        "shared with them"
-                       + (" unless you pick this fork's name in Bring to my advisor, on "
-                          "this page." if flags.on("advisor_pack") else "."))
+                       + (" unless you tick this one in Bring to my advisor, on this page."
+                          if flags.on("advisor_pack") else "."))
         st.markdown(f"**{trail_forks.NOT_RUSH}**  \n"
                     + "\n".join(f"- {_tf_md(c)}" for c in f["not_rush"]))
         st.markdown("  \n".join(f"[{t}]({u})" for t, u in f["links"]))
@@ -142,5 +142,5 @@ def render_trail_forks():
     for f in trail_forks.FORKS:
         _tf_fork(f, saved)
     if trail_forks.mine(saved):
-        st.button("Clear my forks", key="tf_clear", type="tertiary", on_click=_tf_clear)
+        st.button("Clear my marks and ticks", key="tf_clear", type="tertiary", on_click=_tf_clear)
     st.caption(trail_forks.NOT_ADVICE)

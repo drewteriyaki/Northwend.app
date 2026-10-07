@@ -178,7 +178,7 @@ def _pay_figures(key, value):
     thin = pc["thin"]
     stats = [((py.STAT_PAYCHECK_INCOME if income_only else py.STAT_PAYCHECK),
               fmt_money0(pc["monthly"]),
-              "estimated, unevenly" if income_only else f"{py.pct_text(pc['pct'])}% a year")]
+              "estimated; changes month to month" if income_only else f"{py.pct_text(pc['pct'])}% a year")]
     if thin:
         stats.append((py.STAT_THIN, py.month_label(thin["month"]),
                       f"about {fmt_money0(thin['total'])} paid out"))

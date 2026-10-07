@@ -402,8 +402,8 @@ you delete it.
   the Monday summary on the Clients page. The monthly walk reminder is off
   unless you turn it on (Account page), and says only that it's time - no figures.
   Where it's offered, Trail Conditions is off unless you turn it on (Account
-  page): a short Monday email that most weeks says all is calm, and otherwise
-  only that something is waiting in the app (a season's note, your monthly
+  page): a short Monday email that most weeks says nothing needs your attention, and
+  otherwise only that something is ready in the app (a season's note, your monthly
   walk, a situation to rehearse) or that markets have fallen a long way
   recently. It never has an amount, a percentage, a holding, an account, a
   forecast or a suggestion to buy or sell. Each one has a link that stops it

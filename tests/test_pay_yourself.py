@@ -349,10 +349,10 @@ class AppTests(unittest.TestCase):
             self.assertEqual(radio.value, "income_only")
             text = self._tab_text(at)
             self.assertIn("Under the rule you picked (income only)", text)
-            self.assertIn("the thinnest month is", text)
+            self.assertIn("the month with the smallest payouts is", text)
             self.assertNotIn("4% of today's", text)
             self.assertIn("Hypothetical, not a forecast, not advice", text)
-            self.assertIn("doesn't change them by itself", text)
+            self.assertIn("lower prices alone don't change them", text)
             self.assertIn(py.QUESTIONS[0].replace("$", r"\$"), text)
             self.assertIn(py.STAT_THIN, self._html(at))
             for pat in NEVER:

@@ -58,16 +58,16 @@ RULE_KEYS = tuple(r["key"] for r in RULES)
 
 # ---- fixed text (every line here is checked by tests/test_pay_yourself.py) -- #
 TITLE = "Pay yourself: your savings as a monthly paycheck"
-INTRO = ("A picture to learn from: what your own investments are estimated to pay each "
-         "month, and what a rule of thumb you pick from the list would give as a monthly "
-         "paycheck. Hypothetical, not a forecast, not advice. Northwend doesn't pick a rule "
+INTRO = ("This shows what your own investments are estimated to pay each month, and how "
+         "much a monthly paycheck from your savings would be under a rule of thumb you pick "
+         "from the list. Hypothetical, not a forecast, not advice. Northwend doesn't pick a rule "
          "for anyone, and it doesn't know your taxes, other income or spending.")
 PICK_LABEL = "A rule of thumb to look at"
 PICK_HELP = ("These are general rules of thumb, the same list for everyone, listed income "
              "only first and then by rate. None of them is a plan for you, and Northwend "
              "doesn't rank them.")
 KEPT_LINE = "Only the rule you picked is kept, in your own settings - never an amount."
-ADVISOR_LEAD = ("For you as their advisor: a working view on your client's own data. The rule "
+ADVISOR_LEAD = ("For you as their advisor: this uses your client's own holdings. The rule "
                 "you pick here isn't saved and isn't shown to them.")
 NO_HOLDINGS = ("Once your holdings are in, this shows what they're estimated to pay each "
                "month. For now, here is what each rule means for every {example} invested.")
@@ -80,27 +80,30 @@ EXAMPLE_INCOME_ONLY = ("Under the rule you picked, the paycheck is what the hold
 
 STAT_PAYCHECK = "Monthly paycheck, under the rule you picked"
 STAT_PAYCHECK_INCOME = "Average month, under the rule you picked"
-STAT_THIN = "The thinnest month for payouts"
+STAT_THIN = "The month with the smallest payouts"
 STAT_DROP = "If investments fell 20% (hypothetical)"
 
 PAYCHECK_PCT = ("Under the rule you picked ({name_short}), the paycheck is about {monthly} a "
                 "month - {yearly} a year, {pct}% of today's {balance}.")
 PAYCHECK_INCOME = ("Under the rule you picked (income only), the next 12 months add up to "
-                   "about {yearly} - an average of {monthly} a month, but it comes unevenly.")
+                   "about {yearly} - an average of {monthly} a month, but some months pay "
+                   "much more than others.")
 NO_INCOME = ("Your holdings don't show any dividends or interest yet, so under the rule you "
-             "picked there's nothing to show. Payment dates fill in with each evening's "
-             "price history.")
+             "picked there's nothing to show. Payment dates are added each evening, when "
+             "price history is updated.")
 
-THIN_INCOME = ("Under the rule you picked, the thinnest month is {thin} at about "
-               "{thin_amount}; the fullest is {full} at about {full_amount}.")
-THIN_PCT = ("The thinnest month for payouts is {thin}: your investments are estimated to pay "
-            "about {thin_amount} that month. Under the rule you picked, the other "
+THIN_INCOME = ("Under the rule you picked, the month with the smallest payouts is {thin}, at "
+               "about {thin_amount}; the month with the largest is {full}, at about "
+               "{full_amount}.")
+THIN_PCT = ("The month with the smallest payouts is {thin}: your investments are estimated to "
+            "pay about {thin_amount} that month. Under the rule you picked, the other "
             "{from_balance} of that month's paycheck would come from the balance - selling "
             "some investments.")
 THIN_NAME_ONLY = ("Your holdings are estimated to pay the least in {thin} and the most in "
                   "{full}.")
 COVERED_PCT = ("Under the rule you picked, the estimated payouts cover the whole paycheck in "
-               "every month; payouts above it are part of the amount, not extra.")
+               "every month. In months that pay more, the extra isn't added on top of the "
+               "paycheck.")
 PAYOUT_NOTE = ("Payouts are estimated from each holding's last year of payments at today's "
                "share count, by the month a payment is announced to go out (the money "
                "usually arrives a few weeks later). Companies and funds change their payouts.")
@@ -108,21 +111,22 @@ PAYOUT_NOTE = ("Payouts are estimated from each holding's last year of payments 
 DROP_LABEL = "Hypothetical, not a forecast, not advice"
 DROP_PCT_LINE = ("If your investments fell 20%, this rule would give about {after} a month "
                  "instead of {before}, under the rule you picked ({pct}% of the lower "
-                 "balance). In the studies behind the 4% rule the amount was set in the "
-                 "first year and then kept; kept at {before}, it would be {kept_pct}% of the "
-                 "lower balance.")
+                 "balance). In the studies behind the 4% rule, the dollar amount was set in "
+                 "the first year and then kept the same. Kept at {before} a month, it would "
+                 "be {kept_pct}% of the lower balance a year.")
 DROP_INCOME_LINE = ("If your investments fell 20%, this rule would give the same estimate "
                     "of about {monthly} a month on average, under the rule you picked: "
-                    "payouts are paid per share, so a fall in prices doesn't change them by "
-                    "itself. Companies and funds can and do cut payouts, though, and in some "
-                    "past falls many did.")
-DROP_NOTE = ("A 20% fall is one round number picked to illustrate, not a forecast of what "
-             "markets will do. Where your mix is in, the Stress test tab shows how it would "
-             "have done in three real hard stretches.")
+                    "payouts are paid per share you own, so lower prices alone don't change "
+                    "them. But companies and funds can cut their payouts, and in some past "
+                    "market falls many did.")
+DROP_NOTE = ("A 20% fall is just an example number, not a forecast of what markets will do. "
+             "If your mix is entered, the Stress test tab shows how it would have done in "
+             "three real market falls from the past.")
 
 NOT_INCLUDED = ("Not included: taxes, fees, inflation, and income from elsewhere - Social "
-                "Security or a pension, for example. Under a rate rule the balance itself "
-                "also moves with markets, so next year's figure would differ.")
+                "Security or a pension, for example. Under a percentage rule, the balance "
+                "also goes up and down with markets, so next year's amount would be "
+                "different.")
 
 QUESTIONS_TITLE = "Questions to ask a licensed professional about retirement income"
 QUESTIONS_LEAD = ("Questions people often bring to a tax professional or financial planner "

@@ -1519,7 +1519,7 @@ def _go(page):
 
 
 def _guide_line(key):
-    """ADR 0005: the one quiet "Want a second opinion? Find a guide" line, on
+    """ADR 0005: the one quiet "Find a guide" line (directory.GUIDE_LINE), on
     Learn once it's finished and on Plan once a goal is set. Only where Find
     a guide is open to this login (flag `directory`, gate L2) and only for an
     individual on their own account - never an advisor, an admin, client

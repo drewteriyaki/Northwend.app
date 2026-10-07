@@ -81,12 +81,12 @@ ROWS = {
                     "The broad kind of investment the fund holds - stocks, bonds, a mix, or "
                     "something else."),
     "top_share": ("Share in its largest holdings",
-                  "How much of the fund sits in its biggest few holdings. The larger this "
-                  "share, the more the fund's ups and downs follow those few."),
+                  "How much of the fund is in its biggest few holdings. The larger this "
+                  "share, the more the fund's value rises and falls with those few."),
     "holdings": ("Number of holdings",
                  "How many different investments the fund owned on the fact sheet's date."),
     "inception": ("Inception date",
-                  "The day the fund started. Results before then don't exist for this fund."),
+                  "The day the fund started. It has no results from before that day."),
     "benchmark": ("Benchmark",
                   "The index the fund measures itself against. Fact sheets usually show the "
                   "fund's results beside it."),

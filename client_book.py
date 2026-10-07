@@ -49,15 +49,15 @@ UPDATED_DAYS = 30                 # "brought in holdings in the last 30 days"
 
 # ---- the words ---------------------------------------------------------------- #
 WALK_SHARE_LABEL = "Let my advisor see when I've done my monthly walk"
-WALK_SHARE_HELP = ("Only whether you've walked this month and the month of your last walk - "
-                   "never what your plan said, your mix or any amount.")
+WALK_SHARE_HELP = ("Only whether you've done your monthly walk this month, and the month of "
+                   "your last one - never what your plan said, your mix or any amount.")
 WALK_CONSENT = ("You're choosing to let your advisor, {advisor}, see whether you've done your "
                 "monthly walk this month, and the month of your last one. They won't see what "
                 "your plan said, your mix, any amount or anything you typed. Turn this off at "
                 "any time and they stop seeing it at once.")
-WALK_SHARE_OFF = "Your monthly walks are only yours. Nothing about them is shared."
-WALK_SHARE_ON = ("Your advisor sees whether you've walked this month and the month of your "
-                 "last walk - nothing else about it.")
+WALK_SHARE_OFF = "Your monthly walks are private to you. Nothing about them is shared."
+WALK_SHARE_ON = ("Your advisor sees whether you've done your monthly walk this month, and the "
+                 "month of your last one - nothing else about it.")
 
 # what each side keeps after an exit - the client's Stop sharing step
 EXIT_TITLE = "What happens to your information"
@@ -68,8 +68,8 @@ EXIT_YOU_KEEP = ("You keep everything in your account: your holdings and their h
 EXIT_ADVISOR_KEEPS = ("Your advisor keeps their own records: their notes about your time "
                       "together, the proposals and reports they sent, the name and email they "
                       "had for you, and the dated record of when sharing began and ended. They "
-                      "no longer see your account, and anything you chose to show them stops "
-                      "at once.")
+                      "no longer see your account, and they stop seeing anything you chose to "
+                      "show them straight away.")
 
 # the advisor's note on how the book works
 BOOK_TITLE = "How your book works"
@@ -80,8 +80,9 @@ HOW_BOOK_WORKS = (
     "pasted text, or typed by hand. They're marked client-reported, with the day of the last "
     "update. Prices come from market data; Northwend doesn't check the holdings against "
     "the brokerage.",
-    "Your clients' monthly walks keep the book current: a walk starts with updating holdings. "
-    "Whether a client walked is shown only if they choose to share it.",
+    "Each client's monthly walk starts with updating their holdings, so clients who do it "
+    "keep your book up to date. Whether a client did their walk is shown only if they "
+    "choose to share it.",
     "Your notes, proposals and reports are your own records. If a relationship ends, they "
     "stay with you under Former clients, and your client keeps their whole account.",
 )

@@ -360,6 +360,9 @@ class PagesTests(unittest.TestCase):
             self.assertEqual(metrics["Dividends received"].value, "$78.00")
             self.assertEqual(metrics["Total return, with dividends"].value, "$198.00")
             self.assertTrue(any("activity history" in c.value for c in at.caption))
+            # under Price, the price's own move - never the holding's dollars
+            # (that's Today's Return under Your position)
+            self.assertNotIn("$", metrics["Price"].proto.delta or "")
         with self._run(self.rita, "rita", "Dashboard", holdings_pill="VTI") as at:
             labels = [m.label for m in at.metric]
             self.assertIn("Price change", labels)

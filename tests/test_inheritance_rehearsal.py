@@ -81,8 +81,8 @@ class ContentTests(unittest.TestCase):
 
     def test_gentle_and_clearly_made_up_from_the_first_line(self):
         self.assertTrue(ir.INTRO.startswith(
-            "This is a practice run with a made-up family, so the real thing feels less "
-            "unfamiliar."))
+            "This is a practice run with a made-up family, so you'll know what to expect if it "
+            "ever happens for real."))
         self.assertIn("made-up parent", ir.FAMILY)
         self.assertIn("Nothing is graded", ir.INTRO)
         self.assertIn("made up", ir.NOT_ADVICE)
