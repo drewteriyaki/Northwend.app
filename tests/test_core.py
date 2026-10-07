@@ -2968,6 +2968,16 @@ class PgCompatTests(unittest.TestCase):
     grepping every .py file), translated exactly as portfolio.connect()
     will need it translated when given a Postgres DSN."""
 
+    def test_the_pool_checks_connections_before_handing_them_out(self):
+        # a connection Neon closed while idle failed live ("SSL connection has
+        # been closed unexpectedly"): each one is checked first, and idle ones
+        # are retired before the server drops them
+        from psycopg_pool import ConnectionPool
+        opts = pgcompat._pool_options()
+        self.assertIs(opts["check"], ConnectionPool.check_connection)
+        self.assertLess(opts["max_idle"], 300)
+        self.assertEqual(opts["kwargs"], {"autocommit": False})
+
     def test_is_postgres_dsn(self):
         self.assertTrue(pgcompat.is_postgres_dsn("postgres://u:p@host/db"))
         self.assertTrue(pgcompat.is_postgres_dsn("postgresql://u:p@host/db"))

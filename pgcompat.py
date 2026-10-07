@@ -225,12 +225,25 @@ class ConnWrapper:
 # amortize handshake cost across script reruns.
 _POOLS: dict = {}
 
+# Neon closes connections that sit idle, and a closed one used for the next
+# query failed live as "OperationalError: consuming input failed: SSL
+# connection has been closed unexpectedly" (Oct 2026 error alerts). So the
+# pool checks each connection before handing it out (a dead one is replaced,
+# never given to a page) and retires idle ones sooner than the server does.
+POOL_MAX_IDLE = 240.0   # seconds an unused connection is kept (the default is 600)
+
+
+def _pool_options() -> dict:
+    from psycopg_pool import ConnectionPool
+    return {"min_size": 1, "max_size": 5, "kwargs": {"autocommit": False}, "open": True,
+            "check": ConnectionPool.check_connection, "max_idle": POOL_MAX_IDLE}
+
 
 def connect(dsn: str) -> ConnWrapper:
     from psycopg_pool import ConnectionPool  # imported lazily - local SQLite usage never needs this installed
     pool = _POOLS.get(dsn)
     if pool is None:
-        pool = ConnectionPool(dsn, min_size=1, max_size=5, kwargs={"autocommit": False}, open=True)
+        pool = ConnectionPool(dsn, **_pool_options())
         _POOLS[dsn] = pool
     raw = pool.getconn()
     return ConnWrapper(raw, pool=pool)
