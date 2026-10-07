@@ -15,6 +15,7 @@ import access_log
 import admin
 import consent
 import feature_counts
+import trail_conditions
 import two_step
 
 
@@ -48,6 +49,38 @@ def _acct_counts_off():
     finally:
         c.close()
     st.session_state.pop("_prefs", None)   # read afresh (_read_prefs)
+
+
+def _acct_trail_switch():
+    """Trail Conditions on or off (trail_conditions.set_on), on the login's
+    own settings: on keeps the time of consent, off stops it at once."""
+    c = connect(DB)
+    try:
+        p = prefs.load(c, LOGIN_ID)
+        trail_conditions.set_on(p, bool(st.session_state.get("acct_trail")))
+        prefs.save(c, LOGIN_ID, p)
+    finally:
+        c.close()
+    st.session_state.pop("_prefs", None)   # read afresh (_read_prefs)
+
+
+def _render_trail_switch(confirmed_email):
+    """The opt-in Monday email (flag trail_conditions): off unless turned on,
+    only to a confirmed email, never for an advisor's own login."""
+    if IS_ADVISOR:
+        return
+    c = connect(DB)
+    try:
+        on = trail_conditions.is_on(prefs.load(c, LOGIN_ID))
+    finally:
+        c.close()
+    st.subheader(trail_conditions.SWITCH_LABEL, anchor=False)
+    st.session_state["acct_trail"] = on
+    st.toggle("Email me Trail Conditions", key="acct_trail", on_change=_acct_trail_switch,
+              disabled=not confirmed_email and not on)
+    st.caption(trail_conditions.SWITCH_HELP + " Off unless you turn it on."
+               + ("" if confirmed_email else
+                  " It needs a confirmed email - see Email, just below."))
 
 
 def _render_counts_switch():
@@ -378,6 +411,9 @@ def _render_account():
 
     # ---- the Monthly Walk: its day and reminder email (views/checkin.py) ----- #
     render_checkin_settings(bool(me["email"] and me["email_verified_at"]))
+    # ---- Trail Conditions: the opt-in Monday note (trail_conditions.py) ------ #
+    if flags.on("trail_conditions"):
+        _render_trail_switch(bool(me["email"] and me["email_verified_at"]))
 
     # ---- email ----------------------------------------------------------------- #
     st.subheader("Email", anchor=False)

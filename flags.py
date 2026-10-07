@@ -163,6 +163,26 @@ FEATURES = {
     # an advisor is in a client's account, never in the client record or the
     # AI. views/dashboard_page.py and views/start_home.py check on("drills").
     "drills": {"gates": (), "view": "drills"},
+    # Trail Conditions (ROADMAP "The weekly rhythm", Phase C; trail_conditions.py):
+    # an opt-in Monday email, off by default (Account > Trail Conditions, the
+    # login's own switch; views/account.py checks on("trail_conditions")).
+    # "Calm on the trail - nothing to do" almost every week; fixed lines only
+    # when a storm, a season, the walk or the readiness map changed. No
+    # figures, no forecasts. Education (LEGAL_GATES.md section 6): no gate.
+    # CAN-SPAM: one-click unsubscribe and a postal address in every email -
+    # nothing is sent while mailer.POSTAL_ADDRESS is empty.
+    "trail_conditions": {"gates": (), "view": None},
+    # Pay yourself (ROADMAP R11, pay_yourself.py): a Plan tab next to Money
+    # going out - a monthly "paycheck" picture from the person's own payouts
+    # (income.py) under a rule of thumb they pick from a fixed, named list
+    # (income only, the default; 3%, 4% or 5% of today's balance a year), the
+    # thinnest month, and a labelled hypothetical 20% fall. The closest thing
+    # here to retirement-income advice for one person, so it needs gate L3 as
+    # well as its flag: L3 review before it's on anywhere but staging
+    # (LEGAL_GATES.md section 6). views/plan.py checks on("pay_yourself");
+    # never for an advisor's client signed in themselves; an advisor in a
+    # client's account sees it with the standing line and saves nothing.
+    "pay_yourself": {"gates": ("L3",), "view": "pay_yourself"},
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not

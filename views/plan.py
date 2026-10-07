@@ -1058,6 +1058,11 @@ def _render_plan(value, growth, alloc_rows):
         sections.append(("How it's going", lambda: _render_projection(plan, value, today)))
     if not editing:
         sections.append((MONEY_OUT_TAB, lambda: _render_money_out(plan, value, today)))
+    # Pay yourself (R11, views/pay_yourself.py): flag pay_yourself and gate L3;
+    # next to Money going out, and there without a goal too
+    if flags.on("pay_yourself") and _pay_shown():
+        sections.append((PAY_TAB, lambda: _render_pay_yourself(value, today)))
+    if not editing:
         sections.append(("What if", lambda: _render_what_if(plan, value, alloc_rows, today)))
     sections.append(("Contributions", lambda: _render_contributions(plan, today)))
     if value is not None:

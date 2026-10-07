@@ -26,6 +26,24 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "Trail Conditions",
+     "items": [
+         {"text": "Trail Conditions is a short Monday email you can turn on from the Account "
+                  "page. Most weeks it says all is calm and there's nothing to do. It only "
+                  "changes when something has - a new season's note, your monthly walk, a "
+                  "situation to rehearse, or a stormy stretch in the markets. It never has "
+                  "amounts or anything else about your money, and one click stops it.",
+          "flag": "trail_conditions"},
+     ]},
+    {"date": "2026-10-06", "title": "Pay yourself",
+     "items": [
+         {"text": "A new Pay yourself tab on the Plan page pictures your savings as a monthly "
+                  "paycheck: what your investments are estimated to pay each month, and what a "
+                  "rule of thumb you pick from a short list would give. It shows which month "
+                  "pays the least, and a hypothetical 20% fall - illustrations, not a forecast "
+                  "and not advice - with questions to ask a licensed professional about "
+                  "retirement income.", "flag": "pay_yourself"},
+     ]},
     {"date": "2026-10-06", "title": "Find a guide: how advisors are paid",
      "items": [
          {"text": "Find a guide now explains, in plain words, the usual ways advisors are paid "

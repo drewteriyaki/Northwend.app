@@ -1631,6 +1631,27 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         third drill, totals only (`feature_counts.drill_returns`, Admin > Feature
         tests, opt-out respected). Not built: the "this month's world" content source.
         `tests/test_drills.py`
+  - [x] Pay Yourself (R11), flag `pay_yourself` + gate L3 (**L3 review required
+        before it's turned on anywhere but staging**) - done Oct 6, off:
+        `pay_yourself.py`, `views/pay_yourself.py`, a Plan tab next to Money going out.
+        The payouts the person's own holdings are estimated to pay each month
+        (`income.py`'s next 12 months, plus last year's cash interest by month from an
+        imported history) under a rule of thumb they pick from a fixed, named list:
+        income only (the only pre-selection), a fixed 3%, 4% (the "4% rule", a rule of
+        thumb from studies of past markets) or 5% of today's balance a year - income
+        only first, then by rate, never ranked. Shows the monthly paycheck, the thinnest
+        month for payouts (and, under a rate rule, the part that would come from the
+        balance), a month-by-month table, and a labelled hypothetical 20% fall ("not a
+        forecast, not advice"; the original study's fixed amount as a share of the lower
+        balance). Every figure "under the rule you picked"; none of "withdraw", "afford",
+        "safe", "sustainable", "should", "best", "recommend", "enough" (tested, and every
+        line through `ai_policy.findings`). "Questions to ask a licensed professional
+        about retirement income" (taxes by account, RMDs, Social Security timing...) -
+        questions only. Hide amounts masks every figure. Kept: prefs `pay_yourself`, the
+        rule key only. An advisor in a client's account sees it with the standing line
+        and their pick is never saved; an advisor's client signed in doesn't get it.
+        Privacy text (both), the security draft and disclosures say so.
+        `tests/test_pay_yourself.py`
 - [x] **Alongside, any time** (PLAN "Alongside, any time")
   - [x] A status page (G7) - done Oct 6: northwend.app/status, hand-edited in
         `website/build.py` (`STATUS_NOW`, `STATUS_UPDATED`, `NOTICES`); "All systems
@@ -1699,8 +1720,10 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
 - **Phase C - the weekly rhythm** (see "The weekly rhythm" below):
   - [x] R12 Preparedness drills and the readiness map (the one-week test; Oct 6) (L3 review: no right
         answer on any investment choice)
-  - [ ] Trail Conditions, an opt-in weekly email (no figures, no forecasts;
-        CAN-SPAM: opt-in, one-click unsubscribe, a postal address)
+  - [x] Trail Conditions, an opt-in weekly email (no figures, no forecasts;
+        CAN-SPAM: opt-in, one-click unsubscribe, a postal address) (Oct 6:
+        flag `trail_conditions`, `trail_conditions.py`, Mondays; sends nothing
+        until the owner fills in `mailer.POSTAL_ADDRESS`)
   - [x] The Sealed Envelope after a storm drill (printable, figure-free, the
         person's own words)
   - [ ] "This month's world, for your mix" (L3 review: past facts only,
@@ -1715,8 +1738,9 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
   - [ ] AI: advisor drafts - an editable box only, sent by the advisor under
         their name with the standing line (L1/L2)
 - **Phase E - bigger Ritual items:**
-  - [ ] R11 Pay Yourself (L3 review: named rules of thumb the person picks;
-        never "withdraw X")
+  - [x] R11 Pay Yourself (L3 review: named rules of thumb the person picks;
+        never "withdraw X") - built Oct 6, off: flag `pay_yourself` + gate L3, L3
+        review before it's on anywhere but staging (see Step 9)
   - [ ] R6 Statement and fact-sheet decoder (privacy: fact sheets first;
         statements only after local redaction is proven; zero data retention)
 - **Phase F - tier 3, explore:** R13 Teach It Back (grades understanding,
@@ -2075,6 +2099,8 @@ income planning for a specific person is the closest thing here to
 personalized advice.
 **Mitigation:** rules of thumb are labelled and named, the person chooses the
 rule, scenarios are labelled hypothetical, and nothing says "withdraw X".
+-> **built (off; L3 review before on)**, Oct 6: flag `pay_yourself` + gate L3,
+`pay_yourself.py`, `views/pay_yourself.py`; see Step 9 and LEGAL_GATES section 6.
 
 ### R12. Preparedness drills (weekly cadence, inside the Walk) - M
 **User problem:** finance basics run out in weeks; what people need is
@@ -2192,6 +2218,8 @@ Walk:
 - **Trail Conditions** - an email that says "calm, nothing to do" almost
   every week, and changes its wording only when something changes; never
   contains a figure.
+  -> built (Oct 6), flag `trail_conditions`: see Phase C. Opt-in only, so
+  it's never a blanket message to everyone.
 
 ### Next two weeks (in this order)
 1. **The Monthly Walk v1 (R1)** - a Walk button on Home, the four steps, the

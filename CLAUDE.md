@@ -63,7 +63,14 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`
   (`summary_words`: Home's plain-words line, flag `plain_summary`),
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
-  snapshot differences), `plans.py`, `overview.py` (advisor clients), `fees.py` +
+  snapshot differences), `plans.py`, `pay_yourself.py` + `views/pay_yourself.py` (Pay
+  yourself, R11, flag `pay_yourself` + gate L3 - L3 review before it's on beyond staging:
+  a Plan tab, the monthly paycheck under a named rule of thumb the person picks, income
+  only by default; every figure "under the rule you picked", the 20% fall hypothetical,
+  never "withdraw"/"safe"/"enough" - `tests/test_pay_yourself.py` runs every line through
+  `ai_policy.findings`; prefs keep the rule key only; an advisor in a client's account
+  sees it with the standing line and saves nothing; not for an advisor's client signed
+  in), `overview.py` (advisor clients), `fees.py` +
   `views/fees.py` (Fee check; `security_info.expense_ratio` is a fraction - Yahoo's
   `netExpenseRatio` is a percent, the others fractions: `sync_history._expense_ratio`),
   `fund_holdings.py` + `views/fund_overlap.py` (Fund overlap on Home: each fund's top 10
@@ -174,6 +181,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Home under Your kit, one drill a week, taps are things to weigh - never trades, never
   graded; the readiness map; prefs `drills` keys only; the whistle in `gear.py`; never
   in a client's account, the client record or the AI; wording test in `tests/test_drills.py`).
+  `trail_conditions.py` (Trail Conditions, flag `trail_conditions`: the opt-in Monday
+  email, switch on Account; calm unless a storm / season / walk / readiness gap, fixed
+  lines, no figures; once an ISO week; unsubscribe kind "trail"; sends nothing while
+  `mailer.POSTAL_ADDRESS` is empty - CAN-SPAM; its own job in scheduled-sync.yml).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature

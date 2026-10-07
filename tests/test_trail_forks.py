@@ -235,7 +235,7 @@ class NeverSharedTests(unittest.TestCase):
             with open(os.path.join(REPO, "docs", "legal", name), encoding="utf-8") as fh:
                 policy = fh.read()
             self.assertIn("Where Trail Forks is offered", policy, name)
-            self.assertIn("your Trail Forks and your preparedness drills, which only you see", policy, name)
+            self.assertRegex(policy, r"your Trail Forks[^.]*which only you see", name)
 
 
 # --------------------------------------------------------------------------- #

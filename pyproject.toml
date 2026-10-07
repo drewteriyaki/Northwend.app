@@ -70,6 +70,8 @@ py-modules = [
     "price_report",   # when a price is from, and "Price look wrong?" (PLAN G8)
     "sealed_envelope",   # the Sealed Envelope: the storm drill answer as a PDF
     "drills",   # preparedness drills, one a week (ROADMAP R12)
+    "trail_conditions",   # Trail Conditions, the opt-in Monday email (ROADMAP Phase C)
+    "pay_yourself",   # Pay yourself: savings as a monthly paycheck (ROADMAP R11)
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)

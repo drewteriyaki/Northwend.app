@@ -39,7 +39,7 @@ Contents:
 | The live app, after step 4 | Render (`render.yaml`), at go.northwend.app, deploying `main`, behind Cloudflare's proxy (`docs/CLOUDFLARE.md`). The move: [Move to Render](#move-to-render). |
 | Database roles | One owner role for `northwend-migrate`, one for the app, one for the jobs, once `docs/DB_ROLES.md` is done. |
 | The databases | Neon. One project or branch for live, one for staging. |
-| Scheduled jobs | GitHub Actions, `.github/workflows/scheduled-sync.yml` (prices, history, the Monday email, walk reminders). |
+| Scheduled jobs | GitHub Actions, `.github/workflows/scheduled-sync.yml` (prices, history, the Monday email, walk reminders, Trail Conditions). |
 | The app's settings | Streamlit: the app's menu > Settings > Secrets. Render: the service's Environment. |
 | The jobs' settings | GitHub: the repo's Settings > Secrets and variables > Actions. |
 | Every setting's name and meaning | `.env.example` in the repo. |

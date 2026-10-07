@@ -92,7 +92,7 @@ CALCULATION_MODULES = (
     "allocation", "alerts", "asset_classes", "cash_check", "changes", "checkin", "drills",
     "employer_match", "feature_counts", "fees", "income", "lost_found", "menu_decoder",
     "metrics",
-    "next_deposit", "seasons",
+    "next_deposit", "pay_yourself", "seasons",
     "storms", "stress", "trail_forks",
 )
 NOT_IN_CALCULATIONS = {"streamlit", "portfolio", "pgcompat", "sqlite3", "psycopg",

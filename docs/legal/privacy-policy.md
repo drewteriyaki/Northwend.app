@@ -77,6 +77,11 @@ account, contact us and we will delete it.
 - Where preparedness drills are offered, the ones you've rehearsed: which
   situations, which of the offered choices you tapped, the week and how many
   times - nothing you type, and never an amount. Only you see what you tapped.
+- Where Trail Conditions is offered and you turn it on: that it's on, when you
+  turned it on (your consent - dropped when you turn it off), the week it was
+  last sent, and which season, month or week a line in it was last about.
+- Where Pay yourself is offered, if you pick a rule of thumb there: which rule
+  you picked - never an amount. Only you see it.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -170,12 +175,13 @@ It is shared only as needed to run the service, with:
 | **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, and screenshot reading only where it's offered and you choose it | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
-| **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email and the monthly walk reminders people turn on | Access to the database to do those jobs |
+| **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails | Your email address and that message |
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
-list, your Trail Forks and your preparedness drills, which only you see (the account map is never emailed, and its PDF is only
+list, your Trail Forks, your preparedness drills and the rule of thumb you
+picked on Pay yourself, which only you see (the account map is never emailed, and its PDF is only
 downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
@@ -338,9 +344,17 @@ you delete it.
 - **Anything else,** or if you can't sign in: email {{CONTACT}}. We'll answer
   within 30 days, and usually much sooner. Whatever state you live in, you can
   ask us what we hold about you, to correct it, or to delete it.
-- **Emails:** Northwend sends no newsletters or marketing. Advisors can turn off
+- **Emails:** Northwend sends no newsletters or advertising. Advisors can turn off
   the Monday summary on the Clients page. The monthly walk reminder is off
   unless you turn it on (Account page), and says only that it's time - no figures.
+  Where it's offered, Trail Conditions is off unless you turn it on (Account
+  page): a short Monday email that most weeks says all is calm, and otherwise
+  only that something is waiting in the app (a season's note, your monthly
+  walk, a situation to rehearse) or that markets have fallen a long way
+  recently. It never has an amount, a percentage, a holding, an account, a
+  forecast or a suggestion to buy or sell. Each one has a link that stops it
+  in one click, without signing in, and our postal address; turning it off
+  on the Account page stops it at once.
 - **Feature counts:** turn on "Leave me out of feature counts" on the Account
   page to be left out of every count (see section 2).
 

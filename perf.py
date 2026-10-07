@@ -257,12 +257,10 @@ def daily_values(db_path: str, basis, since: str) -> list[tuple[str, float]]:
     """(date, value) of the current holdings (and cash) at each close from
     `since` - the market's effect alone, money in or out never shows (the
     storm check, storms.py). Only the days every covered ticker was priced,
-    so a fund whose bars start later doesn't look like a jump."""
-    conn = connect(db_path)
-    try:
+    so a fund whose bars start later doesn't look like a jump. `db_path` may
+    also be an open connection (see _open)."""
+    with _open(db_path) as conn:
         rows = _reconstructed_daily_rows(conn, basis, since)
-    finally:
-        conn.close()
     most = max((r["n_priced"] for r in rows), default=0)
     return [(r["t"], r["portfolio_value"]) for r in rows if r["n_priced"] == most]
 
@@ -304,6 +302,14 @@ def _basis(conn, user_id: int):
         "SELECT COALESCE(SUM(cash_value), 0) c FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
         (snap, user_id)).fetchone()["c"]
     return snap, _by_symbol(rows), cash
+
+
+def basis(db, user_id: int) -> tuple:
+    """_basis() for one account, on a path or an open connection (_open) -
+    for jobs that look at someone's line without the dashboard
+    (trail_conditions.py)."""
+    with _open(db) as conn:
+        return _basis(conn, user_id)
 
 
 def basis_of(snapshot, positions, cash_by_account) -> tuple:

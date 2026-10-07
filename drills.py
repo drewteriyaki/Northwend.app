@@ -14,7 +14,9 @@ The readiness map (which of the ten are rehearsed, hard times and good
 times) is the pull, not a streak: a weekly count of weeks rehearsed is shown
 gently and never breaks. One drill is suggested per ISO week (the next one
 not rehearsed yet; once all ten are, the one rehearsed longest ago comes
-back with its twist). No reminders and no emails.
+back with its twist). No reminders of its own; the opt-in Trail Conditions
+email (trail_conditions.py) may say, at most every few weeks, that one
+situation on the readiness map is waiting - never which, never a tap.
 
 What's kept (prefs PREF), keys only - never free text:
   {"done": {drill key: {"choice": tap key, "week": "2026-W41", "times": n}},

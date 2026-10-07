@@ -123,7 +123,9 @@ pasted text and screenshots are not kept. Clients can also use an example or
   their future self, their monthly walks, their account map (an "if
   something happens to me" list), their Lost & Found list (where they've
   looked for old accounts), their Trail Forks (life events they've marked), their
-  preparedness drills (what they tapped) and
+  preparedness drills (what they tapped), the rule of thumb they picked on Pay
+  yourself (you can look at the same picture with a rule you pick; yours isn't
+  saved) and
   their share links. A client whose account you manage can't make share links,
   and any they made before stop working. Every per-account query is filtered
   by account.

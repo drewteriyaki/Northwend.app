@@ -27,6 +27,11 @@ REPLY_TO = "support@northwend.app"
 # ai_spend and licence_check use it too): ALERT_EMAIL when set, else this.
 ADMIN_TO = "admin@northwend.app"
 TIMEOUT = 10  # seconds
+# PLACEHOLDER - for the owner to fill in. Northwend's postal address (a street
+# address, a PO box or a registered mailbox), printed at the foot of every
+# Trail Conditions email: CAN-SPAM asks for one in a commercial email. While it's
+# empty, trail_conditions.py sends nothing at all and says why in the job's log.
+POSTAL_ADDRESS = ""
 
 
 def _setting(name: str) -> str:
@@ -122,13 +127,18 @@ def send(to: str, subject: str, text: str, html: str | None = None, *,
         return False
 
 
-def _html(paragraphs: list[str], button: tuple[str, str], *, unsubscribe: str = "") -> str:
+def _html(paragraphs: list[str], button: tuple[str, str], *, unsubscribe: str = "",
+          address: str = "") -> str:
     """A plain, calm email body: a few paragraphs and one button - and, with
-    `unsubscribe` (a link, unsubscribe.py), a small line to stop the emails."""
+    `unsubscribe` (a link, unsubscribe.py), a small line to stop the emails;
+    with `address`, the sender's postal address at the foot (POSTAL_ADDRESS)."""
     label, url = button[0], html_escape(button[1])
     stop = (f'<p style="margin:14px 0 0;font-size:13px;color:#6b7280">'
             f'<a href="{html_escape(unsubscribe)}" style="color:#6b7280">{UNSUBSCRIBE_LINE}</a>'
             '</p>' if unsubscribe else "")
+    if address:
+        stop += ('<p style="margin:10px 0 0;font-size:12px;color:#6b7280">'
+                 f'Northwend, {html_escape(address)}</p>')
     ps ="".join(f'<p style="margin:0 0 14px">{p}</p>' for p in paragraphs)
     return ('<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;'
             'line-height:1.5;color:#1f2937;max-width:480px">'

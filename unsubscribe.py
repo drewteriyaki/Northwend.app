@@ -1,6 +1,7 @@
 """One-click unsubscribe (PLAN 1a.8, audit 1.7c) for the emails someone gets
-again and again: the Monthly Walk's reminder (checkin_email.py) and the
-advisors' Monday email (weekly_email.py).
+again and again: the Monthly Walk's reminder (checkin_email.py), the
+advisors' Monday email (weekly_email.py) and Trail Conditions
+(trail_conditions.py).
 
 Each of those emails carries a link, <app>/?unsubscribe=<token>, that turns
 that one email off with no sign-in, and the same address in a
@@ -29,11 +30,12 @@ import prefs
 
 LIFE_DAYS = 365   # an old email's link still works for a year
 # which email -> its token's purpose in email_tokens
-PURPOSES = {"walk": "unsub_walk", "weekly": "unsub_weekly"}
+PURPOSES = {"walk": "unsub_walk", "weekly": "unsub_weekly", "trail": "unsub_trail"}
 KIND_OF = {v: k for k, v in PURPOSES.items()}
 # where each is turned back on, for the page the link opens
 WHERE = {"walk": "Account, under Monthly walk",
-         "weekly": "Your clients, under How clients see you"}
+         "weekly": "Your clients, under How clients see you",
+         "trail": "Account, under Trail Conditions"}
 
 
 def new_token(conn, user_id: int, kind: str, email: str, *,
@@ -59,6 +61,9 @@ def turn_off(p: dict, kind: str) -> dict:
     """The person's settings with that email turned off."""
     if kind == "walk":
         p[checkin.PREF_EMAIL] = False
+    elif kind == "trail":
+        import trail_conditions   # (it imports this module)
+        trail_conditions.set_on(p, False)
     else:
         import weekly_email   # (it imports this module)
         p[weekly_email.PREF_OFF] = True

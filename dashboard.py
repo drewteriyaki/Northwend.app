@@ -2383,6 +2383,9 @@ _view("cash_check")
 # Plan: Stress test your mix (stress.py)
 _view("stress_test")
 
+# Plan: Pay yourself, flag pay_yourself + gate L3 (pay_yourself.py)
+_view("pay_yourself")
+
 # Plan and Home: where the next deposit could go (next_deposit.py)
 _view("next_deposit")
 

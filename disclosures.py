@@ -95,6 +95,17 @@ Each statement about data here must stay true to the code:
   amounts; the person's own only, never sent to the AI. Its reminder (checkin_email.py, GitHub Actions): off unless
   turned on (prefs checkin_email), confirmed emails only, once a month
   (checkin_email_sent), says only that it's time - no figures.
+- Trail Conditions (trail_conditions.py, flag trail_conditions, GitHub
+  Actions on Mondays): off unless the login turns it on for itself (Account;
+  never an advisor's own login or in a client's account), confirmed emails
+  only, at most once an ISO week. Kept in prefs: trail_conditions (on/off),
+  trail_conditions_consent (when it was turned on; dropped when turned off),
+  trail_conditions_sent (the week), and which season / month / week a line
+  was last about. The email: fixed lines only (calm, or a storm as a past
+  fact, a season begun, the walk waiting, a readiness-map situation
+  waiting) - no amounts, percentages, tickers, funds or account names, no
+  forecasts; one-click unsubscribe (unsubscribe.py, kind "trail") and the
+  postal address (mailer.POSTAL_ADDRESS; nothing is sent while it's empty).
 - Feature counts (feature_counts.py): totals worked out in code from the
   settings column only (no user id read), shown only for groups of
   feature_counts.MIN_GROUP (20) or more, only in the Admin portal's
@@ -228,6 +239,15 @@ Each statement about data here must stay true to the code:
   Counted in totals only (feature_counts.drill_returns: people who rehearsed a
   first drill and how many a third - never a choice). In the person's own
   export (settings).
+- Pay yourself (pay_yourself.py, views/pay_yourself.py, flag pay_yourself and
+  gate L3): a Plan tab built from data already kept (holdings, payouts in
+  daily_bars, an imported activity history). The one thing kept is the rule
+  of thumb picked, in the login's own settings (prefs pay_yourself: the rule's
+  key only - never an amount, never free text). An advisor in a client's
+  account sees the picture with the standing line, but their pick is never
+  saved and the client's pick is never read for them; an advisor's client
+  signed in doesn't get the tab. Never sent to the AI. In the person's own
+  export (settings).
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -360,7 +380,8 @@ to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
-their account map, their Lost & Found list, their Trail Forks and their preparedness drills.
+their account map, their Lost & Found list, their Trail Forks, their preparedness drills
+and the rule of thumb they picked on Pay yourself.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
@@ -369,14 +390,20 @@ their account map, their Lost & Found list, their Trail Forks and their prepared
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
   (confirming the address, resetting your password; for advisors, an optional
   Monday summary with counts only - no client names or figures), never shown
   to anyone else or sent to the AI - and which version of this page you agreed
-  to. Northwend sends no newsletters or marketing email. If you ask for advisor access, also
+  to. Northwend sends no newsletters or advertising email. Where it's offered,
+  Trail Conditions is a short Monday email you can turn on: most weeks it
+  says all is calm, and otherwise only that something is waiting in the app
+  (a season's note, your monthly walk, a situation to rehearse) or that
+  markets have fallen a long way recently - never an amount, a percentage,
+  a holding, a forecast or a suggestion to buy or sell. Every one has a link
+  that stops it in one click. If you ask for advisor access, also
   your firm's name and your CRD or licence number, so it can be checked, and a
   note of each check (where it was looked up, the number that matched and the
   day); for an advisor, also which version of the advisor agreement you accepted
@@ -499,9 +526,11 @@ feature counts** on the **Account** page.
   exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
-- **GitHub** runs the scheduled price updates.
+- **GitHub** runs the scheduled price updates and the scheduled emails
+  (sent through Resend).
 - **Resend** delivers the account emails (confirming your address, resetting
-  your password, an advisor's Monday summary); it receives only your email
+  your password, an advisor's Monday summary, the monthly walk reminder and
+  Trail Conditions, if you turn them on); it receives only your email
   address and that message.
 
 Each has its own privacy policy.

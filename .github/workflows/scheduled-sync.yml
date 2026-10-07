@@ -15,7 +15,8 @@ name: Scheduled sync (hosted Postgres)
 # walk reminders people ask for (checkin_email.py; both skipped until set):
 #   RESEND_API_KEY    the same key the app sends email with
 #   APP_URL           the app's address, for the link in the email
-#   NORTHWEND_FLAGS   the walk reminders go out only when it lists "walk" (flags.py)
+#   NORTHWEND_FLAGS   the walk reminders go out only when it lists "walk" (flags.py),
+#                     and Trail Conditions only when it lists "trail_conditions"
 # A job that fails emails the admin (error_alerts.py, at most once an hour per
 # job) with RESEND_API_KEY, to the ALERT_EMAIL secret or admin@northwend.app.
 # The refresh job covers every account (--all-users, each ticker fetched
@@ -35,6 +36,10 @@ on:
     # Monthly walk reminders (only for those who turned them on, at most
     # one a month each) - daily at 13:15 UTC, morning in the US.
     - cron: "15 13 * * *"
+    # Trail Conditions, the opt-in Monday note (trail_conditions.py; only for
+    # those who turned it on, at most once a week each) - Mondays at 13:00
+    # UTC, morning in the US.
+    - cron: "0 13 * * 1"
   workflow_dispatch: {}  # allow manual triggering from the Actions tab
 
 # Once the database roles are split (docs/DB_ROLES.md), DATABASE_URL is the
@@ -177,3 +182,30 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: python error_alerts.py job "Monthly walk reminders" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  trail-conditions:
+    if: github.event.schedule == '0 13 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+          cache: pip  # reuse installed packages between runs
+      - run: pip install -r requirements.txt
+      - name: Send Trail Conditions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          # its feature flag (flags.py): nothing is sent unless it lists "trail_conditions";
+          # nothing either while mailer.POSTAL_ADDRESS is empty (CAN-SPAM)
+          NORTHWEND_FLAGS: ${{ secrets.NORTHWEND_FLAGS }}
+        run: python trail_conditions.py --db "$DATABASE_URL"
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Trail Conditions" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
