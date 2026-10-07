@@ -531,6 +531,21 @@ class AppTests(_WalkApp):
             self.assertIn("Your band is 5 points either way", self._text(at))
             self.assertEqual(at.number_input(key="plan_drift_band").value, 5.0)
 
+    def test_from_the_walk_the_plan_leads_back_to_it(self):
+        # the walk's "Open my target mix" used to leave people on Plan with no way
+        # back (only "Back to your route", which goes to Learn)
+        with self._run(self.wren, "wren", "Plan", plan_tab="Target mix",
+                       walk_return=True) as at:
+            back = at.button(key="plan_back_walk")
+            self.assertEqual(back.label, ":material/arrow_back: Back to your walk")
+            back.click().run()
+            self.assertEqual(at.session_state["page"], "Dashboard")
+            self.assertTrue(at.session_state["checkin_open"])
+            self.assertNotIn("walk_return", at.session_state)
+        # without it, no such button
+        with self._run(self.wren, "wren", "Plan") as at:
+            self.assertNotIn("plan_back_walk", [b.key for b in at.button])
+
 
 class AdminPanelTests(_DB):
     PANEL = """

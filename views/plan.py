@@ -1038,12 +1038,26 @@ def _render_retirement_income(value, today):
     learn_more("risk")
 
 
+def _walk_back():
+    """Plan's "Back to your walk" (set by the walk's "Open my target mix",
+    views/checkin.py): Home with this month's walk open again - its ticked
+    steps are kept, so it picks up where it was."""
+    st.session_state.pop("walk_return", None)
+    st.session_state["checkin_open"] = True
+    _go("Dashboard")
+
+
 def _render_plan(value, growth, alloc_rows):
     """The Plan page. `value` / `growth` / `alloc_rows` are None for an
     account with no holdings yet - the goal and contributions still work."""
     today = datetime.now().date()
     plan = load_plan()
-    if _on_the_route():
+    if st.session_state.get("walk_return"):
+        # came from the monthly walk's "Open my target mix": a clear way back
+        st.button(":material/arrow_back: Back to your walk", key="plan_back_walk",
+                  type="primary", on_click=_walk_back,
+                  help="Back to this month's walk on Home, where you left it.")
+    elif _on_the_route():
         # the plan is changed here, but planning is part of the route on
         # Learn: a clear way back to it, so nobody is left here wondering
         st.button(":material/arrow_back: Back to your route", key="plan_back_route",

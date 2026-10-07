@@ -67,6 +67,7 @@ def _checkin_skip():
     checkin.skip(p, today)
     _write_prefs(p)
     st.session_state.pop("checkin_open", None)
+    st.session_state.pop("walk_return", None)
     st.session_state["import_flash"] = (
         f"No walk this month - the next one is on {_walk_day(checkin.next_walk(p, today))}. "
         "Nothing is lost.")
@@ -106,6 +107,7 @@ def _checkin_finish(verdict):
             f"Your {checkin.month_name(checkin.month_of(today))} walk is done. Walks finished: "
             f"{checkin.count(p)}. Next walk: {_walk_day(checkin.next_walk(p, today))}.")
     st.session_state.pop("checkin_open", None)
+    st.session_state.pop("walk_return", None)
 
 
 def _checkin_holdings():
@@ -114,8 +116,10 @@ def _checkin_holdings():
 
 
 def _walk_to_target_mix():
-    """The verdict's link: the Plan page, on its Target mix tab."""
+    """The verdict's link: the Plan page, on its Target mix tab - with a way
+    back to the walk there (views/plan.py, walk_return)."""
     st.session_state["plan_tab"] = "Target mix"
+    st.session_state["walk_return"] = True
     _go("Plan")
 
 
