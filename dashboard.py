@@ -2668,20 +2668,28 @@ def _read_prefs():
     if cached is None or cached[0] != USER_ID:
         conn = connect(DB)
         try:
-            cached = (USER_ID, prefs.load(conn, USER_ID, PREFS_PATH))
+            data = prefs.load(conn, USER_ID, PREFS_PATH)
         finally:
             conn.close()
+        # the third part: the settings as read, to tell what this session changed
+        cached = (USER_ID, data, json.dumps(data))
         st.session_state["_prefs"] = cached
     return dict(cached[1])
 
 
 def _write_prefs(d):
+    """Save this account's settings. Only what this session changed since it
+    read them is written over what's saved now (prefs.merge): another tab,
+    the client on their phone, or their advisor may have saved since."""
+    cached = st.session_state.get("_prefs")
     conn = connect(DB)
     try:
+        if cached and cached[0] == USER_ID and len(cached) > 2:
+            d = prefs.merge(json.loads(cached[2]), d, prefs.load(conn, USER_ID))
         prefs.save(conn, USER_ID, d)
     finally:
         conn.close()
-    st.session_state["_prefs"] = (USER_ID, dict(d))
+    st.session_state["_prefs"] = (USER_ID, dict(d), json.dumps(d))
 
 
 def load_columns():

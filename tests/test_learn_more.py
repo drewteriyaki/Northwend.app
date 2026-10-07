@@ -256,6 +256,29 @@ class LearnReadsTests(unittest.TestCase):
             at.button(key="basics_funds").click().run()
         self.assertIn("basics:funds", self._prefs(self.dana)[recap.LEARN_READS])
 
+    def test_an_advisors_complete_isnt_dated_as_her_learning(self):
+        """Complete this step in a client's account (an advisor's press) moves
+        the route on, but isn't dated in her Year in review (LEARN_DATES)."""
+        import recap
+        with self._run(self.carol, "carol", two_step_ok=self.carol_ok,
+                       active_user_id=self.dana) as at:
+            at.button(key="gs_complete").click().run()
+        saved = self._prefs(self.dana)
+        self.assertIn("basics", saved.get("get_started_done") or [])
+        self.assertNotIn("basics", saved.get(recap.LEARN_DATES) or {})
+        # her own press is dated (the step open again first)
+        import portfolio
+        import prefs
+        saved.pop("get_started_done")
+        c = portfolio.connect(self.db)
+        try:
+            prefs.save(c, self.dana, saved)
+        finally:
+            c.close()
+        with self._run(self.dana, "dana") as at:
+            at.button(key="gs_complete").click().run()
+        self.assertIn("basics", self._prefs(self.dana).get(recap.LEARN_DATES) or {})
+
 
 if __name__ == "__main__":
     unittest.main()

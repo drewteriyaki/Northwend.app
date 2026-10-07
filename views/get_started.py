@@ -117,7 +117,8 @@ def _complete(step):
     then), then on to the next waypoint not complete yet."""
     p = _read_prefs()
     p["get_started_done"] = sorted(set(p.get("get_started_done") or []) | {step})
-    recap.note_done(p, recap.LEARN_DATES, step)   # dated, for Year in review
+    if USER_ID == LOGIN_ID:   # dated, for Year in review - never an advisor's press in theirs
+        recap.note_done(p, recap.LEARN_DATES, step)
     if step == "brokerage":   # the account checklist's first tick (ACCOUNT_STEPS)
         ticks = set(p.get("account_steps") or []) | {"chosen"}
         p["account_steps"] = [k for k, _, _ in ACCOUNT_STEPS if k in ticks]

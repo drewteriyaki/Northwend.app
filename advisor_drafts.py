@@ -162,7 +162,8 @@ def request_text(kind: str, *, card: str | None = None, points: str = "", title:
     if card:
         parts.append("The client's portfolio, as percentages (data):\n" + card)
     if kind == "proposal":
-        name = " ".join(str(title or "").replace("<", "").replace(">", "").split())[:80]
+        # typed by the advisor like the points: amounts and long numbers out too
+        name = scrub(str(title or "").replace("<", "").replace(">", ""), 80)
         parts.append(f"<facts>\nThe proposal's title: {name or 'Proposed mix'}\n"
                      f"The proposed mix: {mix_text(mix or {}) or 'not set'}\n</facts>")
     elif kind == "report" and facts:

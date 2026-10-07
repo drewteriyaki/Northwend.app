@@ -43,6 +43,21 @@ def _from_row(conn, user_id: int, row, legacy_path: str | None) -> dict:
     return data
 
 
+def merge(base: dict, mine: dict, saved: dict) -> dict:
+    """What to save when this session read `base`, now holds `mine`, and the
+    database holds `saved` (another tab, device or person may have saved
+    since): `saved` with only the settings this session changed or removed
+    put over it - so one session never undoes another's other settings."""
+    out = dict(saved)
+    for k in set(base) | set(mine):
+        if k in mine:
+            if k not in base or mine[k] != base[k]:
+                out[k] = mine[k]
+        else:
+            out.pop(k, None)
+    return out
+
+
 def save(conn, user_id: int, data: dict) -> None:
     conn.execute("INSERT INTO user_prefs (user_id, data) VALUES (?, ?) "
                  "ON CONFLICT (user_id) DO UPDATE SET data = excluded.data",

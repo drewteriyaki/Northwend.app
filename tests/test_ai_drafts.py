@@ -177,6 +177,12 @@ class DraftTests(unittest.TestCase):
         self.assertEqual(len(advisor_drafts.scrub("y" * 900)), advisor_drafts.POINTS_MAX)
         with self.assertRaises(ValueError):
             advisor_drafts.request_text("email")
+        # the proposal's title is typed by the advisor too: no amount reaches the AI
+        ask = advisor_drafts.request_text("proposal", title="$1.2M plan, acct 99887766",
+                                          mix={"Stocks": 60})
+        self.assertIn("The proposal's title: [amount] plan, acct [number]", ask)
+        for gone in ("$", "1.2M", "99887766"):
+            self.assertNotIn(gone, ask)
 
     def test_report_facts_are_percentages_only(self):
         facts = {"value_start": 200_000.0, "value_end": 210_000.0, "money_in": 5_000.0,
