@@ -129,7 +129,15 @@
     document.querySelectorAll('[data-testid^="stChatMessageAvatar"]').forEach((av) => {
       if (av.getAttribute("aria-hidden") !== "true") av.setAttribute("aria-hidden", "true");
     });
+    // a label with a link in it (the agree boxes: "...the [Terms of Use](https://...)")
+    // reaches screen readers as Streamlit's raw text: read just the link's words
+    document.querySelectorAll("[aria-label*=\"](\"]").forEach((el) => {
+      const raw = el.getAttribute("aria-label");
+      const words = raw.replace(MD_LINK, "$1");
+      if (words !== raw) el.setAttribute("aria-label", words);
+    });
   };
+  const MD_LINK = /\[([^\]]+)\]\([^)]+\)/g;
   labelIconButtons();
   setInterval(labelIconButtons, 1000);
 

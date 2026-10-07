@@ -900,6 +900,13 @@ def _render_what_if(plan, value, alloc_rows, today):
                 st.rerun()
 
 
+# ---- the tabs' three groups (two short rows on a phone) -------------------- #
+PLAN_GROUPS = ("Your plan", "What-ifs", "Money out")
+# a tab not listed here goes in the first group (Your plan)
+PLAN_GROUP_OF = {"What if": "What-ifs", "Stress test": "What-ifs", "Shadow Trail": "What-ifs",
+                 "Money going out": "Money out", "Pay yourself": "Money out",
+                 "Retirement income": "Money out"}
+
 # ---- what the portfolio could pay each year (the retirement view) ---------- #
 RETIRE_TAB = "Retirement income"
 RETIRE_EXAMPLE = 100_000.0   # the example amount without real dollars to go on
@@ -1087,8 +1094,22 @@ def _render_plan(value, growth, alloc_rows):
     # a link from elsewhere (Home's "Where it could go") may open one tab
     first = st.session_state.pop("plan_tab", None)
     first = first if first in [s[0] for s in sections] else None
-    for tab, (_name, draw) in zip(st.tabs([s[0] for s in sections], default=first), sections):
-        with tab:
-            draw()
+    # Three groups, each with its own tabs, so a phone shows two short rows
+    # rather than one row wrapped four times. Every tab is still drawn (a
+    # link can open any of them), and keeps its name even alone in a group.
+    groups = {g: [s for s in sections if PLAN_GROUP_OF.get(s[0], PLAN_GROUPS[0]) == g]
+              for g in PLAN_GROUPS}
+    groups = {g: s for g, s in groups.items() if s}
+    if plans.retirement_first(plan, _profile(), today) and PLAN_GROUPS[2] in groups:
+        groups = {PLAN_GROUPS[2]: groups[PLAN_GROUPS[2]],
+                  **{g: s for g, s in groups.items() if g != PLAN_GROUPS[2]}}
+    first_group = next((g for g, s in groups.items() if first in [x[0] for x in s]), None)
+    for outer, (_g, members) in zip(st.tabs(list(groups), default=first_group), groups.items()):
+        with outer:
+            names = [s[0] for s in members]
+            for tab, (_name, draw) in zip(
+                    st.tabs(names, default=first if first in names else None), members):
+                with tab:
+                    draw()
     if plans.has_goal(plan) and not editing:
         _guide_line("plan_guide")   # a goal set: a quiet "Find a guide" (ADR 0005)

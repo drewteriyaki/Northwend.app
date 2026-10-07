@@ -17,6 +17,7 @@ import unittest.mock
 from datetime import date, timedelta
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PLAN_GROUPS = ("Your plan", "What-ifs", "Money out")   # views/plan.py's tab groups
 sys.path.insert(0, REPO)
 
 import advisor  # noqa: E402
@@ -403,8 +404,11 @@ class PagesTests(unittest.TestCase):
     # ---- Plan ---------------------------------------------------------------- #
     def test_plan_leads_with_retirement_income_when_retirement_is_near(self):
         with self._run(self.rita, "rita", "Plan") as at:
+            # Plan's tabs sit in groups (views/plan.py PLAN_GROUPS): the Money out
+            # group comes first, and Retirement income first inside it
             tabs = [t.label for t in at.tabs]
-            self.assertEqual(tabs[0], "Retirement income")
+            self.assertEqual(tabs[0], "Money out")
+            self.assertEqual([t for t in tabs if t not in PLAN_GROUPS][0], "Retirement income")
             text = self._text(at)
             self.assertIn("What your portfolio could pay you each year", text)
             self.assertIn("rules of thumb, not a promise", text)
@@ -428,7 +432,8 @@ class PagesTests(unittest.TestCase):
         with self._run(self.yuri, "yuri", "Plan") as at:
             tabs = [t.label for t in at.tabs]
             self.assertIn("Retirement income", tabs)
-            self.assertNotEqual(tabs[0], "Retirement income")
+            self.assertNotEqual(tabs[0], "Money out")
+            self.assertNotEqual([t for t in tabs if t not in PLAN_GROUPS][0], "Retirement income")
 
     def test_plan_hidden_amounts(self):
         with self._run(self.rita, "rita", "Plan", hide_amounts=True) as at:
