@@ -108,13 +108,16 @@ STATEMENT_SIGNS = {
 }
 _ACCT_NUMBER = re.compile(
     r"(?i)\b(?:account|acct\.?|a/c)\s*(?:number|no\.?|#|num\.?)?\s*[:#]?\s*"
-    r"(?:[X*•]+[\-\s]?)*\d{2,}[\d\-]*\d{2,}"
+    # one mask character per repeat: "(?:[X*•]+[\-\s]?)*" matched the same
+    # text, but a long run of X's or stars with no digits after took
+    # exponential time (the whole app waits on it)
+    r"(?:[X*•][\-\s]?)*\d{2,}[\d\-]*\d{2,}"
     r"|\b(?:account|acct\.?)\s*(?:number|no\.?|#)\s*[:#]?\s*(?=[A-Z\-]*\d)[A-Z0-9][A-Z0-9\-]{3,}"
     r"|(?<![\w-])(?:[X*•]{2,}[\-\s]?){1,4}\d{3,4}\b")
 _BALANCE = re.compile(
     r"(?i)\b(?:(?:total\s+|your\s+|ending\s+|beginning\s+|closing\s+|opening\s+)?account\s+"
     r"(?:value|balance)|your\s+(?:balance|account\s+value|portfolio\s+value|holdings|"
-    r"vested\s+balance)|(?:ending|beginning|closing|opening|current)\s+balance|"
+    r"vested\s+balance)|(?:ending|beginning|closing|opening|current|total|vested)\s+balance|"
     r"market\s+value\s+of\s+your|net\s+account\s+value)\b")
 _STATEMENT_WORDS = re.compile(
     r"(?i)\b(?:statement\s+(?:period|date|for)|account\s+statement|(?:quarterly|monthly|"

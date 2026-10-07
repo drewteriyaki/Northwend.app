@@ -173,15 +173,29 @@ def _caps(m) -> str:
     return "[fund]"
 
 
+# digits in space-separated groups ("12 345 678"), which scrub_memory reads
+# as several short numbers
+_SPACED = re.compile(r"\b\d{1,4}(?: \d{1,4})+\b")
+_YEAR = re.compile(r"(?:19|20)\d\d")
+
+
+def _spaced(m) -> str:
+    parts = m.group(0).split()
+    if sum(len(p) for p in parts) < 5 or all(_YEAR.fullmatch(p) for p in parts):
+        return m.group(0)
+    return "[number]"
+
+
 def scrub(text: str) -> str:
     """The person's words as they may be sent: at most MAX_CHARS; email
     addresses, dollar amounts, account numbers and long digit runs masked
-    (advisor.scrub_memory); ticker-looking tokens masked as "[fund]"."""
+    (advisor.scrub_memory, then digits in spaced groups); ticker-looking
+    tokens masked as "[fund]"."""
     import advisor
 
     text = (text or "").strip()[:MAX_CHARS]
     text = _EMAIL.sub("[email]", text)
-    text = advisor.scrub_memory(text)
+    text = _SPACED.sub(_spaced, advisor.scrub_memory(text))
     return _CAPS.sub(_caps, text)
 
 

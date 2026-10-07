@@ -64,7 +64,7 @@ def _shadow_save(place, today):
         for k in sh.KIND_KEYS:
             st.session_state.pop(f"shadow_{place}_{k}", None)
     else:
-        st.session_state["shadow_problem"] = sum(values.values())
+        st.session_state["shadow_problem"] = sh.save_problem(values)
 
 
 def _shadow_form(place, slot, today):
@@ -83,8 +83,8 @@ def _shadow_form(place, slot, today):
                              help=k["about"].capitalize() + ".")
         nxt = shadow_trail.add_months(today, sh.LOCK_MONTHS)
         st.caption(sh.SET_NOTE.format(next=sh.date_text(nxt)))
-        if problem is not None and problem != 100:
-            st.warning(sh.TOTAL_LINE.format(total=problem))
+        if problem:
+            st.warning(problem)
         st.form_submit_button(sh.SAVE_LABEL.format(name=name), on_click=_shadow_save,
                               args=(place, today))
     st.button(sh.CANCEL_LABEL, key=f"shadow_cancel_{place}", type="tertiary",

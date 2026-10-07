@@ -107,7 +107,8 @@ CLASS_WORDS = {"Stocks": "stocks", "Bonds": "bonds", "Cash": "cash", "Other": "o
 
 
 def _share(pct: float) -> str:
-    return "under 1%" if 0 < pct < 0.5 else f"{pct:.0f}%"
+    # below 1 (not 0.5): "{:.0f}" rounds halves to even, so 0.5% read "0%"
+    return "under 1%" if 0 < pct < 1 else f"{pct:.0f}%"
 
 
 def _join(parts: list[str]) -> str:

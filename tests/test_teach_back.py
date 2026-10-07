@@ -136,6 +136,15 @@ class ScrubTests(unittest.TestCase):
                      "60/40", "2019", "companies"):
             self.assertIn(kept, out)
 
+    def test_digits_in_spaced_groups_are_masked(self):
+        # Fresh-eyes pass Oct 8: "12 345 678" passed as three short numbers
+        for raw in ("my account is 12 345 678", "card 4111 111 222", "about 12 500 saved"):
+            out = teach_back.scrub(raw)
+            self.assertIn("[number]", out, raw)
+            self.assertFalse(any(ch.isdigit() for ch in out), out)
+        for kept in ("from 2008 2009 to now", "a 60 40 mix", "about 3 or 4 funds"):
+            self.assertEqual(teach_back.scrub(kept), kept)
+
     def test_plain_words_pass_and_the_length_is_capped(self):
         plain = "Spreading out means one company failing can't sink everything."
         self.assertEqual(teach_back.scrub(plain), plain)

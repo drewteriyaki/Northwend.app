@@ -115,6 +115,13 @@ class MixTests(unittest.TestCase):
         self.assertEqual(sh.mix_text({"us": 40, "intl": 20, "bonds": 30, "cash": 10}),
                          "40% US stocks / 20% international stocks / 30% bonds / 10% cash")
 
+    def test_why_a_typed_mix_isnt_kept(self):
+        self.assertEqual(sh.save_problem({"us": 60, "bonds": 35}),
+                         sh.TOTAL_LINE.format(total=95))
+        self.assertEqual(sh.save_problem({"us": 62, "bonds": 38}),
+                         sh.STEP_LINE.format(step=sh.STEP))
+        self.assertIsNone(sh.save_problem({"us": 60, "bonds": 40, "cash": 0}))
+
     def test_at_most_two(self):
         self.assertEqual(sh.MAX_SHADOWS, 2)
         p, ok = sh.with_shadow({}, 2, {"us": 100}, DAY)
@@ -399,6 +406,14 @@ class AppTests(unittest.TestCase):
             next(b for b in self._tab(at).button if b.label == "Save Shadow A").click().run()
             self.assertIn("Adds up to 95%", self._tab_text(at))
             self.assertNotIn(sh.PREF, self._prefs(self.alice))
+            # 100 but not in 5% steps: said, not silently dropped (fresh-eyes Oct 8)
+            at.number_input(key="shadow_0_us").set_value(62)
+            at.number_input(key="shadow_0_bonds").set_value(38)
+            next(b for b in self._tab(at).button if b.label == "Save Shadow A").click().run()
+            self.assertIn(sh.STEP_LINE.format(step=sh.STEP), self._tab_text(at))
+            self.assertNotIn(sh.PREF, self._prefs(self.alice))
+            at.number_input(key="shadow_0_us").set_value(60)
+            at.number_input(key="shadow_0_bonds").set_value(35)
             at.number_input(key="shadow_0_bonds").set_value(40)
             next(b for b in self._tab(at).button if b.label == "Save Shadow A").click().run()
             self.assertEqual([e.message for e in at.exception], [])

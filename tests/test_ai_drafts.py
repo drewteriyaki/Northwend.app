@@ -107,6 +107,13 @@ class GlossaryTests(unittest.TestCase):
                     "one two three four five six"):
             self.assertIsNone(glossary_ai.clean_term(raw), raw)
 
+    def test_grouped_digits_are_not_sent(self):
+        # Fresh-eyes pass Oct 8: "987 654 321" got past the 4-digit check
+        for raw in ("987 654 321", "acct 12 34 56 78", "12-34-56", "1.234.567"):
+            self.assertIsNone(glossary_ai.clean_term(raw), raw)
+        for raw in ("S&P 500", "60/40", "529 plan", "401(k) vs 403(b)", "3-2-1"):
+            self.assertEqual(glossary_ai.clean_term(raw), raw, raw)
+
     def test_the_request_carries_the_term_and_nothing_else(self):
         model = _Model(cases.GLOSSARY[0][1][0])
         text = glossary_ai.explain("Sharpe ratio", user_id=None, client=model)

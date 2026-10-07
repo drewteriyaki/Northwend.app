@@ -291,6 +291,32 @@ class StatementGuardTests(unittest.TestCase):
                 "Minimum to open an account $3,000\n")
         self.assertEqual(fs.looks_like_statement(text), [])
 
+    def test_a_workplace_plan_statement_is_caught(self):
+        # Fresh-eyes pass Oct 8: "Total balance" / "Vested balance" (a 401(k)
+        # statement's own words) weren't a balance sign, so with "participant
+        # name" alone (not enough by itself) it was read as a fact sheet
+        text = ("Participant name: Avery Example\nTotal balance: $45,678.90\n"
+                "Vested balance: $40,000.00\n")
+        self.assertIn("balance", fs.looks_like_statement(text))
+        self.assertEqual(fs.looks_like_statement("Example Fund\nTotal balance 9,100\n"),
+                         ["balance"])
+
+    def test_a_long_run_of_mask_characters_is_quick(self):
+        # Fresh-eyes pass Oct 8: "account" then a run of X's or stars with no
+        # digits after took exponential time (26 took ~10 seconds, 40 days) -
+        # Python's re holds the lock, so every visitor waited on it
+        import time
+        for mark in ("X", "*", "•"):
+            text = "Your account " + mark * 26 + " see page 2"
+            start = time.perf_counter()
+            fs.looks_like_statement(text)
+            self.assertLess(time.perf_counter() - start, 1.0, mark)
+        # masked numbers are still found
+        for text in ("Account: XXXX-XXXX-4821", "Account number ** ** 3307",
+                     "acct XX XX XX 12345"):
+            self.assertEqual(fs.looks_like_statement("Example Fund\n" + text), ["account_number"],
+                             text)
+
     def test_the_signs_are_said_as_kinds_only(self):
         self.assertEqual(fs.statement_signs_text(["account_number", "balance"]),
                          "an account number and an account value or balance")

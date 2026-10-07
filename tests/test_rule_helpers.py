@@ -98,6 +98,14 @@ class SummaryTests(unittest.TestCase):
                              _pos("BBB", "Fixed Income", 90)])
         self.assertIn("2 holdings across 2 accounts; the largest, AAA, is 55%", words)
 
+    def test_a_half_percent_is_not_zero(self):
+        # Fresh-eyes pass Oct 8: "{:.0f}" rounds halves to even - 0.5% of cash
+        # read "0% in cash"
+        words = self._words([_pos("AAA", "Equity", 995)], {"Brokerage ...123": 5})
+        self.assertTrue(words.startswith("About 100% in stocks and under 1% in cash."), words)
+        words = self._words([_pos("AAA", "Equity", 975)], {"Brokerage ...123": 25})
+        self.assertTrue(words.startswith("About 98% in stocks and 2% in cash."), words)
+
     def test_nothing_to_read(self):
         self.assertEqual(allocation.summary_words(allocation.allocate([], {})), "")
         self.assertEqual(self._words([_pos("AAA", "Equity", 0)]), "")

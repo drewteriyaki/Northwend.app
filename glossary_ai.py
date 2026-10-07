@@ -37,7 +37,8 @@ NO_ANSWER = ("Ask Northwend couldn't explain that one in general terms. The glos
              "has the words Northwend uses.")
 
 _ALLOWED = re.compile(r"^[A-Za-z0-9À-ÿ][A-Za-z0-9À-ÿ '&()/.%+-]*$")
-_DIGIT_RUN = re.compile(r"\d{4,}")
+# four or more digits in a row, also in groups ("987 654 321", "12-34-56")
+_DIGIT_RUN = re.compile(r"\d(?:[\s.,-]?\d){3,}")
 _EMAIL = re.compile(r"@|\bat\s+\w+\s+dot\b", re.I)
 _MONEY = re.compile(r"[$€£¥]|\b(?:usd|dollars?|bucks|k\s*$)\b", re.I)
 _ABOUT_ME = re.compile(

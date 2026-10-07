@@ -91,6 +91,7 @@ SLOT_NOW = "It can change now."
 SLOT_EMPTY_LOCKED = "A new shadow can be set up here from {next}."
 SLOT_EMPTY = "Empty."
 TOTAL_LINE = "Adds up to {total}% - it needs to be 100%."
+STEP_LINE = "Each kind needs a step of {step}%, like 35% or 40%."
 SET_NOTE = ("Once it's set, it can change again on {next}.")
 KEPT_LINE = ("Kept in your own settings: each shadow's mix as percentages, the day you set it "
              "and the day you last changed it. Only you see it - not an advisor, and not Ask "
@@ -159,6 +160,19 @@ def clean_mix(mix) -> dict | None:
     if sum(out.values()) != 100:
         return None
     return {k: out[k] for k in KIND_KEYS if k in out}
+
+
+def save_problem(values: dict) -> str | None:
+    """Why a mix typed into the form can't be kept (TOTAL_LINE or STEP_LINE),
+    or None. A field takes any whole number, so 37 + 63 adds up to 100 and
+    still isn't in STEP steps."""
+    try:
+        total = int(sum(float(v or 0) for v in values.values()))
+    except (TypeError, ValueError):
+        total = 0
+    if total != 100:
+        return TOTAL_LINE.format(total=total)
+    return STEP_LINE.format(step=STEP) if clean_mix(values) is None else None
 
 
 def mix_text(mix: dict) -> str:
@@ -347,10 +361,10 @@ def sample_texts() -> list[str]:
     and conclusion-policy checks."""
     f = {"proxies": "a broad US stock index fund", "name": "Shadow A", "start": "Oct 6, 2026",
          "changed": "Oct 6, 2026", "next": "Jan 6, 2027", "months": LOCK_MONTHS,
-         "through": "Oct 5, 2026", "total": 95, "kind": "US stocks"}
+         "through": "Oct 5, 2026", "total": 95, "kind": "US stocks", "step": STEP}
     lines = [TITLE, HYPOTHETICAL, INTRO, PROXY_LINE, REAL_LINE, LOCK_LINE, NONE_YET, NO_PRICES,
              STARTS_SOON, NO_REAL, CHART_NOTE, TABLE_NOTE, SLOT_SET, SLOT_NEXT, SLOT_NOW,
-             SLOT_EMPTY_LOCKED, SLOT_EMPTY, TOTAL_LINE, SET_NOTE, KEPT_LINE, EDIT_LABEL,
+             SLOT_EMPTY_LOCKED, SLOT_EMPTY, TOTAL_LINE, STEP_LINE, SET_NOTE, KEPT_LINE, EDIT_LABEL,
              NEW_LABEL, SAVE_LABEL, REMOVE_LABEL, CANCEL_LABEL, FIELD_LABEL, REAL, *NAMES,
              *TABLE_COLUMNS]
     lines += [k["label"] for k in KINDS] + [k["about"] for k in KINDS]
