@@ -181,6 +181,15 @@ FEATURES = {
     # an advisor is in a client's account, never in the client record or the
     # AI. views/dashboard_page.py and views/start_home.py check on("drills").
     "drills": {"gates": (), "view": "drills"},
+    # This month's world, for your mix (ROADMAP Phase C; month_world.py): the
+    # owner's hand-written monthly note of past facts - never a forecast - with
+    # a line for the person's own largest asset class or two, one line inside
+    # the drill card on Home (so it needs `drills` on too; views/drills.py
+    # checks on("month_world")). Education: no gate, but L3 reviews every
+    # note before it's published (LEGAL_GATES.md section 6) - a note shows only
+    # once reviewed_by / reviewed_on are set. The login's own only, never the AI.
+    # The Trail Conditions email checks on("month_world") for its fixed line.
+    "month_world": {"gates": (), "view": "month_world"},
     # Trail Conditions (ROADMAP "The weekly rhythm", Phase C; trail_conditions.py):
     # an opt-in Monday email, off by default (Account > Trail Conditions, the
     # login's own switch; views/account.py checks on("trail_conditions")).
@@ -281,6 +290,24 @@ FEATURES = {
     # The person's own only - never while an advisor is in a client's account.
     # views/get_started.py checks on("teach_back").
     "teach_back": {"gates": (), "view": "teach_back"},
+    # The glossary's AI fallback (AI_PLAN section 9 row 5; glossary_ai.py): a
+    # "Look up another word" box under Learn's A-Z glossary. A word the
+    # glossary has shows its own text; any other goes to the AI as the term
+    # only (no digits runs, amounts, emails or sentences about their money),
+    # cheap tier, the chat allowance, answer checked by the conclusion policy
+    # and labelled general. Education: no gate. Needs `glossary` on too
+    # (views/get_started.py checks both).
+    "glossary_ai": {"gates": (), "view": None},
+    # Advisor drafts (AI_PLAN section 9 row 11; advisor_drafts.py,
+    # views/drafts.py): "Draft with Northwend" writes a first draft into the
+    # editable box for a proposal's words (views/proposals.py), a message to
+    # clients (views/clients.py) and a progress report's message
+    # (views/reports.py). Text only - the advisor edits and sends with their
+    # own button, under their name, with the standing line. An Advisor tool
+    # (L1) whose words reach clients beside the standing line (L2): both
+    # gates, the stricter reading (LEGAL_GATES.md H4/H10/H11; ROADMAP Phase D
+    # "(L1/L2)"). Each place checks on("advisor_drafts").
+    "advisor_drafts": {"gates": ("L1", "L2"), "view": None},
 }
 
 

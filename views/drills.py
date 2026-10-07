@@ -117,6 +117,8 @@ def render_drill_card():
                 + "</div>"
                 + (f"<div class='pt-region'>{html.escape(drills.weeks_text(weeks))}</div>"
                    if weeks else ""))
+        if flags.on("month_world"):
+            render_month_world()   # this month's world, if there's a note (views/month_world.py)
         is_open = bool(st.session_state.get("drill_open"))
         if done_key and not is_open:
             st.caption("Done for this week. The next one is here from "

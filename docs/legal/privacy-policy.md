@@ -80,6 +80,9 @@ account, contact us and we will delete it.
 - Where preparedness drills are offered, the ones you've rehearsed: which
   situations, which of the offered choices you tapped, the week and how many
   times - nothing you type, and never an amount. Only you see what you tapped.
+- Where this month's world is offered, which months' notes you've opened - the
+  month only. The note is the same for everyone; your mix only picks which of
+  its lines you see, and it isn't sent to the AI.
 - Where Trail Conditions is offered and you turn it on: that it's on, when you
   turned it on (your consent - dropped when you turn it off), the week it was
   last sent, and which season, month or week a line in it was last about.
@@ -189,7 +192,7 @@ It is shared only as needed to run the service, with:
 |---|---|---|
 | **Neon** | The database (United States) | Everything stored for your account |
 {{HOST_ROWS}}
-| **Anthropic** (Claude) | The AI guide, advisor talking points; the column guess only when you choose, screenshot reading only where it's offered and you choose it, and Teach It Back's check where it's offered | See section 5 |
+| **Anthropic** (Claude) | The AI guide, advisor talking points and drafts, looking up a word; the column guess only when you choose, screenshot reading only where it's offered and you choose it, and Teach It Back's check where it's offered | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled price updates, the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
@@ -288,6 +291,18 @@ An advisor's meeting talking points send the same profile and holdings summary,
 plus facts in percentages (how the portfolio and goal moved since the last review,
 which holdings were added or reduced, drift from target) - never dollar amounts or
 note text.
+
+Where it's offered, an advisor can ask for a **first draft** of a proposal's
+explanation, a progress report's message or a message to clients. That sends the
+client's mix and holdings as percentages (no notes, no names) and the words the
+advisor types for the draft, with amounts, long numbers and email addresses taken
+out - never dollar amounts. A message to several clients sends only the advisor's
+words. The draft goes into a box for the advisor to edit; nothing is sent to a
+client until the advisor sends it under their own name.
+
+**Looking up a word** the glossary doesn't have, where it's offered, sends just
+that word (at most 40 characters, without numbers, amounts or email addresses) -
+nothing about you or your money.
 
 **Reading screenshots** is optional, offered only on some copies of the app, and
 the one exception to the above: the pictures you choose are sent whole, so the AI

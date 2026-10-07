@@ -64,7 +64,9 @@ class HelperSpec:
 # scrubbed of amounts first, teach_back.scrub): the chat
 # and prep send percentages only (context_card.py, advisor.portfolio_summary,
 # meeting.facts_for_ai) and the column guesses send column names and cell
-# kinds. Screenshot reads are the exception the policy has to settle (PLAN
+# kinds; a glossary look-up sends the term only and an advisor draft the card
+# and the advisor's points with amounts taken out (advisor_drafts.scrub).
+# Screenshot reads are the exception the policy has to settle (PLAN
 # D1, AI_PLAN step 18): the images are sent whole, behind the reader's own
 # consent line and the screenshot_ai flag (off on the live copy). They stay
 # unmarked so nothing changes until the owner decides; marking them True turns
@@ -81,6 +83,13 @@ HELPERS = {
     # only a Learn topic's key, its fixed reference text and the person's own
     # words, scrubbed (teach_back.scrub) - never a figure.
     "grader": HelperSpec("grader", HAIKU, 300, None, False, "grader", "chat", False, 30.0),
+    # the glossary's fallback (glossary_ai.py): the term only, the cheap tier,
+    # out of the person's chat allowance
+    "glossary": HelperSpec("glossary", HAIKU, 300, None, False, "glossary", "chat", False, 30.0),
+    # advisor drafts (advisor_drafts.py): the client's ADVISOR_FULL card and
+    # the advisor's own typed points, the mid tier, the advisor's drafts
+    # allowance; text back only - never sent from here
+    "draft": HelperSpec("draft", SONNET, 2000, "low", True, "draft", "chat", False, 120.0),
 }
 
 # the cache layout (step 9): the shared block lives an hour, the person's card

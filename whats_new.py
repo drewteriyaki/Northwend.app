@@ -26,6 +26,15 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "This month's world",
+     "items": [
+         {"text": "Some months, the drill card on Home has a short note on what happened in "
+                  "the world last month, in plain words - past facts only, never a forecast - "
+                  "with a line for someone with a mix like yours and links to the official "
+                  "sources. Each note is written by hand and reviewed before it appears. "
+                  "Nothing about you goes into it, and it's never sent to the AI.",
+          "flag": "month_world"},
+     ]},
     {"date": "2026-10-06", "title": "Your walks and your advisor",
      "items": [
          {"text": "If you work with an advisor, you can now choose to let them see whether "
@@ -38,6 +47,16 @@ ENTRIES = [
                   "clients who walked this month and who updated their holdings lately, and "
                   "each client's figures marked client-reported with the day they were last "
                   "updated.", "flag": "client_owned_book"},
+     ]},
+    {"date": "2026-10-06", "title": "Look up another word, and drafts for advisors",
+     "items": [
+         {"text": "Under the glossary in Learn, you can now look up a word it doesn't have. "
+                  "Only the word goes to Ask Northwend - nothing about you or your money - and "
+                  "the answer is a general explanation, labelled as one.", "flag": "glossary_ai"},
+         {"text": "For advisors: Draft with Northwend writes a first draft of a proposal's "
+                  "words, a message to clients or a progress report's message, right in the "
+                  "box, for you to edit. Nothing goes to a client until you send it yourself, "
+                  "under your name.", "flag": "advisor_drafts"},
      ]},
     {"date": "2026-10-06", "title": "The Inheritance Rehearsal",
      "items": [

@@ -77,6 +77,17 @@ Each statement about data here must stay true to the code:
   either account (admin.ACCOUNT_TABLES); in both sides' export.
 - Meeting prep talking points (meeting.facts_for_ai / talking_points): profile,
   advisor.portfolio_summary, and percentage facts - no dollars, no note text.
+- Advisor drafts (advisor_drafts.py, flag advisor_drafts + gates L1, L2): the
+  client's ContextCard in scope ADVISOR_FULL (percentages, no notes) for a
+  proposal or a report, plus the advisor's typed points (amounts, long numbers
+  and emails taken out first), a proposal's title and mix in whole percents, a
+  report's period and movement in percents; a message to several clients sends
+  the points only. The draft goes into the editable box and nowhere else -
+  nothing stored but token counts and cost (ai_spend, ai_usage kind "draft").
+- The glossary's AI fallback (glossary_ai.py, flag glossary_ai): the term only
+  (at most 40 characters; no digit runs, amounts, emails or sentences about
+  the person's money); nothing stored but token counts and cost (ai_usage kind
+  "glossary", the chat allowance); the answer stays on screen for the visit.
 - Advisors' Monday email (weekly_email.py, GitHub Actions): counts only (reviews
   due / coming due, accepted proposals, open next steps), no client names or
   figures; confirmed or admin-made emails only; off switch in prefs
@@ -253,6 +264,15 @@ Each statement about data here must stay true to the code:
   Counted in totals only (feature_counts.drill_returns: people who rehearsed a
   first drill and how many a third - never a choice). In the person's own
   export (settings).
+- This month's world (month_world.py, views/month_world.py, flag
+  month_world): the owner's hand-written, reviewed note of last month's past
+  facts, inside the drill card; the person's largest asset class or two pick
+  which lines show (whole percents, read from data already kept, never
+  stored with it). Kept in the login's own settings: prefs month_world_seen
+  (which months' notes were opened - month keys only). Never drawn while an
+  advisor is in a client's account, never sent to the AI. Trail Conditions
+  may say there's a new note (a fixed line; trail_conditions_world keeps the
+  month it last said so).
 - Pay yourself (pay_yourself.py, views/pay_yourself.py, flag pay_yourself and
   gate L3): a Plan tab built from data already kept (holdings, payouts in
   daily_bars, an imported activity history). The one thing kept is the rule
@@ -468,7 +488,7 @@ and it leaves your view when they untick it or the relationship ends.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), the Inheritance Rehearsal's steps you've walked through and the day you finished, if you try it (not which choices you tapped, nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), your Shadow Trail mixes if you set any (each mix as percentages of kinds of funds, and the days you set and last changed it - never an amount), the Learn topics you've explained back where Teach It Back is offered (whether each held and the day - never your words), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), the Inheritance Rehearsal's steps you've walked through and the day you finished, if you try it (not which choices you tapped, nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), which months' notes on this month's world you've opened, where they're offered (the month only),whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), your Shadow Trail mixes if you set any (each mix as percentages of kinds of funds, and the days you set and last changed it - never an amount), the Learn topics you've explained back where Teach It Back is offered (whether each held and the day - never your words), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
@@ -642,6 +662,17 @@ a meeting. That sends the same profile answers and holdings summary, plus facts
 in percentages - how your portfolio and goal have moved since the last review,
 which holdings were added or reduced, and how far the mix is from its target -
 never dollar amounts or your advisor's notes.
+
+Where it's offered, your advisor can also ask the AI for a **first draft** of a
+proposal's explanation, a progress report's message or a message to clients.
+That sends your mix and holdings as percentages (no notes, no names) and the
+few words your advisor types for the draft - never dollar amounts. A message to
+several clients sends only your advisor's words. The draft is your advisor's to
+edit, and nothing reaches you until they send it, under their own name.
+
+**Looking up a word** the glossary doesn't have (under the glossary in Learn,
+where it's offered) sends just that word - nothing about you or your money - and
+the answer is a general explanation.
 
 **Reading screenshots** is optional and, where it's offered, the one exception:
 the pictures you choose are sent to the AI whole, so it sees everything on

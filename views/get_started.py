@@ -532,6 +532,77 @@ def _basics_window(key, monthly, years):
         st.rerun()
 
 
+GLOSS_Q, GLOSS_A = "gloss_q", "gloss_answer"
+
+
+def _gloss_note(text):
+    st.session_state[GLOSS_A] = ("note", None, text)
+
+
+def _word_lookup():
+    """Look it up: the glossary's own words when it has them; otherwise the
+    term alone goes to Ask Northwend (glossary_ai.py) for a general
+    explanation - counted against the chat allowance of whoever is signed in.
+    Nothing is saved; the answer stays on screen for this visit."""
+    import anthropic
+    import glossary_ai
+
+    st.session_state.pop(GLOSS_A, None)
+    raw = st.session_state.get(GLOSS_Q) or ""
+    term = glossary_ai.clean_term(raw)
+    hit = glossary.find(raw) or (glossary.find(term) if term else None)
+    if hit:
+        st.session_state[GLOSS_A] = ("own", hit[0], glossary.sentence(hit[1]))
+        return
+    if not term:
+        _gloss_note(glossary_ai.NOT_A_TERM)
+        return
+    key = _anthropic_key()
+    if not key:
+        _gloss_note("Looking up other words isn't available on this site. The glossary above "
+                    f"has the words {APP_NAME} uses.")
+        return
+    quota = _ai_status("glossary")
+    if not quota["ok"]:
+        _gloss_note(ai_usage.used_up_text(quota, "glossary", GUIDE)
+                    + " The glossary above still works.")
+        return
+    try:
+        text = glossary_ai.explain(term, client=anthropic.Anthropic(api_key=key),
+                                   user_id=LOGIN_ID)
+    except anthropic.AnthropicError as exc:
+        _gloss_note(_ai_failed(exc, "glossary", "Looking up other words"))
+        return
+    _ai_record("glossary")   # counted once it has answered
+    if not text:
+        _gloss_note(glossary_ai.NO_ANSWER)
+        return
+    st.session_state[GLOSS_A] = ("ai", term, text)
+
+
+def _render_word_lookup():
+    """Under the A-Z glossary (flag glossary_ai): a word it doesn't have."""
+    import glossary_ai
+
+    st.markdown("**Look up another word**")
+    with st.container(horizontal=True, vertical_alignment="bottom"):
+        st.text_input("A word or short phrase", key=GLOSS_Q, max_chars=glossary_ai.TERM_MAX,
+                      placeholder="e.g. Sharpe ratio", label_visibility="collapsed")
+        st.button("Look it up", key="gloss_go", icon=":material/search:", on_click=_word_lookup)
+    st.caption(f"A word that isn't above goes to Ask {GUIDE} on its own - just the word, "
+               "never anything about you or your money.")
+    got = st.session_state.get(GLOSS_A)
+    if not got:
+        return
+    kind, term, text = got
+    if kind == "note":
+        st.info(text)
+        return
+    st.markdown(f"**{_md_name(term)}** - " + text.replace("$", r"\$"))
+    if kind == "ai":
+        st.caption(f":material/auto_awesome: {glossary_ai.LABEL}")
+
+
 def _step_basics(monthly, years):
     st.caption("Six short ideas worth knowing before you invest. Open any of them.")
     topics = _basics_topics(monthly, years)
@@ -553,6 +624,8 @@ def _step_basics(monthly, years):
     if flags.on("glossary"):   # every word, A to Z (glossary.py; also beside the pages' words)
         with st.expander("Glossary: words you'll see", icon=":material/menu_book:"):
             st.markdown("\n\n".join(f"**{t}** - {m}" for t, m in glossary.everything()))
+            if flags.on("glossary_ai"):   # a word it doesn't have (glossary_ai.py)
+                _render_word_lookup()
     render_fee_step()   # your own funds' fees, once there are holdings (views/fees.py)
 
 

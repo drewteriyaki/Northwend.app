@@ -73,6 +73,7 @@ py-modules = [
     "price_report",   # when a price is from, and "Price look wrong?" (PLAN G8)
     "sealed_envelope",   # the Sealed Envelope: the storm drill answer as a PDF
     "drills",   # preparedness drills, one a week (ROADMAP R12)
+    "month_world",   # this month's world, for your mix: the owner's monthly notes (ROADMAP Phase C)
     "trail_conditions",   # Trail Conditions, the opt-in Monday email (ROADMAP Phase C)
     "pay_yourself",   # Pay yourself: savings as a monthly paycheck (ROADMAP R11)
     "shadow_trail",   # Shadow Trail: hypothetical mixes of kinds of funds (ROADMAP R14)
@@ -87,6 +88,8 @@ py-modules = [
     "directory",   # the advisor directory and Find a guide (PLAN step 5)
     "intros",   # introductions and the two-step consent to full sharing (PLAN step 5)
     "rate_limits",   # how often one login may upload, save and build downloads (audit 1.8d)
+    "glossary_ai",   # the glossary's AI fallback: an unknown word, the term only (AI_PLAN 9)
+    "advisor_drafts",   # Draft with Northwend: advisor drafts into an editable box (AI_PLAN 9)
 ]
 # the AI eval set (docs/AI_PLAN.md 8): cases, the offline checker, the runner
 packages = ["evals"]

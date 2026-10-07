@@ -8,7 +8,7 @@ calendar month (UTC), in buckets:
     individual   chat     $0.25 a day, $1.00 a month (+ the habit bonus)
                  decode   $0.30 a month (screenshot reads, CSV column help)
     advisor      chat     $2.00 a day, $8 a month
-                 drafts   $6 a month (meeting prep, plan write-ups)
+                 drafts   $6 a month (meeting prep, plan write-ups, advisor drafts)
                  decode   $3 a month             ($17 a month in all)
 
 An individual's plan write-up comes out of their chat bucket, and so does
@@ -36,7 +36,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-KINDS = ("chat", "screenshot", "csv", "plan", "prep", "grader")
+KINDS = ("chat", "screenshot", "csv", "plan", "prep", "grader",
+         "glossary",   # an unknown word explained (glossary_ai.py): the chat bucket
+         "draft")      # an advisor draft (advisor_drafts.py): the drafts bucket
 # micro-dollars (docs/AI_COSTS.md section 6, approved October 2026)
 ALLOWANCES = {
     "individual": {"chat": {"day": 250_000, "month": 1_000_000},
@@ -51,7 +53,7 @@ HABIT_BONUS_MAX = 500_000        # +$0.50 at most
 # what one use typically costs (docs/AI_COSTS.md sections 3-4), for the
 # approximate count until the person has an average of their own
 TYPICAL_MICRO = {"chat": 13_000, "plan": 24_000, "prep": 13_000, "screenshot": 26_000,
-                 "csv": 700, "grader": 1_500}
+                 "csv": 700, "grader": 1_500, "glossary": 500, "draft": 15_000}
 OWN_AVERAGE_AFTER = 3            # uses this month before their own average counts
 # self-serve accounts use the AI only once their email is confirmed
 CONFIRM_FOR_AI = True
@@ -59,7 +61,8 @@ CONFIRM_FOR_AI = True
 NOUNS = {"chat": ("message", "messages"), "screenshot": ("screenshot read", "screenshot reads"),
          "csv": ("CSV read", "CSV reads"), "plan": ("plan write-up", "plan write-ups"),
          "prep": ("set of talking points", "sets of talking points"),
-         "grader": ("explanation check", "explanation checks")}
+         "grader": ("explanation check", "explanation checks"),
+         "glossary": ("word look-up", "word look-ups"), "draft": ("draft", "drafts")}
 
 
 def month_of(now: datetime | None = None) -> str:
@@ -83,7 +86,7 @@ def bucket_of(kind: str, is_advisor: bool) -> str:
     "decode". An individual's plan write-up is chat."""
     if kind in ("screenshot", "csv"):
         return "decode"
-    if kind in ("plan", "prep"):
+    if kind in ("plan", "prep", "draft"):
         return "drafts" if is_advisor else "chat"
     return "chat"
 

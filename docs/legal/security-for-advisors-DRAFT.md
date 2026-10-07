@@ -215,6 +215,12 @@ to the AI provider (Anthropic) - never dollar amounts, share counts, account nam
 numbers, email addresses or your notes' text. What a person types into the chat is
 sent as typed; the guide's own notes between conversations keep goals, dates and
 decisions, with dollar amounts and account numbers taken out before they're saved.
+Draft with Northwend (where it's offered) sends the client's mix and holdings as
+percentages - no notes, no names - and the words you type for that draft, with
+amounts, long numbers and email addresses taken out; a message to several clients
+sends only your words. The draft lands in a box for you to edit and is never sent,
+saved or shared on its own: your own Send button does that, under your name, with
+the standing line. Looking up a word in Learn's glossary sends the word only.
 Screenshot reading is optional and offered only on some copies of the app [OWNER:
 off in production today]; where it is, the whole picture goes to the AI - including
 balances and account names on screen - only when someone chooses it.

@@ -958,6 +958,10 @@ def _render_message_clients(rows):
         st.multiselect("To", list(names), key="msg_clients", format_func=names.get,
                        placeholder="Pick clients",
                        on_change=lambda: st.session_state.update(msg_confirm=False))
+        # a first draft (views/drafts.py; flag advisor_drafts): one text for
+        # several clients, so only what the advisor types here goes - no card
+        _render_draft_tools("message", "msg_body", lambda: {},
+                            what="What the message is about (for the draft)")
         st.text_area("Message", key="msg_body", max_chars=advising.MESSAGE_MAX,
                      placeholder="e.g. Markets have been bumpy this week. Your plan already "
                                  "allows for this - no need to do anything. Happy to talk any "

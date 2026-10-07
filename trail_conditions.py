@@ -11,6 +11,9 @@ from the fixed templates below:
   or put away - once per season (flag `seasons`);
 - the Monthly Walk is waiting on Home (checkin.due) - once a month (flag
   `walk`);
+- a new note on this month's world (month_world.current) the person hasn't
+  opened - once per note's month (flags `month_world` and `drills`: it's in
+  the drill card); a fixed line, nothing from the note itself;
 - a situation on the readiness map not rehearsed yet (drills.py) - at most
   once every GAP_EVERY_WEEKS weeks, and never once all are rehearsed (flag
   `drills`).
@@ -35,6 +38,7 @@ Kept in the person's own settings (prefs.py), never anywhere else:
   PREF_SEASON   the season last mentioned ("2026-enrollment")
   PREF_WALK     the month the walk was last mentioned ("2026-10")
   PREF_GAP      the ISO week the readiness map was last mentioned
+  PREF_WORLD    the month whose world note was last mentioned ("2026-10")
 
 Run on Mondays by .github/workflows/scheduled-sync.yml:
 
@@ -58,6 +62,7 @@ import checkin
 import drills
 import flags
 import mailer
+import month_world
 import perf
 import prefs
 import seasons
@@ -72,7 +77,8 @@ PREF_SENT = "trail_conditions_sent"
 PREF_SEASON = "trail_conditions_season"
 PREF_WALK = "trail_conditions_walk"
 PREF_GAP = "trail_conditions_gap"
-KEYS = (PREF_ON, PREF_CONSENT, PREF_SENT, PREF_SEASON, PREF_WALK, PREF_GAP)
+PREF_WORLD = "trail_conditions_world"
+KEYS = (PREF_ON, PREF_CONSENT, PREF_SENT, PREF_SEASON, PREF_WALK, PREF_GAP, PREF_WORLD)
 
 MAX_LINES = 3
 GAP_EVERY_WEEKS = 4
@@ -90,13 +96,14 @@ SEASON = {key: f"A new season has begun in the app - {title}. It's on Home whene
           for key, _months, title, *_ in seasons.SEASONS}
 WALK = "Your monthly walk is waiting on Home, whenever suits you."
 GAP = "One situation on your readiness map is waiting, whenever suits you."
+WORLD = "There's a new note on this month's world on Home, whenever suits you."
 OUTRO = ("Trail Conditions never suggests buying or selling anything. To stop it, turn it off "
          "on the Account page, or use the link below.")
 
 
 def all_lines() -> list[str]:
     """Every sentence an email can carry (the wording tests)."""
-    return [SUBJECT_CALM, SUBJECT_NEWS, CALM, STORM, *SEASON.values(), WALK, GAP, OUTRO,
+    return [SUBJECT_CALM, SUBJECT_NEWS, CALM, STORM, *SEASON.values(), WALK, WORLD, GAP, OUTRO,
             SWITCH_LABEL, SWITCH_HELP]
 
 
@@ -135,7 +142,8 @@ def sent_this_week(p: dict | None, today: date) -> bool:
 
 def news(p: dict, today: date, weather: dict | None) -> list[tuple[str, str, str | None]]:
     """What changed, as [(kind, line, what to remember or None)], at most
-    MAX_LINES, in this order: storm, season, walk, readiness map. Empty
+    MAX_LINES, in this order: storm, season, walk, this month's world,
+    readiness map. Empty
     means a calm week. Reads `p`, changes nothing."""
     out = []
     if weather and weather.get("level") == "storm":
@@ -149,6 +157,11 @@ def news(p: dict, today: date, weather: dict | None) -> list[tuple[str, str, str
         month = checkin.month_of(today)
         if p.get(PREF_WALK) != month and checkin.due(p, today):
             out.append(("walk", WALK, month))
+    if flags.on("month_world") and flags.on("drills"):
+        note = month_world.current(today)
+        if (note and p.get(PREF_WORLD) != note["month"]
+                and not month_world.seen(p, note["month"])):
+            out.append(("world", WORLD, note["month"]))
     if flags.on("drills") and drills.count(p) < len(drills.KEYS):
         week, last = drills.iso_week(today), p.get(PREF_GAP)
         gone = _weeks_between(last, week) if last else None
@@ -164,7 +177,7 @@ def lines_of(items) -> list[str]:
 def remember(p: dict, items, today: date) -> dict:
     """After a send: the week, and what was mentioned. Changes `p`."""
     p[PREF_SENT] = drills.iso_week(today)
-    keys = {"season": PREF_SEASON, "walk": PREF_WALK, "gap": PREF_GAP}
+    keys = {"season": PREF_SEASON, "walk": PREF_WALK, "gap": PREF_GAP, "world": PREF_WORLD}
     for kind, _line, mark in items:
         if kind in keys:
             p[keys[kind]] = mark

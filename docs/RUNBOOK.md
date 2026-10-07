@@ -20,6 +20,7 @@ Contents:
 - [Turn off AI or email in an emergency](#turn-off-ai-or-email-in-an-emergency)
 - [Turn a feature or gate on or off](#turn-a-feature-or-gate-on-or-off)
 - [Shut down cleanly](#shut-down-cleanly)
+- [Writing this month's world](#writing-this-months-world)
 - [If something goes wrong: incident and breach response](#if-something-goes-wrong-incident-and-breach-response)
 - [Move to Render](#move-to-render)
 - [Uptime check](#uptime-check)
@@ -69,6 +70,7 @@ days, except where a day was set.
 | January | Dated yearly figures | Review dated yearly figures in season content, and anything else that names a year's figure (contribution limits, for one), against the new year's official numbers. Update them, and add a What's new entry if people will notice. |
 | October, with that quarter's drill | Key rotation | [Rotate a key](#rotate-a-key), one key at a time: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `FINNHUB_API_KEY`, the Neon password; live and staging each their own. `NORTHWEND_TOTP_KEY` only through [Two-step key](#two-step-key). Any key that may have been seen is rotated at once, whatever the month. |
 | November 6, 2026 | Retire the old Streamlit Community Cloud app | [Move to Render](#move-to-render), step 9: nobody is still opening the old address, then delete the old live app on Community Cloud (keep the staging app) and move the Streamlit line in the [Monthly budget](#monthly-budget). Then tick ROADMAP 4.8. |
+| Every month, early in the month, if `month_world` is on | Write this month's world | [Writing this month's world](#writing-this-months-world): last month's past facts in plain words, official sources, reviewed before `reviewed_on` is set; Tests, then staging and release. Skipping a month is fine - nothing shows that month. |
 | Every month | The budget | [Monthly budget](#monthly-budget): fill in the amounts and compare them with seat revenue. |
 | Whenever something isn't working as usual | The website's status page | `STATUS_NOW` in `website/build.py` says what, plainly, and what still works; once it's fixed, back to "All systems normal" with a dated line in `NOTICES` (past notices, newest first). `python website/build.py`, then through staging and release as usual. No figures about people, no uptime percentages. |
 
@@ -381,6 +383,59 @@ wider.
    passes.
 7. **Keep the domain** for at least a year, so nobody else can catch old
    links and emails.
+
+---
+
+## Writing this month's world
+
+The monthly note inside the drill card on Home (`month_world.py`, flag
+`month_world`; ROADMAP Phase C). Northwend ships the frame only: every note
+is the owner's, written by hand and reviewed (L3) before it shows. A month
+with no note shows nothing - skipping one is fine.
+
+1. **Write it** early in the month, about last month, as a new entry at the
+   top of `NOTES` in `month_world.py`:
+
+   ```python
+   {"month": "2026-11",                      # the month it shows in (and the next)
+    "title": "October in plain words",
+    "paragraphs": [                           # 2 to 4 short paragraphs, past facts only
+        "...", "..."],
+    "for_mix": {                              # any of stocks, bonds, cash; the app
+        "stocks": "Last month, stock prices ...",   # puts "For someone with mostly
+                                              # stocks (about 72% of your mix):" first
+        "bonds": "...", "cash": "..."},
+    "sources": [("Consumer Price Index, October", "https://www.bls.gov/...")],
+    "reviewed_by": "",                        # filled in at step 3
+    "reviewed_on": ""},
+   ```
+
+2. **The rules** (the checks enforce the words; the rest is on you):
+   - Past facts only - what happened, never what comes next or what to do.
+   - Never these words: will, won't, going to, expect, forecast, predict,
+     outlook, should, best, recommend, buy, sell, "now is".
+   - No tickers, fund names or fund families, no brokerages. Capitals like
+     CPI, GDP, FOMC, US are fine (`month_world.ACRONYMS`); add one there only
+     if it's a measure or an agency.
+   - Sources: official or primary sites only (`month_world.OFFICIAL_SITES`:
+     federalreserve.gov, bls.gov, bea.gov, treasury.gov, treasurydirect.gov,
+     sec.gov, investor.gov, fdic.gov), `https://` addresses.
+   - The per-class lines say what happened to that kind of holding, never
+     what someone with it should do. There's no US / international line:
+     Northwend has no data to pick it.
+3. **Get it reviewed** (L3, docs/LEGAL_GATES.md section 6) before it's
+   published. Then fill in `reviewed_by` (who) and `reviewed_on` (the day,
+   `2026-11-03`). Without both it never shows.
+4. **Run the tests**: `python -m unittest tests.test_month_world` - every
+   note in `NOTES` goes through the same checks, so a banned word, a ticker
+   or an unofficial source fails here (and in Tests) before it ships.
+5. **Release** as usual: commit on `staging`, check the card on the staging
+   copy (Home, the drill card - `month_world` and `drills` on), then release
+   to main. People who turned on Trail Conditions get one fixed line saying
+   there's a new note, once.
+
+Old notes can stay in `NOTES` (they stop showing after the month after
+theirs) or be removed.
 
 ---
 

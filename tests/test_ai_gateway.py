@@ -101,7 +101,7 @@ class RegisterTests(unittest.TestCase):
 
     def test_every_helper_is_registered_with_its_limits(self):
         self.assertEqual(set(ai_gateway.HELPERS), {"chat", "prep", "screenshot", "csv", "txn",
-                                                   "grader"})
+                                                   "grader", "glossary", "draft"})
         for name, spec in ai_gateway.HELPERS.items():
             self.assertEqual(spec.name, name)
             self.assertIn(spec.kind, ai_usage.KINDS, name)
@@ -135,7 +135,8 @@ class RegisterTests(unittest.TestCase):
         # whose allowance a call uses: the login - an advisor in a client's
         # account is counted as the advisor (ai_usage.py)
         calls = re.compile(r"(?<![\w.])(advisor\.stream_reply|meeting\.talking_points|"
-                           r"screenshot_read\.read|ai_mapping|teach_back\.grade)"
+                           r"screenshot_read\.read|ai_mapping|advisor_drafts\.draft|"
+                           r"glossary_ai\.explain|teach_back\.grade)"
                            r"\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)", re.S)
         found = 0
         for name in os.listdir(os.path.join(REPO, "views")):
@@ -144,7 +145,7 @@ class RegisterTests(unittest.TestCase):
             for m in calls.finditer(src):
                 found += 1
                 self.assertIn("user_id=LOGIN_ID", m.group(0), f"{name}: {m.group(0)[:80]}")
-        self.assertGreaterEqual(found, 5)   # the plan PDF has no AI call (step 15)
+        self.assertGreaterEqual(found, 7)   # the plan PDF has no AI call (step 15)
 
 
 # --------------------------------------------------------------------------- #

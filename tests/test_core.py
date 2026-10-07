@@ -1347,7 +1347,9 @@ class AiUsageTests(TempDBMixin, unittest.TestCase):
         self.assertEqual({k: ai_usage.limit_for(conn, self.user_id, k) for k in ai_usage.KINDS},
                          {"chat": 8_000_000, "plan": 6_000_000, "prep": 6_000_000,
                           "screenshot": 3_000_000, "csv": 3_000_000,
-                          "grader": 8_000_000})   # Teach It Back: the chat allowance
+                          "grader": 8_000_000,    # Teach It Back: the chat allowance
+                          "glossary": 8_000_000,  # a word looked up: the chat allowance
+                          "draft": 6_000_000})    # advisor drafts: the drafts allowance
         self.assertEqual(sum(b["month"] for b in ai_usage.ALLOWANCES["advisor"].values()),
                          17_000_000)
         manage_users.main(["--db", self.db, "ai-unlimited", "testuser"])

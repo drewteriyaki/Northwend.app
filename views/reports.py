@@ -229,6 +229,10 @@ def _render_report_advisor(value):
             c.close()
         st.markdown(f"**Preview - {label}**")
         _rep_body({"facts": facts}, fmt_money0)
+        # a first draft of the message (views/drafts.py; flag advisor_drafts):
+        # the period's movement in percents, never its amounts
+        _render_draft_tools("report", "rep_message", lambda f=facts, lb=label: {
+            "card": _draft_card(), "facts": advisor_drafts.report_facts(f, lb)})
         st.text_area("A message from you (optional)", key="rep_message",
                      placeholder="How things went, and what you'd like to talk about next time")
         st.button(f"Send the {label} report to {ACTIVE_NAME}", key="rep_send", type="primary",

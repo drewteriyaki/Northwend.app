@@ -261,15 +261,15 @@ class CeilingTests(_DB):
         R, O = "resting", "paused"
         table = {   # level: {kind: why, ...}; chat as a new / an open conversation
             ai_spend.NORMAL: {"chat": (None, None), "screenshot": None, "csv": None,
-                              "plan": None, "prep": None, "grader": None},
+                              "plan": None, "prep": None, "grader": None, "glossary": None, "draft": None},
             ai_spend.ALERT: {"chat": (None, None), "screenshot": None, "csv": None,
-                             "plan": None, "prep": None, "grader": None},
+                             "plan": None, "prep": None, "grader": None, "glossary": None, "draft": None},
             ai_spend.REDUCED: {"chat": (None, None), "screenshot": O, "csv": O, "plan": O,
-                               "prep": O, "grader": O},
+                               "prep": O, "grader": O, "glossary": O, "draft": O},
             ai_spend.CLOSING: {"chat": ("closed", None), "screenshot": O, "csv": O, "plan": O,
-                               "prep": O, "grader": O},
+                               "prep": O, "grader": O, "glossary": O, "draft": O},
             ai_spend.RESTING: {"chat": (R, R), "screenshot": R, "csv": R, "plan": R,
-                               "prep": R, "grader": R},
+                               "prep": R, "grader": R, "glossary": R, "draft": R},
         }
         for level, kinds in table.items():
             for kind, want in kinds.items():

@@ -1528,15 +1528,36 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         the draft `ai_library.GLOSSARY`, which now reads it), flag `glossary` (no gate):
         "What does this mean?" popovers on Home's allocation, the Fee check, Income and
         Learn's Open your account, and the whole list A to Z in Learn the basics. The AI
-        fallback for an unknown word is still to do. Row 12 plan PDF: was already rules
+        fallback for an unknown word: see below. Row 12 plan PDF: was already rules
         (`client_plan.questions`, step 2); its getting-ready questions now come from
         `learn.readiness` (adds uneven income), and it ends with a fixed bank,
         `client_plan.PRO_QUESTIONS` ("Questions people often ask a licensed
         professional", or "... their advisor" on an advisor's copy); the old "best
         interest" general question moved into the bank. Banned-word tests (and
         `ai_policy.findings`) over every template: `tests/test_rule_helpers.py`
-  - [ ] Still to do: the glossary's AI fallback (an unknown word to the chat), the
-        document decoder, the grader and the advisor drafts (AI_PLAN section 9)
+  - [x] The glossary's AI fallback (AI_PLAN section 9 row 5) - done Oct 6. Flag
+        `glossary_ai` (needs `glossary`; no gate - education about the word): "Look up
+        another word" under Learn's A-Z glossary. A word the glossary has shows its own
+        text; any other goes as the term only (`glossary_ai.clean_term`: at most 40
+        characters, no 4+ digit runs, amounts, emails or "my / I / should" sentences),
+        gateway helper `glossary` (Haiku, 300 tokens), `ai_policy.rules_text()` and the
+        output check (one retry, then a calm line). Labelled "General explanation from
+        Ask Northwend, not about your money"; the chat allowance (`ai_usage` kind
+        `glossary`); nothing stored but counts and cost. Offline eval cases in
+        `evals/glossary_drafts.py`; tests in `tests/test_ai_drafts.py`
+  - [x] Advisor drafts (AI_PLAN section 9 row 11) - done Oct 6. Flag `advisor_drafts`,
+        gates L1 and L2 (the stricter reading of "L1/L2"): "Draft with Northwend" fills
+        the editable box for a proposal's words (Plan > Proposals), a message to
+        clients (Your clients) and a progress report's message (Advisor notes).
+        `advisor_drafts.py` + `views/drafts.py`; gateway helper `draft` (Sonnet, the mid
+        tier), the advisor's drafts allowance (`ai_usage` kind `draft`, user_id the
+        login). Sent: the client's ADVISOR_FULL card and the advisor's typed points
+        (scrubbed); a message to several clients the points only. Labelled "Draft -
+        written with AI, edit before sending" for the advisor only; sending stays their
+        own button with the standing line. Never imports mailer / proposals / advising
+        (tested); a draft that speaks for Northwend, predicts or urges is retried once,
+        then dropped
+  - [ ] Still to do: the document decoder and the grader (AI_PLAN section 9)
 - [ ] **Step 8 - Service seams** (no new frontend now)
 - [ ] **Step 9 - Ritual R6-R12**
   - [x] Lost & Found (R9), flag `lost_found` (no gate: education) - done Oct 6:
@@ -1629,7 +1650,8 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         emails. Kept: prefs `drills` (keys and ISO weeks only); never while an advisor
         is in a client's account, never in the client record or the AI. Metric: a
         third drill, totals only (`feature_counts.drill_returns`, Admin > Feature
-        tests, opt-out respected). Not built: the "this month's world" content source.
+        tests, opt-out respected). The "this month's world" content source: its
+        frame is built (flag `month_world`, Phase C below); the notes are the owner's.
         `tests/test_drills.py`
   - [x] The Inheritance Rehearsal (from "Someday"), flag `inheritance_rehearsal`
         (no gate: education; L3 looks at the estate and tax wording as with R8) -
@@ -1745,7 +1767,7 @@ The owner approved this order on Oct 6. It replaces the step 6-9 order above
 for what gets built next; the gates are unchanged (the lawyer decides each).
 Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
 
-- **Phase A - in progress:** R7 Four Seasons, R8 Trail Forks, R10 Explain It
+- **Phase A - [x] built Oct 6:** R7 Four Seasons, R8 Trail Forks, R10 Explain It
   To Someone, the ADR 0005 items (see Step 9 and step 5 above).
 - **Phase B - small, any time:**
   - [x] Price "as of" and "report a wrong price" (descriptive; no free text
@@ -1764,21 +1786,31 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         until the owner fills in `mailer.POSTAL_ADDRESS`)
   - [x] The Sealed Envelope after a storm drill (printable, figure-free, the
         person's own words)
-  - [ ] "This month's world, for your mix" (L3 review: past facts only,
+  - [x] "This month's world, for your mix" (L3 review: past facts only,
         hand-written and reviewed, never a forecast) - last of the four
+        -> frame built; notes are the owner's to write (Oct 6: flag
+        `month_world`, `month_world.py` with `NOTES` empty, one line in the
+        drill card on Home; a note shows in its month and the next, only once
+        reviewed, and only while it passes the checks - no forecast or advice
+        words, tickers or fund families, government sources only - which
+        Tests also runs over `NOTES`; lines for the person's largest asset
+        class or two (stocks / bonds / cash, whole percents); prefs
+        `month_world_seen` (months only); one fixed Trail Conditions line;
+        docs/RUNBOOK.md "Writing this month's world"; `tests/test_month_world.py`)
 - **Phase C2 - "Bring to my advisor"** (see below): [x] built Oct 6, flag
   `advisor_pack` (`advisor_pack.py`, table `advisor_pack`); the intro version waits on L2.
 - **Phase D - Step 7 helpers, rules first** (`docs/AI_PLAN.md` section 9):
   - [x] As rules: Home summary, Log line, storm narrator, glossary, the plan
         PDF's next steps (today's closest thing to a conclusion; becomes
         "questions to ask a professional")
-  - [ ] AI: the glossary fallback and the grader (with R13) - the gateway,
-        the conclusion policy, the eval set, counted allowances (L3)
-        (Oct 6: the grader is built - gateway helper `grader`, the output
-        check, `evals/grader.py`, kind "grader" in the chat allowance; the
-        glossary fallback is still to do)
-  - [ ] AI: advisor drafts - an editable box only, sent by the advisor under
-        their name with the standing line (L1/L2)
+  - [x] AI: the glossary fallback - the gateway, the conclusion policy, offline
+        eval cases, the chat allowance (built Oct 6, flag `glossary_ai`, see Step 7)
+  - [x] AI: the grader (with R13) - the gateway, the conclusion policy, the eval
+        set, counted allowances (L3) - built Oct 6: gateway helper `grader`, the
+        output check, `evals/grader.py`, kind "grader" in the chat allowance
+  - [x] AI: advisor drafts - an editable box only, sent by the advisor under
+        their name with the standing line (L1/L2) - built Oct 6, flag
+        `advisor_drafts` + gates L1 and L2 (see Step 7)
 - **Phase E - bigger Ritual items:**
   - [x] R11 Pay Yourself (L3 review: named rules of thumb the person picks;
         never "withdraw X") - built Oct 6, off: flag `pay_yourself` + gate L3, L3

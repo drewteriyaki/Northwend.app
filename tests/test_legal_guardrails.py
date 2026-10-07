@@ -400,7 +400,11 @@ class AIGuardrailTests(unittest.TestCase):
                 helpers.add(helper)
         self.assertEqual(found, {"ai_gateway.py"})
         self.assertEqual(helpers, set(ai_gateway.HELPERS))   # every helper registered, and used
-        for name, helper in {**advice, **reading}.items():
+        # helpers with rules of their own, checked on the way out (AI_PLAN 9):
+        # the glossary's fallback (the conclusion policy's rules) and advisor
+        # drafts (the advice is the advisor's, never Northwend's)
+        own_rules = {"glossary_ai.py": "glossary", "advisor_drafts.py": "draft"}
+        for name, helper in {**advice, **reading, **own_rules}.items():
             self.assertEqual(callers.get(helper), name, helper)
         for name in set(advice) - {"advisor.py"}:
             with open(os.path.join(REPO, name), encoding="utf-8") as fh:
@@ -410,6 +414,11 @@ class AIGuardrailTests(unittest.TestCase):
         self.assertEqual(callers.get("grader"), "teach_back.py")
         with open(os.path.join(REPO, "teach_back.py"), encoding="utf-8") as fh:
             self.assertIn("SYSTEM + ai_policy.rules_text()", fh.read())
+        import advisor_drafts
+        import ai_policy
+        import glossary_ai
+        self.assertTrue(glossary_ai.SYSTEM.startswith(ai_policy.rules_text()))
+        self.assertIn("never the software's", advisor_drafts.SYSTEM)
         # the API's own client is still made elsewhere (a key, a timeout), but
         # never asked anything outside the gateway; and the gateway logs nothing
         with open(os.path.join(REPO, "ai_gateway.py"), encoding="utf-8") as fh:

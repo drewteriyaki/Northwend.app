@@ -2322,6 +2322,9 @@ def _rules_from(saved_prefs):
 # the advisor agreement before Your clients, and the standing line's helpers
 _view("advisor_agreement")
 
+# "Draft with Northwend" for proposals, messages and reports (advisor_drafts.py)
+_view("drafts")
+
 _view("clients")
 
 # the advisor directory: Find a guide, and the advisor's listing (directory.py)
@@ -2370,6 +2373,8 @@ _view("checkin")
 
 # Home: this week's preparedness drill and the readiness map, flag drills (drills.py)
 _view("drills")
+# ...and inside its card, this month's world, flag month_world (month_world.py)
+_view("month_world")
 
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)
 _view("fees")

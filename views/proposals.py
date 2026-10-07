@@ -294,6 +294,12 @@ def _render_proposals_advisor(alloc_rows, value):
         st.caption(f"Adds up to {total:g}%" + ("" if abs(total - 100) <= 0.5 else
                                                " - make it total 100%."))
         st.text_input("Title", key="prop_title", placeholder="e.g. A steadier mix for 2029")
+        # a first draft of the words below (views/drafts.py; flag advisor_drafts)
+        _render_draft_tools("proposal", "prop_note", lambda: {
+            "card": _draft_card(), "title": st.session_state.get("prop_title") or "",
+            "mix": {cls: st.session_state.get(f"prop_mix_{cls}") or 0.0
+                    for cls in asset_classes.CLASSES}},
+            what="Why you're proposing it, in a few words (for the draft)")
         st.text_area("Why - in words your client will read", key="prop_note",
                      placeholder="What changes, and why it fits their goal")
         with st.container(horizontal=True):

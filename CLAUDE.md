@@ -104,7 +104,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   storms.py, the storm note on Home, is drawn there too; its words are fixed
   templates in `storms.narrate` / `WINDOW_NOTE`),
   `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client
-  progress reports, `views/reports.py`), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
+  progress reports, `views/reports.py`), `advisor_drafts.py` + `views/drafts.py`
+  ("Draft with Northwend" into the editable box of a proposal, a message, a report;
+  flag `advisor_drafts` + L1, L2; text only - never imports mailer/proposals/advising), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
   sending - use it for local runs), `manage_users.py`
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status`, counts with `_ai_record` only after a
@@ -155,7 +157,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   kinds of funds, never tickers (named examples only in general reads).
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
   `glossary.py` (one glossary for the app and Ask Northwend; flag `glossary`, shown by
-  dashboard `what_this_means(...)`), `client_plan.py` (PDF; questions by rules, no AI), `news.py`, `ui_enhancements.js`, `codefresh.py`
+  dashboard `what_this_means(...)`; `glossary_ai.py`, flag `glossary_ai`: an unknown
+  word, the term only, to the AI on Learn), `client_plan.py` (PDF; questions by rules, no AI), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py` (the "something went wrong"
   message; it also hands the error to `error_alerts.py`, R1: type and place only, no
   user_id, emailed to ALERT_EMAIL at most once an hour per kind, hosted copies only -
@@ -191,6 +194,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Home under Your kit, one drill a week, taps are things to weigh - never trades, never
   graded; the readiness map; prefs `drills` keys only; the whistle in `gear.py`; never
   in a client's account, the client record or the AI; wording test in `tests/test_drills.py`).
+  `month_world.py` + `views/month_world.py` (This month's world, flag `month_world`: one
+  line in the drill card; `NOTES` are the owner's hand-written, L3-reviewed notes - ships
+  empty; shown in its month and the next, only with `reviewed_on`, only while
+  `month_world.problems()` passes (no forecast/advice words, tickers, funds; official
+  sources) - Tests runs it over `NOTES`; lines by the person's largest asset class or two;
+  prefs `month_world_seen` months only; never the AI; how-to in docs/RUNBOOK.md).
   `teach_back.py` + `views/teach_back.py` (Teach It Back, R13, flag `teach_back`: a box
   in Learn's basics window; the gateway's `grader` helper - cheap tier, kind "grader" in
   the chat allowance - gets the topic key, its fixed reference and the words after

@@ -13,9 +13,10 @@ One text for everyone, used in two places so they can't drift apart:
 - Ask Northwend's library (ai_library.GLOSSARY is this TERMS), which it
   reads before it answers.
 
-A word that isn't here shows nothing (find() gives None). Sending an
-unknown word to the chat as a general question (AI_PLAN's "AI fallback",
-cheap tier) is left for later.
+A word that isn't here shows nothing (find() gives None). Learn's "Look up
+another word" box sends an unknown one, the term alone, to Ask Northwend for
+a general explanation (AI_PLAN's "AI fallback", cheap tier): glossary_ai.py,
+flag `glossary_ai`.
 
 Pure data and small lookups: standard library only, no Streamlit.
 """

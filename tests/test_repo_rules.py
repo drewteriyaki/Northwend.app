@@ -92,7 +92,7 @@ CALCULATION_MODULES = (
     "allocation", "alerts", "asset_classes", "cash_check", "changes", "checkin", "drills",
     "employer_match", "factsheet_decoder", "feature_counts", "fees", "income",
     "inheritance_rehearsal", "lost_found", "menu_decoder",
-    "metrics",
+    "metrics", "month_world",
     "next_deposit", "pay_yourself", "seasons", "shadow_trail",
     "storms", "stress", "trail_forks",
 )
