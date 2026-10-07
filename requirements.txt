@@ -11,8 +11,8 @@
 # gets blocked on a locked-down machine, that's a Smart App Control / WDAC setting
 # to relax in Windows Security, not a code problem.
 
-streamlit==1.62.0
-pandas==2.2.3
+streamlit==1.65.0
+pandas==2.3.3
 altair==6.2.2   # bundled with streamlit; pinned because dashboard.py imports it directly
 
 # Deep historical price data (sync_history.py / the dashboard's "Sync history"
@@ -23,22 +23,22 @@ yfinance==1.7.0
 # Only needed when PORTFOLIO_DB / --db is a Postgres connection string (the
 # hosted-deploy path via pgcompat.py) - local SQLite usage never imports
 # this. Streamlit Community Cloud needs it in this file to install it.
-psycopg[binary]==3.2.3
+psycopg[binary]==3.3.6
 
 # Connection pooling for the Postgres path (pgcompat.connect()) - without
 # this, every dashboard.py connect()/close() pair (up to 8 per script
 # rerun - i.e. per click) opened a brand-new TCP/TLS connection to Neon,
 # which is where the deployed app's per-click lag came from. Not needed by
 # the CLI scripts (they connect once per invocation, not per click).
-psycopg-pool==3.2.4
+psycopg-pool==3.3.3
 
 # AI Assistant chatbot (advisor.py) - the official Anthropic SDK, for
 # streaming replies and tool use. Uses ANTHROPIC_API_KEY, as do screenshot
 # reading and the optional CSV column guess.
-anthropic==1.8.0
+anthropic==1.11.0
 
 # Client plan PDF export (client_plan.py) - pure Python, no system libraries.
-fpdf2==2.8.8
+fpdf2==2.8.9
 
 # The QR code shown when setting up two-step sign-in (views/two_step.py) - pure
 # Python, no dependencies of its own. Optional: without it the setup shows the
