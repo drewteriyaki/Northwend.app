@@ -1826,9 +1826,10 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         -> fact sheets built Oct 6 (flag `decoder_factsheet`, paste only, no AI);
         statements not yet, so this stays open
 - **Phase F - tier 3, explore:** [x] R13 Teach It Back (grades understanding,
-  never money choices) -> built Oct 6 (off): flag `teach_back`, the gateway's `grader`; [x] R14 Shadow Trail (hypothetical, labelled, kinds of
-  funds only, changed at most quarterly; L3 review) -> built Oct 6 (off; L3
-  before on): flag `shadow_trail` + gate L3, a Plan tab; [x] R16 Client-Owned
+  never money choices) -> built Oct 6 (off): flag `teach_back`, the gateway's `grader`; [x] R14 Shadow Trail -> dropped Oct 8, 2026
+  by the owner ("shoulda, coulda, woulda" isn't good for people and tells them
+  nothing better; the Stress test covers the useful question) - never on live,
+  the code is removed; [x] R16 Client-Owned
   Book (L2; the advisor's records stay with the advisor) -> built Oct 6 (off;
   L2): flag `client_owned_book` + gate L2, `client_book.py`, in Your clients
   and the client's Your advisor page; Someday: Walk Together,
@@ -2262,19 +2263,12 @@ action buttons, no tickers.
 **Risk:** a tinkering toy that encourages chasing whichever path did best.
 **Mitigation:** cap hard (two paths, kinds of funds only, changed at most
 quarterly), always labelled hypothetical.
--> **built Oct 6; out from behind gate L3 by the owner Oct 8 (its flag only):** flag `shadow_trail`,
-`shadow_trail.py` + `views/shadow_trail.py`, a Plan tab after Stress test.
-Kinds of funds (US stocks, international stocks, bonds, cash) in 5% steps,
-each represented by the practice portfolio's stand-in index fund prices
-already in `daily_bars` (never named; cash flat; nothing new fetched); the
-person's own line is today's holdings on the same prices. Percentages only,
-one small chart and a table, neutral colours, fixed order; each shadow changes
-at most every 3 months (next date shown; removing doesn't reset it). Kept:
-prefs `shadow_trail` (kind keys, whole percents, set and changed days). The
-login's own only - never while an advisor is in a client's account, never the
-AI. Open for the owner: the stand-ins' prices only stay fresh where someone
-holds or watches them or the practice portfolio loaded them (adding them to
-the nightly sync is a price-fetching change - plan first).
+-> **dropped Oct 8, 2026 by the owner:** "this shoulda, coulda, woulda
+mentality won't be beneficial for users", and it doesn't give better
+information - the Stress test already covers the useful question. It was built
+Oct 6 behind flag `shadow_trail` and never on for live users; the code, its
+flag, tests and its mentions in the legal text are removed. Any saved prefs
+`shadow_trail` on staging test accounts are left in place and read by nothing.
 
 ### R15. People With Your Answers - M
 A percentage-only cohort view ("people with your timeline and direction hold

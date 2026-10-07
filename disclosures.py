@@ -313,15 +313,6 @@ Each statement about data here must stay true to the code:
   either account; in the client's export (brought_to_your_advisor, without
   the advisor's id). The advisor's book also shows "This season for your
   clients" (seasons.season_of; education topics only).
-- Shadow Trail (shadow_trail.py, views/shadow_trail.py, flag shadow_trail and
-  gate L3): a Plan tab drawn from data already kept (the person's holdings and
-  daily_bars; each kind of fund represented by the practice portfolio's
-  stand-in index funds, nothing new fetched). Kept in the login's own settings
-  (prefs shadow_trail): for at most two shadows, the mix (kind-of-fund keys
-  and whole percentages - never a ticker, never free text), the day it was
-  first set and the day it was last changed. The login's own only: never drawn
-  while an advisor is in a client's account and never read for them, never
-  sent to the AI. In the person's own export (settings).
 - Teach It Back (teach_back.py, views/teach_back.py, flag teach_back): an
   optional box under each Learn basics topic. On "Check my explanation" the AI
   gateway's grader helper (ai_gateway.HELPERS "grader", the cheap tier, the
@@ -487,8 +478,8 @@ to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
 their account map, their Lost & Found list, their Trail Forks, their Inheritance
 Rehearsal, their preparedness drills, the seasonal notes they've opened or put
-away, the Learn topics they've explained back, the rule of thumb they picked on
-Pay yourself and their Shadow Trail.
+away, the Learn topics they've explained back and the rule of thumb they picked on
+Pay yourself.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
 and it leaves your view when they untick it or the relationship ends.
@@ -519,8 +510,7 @@ and it leaves your view when they untick it or the relationship ends.
   (when you turned it on, and the week it was last sent); the rule of thumb you
   picked on Pay yourself (which rule - never an amount); what you choose to bring
   to your advisor (which items and the day you shared each - nothing you type);
-  your Shadow Trail mixes (each as percentages of kinds of funds, and the days
-  you set and last changed it - never an amount); and the Learn topics you've
+  and the Learn topics you've
   explained back with Teach It Back (whether each held and the day - never your
   words). If you created your
   account yourself, or added an email on the Account page, also
@@ -562,8 +552,8 @@ and it leaves your view when they untick it or the relationship ends.
 - **Who can see it:** you, and - if your account is managed by an advisor -
   that advisor. Your notes to future you, monthly walks, account map, Lost &
   Found list, Trail Forks, Inheritance Rehearsal, drills, seasonal notes, the
-  Learn topics you've explained back, the rule of thumb you picked on Pay
-  yourself and your Shadow Trail stay yours alone. Where Bring to my advisor is
+  Learn topics you've explained back and the rule of thumb you picked on Pay
+  yourself stay yours alone. Where Bring to my advisor is
   offered, you can tick some of them to show your advisor; unticking takes them
   out of their view at once. Where introductions are offered, an advisor you
   write to from Find a guide sees only the name you give, your message and the parts you

@@ -2413,9 +2413,6 @@ _view("stress_test")
 # Plan: Pay yourself, flag pay_yourself + gate L3 (pay_yourself.py)
 _view("pay_yourself")
 
-# Plan: Shadow Trail, flag shadow_trail + gate L3 (shadow_trail.py)
-_view("shadow_trail")
-
 # Plan and Home: where the next deposit could go (next_deposit.py)
 _view("next_deposit")
 

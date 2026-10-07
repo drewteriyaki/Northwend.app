@@ -129,8 +129,7 @@ pasted text and screenshots are not kept. Clients can also use an example or
   put away, the Learn topics they've explained back
   (whether each held), the rule of thumb they picked on Pay
   yourself (you can look at the same picture with a rule you pick; yours isn't
-  saved), their Shadow Trail (hypothetical mixes of kinds of funds they've
-  set) and
+  saved) and
   their share links. A client whose account you manage can't make share links,
   and any they made before stop working. Every per-account query is filtered
   by account.

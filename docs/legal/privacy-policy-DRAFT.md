@@ -106,9 +106,6 @@ account, contact us and we will delete it.
 - Where Bring to my advisor is offered, if you have an advisor and use it:
   which items you chose to show them and the day you shared each one - a fixed
   list, nothing you type. Gone when you untick them or the relationship ends.
-- Where Shadow Trail is offered, if you set a shadow mix there (at most two):
-  each mix as percentages of kinds of funds, the day you set it and the day you
-  last changed it - never an amount or a fund's name. Only you see it.
 - Where Teach It Back is offered, for each topic in Learn's basics you explain
   back in your own words: whether your explanation held, and the day - never
   your words. Only you see it.
@@ -227,7 +224,7 @@ Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
 list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills,
 the seasonal notes you've opened or put away, the topics you've explained back
-on Learn, the rule of thumb you picked on Pay yourself and your Shadow Trail,
+on Learn and the rule of thumb you picked on Pay yourself,
 which only you see - unless you choose to bring some of them to your advisor
 (below). The account map is never emailed, and its PDF is only downloaded by
 you. You see your own portfolio, plan and the notes your advisor shares with

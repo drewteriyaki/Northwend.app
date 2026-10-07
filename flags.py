@@ -210,17 +210,6 @@ FEATURES = {
     # never for an advisor's client signed in themselves; an advisor in a
     # client's account sees it with the standing line and saves nothing.
     "pay_yourself": {"gates": ("L3",), "view": "pay_yourself"},
-    # Shadow Trail (ROADMAP R14, shadow_trail.py): a Plan tab after Stress
-    # test - up to two hypothetical mixes of KINDS of funds (never tickers),
-    # each on past prices from the day it was set, beside the person's own
-    # holdings; percentages only, changed at most once a quarter, always
-    # labelled hypothetical, nothing to act on. Hypothetical performance: built
-    # behind gate L3, taken out from behind it by the owner on Oct 8, 2026 (low
-    # to moderate risk with these labels; LEGAL_GATES.md section 6) - its own
-    # flag only, so L3 itself stays off. views/plan.py checks
-    # on("shadow_trail"); the login's own only - never while an advisor is in
-    # a client's account, never in the AI.
-    "shadow_trail": {"gates": (), "view": "shadow_trail"},
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not

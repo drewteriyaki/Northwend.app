@@ -73,15 +73,6 @@ ENTRIES = [
                   "so you'll know what to expect if it ever happens for real.",
           "flag": "inheritance_rehearsal"},
      ]},
-    {"date": "2026-10-06", "title": "Shadow Trail",
-     "items": [
-         {"text": "A new Shadow Trail tab on the Plan page lets you set up to two made-up "
-                  "mixes of kinds of funds - say, 60% US stocks and 40% bonds - and see how "
-                  "much each would have gone up or down on past prices since the day you set "
-                  "it, next to your own holdings. Percentages only, and each mix can be "
-                  "changed at most once every three months. Hypothetical - not a forecast "
-                  "and not advice. Only you see it.", "flag": "shadow_trail"},
-     ]},
     {"date": "2026-10-06", "title": "Teach it back",
      "items": [
          {"text": "Under each of the basics on Learn there's now an optional box to explain "

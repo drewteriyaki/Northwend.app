@@ -76,7 +76,6 @@ py-modules = [
     "month_world",   # this month's world, for your mix: the owner's monthly notes (ROADMAP Phase C)
     "trail_conditions",   # Trail Conditions, the opt-in Monday email (ROADMAP Phase C)
     "pay_yourself",   # Pay yourself: savings as a monthly paycheck (ROADMAP R11)
-    "shadow_trail",   # Shadow Trail: hypothetical mixes of kinds of funds (ROADMAP R14)
     "teach_back",   # Teach It Back: explain a Learn topic back, the AI grader (ROADMAP R13)
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
