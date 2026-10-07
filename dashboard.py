@@ -2988,16 +2988,15 @@ def _live_status():
     dialog is open, so it never interrupts adding holdings."""
     ss = st.session_state
     try:
-        c = connect(DB)
-        try:
-            # what this page run loaded (holdings and the watchlist only change
-            # by a save, which starts a new run) - not read again every minute
-            live = live_prices.freshen(
-                c, USER_ID, resolve_key(None, ENV_PATH),
-                known=(snapshot, {p["symbol"]: p["asset_type"] for p in positions},
-                       list(watch_tickers)))
-        finally:
-            c.close()
+        # what this page run loaded (holdings and the watchlist only change
+        # by a save, which starts a new run) - not read again every minute.
+        # freshen opens its own connections: none is held while it fetches.
+        # `applied`: a price another tab fetched since this page's last one
+        # is applied too (with many tabs open, one fetches and others skip)
+        live = live_prices.freshen(
+            lambda: connect(DB), USER_ID, resolve_key(None, ENV_PATH),
+            known=(snapshot, {p["symbol"]: p["asset_type"] for p in positions},
+                   list(watch_tickers)), applied=last_live)
     except Exception:  # noqa: BLE001 - prices failing must never break the page
         live = {"updated": 0, "as_of": None, "live": False}
     if (live["updated"] or (PAGE == "Watchlist" and live.get("watch_fetched"))) \

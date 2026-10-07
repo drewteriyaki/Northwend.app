@@ -13,6 +13,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import types
 import unittest
 import zipfile
@@ -3502,6 +3504,12 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
     NIGHT = datetime(2026, 9, 30, 3, 0, tzinfo=timezone.utc)      # Tue 11 PM ET
     SATURDAY = datetime(2026, 10, 3, 16, 0, tzinfo=timezone.utc)
 
+    def setUp(self):
+        super().setUp()
+        import live_prices as lp
+        lp._ASKED.clear()      # process-wide: nothing left over from another test
+        self.addCleanup(lp._ASKED.clear)
+
     def _hold(self, conn, user_id, rows):
         import manual_entry as me
         clean, cash, _ = me.validate(rows, [])
@@ -3673,6 +3681,163 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
         r = lp.freshen(conn, self.user_id, "key", now=self.NIGHT, finnhub=fh, yahoo=yh)
         self.assertFalse(r["live"])                                   # market closed, no crypto
         conn.close()
+
+    def _opener(self):
+        """A connection opener (as the app passes) that counts what's open."""
+        state = {"open": 0, "opened": 0}
+        db = self.db
+
+        class Counted:
+            def __init__(self):
+                self._c = portfolio.connect(db)
+                state["open"] += 1
+                state["opened"] += 1
+
+            def __getattr__(self, name):
+                return getattr(self._c, name)
+
+            def close(self):
+                state["open"] -= 1
+                self._c.close()
+        return Counted, state
+
+    def test_no_connection_is_held_while_fetching(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        self._hold(conn, self.user_id, [{"Symbol": "VTI", "Shares": 2, "Total cost": 20},
+                                        {"Symbol": "VTSAX", "Shares": 1, "Total cost": 10,
+                                         "Type": "Mutual fund"}])
+        conn.close()
+        opener, state = self._opener()
+        open_during = []
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(opener, self.user_id, "key", now=self.OPEN,
+                       finnhub=lambda s: (open_during.append(state["open"]), fh(s))[1],
+                       yahoo=lambda s: (open_during.append(state["open"]), yh(s))[1])
+        self.assertEqual(open_during, [0, 0])           # VTI from Finnhub, VTSAX from Yahoo
+        self.assertEqual((r["fetched"], r["updated"]), (2, 2))
+        self.assertEqual((state["open"], state["opened"]), (0, 2))   # read, then write
+        conn = portfolio.connect(self.db)
+        got = {r["ticker"]: (r["source"], r["price"]) for r in conn.execute(
+            "SELECT ticker, source, price FROM price_history")}
+        self.assertEqual(got, {"VTI": ("finnhub", 101.0), "VTSAX": ("yahoo", 55.0)})
+        live = {p["symbol"]: p["live_price"] for p in conn.execute(
+            "SELECT symbol, live_price FROM positions WHERE user_id = ?", (self.user_id,))}
+        self.assertEqual(live, {"VTI": 101.0, "VTSAX": 55.0})
+        conn.close()
+        # nothing due a few seconds later: one connection, no fetch
+        r = lp.freshen(opener, self.user_id, "key", now=self.OPEN + timedelta(seconds=5),
+                       finnhub=fh, yahoo=yh)
+        self.assertEqual((r["fetched"], state["open"], state["opened"]), (0, 0, 3))
+        self.assertIsNotNone(r["as_of"])
+
+    def test_a_second_tab_skips_while_another_is_fetching(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        other = auth.create_user(conn, "other", "pw")
+        self._hold(conn, self.user_id, [{"Symbol": "VTI", "Shares": 2, "Total cost": 20}])
+        self._hold(conn, other, [{"Symbol": "BND", "Shares": 1, "Total cost": 10}])
+        conn.close()
+        opener, _ = self._opener()
+        inside, go_on = threading.Event(), threading.Event()
+        first = {}
+
+        def slow_finnhub(sym):
+            inside.set()
+            go_on.wait(10)
+            return {"c": 101.0, "pc": 100.0}, ""
+
+        def tab_one():
+            first["r"] = lp.freshen(opener, self.user_id, "key", now=self.OPEN,
+                                    finnhub=slow_finnhub, yahoo=lambda s: ({}, "unused"))
+        t = threading.Thread(target=tab_one)
+        t.start()
+        try:
+            self.assertTrue(inside.wait(10))
+            calls, fh, yh = self._fakes()
+            started = time.monotonic()
+            r = lp.freshen(opener, other, "key", now=self.OPEN, finnhub=fh, yahoo=yh)
+            self.assertLess(time.monotonic() - started, 2)      # returned at once, didn't wait
+            self.assertEqual((r["fetched"], r["updated"]), (0, 0))
+            self.assertEqual(calls, {"finnhub": [], "yahoo": []})
+            self.assertTrue(r["live"])
+        finally:
+            go_on.set()
+            t.join(10)
+        self.assertEqual(first["r"]["fetched"], 1)
+        self.assertEqual(lp._ASKED, {"BND": "stock"})     # left for the next fetch
+        # the next fetch, by whichever tab (here the first one again, its own
+        # VTI not due yet), takes the skipped tab's ticker - counted as no
+        # fetch of its own
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(opener, self.user_id, "key", now=self.OPEN + timedelta(seconds=20),
+                       finnhub=fh, yahoo=yh)
+        self.assertEqual(calls["finnhub"], ["BND"])
+        self.assertEqual((r["fetched"], r["watch_fetched"], r["updated"]), (0, 0, 0))
+        self.assertEqual(lp._ASKED, {})
+        # the skipped tab's next minute: nothing due, and its page gets the
+        # price another tab stored (`applied`: its positions have none yet)
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(opener, other, "key", now=self.OPEN + timedelta(minutes=1, seconds=5),
+                       finnhub=fh, yahoo=yh, applied=None)
+        self.assertEqual((r["fetched"], r["updated"], calls), (0, 1, {"finnhub": [], "yahoo": []}))
+        conn = portfolio.connect(self.db)
+        row = conn.execute("SELECT live_price, live_price_at FROM positions WHERE user_id = ?",
+                           (other,)).fetchone()
+        conn.close()
+        self.assertEqual(row["live_price"], 101.0)
+        # once applied, the same quote isn't applied again
+        r = lp.freshen(opener, other, "key", now=self.OPEN + timedelta(minutes=1, seconds=10),
+                       finnhub=fh, yahoo=yh, applied=row["live_price_at"])
+        self.assertEqual((r["fetched"], r["updated"]), (0, 0))
+
+    def test_tickers_left_by_skipped_tabs_are_capped_per_fetch(self):
+        import live_prices as lp
+        conn = portfolio.connect(self.db)
+        self._hold(conn, self.user_id, [{"Symbol": "VTI", "Shares": 1, "Total cost": 10}])
+        lp._ASKED.update({f"S{i:02d}": "stock" for i in range(lp.ASKED_PER_ROUND + 5)})
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(conn, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh,
+                       budget=lp.Budget(100))
+        self.assertEqual(r["fetched"], 1)
+        self.assertEqual(len(calls["finnhub"]), 1 + lp.ASKED_PER_ROUND)
+        self.assertEqual(sorted(lp._ASKED), [f"S{i:02d}" for i in range(lp.ASKED_PER_ROUND,
+                                                                         lp.ASKED_PER_ROUND + 5)])
+        conn.close()
+
+    def test_finnhub_calls_stay_within_the_budget(self):
+        import live_prices as lp
+        clock = [1000.0]
+        budget = lp.Budget(3, clock=lambda: clock[0])
+        conn = portfolio.connect(self.db)
+        self._hold(conn, self.user_id, [{"Symbol": s, "Shares": 1, "Total cost": 10}
+                                        for s in ("AAA", "BBB", "CCC", "DDD", "EEE")])
+        calls, fh, yh = self._fakes()
+        r = lp.freshen(conn, self.user_id, "key", now=self.OPEN, finnhub=fh, yahoo=yh,
+                       budget=budget)
+        self.assertEqual(r["fetched"], 5)
+        self.assertEqual(calls["finnhub"], ["AAA", "BBB", "CCC"])   # the budget's 3
+        self.assertEqual(calls["yahoo"], ["DDD", "EEE"])            # the rest from Yahoo
+        clock[0] += 59
+        self.assertFalse(budget.take())                             # still the same minute
+        clock[0] += 1
+        self.assertEqual([budget.take() for _ in range(4)], [True, True, True, False])
+        conn.close()
+        self.assertEqual(lp.FINNHUB_BUDGET.per_minute, lp.FINNHUB_PER_MINUTE)
+        self.assertLessEqual(lp.FINNHUB_PER_MINUTE, 60)             # Finnhub's free plan
+
+    def test_the_price_job_stays_under_finnhubs_minute_limit(self):
+        # a second between calls: at most 60 a minute, however many tickers
+        self.assertGreaterEqual(update_prices.DELAY, 1.0)
+        import inspect
+        for fn in (update_prices.refresh_all_users, update_prices.refresh_prices):
+            self.assertEqual(inspect.signature(fn).parameters["delay"].default, update_prices.DELAY)
+        with open(os.path.join(REPO, ".github", "workflows", "scheduled-sync.yml"),
+                  encoding="utf-8") as f:
+            wf = f.read()
+        line = next(ln for ln in wf.splitlines() if "update_prices.py" in ln and "run:" in ln)
+        if "--delay" in line:
+            self.assertGreaterEqual(float(line.split("--delay")[1].split()[0]), 1.0)
 
 
 class ScreenshotReadTests(unittest.TestCase):

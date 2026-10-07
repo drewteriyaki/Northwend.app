@@ -41,6 +41,9 @@ from portfolio import DEFAULT_DB, connect, money, pct  # noqa: E402  (local modu
 from settings import ENV_PATH, load_env  # noqa: E402,F401  (local module)
 
 FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote"
+# seconds between calls: a second apart (plus each call's own time) keeps the
+# scheduled job at or under Finnhub's free 60 a minute however many tickers
+DELAY = 1.0
 
 
 # --------------------------------------------------------------------------- #
@@ -96,12 +99,17 @@ def fetch_quote(symbol: str, token: str, timeout: float):
 # --------------------------------------------------------------------------- #
 # core: fetch every ticker, log it, rewrite the live_* columns
 # --------------------------------------------------------------------------- #
-def _record_quote(conn: sqlite3.Connection, ticker: str, data: dict, error: str, ok: bool) -> None:
+def _record_quote(conn: sqlite3.Connection, ticker: str, data: dict, error: str, ok: bool, *,
+                  source: str = "finnhub", fetched_at: str | None = None,
+                  commit: bool = True) -> None:
+    """One row in price_history. `fetched_at`: when the quote came back (now
+    if not given) - live_prices fetches first and writes afterwards, so it
+    passes the time of each fetch."""
     conn.execute(
         "INSERT INTO price_history "
         "(ticker, price, prev_close, change, pct_change, day_open, day_high, day_low, "
         " quote_time, fetched_at, source, ok, error, raw) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'finnhub', ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (ticker,
          data.get("c") if ok else None,
          data.get("pc") if data else None,
@@ -111,12 +119,14 @@ def _record_quote(conn: sqlite3.Connection, ticker: str, data: dict, error: str,
          data.get("h") if data else None,
          data.get("l") if data else None,
          epoch_to_iso(data.get("t")) if data else None,
-         utc_now_iso(),
+         fetched_at or utc_now_iso(),
+         source,
          1 if ok else 0,
          error or None,
          json.dumps(data) if data else None),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def apply_live_prices(conn: sqlite3.Connection, snapshot: str, user_id: int,
@@ -173,7 +183,7 @@ def _fetch_quotes(conn, tickers, key, *, delay, timeout, on_quote=None):
     return fresh, results
 
 
-def refresh_all_users(conn: sqlite3.Connection, key: str, *, delay: float = 0.25,
+def refresh_all_users(conn: sqlite3.Connection, key: str, *, delay: float = DELAY,
                       timeout: float = 10.0, on_quote=None,
                       reuse_within: timedelta = timedelta(minutes=10)) -> dict:
     """Refresh every account with positions: each distinct ticker across all
@@ -207,7 +217,7 @@ def refresh_all_users(conn: sqlite3.Connection, key: str, *, delay: float = 0.25
 
 
 def refresh_prices(conn: sqlite3.Connection, snapshot: str, user_id: int, key: str, *,
-                   delay: float = 0.25, timeout: float = 10.0, on_quote=None) -> dict:
+                   delay: float = DELAY, timeout: float = 10.0, on_quote=None) -> dict:
     """Fetch a quote for every distinct ticker `user_id` holds, append to
     price_history (global, shared across users), and rewrite the live_*
     columns for `user_id`'s `snapshot`.
@@ -251,8 +261,8 @@ def main(argv=None) -> int:
     ap.add_argument("--env", default=ENV_PATH, help="path to .env (default: alongside this script)")
     ap.add_argument("--key", help="API key override (otherwise .env, then $FINNHUB_API_KEY)")
     ap.add_argument("--snapshot", help="snapshot date to update (default: latest)")
-    ap.add_argument("--delay", type=float, default=0.25,
-                    help="seconds between API calls; free tier allows 60/min (default 0.25)")
+    ap.add_argument("--delay", type=float, default=DELAY,
+                    help=f"seconds between API calls; free tier allows 60/min (default {DELAY})")
     ap.add_argument("--timeout", type=float, default=10.0, help="per-request timeout in seconds")
     args = ap.parse_args(argv)
 

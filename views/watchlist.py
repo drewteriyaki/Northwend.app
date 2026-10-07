@@ -154,13 +154,10 @@ if PAGE == "Watchlist":
             st.rerun()
         if added:
             st.session_state["import_flash"] = f"Added **{added}** to your watchlist."
-            _wl_conn = connect(DB)
             try:  # its price now, rather than at the next minute's update
-                live_prices.freshen(_wl_conn, USER_ID, resolve_key(None, ENV_PATH))
+                live_prices.freshen(lambda: connect(DB), USER_ID, resolve_key(None, ENV_PATH))
             except Exception:  # noqa: BLE001 - the next update will get it
                 pass
-            finally:
-                _wl_conn.close()
             _sync_history([added], quick=True)  # its chart data (reruns the page)
         else:
             st.session_state["refresh_msg"] = ("error", f"'{_wl_raw}' doesn't look like a valid ticker.")
