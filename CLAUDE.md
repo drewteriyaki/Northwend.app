@@ -67,6 +67,14 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   market's clock (`as_of`: "3:45 pm ET", "Oct 3 close"; not flagged, reads only
   stored times) and "Price look wrong?" on ticker detail (flag `price_report`: fixed
   reasons, `price_reports` table, counts-only "Price notes" in Admin).
+- News: `news.py` (Finnhub /company-news into the shared `news` table; ticker detail
+  fetches its own ticker on view). `news_feed.py` + `views/news_feed.py` (Your news,
+  flag `news_feed`, no gate: "News on what you own" on Home and a News tab in
+  `MONEY_PAGES`; `news_feed.pick` is the fixed rule - 3 days, wires/law-firm notices
+  out, same story once, 2 per ticker, 10 in all; headline, source, how long ago and a
+  link only, never a summary or the person's figures; pages read `NEWS_ROWS`, never
+  Finnhub. Its hourly job `python news_feed.py` (scheduled-sync.yml `news`) fetches held +
+  watched tickers across accounts 1.5 s apart, 250 a run, prunes after 30 days).
 - Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`
   (`summary_words`: Home's plain-words line, flag `plain_summary`),
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
@@ -283,7 +291,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   commands). Its `dependencies` match requirements.txt and `py-modules` lists every
   top-level module - a new module goes there too (a test checks).
 - Jobs: `.github/workflows/scheduled-sync.yml` (prices every 15 min in market
-  hours, history nightly, advisors' Monday email via `weekly_email.py`), `tests.yml`.
+  hours, history nightly, advisors' Monday email via `weekly_email.py`, news hourly via
+  `news_feed.py`), `tests.yml`.
 
 ## Gotchas
 - New columns on old tables: add them to the back-fill list in
@@ -313,7 +322,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - The menu is `NAV` (the top bar `pt_topbar` and the phone bar `pt_tabbar`, no
   sidebar, nothing behind a "More") plus `ACCOUNT_MENU` (the name menu `pt_me`:
   Account, About, Admin, Log out). Money is one tab grouping `MONEY_PAGES` (Income,
-  Activity, Watchlist - still pages of their own). `PAGES` is every page the
+  Activity, Watchlist, and News while `news_feed` is on - still pages of their own). `PAGES` is every page the
   account can open. A new page goes in `NAV`, under Money or in the name menu -
   keep the bar short. A label change (`PAGE_LABELS`; investors see
   Get started as "Learn") changes its `?page=` slug: add the old one to `OLD_SLUGS`.

@@ -462,6 +462,11 @@ if PAGE == "Dashboard":
 
     st.divider()
 
+    # ---- Your news: a few headlines on what's held or watched -------------- #
+    if flags.on("news_feed"):
+        render_news_card(NEWS_ROWS)           # views/news_feed.py
+        st.divider()
+
     # ---- accounts: side-by-side comparison -------------------------------- #
     ac1, ac2, ac3 = st.columns([0.5, 0.25, 0.25])
     ac1.subheader("Accounts")

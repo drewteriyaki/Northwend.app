@@ -40,6 +40,14 @@ on:
     # those who turned it on, at most once a week each) - Mondays at 13:00
     # UTC, morning in the US.
     - cron: "0 13 * * 1"
+    # Your news (news_feed.py; only while NORTHWEND_FLAGS lists "news_feed"):
+    # headlines for every held or watched ticker, hourly from 11:07 to 23:07
+    # UTC (early morning to evening in the US), every day. News moves slower
+    # than prices, and the feed shows the last 3 days, so hourly is plenty; at
+    # :07 it's clear of the price job's :00/:15/:30/:45. One call per ticker,
+    # 1.5 s apart (at most 40 a minute of Finnhub's free 60, leaving room for
+    # the prices), at most 250 tickers a run, the oldest-fetched first.
+    - cron: "7 11-23 * * *"
   workflow_dispatch: {}  # allow manual triggering from the Actions tab
 
 # Once the database roles are split (docs/DB_ROLES.md), DATABASE_URL is the
@@ -209,3 +217,28 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: python error_alerts.py job "Trail Conditions" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  news:
+    if: github.event.schedule == '7 11-23 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip  # reuse installed packages between runs
+      - run: pip install -r requirements.txt
+      - name: Store news for held and watched tickers
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          # its feature flag (flags.py): nothing is fetched unless it lists "news_feed"
+          NORTHWEND_FLAGS: ${{ secrets.NORTHWEND_FLAGS }}
+        run: python news_feed.py --db "$DATABASE_URL"
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Your news" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

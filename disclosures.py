@@ -22,7 +22,7 @@ Each statement about data here must stay true to the code:
   - the one time the AI sees figures, said in the reader's own consent line
   (views/holdings_input.py); only symbols / shares / cost / percent / cash
   survive screenshot_read.clean().
-- Market data: tickers only (update_prices.py / live_prices.py / news.py ->
+- Market data: tickers only (update_prices.py / live_prices.py / news.py / news_feed.py ->
   Finnhub, sync_history.py / live_prices.py -> Yahoo Finance); the scheduled
   jobs run on GitHub Actions (.github/workflows/scheduled-sync.yml).
 - Passwords: PBKDF2-SHA256 with a per-user salt, 600,000 iterations, the count
@@ -663,7 +663,7 @@ feature counts** on the **Account** page.
   reader - see the next section for exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
-- **GitHub** runs the scheduled price updates, the nightly clean-up of what's
+- **GitHub** runs the scheduled price and news updates, the nightly clean-up of what's
   kept only for a while, and the scheduled emails (sent through Resend).
 - **Resend** delivers the account emails (confirming your address, resetting
   your password, an advisor's Monday summary, the monthly walk reminder and

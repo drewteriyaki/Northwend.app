@@ -216,7 +216,7 @@ It is shared only as needed to run the service, with:
 | **Anthropic** (Claude) | The AI guide and advisors' meeting talking points; the column guess, only when you choose it; and, where they're offered, advisors' first drafts, looking up a word, Teach It Back's check and screenshot reading (only when you choose it) | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
-| **GitHub Actions** | Runs the scheduled jobs: price updates and price history, the nightly clean-up of what's kept only for a while (section 7), the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
+| **GitHub Actions** | Runs the scheduled jobs: price updates and price history, news headlines for held and watched tickers, the nightly clean-up of what's kept only for a while (section 7), the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails | Your email address and that message |
 | **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to go.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
 

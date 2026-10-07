@@ -298,6 +298,15 @@ FEATURES = {
     # gates, the stricter reading (LEGAL_GATES.md H4/H10/H11; ROADMAP Phase D
     # "(L1/L2)"). Each place checks on("advisor_drafts").
     "advisor_drafts": {"gates": ("L1", "L2"), "view": None},
+    # Your news (news_feed.py, views/news_feed.py): headlines from news sources
+    # about the tickers the account holds or watches - a "News on what you own"
+    # card on Home (views/dashboard_page.py checks on("news_feed")) and a News
+    # tab in Money. Headline, source, how long ago and a link to the source
+    # only; never a summary, never the person's figures beside it, nothing
+    # ranked by what it might mean for buying or selling. Stored by an hourly
+    # job (only while this is on); pages never wait on Finnhub for it.
+    # Descriptive, like any brokerage app's news (LEGAL_GATES.md E4): no gate.
+    "news_feed": {"gates": (), "view": "news_feed", "page": "News"},
 }
 
 

@@ -100,6 +100,16 @@ class PageQueryTests(unittest.TestCase):
         self.assertLessEqual(queries, HOME_QUERIES)
         self.assertLessEqual(connections, HOME_CONNECTIONS)
 
+    def test_home_with_your_news_stays_under_its_cap(self):
+        # Your news (flag news_feed) adds one read on the history's connection:
+        # the stored headlines - never a fetch
+        sql = []
+        with unittest.mock.patch.dict(os.environ, {"NORTHWEND_FLAGS": "news_feed"}):
+            queries, connections = self._count(self.alice, "alice", "Dashboard", statements=sql)
+        self.assertEqual(len([s for s in sql if "FROM news" in s]), 1, sql)
+        self.assertLessEqual(queries, HOME_QUERIES)
+        self.assertLessEqual(connections, HOME_CONNECTIONS)
+
     def test_the_login_row_is_read_once_a_run(self):
         # the two-step gate's read, handed on to the password check, the email
         # notice and Ask Northwend's allowance (views/two_step.py _gate_read)

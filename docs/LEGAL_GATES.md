@@ -182,6 +182,7 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 | E1 | Income: next 12 months, received, by holding, yield on cost | `income.py`, `views/income.py` | Descriptive | L0 | No |
 | E2 | Activity: buys and sells from updates, imported history | `changes.py`, `txn_import.py`, `views/activity.py` | Descriptive | L0 | No |
 | E3 | Watchlist | `watchlist.py`, `views/watchlist.py` | Descriptive | L0 | No |
+| E4 | Your news: "News on what you own" on Home and a News tab in Money (flag `news_feed`) | `news_feed.py`, `views/news_feed.py`, `news.py` | Descriptive | L0 + flag `news_feed` (no gate) | No. Headlines written by third-party news sources (from Finnhub) about the tickers the person holds or watches, as any brokerage app shows. Each is the headline, the source, how long ago and a link to the source - no summary or article text, never the person's figures beside it. Fixed line on both: "Headlines from news sources about what you hold. Northwend doesn't write them or say what to do about them." Which stories show is a fixed rule (last 3 days, press-release wires and law-firm notices left out, the same story shown once, newest first with a small move up for a story several sources reported, 2 per ticker, 10 in all) - never ranked by what it might mean for buying or selling. Only ticker symbols go to Finnhub (Privacy Policy's Finnhub row). An advisor in a client's account sees the client's news, as for their holdings. |
 
 ### 3.6 Getting holdings in
 

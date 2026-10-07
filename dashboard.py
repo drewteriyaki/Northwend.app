@@ -52,6 +52,7 @@ import sample_data
 import settings
 import metrics as M
 import news
+import news_feed
 import perf
 import pgcompat
 import plans
@@ -1447,7 +1448,7 @@ if IS_ADVISOR:
     _start = ["Get started"] if ON_CLIENT else []
     PAGES = ["Clients", *([] if HAS_HOLDINGS else _start),
              "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
-             "Watchlist", "Activity", "Income", "AI Assistant",
+             "Watchlist", "Activity", "Income", "News", "AI Assistant",
              *(_start if HAS_HOLDINGS else []), "Account", "What's new", "About"]
 else:
     # an advisor's client lands on Home (their advisor's next step), never
@@ -1455,7 +1456,7 @@ else:
     _learn_last = HAS_REAL_HOLDINGS or IS_MANAGED_CLIENT
     PAGES = [*([] if _learn_last else ["Get started"]),
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
-             "Watchlist", "Activity", "Income", "AI Assistant",
+             "Watchlist", "Activity", "Income", "News", "AI Assistant",
              *(["Get started"] if _learn_last else []), "Account", "What's new", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
@@ -1484,7 +1485,8 @@ PAGES = [p for p in PAGES if flags.page_on(p)]
 # holdings and after (where they land is PAGES[0]): a tab never moves under
 # someone's thumb.
 MONEY = "Money"
-MONEY_PAGES = ("Income", "Activity", "Watchlist")
+# (+ News, Your news, while its flag news_feed is on: views/news_feed.py)
+MONEY_PAGES = ("Income", "Activity", "Watchlist", *(("News",) if "News" in PAGES else ()))
 if IS_ADVISOR:
     NAV = ["Clients", "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
            MONEY, "AI Assistant"]
@@ -2857,8 +2859,8 @@ def load(conn):
     import overview
     if not snap:
         # nothing brought in yet - the watchlist still works (Learn's example
-        # funds go on it before anything is bought)
-        watch = watchlist.list_tickers(conn, USER_ID) if PAGE == "Watchlist" else []
+        # funds go on it before anything is bought), and so does News
+        watch = watchlist.list_tickers(conn, USER_ID) if PAGE in ("Watchlist", "News") else []
         return None, [], {}, overview.latest_quotes(conn, sorted(watch)) if watch else {}, watch
     rows = snapshot_positions(conn, USER_ID, snap)
     cash_by_account = snapshot_cash(conn, USER_ID, snap)
@@ -3272,9 +3274,10 @@ if PAGE == "Advisor preview":
     _page_header("See what you'll get", data=False)
     _render_advisor_demo()
     st.stop()
-if not positions and PAGE != "Watchlist":
+if not positions and PAGE not in ("Watchlist", "News"):
     # Nothing brought in yet (the watchlist works regardless - Learn's example
-    # funds go on it before anything is bought). What shows depends on whose
+    # funds go on it before anything is bought - and so does the news on what's
+    # watched). What shows depends on whose
     # account it is (views/start_home.py):
     if ON_CLIENT or IS_ADVISOR:
         # an advisor: a client's (or their own) statements to bring in
@@ -3330,6 +3333,10 @@ try:
         _bars_conn, USER_ID, _held_symbols, datetime.now().date(),
         skip_sources=(SAMPLE_SOURCE, manual_entry.PCT_SOURCE))
         if PAGE == "Dashboard" and SNAPSHOT_SOURCE != manual_entry.PCT_SOURCE else {})
+    # Your news (flag news_feed): the stored headlines for what this account
+    # holds or watches - read only; the hourly job fetches them (news_feed.py)
+    NEWS_ROWS = (news_feed.load(_bars_conn, _my_tickers)
+                 if PAGE in ("Dashboard", "News") and flags.on("news_feed") else [])
 finally:
     _bars_conn.close()
 # What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):
@@ -3425,6 +3432,9 @@ def _pick_holdings():
 
 def _pick_watchlist():
     st.session_state["holdings_pill"] = None
+
+
+_view("news_feed")
 
 
 _view("dashboard_page")
