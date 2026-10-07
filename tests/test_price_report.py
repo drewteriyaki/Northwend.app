@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import admin  # noqa: E402
 import advisor  # noqa: E402
@@ -252,7 +253,7 @@ class AppTests(unittest.TestCase):
             return conn
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline), \
+                unittest.mock.patch("socket.socket.connect", offline_net.connect), \
                 unittest.mock.patch("sqlite3.connect", traced):
             at.run()
         self.assertEqual([e.message for e in at.exception], [])

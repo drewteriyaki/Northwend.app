@@ -25,6 +25,7 @@ import zlib
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import ai_library  # noqa: E402
 import ai_policy  # noqa: E402
@@ -336,7 +337,7 @@ class AppTests(unittest.TestCase):
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch("flags._secret", lambda name: None), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
         self.assertEqual([e.message for e in at.exception], [])
         return at

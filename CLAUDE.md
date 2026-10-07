@@ -34,6 +34,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   One share locally: `python -m unittest $(python scripts/test_shard.py 4 1)`.
   The main checkout's real `.env` makes some page tests reach the network: run
   the full suite on a `git archive HEAD` copy.
+  Page tests block the outside network with `tests/offline.py`
+  (`patch("socket.socket.connect", offline_net.connect)`); loopback is allowed
+  because Windows' asyncio event loop needs it.
 - Run locally: `python -m streamlit run dashboard.py`. In the desktop app use the
   `.claude/launch.json` previews (`review-class` = scratch `classtest.db`, user alice).
 - Python 3.13; `pandas==2.2.3` is pinned on purpose (3.0 is blocked on one machine).

@@ -28,6 +28,7 @@ from datetime import date, datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import access_log  # noqa: E402
 import accounts  # noqa: E402
@@ -1913,7 +1914,7 @@ def app(test, dsn, uid, name, page, **state):
     env.update(PORTFOLIO_DB=dsn, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
     for p in (unittest.mock.patch.dict(os.environ, env, clear=True),
               unittest.mock.patch.object(yfinance, "Ticker", _offline),
-              unittest.mock.patch("socket.socket.connect", _offline)):
+              unittest.mock.patch("socket.socket.connect", offline_net.connect)):
         p.start()
         test.addCleanup(p.stop)
     return at

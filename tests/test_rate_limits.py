@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import auth  # noqa: E402
 import portfolio  # noqa: E402
@@ -202,7 +203,7 @@ class _App(unittest.TestCase):
         for p in (unittest.mock.patch.dict(os.environ, env, clear=True),
                   unittest.mock.patch("settings._on_community_cloud", return_value=False),
                   unittest.mock.patch.object(yfinance, "Ticker", offline),
-                  unittest.mock.patch("socket.socket.connect", offline)):
+                  unittest.mock.patch("socket.socket.connect", offline_net.connect)):
             p.start()
             self.addCleanup(p.stop)
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)

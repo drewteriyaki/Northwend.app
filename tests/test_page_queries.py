@@ -17,6 +17,7 @@ import unittest.mock
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import auth  # noqa: E402
 import portfolio  # noqa: E402
@@ -79,14 +80,12 @@ class PageQueryTests(unittest.TestCase):
             conn.set_trace_callback(note)
             return conn
 
-        def offline(*a, **k):
-            raise RuntimeError("offline")
-        at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
+        at =AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
         for k, v in {"user_id": user_id, "username": username, "page": page,
                      "auto_backfilled": True, "income_synced": True, **state}.items():
             at.session_state[k] = v
         with unittest.mock.patch("sqlite3.connect", counting), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertFalse(at.exception, [e.value for e in at.exception])
             seen.update(sql=0, connect=0)

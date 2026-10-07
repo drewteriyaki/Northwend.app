@@ -22,6 +22,7 @@ from datetime import date
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import advisor  # noqa: E402
 import ai_gateway  # noqa: E402
@@ -464,7 +465,7 @@ class AppTests(unittest.TestCase):
                 unittest.mock.patch("settings.load_env", lambda *a, **k: {}), \
                 unittest.mock.patch.object(anthropic, "Anthropic", lambda **kw: fake), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertEqual([e.message for e in at.exception], [])
             yield at

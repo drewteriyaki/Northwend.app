@@ -20,6 +20,7 @@ from datetime import date, timedelta
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import auth  # noqa: E402
 import portfolio  # noqa: E402
@@ -108,7 +109,7 @@ class CalmPagesTests(unittest.TestCase):
         # no prices from the internet: Yahoo and any socket fail at once
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertEqual([e.message for e in at.exception], [])
             yield at

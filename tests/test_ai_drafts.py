@@ -23,6 +23,7 @@ import unittest.mock
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import advisor_drafts  # noqa: E402
 import ai_gateway  # noqa: E402
@@ -315,7 +316,7 @@ class AppTests(unittest.TestCase):
                   unittest.mock.patch("flags._secret", lambda name: None),
                   unittest.mock.patch.object(anthropic, "Anthropic", lambda **kw: model),
                   unittest.mock.patch.object(yfinance, "Ticker", offline),
-                  unittest.mock.patch("socket.socket.connect", offline)):
+                  unittest.mock.patch("socket.socket.connect", offline_net.connect)):
             p.start()
             self.addCleanup(p.stop)
         at.run()

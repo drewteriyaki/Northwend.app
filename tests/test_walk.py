@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import advisor  # noqa: E402
 import auth  # noqa: E402
@@ -400,7 +401,7 @@ class _WalkApp(unittest.TestCase):
                    NORTHWEND_FLAGS=self.FLAGS)
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertEqual([e.message for e in at.exception], [])
             yield at

@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+from tests import offline as offline_net  # noqa: E402
 
 import learn  # noqa: E402
 
@@ -129,7 +130,7 @@ class LearnMorePageTests(unittest.TestCase):
         env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1")
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertEqual([e.message for e in at.exception], [])
             yield at
@@ -226,7 +227,7 @@ class LearnReadsTests(unittest.TestCase):
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch("settings.load_env", lambda *a, **k: {}), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertEqual([e.message for e in at.exception], [])
             yield at

@@ -29,6 +29,7 @@ import unittest.mock
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import disclosures  # noqa: E402
 import portfolio  # noqa: E402
@@ -486,7 +487,7 @@ class MovedCopyTests(unittest.TestCase):
         at.query_params["reset"] = "abc"
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch("settings.load_env", lambda *a: {}), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
         self.assertEqual([e.message for e in at.exception], [])
         self.assertEqual([e.value for e in at.error], [])

@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+from tests import offline as offline_net  # noqa: E402
 
 import auth  # noqa: E402
 import fund_holdings as fh  # noqa: E402
@@ -366,7 +367,7 @@ class PageTests(unittest.TestCase):
         env.update(PORTFOLIO_DB=self.db, MAIL_DRY_RUN="1", ANTHROPIC_API_KEY="sk-test-unused")
         with unittest.mock.patch.dict(os.environ, env, clear=True), \
                 unittest.mock.patch.object(yfinance, "Ticker", offline), \
-                unittest.mock.patch("socket.socket.connect", offline):
+                unittest.mock.patch("socket.socket.connect", offline_net.connect):
             at.run()
             self.assertEqual([e.message for e in at.exception], [])
             yield at
