@@ -1514,6 +1514,29 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         Copy DRAFT for L2. What's new has a flagged entry (hidden while `directory` is off)
 - [ ] **Step 6 - Billing** behind L1 (Paddle, by pull; founding seats; owner metrics)
 - [ ] **Step 7 - Remaining AI helpers** (most as rules, not AI)
+  - [x] The rules-not-AI helpers (AI_PLAN section 9 rows 1, 3, 4, 5, 12) - done Oct 6.
+        None of them called the AI before, so nothing sent to the AI changes.
+        Row 1 Home summary: new, flag `plain_summary` (no gate) - one line under
+        Allocation from fixed templates (`allocation.summary_words`: shares by class,
+        holdings and accounts, the largest holding's share), hidden with Hide amounts; no
+        region part (Northwend has no US/international data). Row 3 Expedition Log: was
+        already rules (`expedition_log.line`, from the stored verdict) - tests only.
+        Row 4 storm narrator: was already rules, its words moved from `views/kit.py` into
+        `storms.narrate` / `WINDOW_NOTE` and reworded to past tense ("Dips like this have
+        come"; "best days ... soon after its worst" is now "strongest days ... within
+        days of its weakest"). Row 5 glossary, rules part: `glossary.py` (65 terms; was
+        the draft `ai_library.GLOSSARY`, which now reads it), flag `glossary` (no gate):
+        "What does this mean?" popovers on Home's allocation, the Fee check, Income and
+        Learn's Open your account, and the whole list A to Z in Learn the basics. The AI
+        fallback for an unknown word is still to do. Row 12 plan PDF: was already rules
+        (`client_plan.questions`, step 2); its getting-ready questions now come from
+        `learn.readiness` (adds uneven income), and it ends with a fixed bank,
+        `client_plan.PRO_QUESTIONS` ("Questions people often ask a licensed
+        professional", or "... their advisor" on an advisor's copy); the old "best
+        interest" general question moved into the bank. Banned-word tests (and
+        `ai_policy.findings`) over every template: `tests/test_rule_helpers.py`
+  - [ ] Still to do: the glossary's AI fallback (an unknown word to the chat), the
+        document decoder, the grader and the advisor drafts (AI_PLAN section 9)
 - [ ] **Step 8 - Service seams** (no new frontend now)
 - [ ] **Step 9 - Ritual R6-R12**
   - [x] Lost & Found (R9), flag `lost_found` (no gate: education) - done Oct 6:
@@ -1578,7 +1601,37 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         the owner's export without the hash (`export.OWN`); principle matrix row.
         Privacy text (both), security draft and disclosures say so.
         `tests/test_explain_share.py`
-- [ ] **Alongside, any time** (PLAN "Alongside, any time")
+  - [x] The Sealed Envelope (from "Someday"), flag `sealed_envelope` (needs
+        `storm_drill`; no gate: their own words) - done Oct 6: `sealed_envelope.py`;
+        "Make it a sealed envelope" under the drill answer on the Plan's Stress test.
+        A one-page PDF (fpdf2, as `client_plan.py`) with only their words exactly as
+        written, the day they wrote them, "Open this when the market has fallen 20%"
+        and a fixed reminder ("Nothing has to be decided today") - no figures,
+        holdings, accounts, email or login; their name only if ticked (off by
+        default). Made on the download click, never saved; prefs `sealed_envelope`
+        keeps only the day, so Home's storm note adds "You wrote yourself a sealed
+        envelope for a day like this" above the drill answer (only if made since the
+        words were written). Never in an advisor's session, never to the AI. Privacy
+        text says so. `tests/test_sealed_envelope.py`
+  - [x] Preparedness drills (R12), the one-week test, flag `drills` (L0 + flag; L3
+        review noted) - done Oct 6: `drills.py`, `views/drills.py`, one small card on
+        Home under Your kit (also on the Home of someone not investing yet, with no
+        mix). Ten static drills, five hard times and five good times in turn (a market
+        drop, a raise, job loss, a bonus, a surprise expense, a windfall, a fund closing,
+        a goal reached early, prices rising fast, a strong year); each set against the
+        person's own mix (stocks or cash share, whole percents) and timeline in words;
+        three taps each - considerations and questions, never trades, never graded -
+        then "things people often think about here" and "there's no right answer on an
+        investment choice". One a week (ISO weeks): the next not rehearsed; once all ten
+        are, the oldest comes back with its twist line. The readiness map (hard / good,
+        rehearsed / not yet) and "Weeks you've rehearsed: N" (only grows; a missed week
+        costs nothing). Gear: the whistle for three drills (`gear.py`). No reminders, no
+        emails. Kept: prefs `drills` (keys and ISO weeks only); never while an advisor
+        is in a client's account, never in the client record or the AI. Metric: a
+        third drill, totals only (`feature_counts.drill_returns`, Admin > Feature
+        tests, opt-out respected). Not built: the "this month's world" content source.
+        `tests/test_drills.py`
+- [x] **Alongside, any time** (PLAN "Alongside, any time")
   - [x] A status page (G7) - done Oct 6: northwend.app/status, hand-edited in
         `website/build.py` (`STATUS_NOW`, `STATUS_UPDATED`, `NOTICES`); "All systems
         normal", past notices (the planned move to go.northwend.app). No scripts, no
@@ -1587,7 +1640,23 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
   - [x] A "what's new" page (G11) - done Oct 6: northwend.app/whats-new, built from
         `whats_new.ENTRIES` with every flagged item left out (a test checks); footer
         and About. Rebuild the site after each new entry (the stale-site test says so)
-  - [ ] Price "as of" and "report a wrong price" (G8)
+  - [x] Price "as of" and "report a wrong price" (PLAN G8) - done Oct 6:
+        `price_report.py`. As of (not flagged - it only describes prices already
+        shown): `as_of` reads the stored quote time (`live_price_at` / the quote's
+        `fetched_at`, loaded with the price - no new query, no change to price
+        fetching) and says it on the market's clock: "3:45 pm ET" while open, "Oct 3
+        close" once closed, the day for a mutual fund ("priced once a day"), the time
+        for crypto; "the latest we have" when it's older than usual. Under a ticker's
+        price, on each watchlist row, in Home's "Price as of" column and the status
+        line's "Market closed" words. "Price look wrong?" (flag `price_report`, no
+        gate): a popover under a ticker's price with four fixed reasons, no free
+        text; a `price_reports` row (login, ticker, reason, price shown and its
+        time, when; SCHEMA_VERSION 7), one per ticker a day and `PER_DAY` (5) a day
+        per login, nothing read while drawn. Admin: "Price notes", counts by ticker
+        and reason, never who. Kept until the account is deleted
+        (`admin.ACCOUNT_TABLES`), in the person's export (`export.OWN`); Privacy
+        text and disclosures say so. Left out: an email to the owner (Admin shows
+        the counts). `tests/test_price_report.py`
   - [x] The quarterly restore drill and the yearly licence re-check in the runbook's
         calendar - done Oct 6: RUNBOOK "Calendar" (restore drill each quarter, licence
         re-checks as due, January's dated yearly figures, key rotation each October,
@@ -1620,7 +1689,7 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
 - **Phase A - in progress:** R7 Four Seasons, R8 Trail Forks, R10 Explain It
   To Someone, the ADR 0005 items (see Step 9 and step 5 above).
 - **Phase B - small, any time:**
-  - [ ] Price "as of" and "report a wrong price" (descriptive; no free text
+  - [x] Price "as of" and "report a wrong price" (descriptive; no free text
         about holdings in a report)
   - [x] A public "what's new" page, linked from About (education)
   - [x] A hand-edited status page on the website (honest notes; no uptime
@@ -1628,17 +1697,17 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
   - [x] The runbook calendar: the quarterly restore drill and the yearly
         licence re-check (L1/L2 rely on it)
 - **Phase C - the weekly rhythm** (see "The weekly rhythm" below):
-  - [ ] R12 Preparedness drills and the readiness map (L3 review: no right
+  - [x] R12 Preparedness drills and the readiness map (the one-week test; Oct 6) (L3 review: no right
         answer on any investment choice)
   - [ ] Trail Conditions, an opt-in weekly email (no figures, no forecasts;
         CAN-SPAM: opt-in, one-click unsubscribe, a postal address)
-  - [ ] The Sealed Envelope after a storm drill (printable, figure-free, the
+  - [x] The Sealed Envelope after a storm drill (printable, figure-free, the
         person's own words)
   - [ ] "This month's world, for your mix" (L3 review: past facts only,
         hand-written and reviewed, never a forecast) - last of the four
 - **Phase C2 - "Bring to my advisor"** (see below).
 - **Phase D - Step 7 helpers, rules first** (`docs/AI_PLAN.md` section 9):
-  - [ ] As rules: Home summary, Log line, storm narrator, glossary, the plan
+  - [x] As rules: Home summary, Log line, storm narrator, glossary, the plan
         PDF's next steps (today's closest thing to a conclusion; becomes
         "questions to ask a professional")
   - [ ] AI: the glossary fallback and the grader (with R13) - the gateway,
@@ -2039,6 +2108,7 @@ answers are the person's own; "no right answer" on any investment choice.
 - no reminders.
 
 Metric: **unprompted return for a third drill**.
+-> one-week test built (Oct 6), flag `drills`: see Step 9 above.
 
 ### Tier 3 - later / explore
 
@@ -2111,6 +2181,7 @@ Walk:
 ### Someday / to explore (no commitment)
 - **The Sealed Envelope** - a printable one-page PDF (no figures) at the end
   of a storm drill, to seal and open when the market falls 20%.
+  -> built (Oct 6), flag `sealed_envelope`: see Step 9.
 - **Walk Together** - two people pair up; the streak counts only if both walk
   in the same week; each sees only that the other walked.
 - **Base Camp** - a monthly text-only, percentage-only thread with one

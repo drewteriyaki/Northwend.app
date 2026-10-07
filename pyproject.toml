@@ -49,7 +49,7 @@ py-modules = [
     "checkin_email", "cli", "client_csv", "client_plan", "codefresh", "context_card",
     "consent", "access_log",
     "csv_import", "dashboard", "disclosures", "error_alerts", "export", "feature_counts", "fees",
-    "friendly_errors", "fund_holdings", "future_notes", "gear", "hosting", "income",
+    "friendly_errors", "fund_holdings", "future_notes", "gear", "glossary", "hosting", "income",
     "invite_codes", "learn", "live_prices",
     "mailer", "manage_users", "manual_entry", "meeting", "metrics", "news", "overview",
     "paste_parse", "perf", "pgcompat", "plans", "portfolio", "prefs", "proposals",
@@ -67,6 +67,9 @@ py-modules = [
     "trail_forks",   # Trail Forks: a route per life event (ROADMAP R8)
     "seasons",   # the Four Seasons: four moments in the year (ROADMAP R7)
     "explain_share",   # Explain it to someone: a figure-free share link (ROADMAP R10)
+    "price_report",   # when a price is from, and "Price look wrong?" (PLAN G8)
+    "sealed_envelope",   # the Sealed Envelope: the storm drill answer as a PDF
+    "drills",   # preparedness drills, one a week (ROADMAP R12)
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)

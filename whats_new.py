@@ -73,6 +73,44 @@ ENTRIES = [
                   "30 days, your first name stays off unless you tick it, and you can turn a "
                   "link off at any time.", "flag": "explain_share"},
      ]},
+    {"date": "2026-10-06", "title": "When each price is from",
+     "items": [
+         "Each price now says when it's from: a time, like 3:45 pm ET, while the market is "
+         "open, or the day's close, like Oct 3 close, once it shuts. You'll see it under a "
+         "ticker's price, on your watchlist and in the Price as of column on Home.",
+         {"text": "If a price ever looks off, tap Price look wrong? under it and pick what "
+                  "seems wrong. It helps us look into it.", "flag": "price_report"},
+     ]},
+    {"date": "2026-10-06", "title": "A sealed envelope",
+     "items": [
+         {"text": "Once you've written what you'd do in a drop on the Plan's Stress test, you "
+                  "can make it a sealed envelope: a one-page PDF of your own words and the day "
+                  "you wrote them, to print, seal and open if the market ever falls a long "
+                  "way. It has no numbers about your money, and it isn't saved anywhere.",
+          "flag": "sealed_envelope"},
+     ]},
+    {"date": "2026-10-06", "title": "Preparedness drills",
+     "items": [
+         {"text": "A short drill on Home, once a week: a situation like a market drop, a job "
+                  "loss, a raise or a windfall - set against your own mix and timeline, or "
+                  "for practice if you're not investing yet. Tap what you'd weigh first and "
+                  "see what people often think about. Nothing is graded, there's no right "
+                  "answer on an investment choice, and a missed week costs nothing. Your "
+                  "readiness map shows which situations you've rehearsed; only you see what "
+                  "you tapped.", "flag": "drills"},
+     ]},
+    {"date": "2026-10-06", "title": "In plain words",
+     "items": [
+         {"text": "Home now describes your mix in one plain line above the allocation bars: "
+                  "the shares in stocks, bonds and cash, how many holdings you have, and the "
+                  "largest one's share. A description only, worked out the same way for "
+                  "everyone.", "flag": "plain_summary"},
+         {"text": "A glossary: \"What does this mean?\" sits beside the words on Home, the Fee "
+                  "check, Income and Open your account, and Learn the basics lists every word "
+                  "from A to Z.", "flag": "glossary"},
+         "Your printable plan now ends with questions people often ask a licensed "
+         "professional - the same list for everyone, for whenever you might want it.",
+     ]},
     {"date": "2026-10-06", "title": "Lost & Found",
      "items": [
          {"text": "Lost & Found, under your account map on the Account page, shows the free, "

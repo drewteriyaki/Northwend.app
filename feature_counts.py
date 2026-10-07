@@ -26,6 +26,9 @@ R5's metric (the 401(k) Menu Decoder): the share of pasted funds that were
 identified - from numbers kept in each person's settings (how many decodes,
 fund lines and identified lines; menu_decoder.add_counts), never the text or
 a fund's name.
+R12's metric (preparedness drills): unprompted return for a third drill -
+how many people who rehearsed one drill went on to a third, from how many
+drill keys their settings hold (drills.PREF), never what they tapped.
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ import json
 from datetime import date, timedelta
 
 import checkin
+import drills
 import future_notes
 import menu_decoder
 
@@ -150,3 +154,24 @@ def decoder_totals(all_prefs) -> dict | None:
 def decoder(conn) -> dict | None:
     """decoder_totals() from the database - the settings column only."""
     return decoder_totals(_all_settings(conn, menu_decoder.PREF_COUNTS))
+
+
+# ---- R12: preparedness drills ---------------------------------------------- #
+def drill_totals(all_prefs) -> dict | None:
+    """R12's metric, unprompted return for a third drill (there are no
+    reminders, so every return is unprompted; one drill a week, so a third
+    drill means a third week): {"started": people who rehearsed a first
+    drill, "third": of them, how many rehearsed a third}, from how many
+    drills each account's settings hold (drills.count - never which choice
+    anyone tapped). None while fewer than MIN_GROUP people (not left out)
+    have started."""
+    started = [n for n in (drills.count(p) for p in all_prefs
+                           if isinstance(p, dict) and not left_out(p)) if n >= 1]
+    if len(started) < MIN_GROUP:
+        return None
+    return {"started": len(started), "third": sum(1 for n in started if n >= drills.GEAR_AT)}
+
+
+def drill_returns(conn) -> dict | None:
+    """drill_totals() from the database - the settings column only."""
+    return drill_totals(_all_settings(conn, drills.PREF))

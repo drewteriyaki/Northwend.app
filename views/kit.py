@@ -9,6 +9,7 @@
 # ruff: noqa: F821
 
 import checkin
+import drills
 import flags
 import gear
 import storms
@@ -46,6 +47,7 @@ def _read_gear_facts(value):
             "statement_in": HAS_HOLDINGS and SNAPSHOT_SOURCE != SAMPLE_SOURCE,
             "steady": gear.steady_months(added, datetime.now().date()),
             "checkins": checkin.logbook(_read_prefs()),   # monthly walks (views/checkin.py)
+            "drills_done": drills.third_done(_read_prefs()),   # drills (views/drills.py)
             "storm": gear.weathered_storm(values, sells), "goal_reached": reached}
 
 
@@ -58,9 +60,11 @@ def _kit_shown():
 def _kit_keys():
     """The pieces in this account's kit (gear.kit_keys): an advisor's client's
     has no rope, as Learn has no practice money for them (CLIENT_MODE). The
-    logbook only while the walk is on (flags.py) - or once earned: it stays."""
-    return gear.kit_keys(CLIENT_MODE, walk=flags.on("walk")
-                         or checkin.logbook(_read_prefs()))
+    logbook only while the walk is on (flags.py) - or once earned: it stays;
+    the whistle the same with the preparedness drills."""
+    p = _read_prefs()
+    return gear.kit_keys(CLIENT_MODE, walk=flags.on("walk") or checkin.logbook(p),
+                         drills=flags.on("drills") or drills.third_done(p))
 
 
 def _milestone_done():
@@ -79,6 +83,9 @@ def _gear_go(target):
     elif kind == "checkin":   # Home, with this month's walk open (views/checkin.py)
         st.session_state["checkin_open"] = True
         _go(where)
+    elif kind == "drill":     # Home, with this week's drill open (views/drills.py)
+        st.session_state["drill_open"] = True
+        _go(where)
     elif kind == "learn":
         # that waypoint open on Learn (if Learn still has it)
         if where in dict(globals().get("GET_STARTED_STEPS") or ()):
@@ -94,6 +101,9 @@ def _gear_can_go(k):
     logbook only while a walk is waiting on Home (views/checkin.py)."""
     if k == "logbook":
         return _checkin_due()
+    if k == "whistle":   # while this week's drill is waiting (views/drills.py)
+        return (flags.on("drills")
+                and drills.done_this_week(_read_prefs(), datetime.now().date()) is None)
     return k in gear.GO and (CAN_MANAGE or k not in ("compass", "lantern"))
 
 
@@ -245,19 +255,13 @@ def _hide_weather(w):
 
 @st.dialog("What storms have looked like", width="medium", on_dismiss=_dialog_closed)
 def _storms_window():
-    st.caption("The S&P 500 - the 500 largest US companies - from its high to its low, "
-               "and how long until it passed that high again. Rounded; its price "
-               "without dividends.")
+    # (every word here is storms.py's fixed narrator: AI_PLAN section 9, row 4)
+    st.caption(storms.WINDOW_CAPTION)
     rows = "".join(f"<tr><td>{html.escape(name)}</td><td>{fall}%</td><td>{html.escape(back)}</td></tr>"
                    for name, fall, back in storms.PAST_STORMS)
     st.html("<table class='pt-storm-table'><thead><tr><th>Storm</th><th>Fell</th>"
             f"<th>Back to the old high</th></tr></thead><tbody>{rows}</tbody></table>")
-    st.markdown("Every one of these passed, though some took years - and nobody knew "
-                "at the time how long it would last. That's why people investing for "
-                "goals years away usually plan for storms instead of trying to dodge "
-                "them: selling after a fall turns a drop on paper into a real loss, and "
-                "some of the market's best days have come soon after its worst. Past "
-                "storms don't promise what the next one will do.")
+    st.markdown(storms.WINDOW_NOTE)
     learn_more("market_drops")
 
 
@@ -271,17 +275,8 @@ def render_weather():
     if not w or (own and storms.hidden(w, _read_prefs().get("storm_hidden"))):
         return
     storm = w["level"] == "storm"
-    title = "A storm on the trail" if storm else "Rough weather"
-    lead = (f"Your holdings are about {w['drop_pct']:.0f}% below their high on "
-            f"{_fmt_date(w['high_date'])} (as of the close on {_fmt_date(w['as_of'])}).")
-    body = ("Drops of 10% or more have come along about once every year or two on "
-            "average, and the market has climbed past every one so far - sometimes "
-            "in months, sometimes in years." if storm else
-            "Dips like this happen a few times in a typical year, and most pass "
-            "without much notice.")
-    # (COPY_AUDIT.md "Same problem" 19: describes, never a hold message)
-    nothing = ("Drops like this are part of investing. Your plan's target and dates "
-               "haven't changed; they're on the Plan page.")
+    words = storms.narrate(w, _fmt_date)   # fixed templates (storms.py's narrator)
+    title, lead, body, nothing = words["title"], words["lead"], words["body"], words["steady"]
     cloak = (storm and _kit_shown()
              and "cloak" not in (_read_prefs().get("gear_seen") or []))
     with st.container(border=True, key="pt_storm"):

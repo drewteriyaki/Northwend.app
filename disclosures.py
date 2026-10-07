@@ -204,6 +204,30 @@ Each statement about data here must stay true to the code:
   counted once per browser session against a per-address limit (a signups row
   keyed share: plus the address's SHA-256, a day). Flag off: every link shows
   "no longer active".
+- Price notes (price_report.py, flag price_report): "Price look wrong?" on a
+  ticker's details saves one price_reports row - the login, ticker, a fixed
+  reason key (never free text), the price shown and its time, when. Kept with
+  the account until it's deleted (admin.ACCOUNT_TABLES), in the person's own
+  export; admins see counts by ticker and reason only (never who). One a
+  ticker a day, price_report.PER_DAY a day in all. Never emailed or sent to
+  the AI. The "as of" words under prices only describe stored quote times.
+- The Sealed Envelope (sealed_envelope.py, views/future_notes.py, flag
+  sealed_envelope): a one-page PDF of the person's own Storm Drill answer and
+  the day they wrote it - no figures, holdings, account names, email or login;
+  their name only if they tick it. Made when they click, never saved; the only
+  thing kept is the day they made it (prefs sealed_envelope, a date), for the
+  storm note's line. Never offered while an advisor is in a client's account,
+  never sent to the AI.
+- Preparedness drills (drills.py, views/drills.py, flag drills): one small card
+  on Home; the person's mix appears as whole percents by asset class and their
+  timeline in words, read from data already kept, never stored with the drill.
+  Kept in the login's own settings (prefs drills: which drills were rehearsed,
+  the key of the choice tapped, the ISO week and how many times - keys only,
+  never free text); never drawn while an advisor is in a client's account, not
+  in an advisor's client record, never sent to the AI; no reminders or emails.
+  Counted in totals only (feature_counts.drill_returns: people who rehearsed a
+  first drill and how many a third - never a choice). In the person's own
+  export (settings).
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -336,7 +360,7 @@ to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
-their account map, their Lost & Found list and their Trail Forks.
+their account map, their Lost & Found list, their Trail Forks and their preparedness drills.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
@@ -345,7 +369,7 @@ their account map, their Lost & Found list and their Trail Forks.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
@@ -461,7 +485,8 @@ Northwend counts in totals only, inside its own database - for example, how many
 people took a second monthly walk within 45 days of their first, how many wrote
 down on the Stress test what they'd do in a drop (never what they wrote), or
 what share of the funds pasted into the 401(k) menu decoder were recognised
-(numbers only - never the list or a fund's name). A count is never about one
+(numbers only - never the list or a fund's name), or how many people who tried
+a preparedness drill came back for a third (never what anyone tapped). A count is never about one
 person, is shown only for groups of 20 or more, and is never shared, sold or
 sent to the AI. To leave yourself out, turn on **Leave me out of
 feature counts** on the **Account** page.

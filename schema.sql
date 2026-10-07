@@ -795,3 +795,17 @@ CREATE TABLE IF NOT EXISTS share_links (
     last_opened_on  TEXT                            -- 'YYYY-MM-DD' of the last visit
 );
 CREATE INDEX IF NOT EXISTS idx_share_links_user ON share_links (user_id, expires_at);
+-- "Price look wrong?" on a ticker's details (price_report.py, flag
+-- price_report): one row per note a person sent - a fixed reason, never free
+-- text. Kept with their account until it's deleted (admin.ACCOUNT_TABLES) and
+-- in their own export; admins see counts by ticker and reason only.
+CREATE TABLE IF NOT EXISTS price_reports (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,                -- the login that sent it
+    ticker       TEXT    NOT NULL,
+    reason       TEXT    NOT NULL,                -- a price_report.REASONS key
+    shown_price  REAL,                            -- the price on the page then
+    price_as_of  TEXT,                            -- that price's time, 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    created_at   TEXT    NOT NULL                 -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+);
+CREATE INDEX IF NOT EXISTS idx_price_reports_user ON price_reports (user_id, created_at);

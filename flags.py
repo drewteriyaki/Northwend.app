@@ -87,6 +87,15 @@ FEATURES = {
     # back on Home's storm note when a drop comes; counted in totals only
     # (feature_counts.drill_answers, Admin > Feature tests).
     "storm_drill": {"gates": (), "view": None},
+    # The Sealed Envelope (ROADMAP "Someday" -> built, sealed_envelope.py): under
+    # the person's own Storm Drill answer, "Make it a sealed envelope" - a
+    # one-page PDF of their words and the day, no figures, made on click and
+    # never saved (prefs keep only the day it was made, for the storm note's
+    # line). Descriptive (their own words; LEGAL_GATES.md section 6): no gate.
+    # Drawn beside the drill answer, so it needs `storm_drill` on too
+    # (views/future_notes.py checks both); never while an advisor is in a
+    # client's account.
+    "sealed_envelope": {"gates": (), "view": None},
     # The 401(k) Menu Decoder (ROADMAP R5, menu_decoder.py): paste a plan's
     # fund list, see each fund's kind and fee - descriptive, no AI, nothing
     # saved (LEGAL_GATES.md section 6: L0 + flag; L3 looks at it). Its window
@@ -136,6 +145,24 @@ FEATURES = {
     # (it checks on("explain_share") itself, as views/account.py does before
     # drawing the owner's section).
     "explain_share": {"gates": (), "view": None},
+    # "Price look wrong?" (PLAN G8, price_report.py): on a ticker's details a
+    # person picks a fixed reason (no free text) and a row goes in
+    # price_reports; admins see counts by ticker and reason, never who. Account
+    # data, nothing advice-like: no gate. Drawn in views/ticker_detail.py and
+    # counted in views/admin.py, which check on("price_report"). The "as of"
+    # words under each price aren't flagged: they only describe the prices
+    # already shown.
+    "price_report": {"gates": (), "view": None},
+    # Preparedness drills (ROADMAP R12, the one-week test; drills.py): ten short
+    # tap-only situations, hard times and good times alike, one a week in a
+    # small card on Home under Your kit, with the readiness map, a count of
+    # weeks rehearsed and the whistle for the kit. Taps are considerations and
+    # questions, never trades, never graded. Education with the person's own
+    # mix in percentages (LEGAL_GATES.md section 6: L0 + flag; L3 reviews that
+    # no drill implies a correct choice). The person's own only: never while
+    # an advisor is in a client's account, never in the client record or the
+    # AI. views/dashboard_page.py and views/start_home.py check on("drills").
+    "drills": {"gates": (), "view": "drills"},
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not
@@ -158,6 +185,19 @@ FEATURES = {
     # views/clients.py check on("intros")). Gate L2: its copy and the consent
     # text are the lawyer's. Off, the button says introductions open soon.
     "intros": {"gates": ("L2",), "view": "intros"},
+    # The plain-words read of the mix on Home (PLAN step 7, docs/AI_PLAN.md
+    # section 9 row 1; allocation.summary_words): one line under Allocation
+    # from fixed templates - shares, counts, the largest holding's share. No
+    # AI and no judgement words. Descriptive (LEGAL_GATES.md section 6): no
+    # gate; views/dashboard_page.py checks on("plain_summary").
+    "plain_summary": {"gates": (), "view": None},
+    # The glossary in the app (PLAN step 7, AI_PLAN section 9 row 5;
+    # glossary.py): "What does this mean?" beside the words on Home's
+    # allocation, the Fee check, Income and Learn's "Open your account", and
+    # the whole list in Learn's basics. Owner-written, the same text Ask
+    # Northwend reads. Education: no gate. dashboard.what_this_means()
+    # checks on("glossary").
+    "glossary": {"gates": (), "view": None},
 }
 
 

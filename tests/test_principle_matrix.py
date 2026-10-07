@@ -50,6 +50,7 @@ import perf  # noqa: E402
 import plans  # noqa: E402
 import portfolio  # noqa: E402
 import prefs  # noqa: E402
+import price_report  # noqa: E402
 import proposals  # noqa: E402
 import reports  # noqa: E402
 import txn_import  # noqa: E402
@@ -137,6 +138,9 @@ MATRIX = {
     "share_links": ("explain_share.create", "explain_share.active", "explain_share.lookup",
                     "explain_share.page", "explain_share.note_open", "explain_share.revoke",
                     "explain_share.revoke_all", "export.collect"),
+    # "Price look wrong?" notes: the login's own; admins see counts, never who
+    "price_reports": ("price_report.report", "price_report.can_report",
+                      "price_report.admin_counts", "export.collect"),
     # kept after deletion (admin.KEPT_AFTER_DELETE), still one account's own
     "consent_records": ("consent.history", "consent.between", "consent.current",
                         "consent.grant", "consent.revoke", "advising.end_relationship",
@@ -149,7 +153,7 @@ ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
                                     advisor_agreement, ai_usage, auth, consent, directory,
                                     explain_share, export, future_notes, intros, licence_check, perf, plans,
-                                    portfolio, prefs, proposals, reports, txn_import,
+                                    portfolio, prefs, price_report, proposals, reports, txn_import,
                                     two_step, watchlist)}
 
 
@@ -253,6 +257,8 @@ class IsolationMatrix(unittest.TestCase):
         # a share link (explain_share.py): only its hash is kept
         cls.tokens[f"{side}.share"] = explain_share.create(c, uid, by=uid, show_name=True)
         ids[f"{side}.share"] = explain_share.active(c, uid)[0]["id"]
+        assert price_report.report(c, uid, ticker, "too_high", price=fig,
+                                   price_as_of="2026-09-30T20:01:00Z")["ok"]
 
         # the advisor side
         a = auth.create_user(c, adv, PW)
@@ -763,6 +769,18 @@ class IsolationMatrix(unittest.TestCase):
                                              confirmed=True)["ok"])
         self.assertTrue(auth.can_view(c, carol, alice))
         self.assertFalse(intros.withdraw(c, alice, mine)["ok"])   # shared: closed
+
+    def check_price_reports(self):
+        c, alice = self.c, self.alice
+        mine = self.clean(export.collect(c, alice).get("price_reports"))
+        self.assertEqual([r["ticker"] for r in mine], ["VTI"])
+        # B's note on BOBQ isn't A's: A may still send one, and A's own limit holds
+        self.assertIsNone(price_report.can_report(c, alice, "BOBQ"))
+        self.assertTrue(price_report.report(c, alice, "BOBQ", "old", price=A_FIG)["ok"])
+        self.assertEqual(price_report.can_report(c, alice, "VTI"), price_report.SAME_TICKER)
+        # the admin's counts: no account, no price
+        for row in self.clean(price_report.admin_counts(c)):
+            self.assertFalse({"user_id", "shown_price"} & set(row))
 
     def check_advisor_profiles(self):
         c, carol, alice = self.c, self.carol, self.alice

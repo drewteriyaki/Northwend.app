@@ -7,6 +7,44 @@
 # ruff: noqa: F821
 
 import fees
+import price_report
+
+
+def _send_price_report(sym, price, price_at):
+    """Price look wrong? > Send: one row in price_reports for this login
+    (price_report.report - limits there), then the calm thank-you."""
+    ss = st.session_state
+    reason = ss.get(f"price_report_reason_{sym}")
+    c = connect(DB)
+    try:
+        res = price_report.report(c, LOGIN_ID, sym, reason, price=price, price_as_of=price_at)
+    finally:
+        c.close()
+    ss[f"price_report_msg_{sym}"] = res["message"]
+    # sent, or a limit reached: the calm line in its place for this visit
+    ss[f"price_report_done_{sym}"] = res["ok"] or reason in price_report.REASONS
+
+
+def _render_price_report(sym, price, price_at):
+    """"Price look wrong?" under a ticker's price (flag price_report): fixed
+    reasons only, nothing typed. Nothing is read while it's drawn - the
+    limits are checked when Send is tapped."""
+    ss = st.session_state
+    msg = ss.get(f"price_report_msg_{sym}")
+    if ss.get(f"price_report_done_{sym}"):
+        st.caption(msg)
+        return
+    with st.popover("Price look wrong?", type="tertiary", icon=":material/flag:",
+                    key=f"price_report_open_{sym}"):
+        st.radio("What looks wrong?", list(price_report.REASONS),
+                 format_func=price_report.REASONS.get, index=None,
+                 key=f"price_report_reason_{sym}")
+        st.button("Send", key=f"price_report_send_{sym}", on_click=_send_price_report,
+                  args=(sym, price, price_at))
+        if msg:
+            st.caption(msg)
+        st.caption("Northwend keeps the ticker, the reason you pick and the price you saw, "
+                   "with your account - nothing else.")
 
 
 def _ticker_learn_more(sym, pos):
@@ -64,9 +102,14 @@ if PAGE in ("Dashboard", "Watchlist"):
                           delta=(None if hide_amounts or _dchg_pct is None
                                  else f"{_dchg_text} ({_dchg_pct:+.2f}%) today"))
             _price_at = M.value("price_at", _ctx)
-            if _price_at:
+            _asof = price_report.as_of_line(
+                _price_at, price_report.kind(_sym, _pos.get("asset_type"),
+                                             (sec_info.get(_sym) or {}).get("quote_type")))
+            if _asof:
                 # (where it comes from is on the page's status line: PRICE_SOURCE)
-                st.caption(f"As of {_fmt_when(_price_at)} · may be delayed")
+                st.caption(_asof)
+            if _price and flags.on("price_report"):
+                _render_price_report(_sym, _price, _price_at)
 
             t1, t2 = st.columns([0.6, 0.4])
             t1.markdown("#### Price history")

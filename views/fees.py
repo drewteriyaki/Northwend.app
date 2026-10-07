@@ -83,6 +83,8 @@ def _fee_window():
     st.caption(f"An illustration at {growth} a year, not a prediction. Expense ratios come "
                "from Yahoo Finance and can change; your brokerage's fund page has the latest.")
     learn_more("expense_ratios")
+    what_this_means("Expense ratio", "Index fund", "Actively managed fund", "ETF", "Mutual fund",
+                    "Money market fund", key="gloss_fees")
     # (in a window: switch pages with a full rerun, which also closes it)
     if st.button(f":material/forum: Ask {GUIDE} about fees", key="fee_ask", type="tertiary"):
         _fee_ask()

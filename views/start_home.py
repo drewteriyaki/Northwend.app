@@ -156,6 +156,8 @@ def _render_start_home():
                           on_click=_open_holdings_dialog, args=("import",))
 
     render_kit_card(None)      # milestones and gear: learning counts too (views/kit.py)
+    if flags.on("drills"):
+        render_drill_card()    # this week's drill - no mix needed (views/drills.py)
     check_milestones(None)
 
 
@@ -221,6 +223,8 @@ def _render_client_home(preview=False):
                   on_click=_start_go, args=(("learn", "basics"),))
     if not preview:
         render_kit_card(None)      # learning and habits only (views/kit.py)
+        if flags.on("drills"):
+            render_drill_card()    # this week's drill (views/drills.py)
         check_milestones(None)
 
 

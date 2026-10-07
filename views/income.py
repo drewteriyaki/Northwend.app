@@ -281,6 +281,8 @@ def _render_income_calm(income_rows, plan, unsynced, got):
                "Yahoo Finance) at today's share count - dividends can change, so these are "
                "estimates, not promises.")
     learn_more("dividends")
+    what_this_means("Dividend", "Dividend yield", "Ex-dividend date", "Yield", "Total return",
+                    key="gloss_income")
     _calm_footer()
 
 
@@ -297,5 +299,7 @@ if PAGE == "Income":
         _render_income_received(_income_got)
         _render_income_by_month(_income_plan, _income_unsynced)
         _render_income_table(_income_rows)
+        what_this_means("Dividend", "Dividend yield", "Ex-dividend date", "Yield", "Total return",
+                        key="gloss_income")
     else:
         _render_income_calm(_income_rows, _income_plan, _income_unsynced, _income_got)

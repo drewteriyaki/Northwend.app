@@ -37,6 +37,7 @@ import disclosures
 import export
 import flags
 import friendly_errors
+import glossary
 import fund_holdings
 import hosting
 import income
@@ -55,11 +56,12 @@ import perf
 import pgcompat
 import plans
 import prefs
+import price_report
 import rate_limits
 import whats_new
 import route
 import watchlist
-from allocation import CONCENTRATION_PCT, allocate
+from allocation import CONCENTRATION_PCT, allocate, summary_words
 from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
                        temp_upload, upload_label)
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
@@ -123,6 +125,19 @@ def learn_more(topic):
     line = learn.learn_more_md(topic)
     if line:
         st.caption(line)
+
+
+def what_this_means(*words, key, label="What does this mean?"):
+    """A small "What does this mean?" popover with the glossary's meaning of
+    a few words the page uses (glossary.py - owner-written, no AI). Nothing
+    while the `glossary` flag is off, or when none of the words is in it."""
+    if not flags.on("glossary"):
+        return
+    rows = glossary.pick(words)
+    if not rows:
+        return
+    with st.popover(label, icon=":material/menu_book:", type="tertiary", key=key):
+        st.markdown("\n\n".join(f"**{t}** - {m}" for t, m in rows))   # our own text
 
 # The brand: Northwend, and the AI guide (the AI Assistant) carries the same
 # name - "Ask Northwend". Was Waypoint / Sage until October 2026. Pages keep
@@ -605,6 +620,8 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   text-overflow: ellipsis; }
 .pt-wl-quote { text-align: right; font-size: .9rem; line-height: 1.3;
   font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* when a watchlist price is from (price_report.as_of) */
+.pt-wl-asof { font-size: .75rem; opacity: .7; }
 /* a watchlist row stays on one line; a long name shortens with "..." instead */
 [class*="st-key-wlrow_"] { flex-wrap: nowrap !important; }
 [class*="st-key-wlrow_"] > div { min-width: 0; }
@@ -2351,6 +2368,9 @@ _view("future_notes")
 # settings on Account (checkin.py)
 _view("checkin")
 
+# Home: this week's preparedness drill and the readiness map, flag drills (drills.py)
+_view("drills")
+
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)
 _view("fees")
 
@@ -2940,7 +2960,8 @@ def _live_status():
                else _fmt_when(as_of))
         prices = f"<span class='pt-live' aria-hidden='true'>●</span> Live · prices updated {ago}"
     elif as_of:
-        prices = f"Market closed · prices as of {_fmt_when(as_of)}"
+        # "Oct 3 close" (price_report.as_of: the market's own clock, ET)
+        prices = f"Market closed · prices as of {price_report.as_of(as_of)['text']}"
     else:
         prices = "No live prices yet"
     if n_live < len(positions):

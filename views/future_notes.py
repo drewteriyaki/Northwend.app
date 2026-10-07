@@ -12,6 +12,7 @@
 # ruff: noqa: F821
 
 import future_notes
+import sealed_envelope
 
 
 def _notes_mine():
@@ -225,6 +226,61 @@ def render_storm_drill_field():
         st.markdown(f":material/edit_note: **{future_notes.DRILL_QUESTION}**")
         st.caption(DRILL_LINE + future_notes.PRIVATE_LINE + " " + DRILL_COUNT_LINE)
         _render_note_body(future_notes.DRILL, note)
+        if note and not st.session_state.get("fn_edit_drill") \
+                and not st.session_state.get("fn_del_drill"):
+            render_sealed_envelope(note)
+
+
+# ---- the Sealed Envelope (flag sealed_envelope, sealed_envelope.py): the
+# drill answer as a one-page PDF to seal - their words, their day, no figures #
+
+def _envelope_on():
+    """Only beside the person's own drill answer (so storm_drill on too)."""
+    return _drill_on() and flags.on("sealed_envelope")
+
+
+def _envelope_name():
+    """The name they asked to be called - never the login (MY_NAME falls
+    back to it), so None without one."""
+    return None if MY_NAME == st.session_state.get("username") else MY_NAME
+
+
+def _envelope_made():
+    """Remember only the day (prefs, the login's own): the PDF isn't kept."""
+    if _notes_mine():
+        _save_login_pref(sealed_envelope.PREF_MADE, date.today().isoformat())
+
+
+def _envelope_toggle():
+    st.session_state["se_open"] = not st.session_state.get("se_open")
+
+
+def render_sealed_envelope(note):
+    """Under the drill answer: "Make it a sealed envelope" - the PDF is made
+    on the download click (a callable), from the words and the day only."""
+    if not _envelope_on():
+        return
+    st.button(sealed_envelope.OFFER, key="se_offer", type="tertiary", icon=":material/mail:",
+              on_click=_envelope_toggle)
+    if not st.session_state.get("se_open"):
+        return
+    st.caption(sealed_envelope.OFFER_LINE)
+    name = _envelope_name()
+    with_name = bool(name) and st.checkbox("Put my name on it", key="se_name", value=False)
+    body, day = sealed_envelope.words(note), future_notes.written_on(note)
+    shown = name if with_name else None
+    st.download_button("Download the envelope (PDF)",
+                       lambda: sealed_envelope.render_pdf(body, day, name=shown),
+                       file_name=sealed_envelope.file_name(), mime="application/pdf",
+                       key="se_pdf", icon=":material/download:", on_click=_envelope_made)
+
+
+def _envelope_for(note):
+    """Whether they made an envelope since these words were written (an
+    envelope from older words isn't this answer's)."""
+    made = str(_read_prefs().get(sealed_envelope.PREF_MADE) or "")
+    return (flags.on("sealed_envelope") and bool(made)
+            and made[:10] >= future_notes.written_on(note))
 
 
 def render_storm_drill():
@@ -234,8 +290,10 @@ def render_storm_drill():
         return
     note = _fn_read(future_notes.DRILL)
     if note:
+        lead = ("<div>" + html.escape(sealed_envelope.STORM_LINE) + "</div>"
+                if _envelope_for(note) else "")
         st.html("<div class='pt-fnote-storm'><div class='pt-eyebrow' style='margin:0'>"
-                "Your storm drill</div><div>"
+                "Your storm drill</div>" + lead + "<div>"
                 + html.escape(future_notes.drill_quote(note, _fmt_date)) + "</div></div>")
     else:
         st.caption(f"You can write down what you'd do in a drop like this on "

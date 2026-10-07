@@ -46,6 +46,7 @@ ACCOUNT_TABLES = {
     "intro_requests": ("person_id", "advisor_id"),
     # Explain it to someone's share links (explain_share.py): the owner's own
     "share_links": ("user_id",),
+    "price_reports": ("user_id",),   # "Price look wrong?" notes (price_report.py)
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)

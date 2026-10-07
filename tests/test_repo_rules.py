@@ -89,7 +89,7 @@ class LiveBillingKeyTests(unittest.TestCase):
 # for its error type), proposals (auth). Moving one of them onto the list is
 # welcome; taking a module off is not.
 CALCULATION_MODULES = (
-    "allocation", "alerts", "asset_classes", "cash_check", "changes", "checkin",
+    "allocation", "alerts", "asset_classes", "cash_check", "changes", "checkin", "drills",
     "employer_match", "feature_counts", "fees", "income", "lost_found", "menu_decoder",
     "metrics",
     "next_deposit", "seasons",

@@ -24,6 +24,7 @@ import flags
 import hosting
 import invite_codes
 import licence_check
+import price_report
 import rate_limits
 import two_step
 
@@ -768,6 +769,14 @@ def _render_admin():
     else:
         st.caption("No AI use yet this month.")
 
+    # ---- "Price look wrong?" notes: counts only (price_report.py) ---------- #
+    if flags.on("price_report"):
+        c = connect(DB)
+        try:
+            _render_price_reports(c)
+        finally:
+            c.close()
+
     # ---- feature tests: totals only (feature_counts.py) -------------------- #
     c = connect(DB)
     try:
@@ -775,6 +784,8 @@ def _render_admin():
         if flags.on("storm_drill"):
             _render_drill_count(c)
         _render_decoder_counts(c)
+        if flags.on("drills"):
+            _render_drill_returns(c)
     finally:
         c.close()
 
@@ -834,6 +845,24 @@ def _render_ai_breaks(rows):
                "calm line instead. Counts only - never the text, never who asked.")
 
 
+def _render_price_reports(c):
+    """Prices people said look wrong (price_report.admin_counts): by ticker
+    and reason, how many and the latest price time - never who."""
+    rows = price_report.admin_counts(c)
+    st.subheader("Price notes", anchor=False)
+    if not rows:
+        st.caption("No one has said a price looks wrong.")
+        return
+    st.dataframe(pd.DataFrame([{
+        "Ticker": r["ticker"], "Reason": price_report.REASONS.get(r["reason"], r["reason"]),
+        "Notes": r["n"],
+        "Latest price time": _admin_when(r["latest_as_of"]) if r["latest_as_of"] else "",
+        "Latest note": _admin_when(r["latest"])} for r in rows]),
+        hide_index=True, width="stretch")
+    st.caption("Counts only - never who sent a note. Worth a look at the ticker's price "
+               "source when one shows up more than once.")
+
+
 def _render_drill_count(c):
     """The Storm Drill (R4): how many people wrote down what they'd do - a
     total, never the words. Selling on a drop isn't measured yet."""
@@ -872,6 +901,20 @@ def _render_feature_tests(c):
         lines.append(f"- Walked again within {days} days: {w['second_walks']} of "
                      f"{w['window_closed']} ({share:.0f}%)")
     st.markdown("\n".join(lines))
+
+
+def _render_drill_returns(c):
+    """R12 in Feature tests: unprompted return for a third preparedness drill,
+    in totals only (feature_counts.drill_returns) - never who, never a tap."""
+    st.markdown("**Preparedness drills** - came back for a third drill")
+    d = feature_counts.drill_returns(c)
+    if d is None:
+        st.caption(f"Fewer than {feature_counts.MIN_GROUP} people have tried a drill so far - "
+                   "nothing to show yet.")
+        return
+    share = d["third"] / d["started"] * 100 if d["started"] else 0.0
+    st.markdown(f"- People who rehearsed a first drill: {d['started']}\n"
+                f"- Of them, rehearsed a third: {d['third']} ({share:.0f}%)")
 
 
 def _render_decoder_counts(c):

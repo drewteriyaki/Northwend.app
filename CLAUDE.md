@@ -56,8 +56,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   upload (rows with `origin` 'imported'; worked-out rows have NULL origin).
 - Prices: `live_prices.py` (in-app, every minute while open), `update_prices.py`
   (Finnhub; the 15-min job), `sync_history.py` (Yahoo daily/intraday bars, dividends,
-  fundamentals; nightly job).
-- Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`,
+  fundamentals; nightly job). `price_report.py`: a stored price's time in words on the
+  market's clock (`as_of`: "3:45 pm ET", "Oct 3 close"; not flagged, reads only
+  stored times) and "Price look wrong?" on ticker detail (flag `price_report`: fixed
+  reasons, `price_reports` table, counts-only "Price notes" in Admin).
+- Numbers: `perf.py` (value over time, bar stats), `income.py`, `allocation.py`
+  (`summary_words`: Home's plain-words line, flag `plain_summary`),
   `asset_classes.py`, `metrics.py`, `alerts.py`, `changes.py` (buys/sells from
   snapshot differences), `plans.py`, `overview.py` (advisor clients), `fees.py` +
   `views/fees.py` (Fee check; `security_info.expense_ratio` is a fraction - Yahoo's
@@ -84,7 +88,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `brokerages.py` (Choose a brokerage: names and links only, alphabetical, never a fee
   or a ranking), `proposals.py` (advisor proposals, `views/proposals.py`),
   `gear.py` + `views/kit.py` (milestones and gear: learning and habits only;
-  storms.py, the storm note on Home, is drawn there too),
+  storms.py, the storm note on Home, is drawn there too; its words are fixed
+  templates in `storms.narrate` / `WINDOW_NOTE`),
   `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client
   progress reports, `views/reports.py`), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
   sending - use it for local runs), `manage_users.py`
@@ -136,7 +141,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   them on the real model. Anything worked out from a person's answers names
   kinds of funds, never tickers (named examples only in general reads).
 - Text/other: `disclosures.py` (draft legal text, placeholders), `learn.py`,
-  `client_plan.py` (PDF), `news.py`, `ui_enhancements.js`, `codefresh.py`
+  `glossary.py` (one glossary for the app and Ask Northwend; flag `glossary`, shown by
+  dashboard `what_this_means(...)`), `client_plan.py` (PDF; questions by rules, no AI), `news.py`, `ui_enhancements.js`, `codefresh.py`
   (reloads changed modules on deploy), `friendly_errors.py` (the "something went wrong"
   message; it also hands the error to `error_alerts.py`, R1: type and place only, no
   user_id, emailed to ALERT_EMAIL at most once an hour per kind, hosted copies only -
@@ -161,7 +167,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   and signing nobody in; table `share_links` keeps only the token's SHA-256; 7/30 days,
   3 at most, revoke deletes; the login's own account only, never client mode or an admin;
   the view isn't flag-owned so a link shows "no longer active" while the flag is off), `checkin.py` + `views/checkin.py` (the monthly check-in;
-  `checkin_email.py` its no-figures reminder), `future_notes.py` (notes to future you).
+  `checkin_email.py` its no-figures reminder), `future_notes.py` (notes to future you; `sealed_envelope.py`, flag
+  `sealed_envelope`, needs `storm_drill`: the drill answer as a one-page PDF - their
+  words and day only, never a figure; made on click, never saved, prefs keep the day).
+  `drills.py` + `views/drills.py` (preparedness drills, R12, flag `drills`: one card on
+  Home under Your kit, one drill a week, taps are things to weigh - never trades, never
+  graded; the readiness map; prefs `drills` keys only; the whistle in `gear.py`; never
+  in a client's account, the client record or the AI; wording test in `tests/test_drills.py`).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature

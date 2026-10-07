@@ -682,3 +682,13 @@ CREATE TABLE IF NOT EXISTS share_links (
     last_opened_on  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_share_links_user ON share_links (user_id, expires_at);
+CREATE TABLE IF NOT EXISTS price_reports (
+    id           SERIAL  PRIMARY KEY,
+    user_id      INTEGER NOT NULL,
+    ticker       TEXT    NOT NULL,
+    reason       TEXT    NOT NULL,
+    shown_price  DOUBLE PRECISION,
+    price_as_of  TEXT,
+    created_at   TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_price_reports_user ON price_reports (user_id, created_at);

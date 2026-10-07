@@ -94,3 +94,52 @@ def allocate(positions, cash_by_account: dict | None = None, splits: dict | None
         "by_account": _rows(by_acct, portfolio_value),
         "concentration": concentration,
     }
+
+
+# ---- the plain-words read on Home (flag plain_summary) ----------------------- #
+# docs/AI_PLAN.md section 9, row 1 - rules, not AI: fixed templates over the
+# mix, the same words for the same numbers, reviewed once. Descriptive only:
+# shares, counts and the largest holding's share - never a judgement ("too
+# much", "well diversified"), never what to do. Northwend has no data on
+# where a fund's companies are based, so there is no US / international
+# part (never an invented figure).
+CLASS_WORDS = {"Stocks": "stocks", "Bonds": "bonds", "Cash": "cash", "Other": "other holdings"}
+
+
+def _share(pct: float) -> str:
+    return "under 1%" if 0 < pct < 0.5 else f"{pct:.0f}%"
+
+
+def _join(parts: list[str]) -> str:
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def summary_words(alloc: dict, positions=()) -> str:
+    """The mix in plain words, from allocate()'s result and the same
+    positions: 'About 70% in stocks, 25% in bonds and 5% in cash. 12
+    holdings across 2 accounts; the largest, VTI, is 31% of the total.'
+    Empty when there's nothing to read."""
+    rows = [r for r in alloc.get("by_asset_class") or [] if r.get("pct")]
+    port = float(alloc.get("portfolio_value") or 0.0)
+    if not rows or port <= 0:
+        return ""
+    if len(rows) == 1:
+        out = [f"Everything is in {CLASS_WORDS.get(rows[0]['label'], 'other holdings')}."]
+    else:
+        out = ["About " + _join([f"{_share(r['pct'])} in "
+                                 f"{CLASS_WORDS.get(r['label'], 'other holdings')}"
+                                 for r in rows]) + "."]
+    by_symbol: dict[str, float] = {}
+    for p in positions or ():
+        if p.get("symbol"):
+            by_symbol[p["symbol"]] = by_symbol.get(p["symbol"], 0.0) + _mv(p)
+    if by_symbol:
+        n = len(by_symbol)
+        count = f"{n} holding{'' if n == 1 else 's'}"
+        accounts = len(alloc.get("by_account") or [])
+        if accounts > 1:
+            count += f" across {accounts} accounts"
+        sym, top = max(by_symbol.items(), key=lambda kv: (kv[1], kv[0]))
+        out.append(count + (f"; the largest, {sym}, is {_share(top / port * 100)} of the "
+                            "total." if n > 1 and top > 0 else "."))
+    return " ".join(out)

@@ -18,8 +18,9 @@ pages can't drift apart:
 - stress.SCENARIOS and storms.PAST_STORMS: past drops, as history;
 - disclosures.py and docs/PRINCIPLES.md: what Northwend is and isn't;
 - route.py: the route's two stages and their waypoints;
-- a short "how Northwend works" and a glossary (GLOSSARY, a DRAFT for the
-  owner to review - general definitions, no figures for anyone).
+- a short "how Northwend works" and the glossary (glossary.TERMS, the same
+  text the app shows behind "What does this mean?"; a DRAFT for the owner to
+  review - general definitions, no figures for anyone).
 
 Size: the whole library stays under BUDGET_CHARS (about 8,000 tokens - past
 that, AI_PLAN 5.2 says keep only an index here and add a read-only lookup
@@ -32,6 +33,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 import disclosures
+import glossary
 import learn
 import route
 import starter_funds
@@ -90,111 +92,10 @@ WALK = ("The Monthly Walk", "a few minutes on Home once a month: update holdings
                             "mix against its target, one short read, then what the person's "
                             "own rule (target mix and band) says this month, by asset class.")
 
-# A DRAFT glossary for the owner to review (AI_PLAN 5.1: "owner-written, about
-# 60 terms"). General definitions only - never a figure for anyone, never a
-# named fund.
-GLOSSARY = (
-    ("Asset class", "a broad kind of investment. Northwend uses four: stocks, bonds, cash "
-                    "and other (real estate, commodities and the rest)."),
-    ("Asset allocation (mix)", "how money is split across asset classes, as percentages."),
-    ("Stock (share, equity)", "a small piece of ownership in a company. Its price moves with "
-                              "how investors value the company."),
-    ("Bond", "a loan to a government or company that pays interest and returns the amount "
-             "lent at the end. Usually moves less than stocks."),
-    ("Cash", "money in a bank, a brokerage's sweep account or a money market fund. Steady "
-             "in value; what it earns changes with interest rates."),
-    ("Money market fund", "a fund holding very short-term loans; it aims to keep a steady "
-                          "price and pays interest. Not bank-insured."),
-    ("Sweep account", "where a brokerage parks uninvested cash by default. What it pays "
-                      "varies a lot between brokerages."),
-    ("High-yield savings account", "a bank savings account paying a higher rate than most; "
-                                   "usually insured up to legal limits."),
-    ("Certificate of deposit (CD)", "a bank deposit locked for a set time at a set rate."),
-    ("Treasury bill", "a short-term loan to the US government, a year or less."),
-    ("Fund", "a pool of many people's money invested in many holdings at once."),
-    ("Mutual fund", "a fund bought from the fund company at its end-of-day price."),
-    ("Exchange-traded fund (ETF)", "a fund that trades on an exchange like a stock, at "
-                                   "prices that move during the day."),
-    ("Index fund", "a fund that follows a market index - a set list of holdings - instead of "
-                   "having managers pick. Usually low-cost and broad."),
-    ("Index", "a list of holdings that stands for a market, like the S&P 500 (about 500 "
-              "large US companies) or a total-market index."),
-    ("Actively managed fund", "a fund whose managers choose what to hold, trying to beat an "
-                              "index. Usually costs more than an index fund."),
-    ("Target-date fund", "one fund holding stocks and bonds that slowly shifts toward bonds "
-                         "as its target year (often a retirement year) gets closer - the "
-                         "glide path."),
-    ("Balanced fund", "one fund holding a fixed mix of stocks and bonds."),
-    ("Expense ratio", "a fund's yearly fee, as a percentage of what you hold, taken out of the "
-                      "fund's value a little each day - there's no bill to see."),
-    ("Diversification", "spreading money across many holdings and kinds, so no single one can "
-                        "sink the whole."),
-    ("Concentration", "a large share in one holding. Northwend points out any single position "
-                      "above a set share of the portfolio, as a fact."),
-    ("Overlap", "two funds holding many of the same companies, so the money is less spread "
-                "out than the number of funds suggests."),
-    ("Rebalancing", "moving a mix back toward its target - by where new money goes, or by "
-                    "selling some of what grew."),
-    ("Drift", "how far a mix has moved from its target as prices change, in points."),
-    ("Band", "the number of points either way a person lets their mix drift before they look "
-             "at it - their own rule."),
-    ("Large, mid and small cap", "companies grouped by their total market value."),
-    ("Growth and value", "two styles: companies expected to grow fast, and companies priced "
-                         "low for what they earn."),
-    ("International stocks", "companies based outside the US. Emerging markets are the "
-                             "faster-changing economies among them."),
-    ("Home bias", "the habit of holding mostly companies from one's own country."),
-    ("Dividend", "a share of a company's profits paid to its shareholders."),
-    ("Dividend yield", "a year's dividends as a percentage of today's price."),
-    ("Interest rate risk", "bond prices fall when interest rates rise, and longer bonds move "
-                           "more - measured by duration."),
-    ("Inflation", "prices rising over time, so money buys less."),
-    ("Real return", "a return after inflation; the nominal return is before it."),
-    ("Total return", "price change plus dividends or interest."),
-    ("Compound growth", "growth on earlier growth: returns that stay invested earn returns of "
-                        "their own."),
-    ("Volatility", "how much and how fast prices move up and down."),
-    ("Bear market", "a fall of 20% or more from a high; a correction is 10% or more."),
-    ("Recovery", "the time it takes to get back to an earlier high after a drop."),
-    ("Sequence risk", "the risk that a big drop comes just before or as withdrawals begin, "
-                      "when there's less time to recover."),
-    ("Risk tolerance", "how comfortable someone is with ups and downs, in feeling and in money."),
-    ("Time horizon", "how long until the money is needed."),
-    ("Dollar-cost averaging", "investing a set amount on a schedule, whatever prices do."),
-    ("Emergency fund", "savings kept for surprises, often several months of expenses."),
-    ("Employer match", "money an employer adds to a workplace retirement plan when the person "
-                       "puts some in, often up to a share of pay."),
-    ("Vesting", "when employer money in a plan becomes fully the person's own."),
-    ("401(k) and 403(b)", "workplace retirement plans: money goes in from pay, often before "
-                          "tax, with yearly limits."),
-    ("Traditional IRA", "an individual retirement account; contributions may lower taxes now, "
-                        "and withdrawals are taxed later."),
-    ("Roth IRA", "an individual retirement account funded with taxed money; qualified "
-                 "withdrawals later are tax-free. Income limits apply."),
-    ("Roth 401(k)", "the Roth version of a workplace plan."),
-    ("Health savings account (HSA)", "a tax-advantaged account for health costs, with a "
-                                     "high-deductible health plan."),
-    ("Taxable brokerage account", "a regular investing account with no special tax treatment "
-                                  "and no withdrawal rules."),
-    ("Capital gain", "the rise in value of something sold; taxed differently when held over a "
-                     "year."),
-    ("Cost basis", "what was paid for an investment, used to work out a gain or loss."),
-    ("Required minimum distribution", "the yearly amount that must come out of many "
-                                      "retirement accounts from a set age."),
-    ("Withdrawal rate", "the share of a portfolio taken out each year."),
-    ("Brokerage", "a company that holds investments and carries out buys and sells."),
-    ("Fractional shares", "buying part of a share, so any amount can be invested."),
-    ("Market and limit orders", "a market order buys or sells at the current price; a limit "
-                                "order only at a set price or better."),
-    ("Hypothetical projection", "an illustration of the future at an assumed steady rate. "
-                                "Real returns vary year to year; it is not a prediction."),
-    ("Investment adviser", "a firm (or its representative) registered to give investment "
-                           "advice for a fee; many act as fiduciaries, bound to put the "
-                           "client's interest first."),
-    ("Broker-dealer", "a firm that buys and sells investments for customers."),
-    ("Financial planner", "someone who helps with a whole money picture; the title alone "
-                          "isn't regulated, credentials vary."),
-)
+# The glossary: glossary.py (one text for the app and the guide; a DRAFT for
+# the owner to review). General definitions only - never a figure for anyone,
+# never a named fund.
+GLOSSARY = glossary.TERMS
 
 
 def _pct(v: float) -> str:

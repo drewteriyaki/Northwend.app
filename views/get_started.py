@@ -548,6 +548,9 @@ def _step_basics(monthly, years):
         # here, not in anything worked out from their answers
         with st.expander(starter_funds.TITLE, icon=":material/category:"):
             starter_funds.render(db=DB, user_id=USER_ID, key="gs_kinds")
+    if flags.on("glossary"):   # every word, A to Z (glossary.py; also beside the pages' words)
+        with st.expander("Glossary: words you'll see", icon=":material/menu_book:"):
+            st.markdown("\n\n".join(f"**{t}** - {m}" for t, m in glossary.everything()))
     render_fee_step()   # your own funds' fees, once there are holdings (views/fees.py)
 
 
@@ -850,6 +853,8 @@ def _step_open_account(has_holdings, items, monthly):
                 "usually need your ID and your bank details, and you'll pick the kind of "
                 "account - a regular brokerage account, a Roth IRA, or both.")
     learn_more("account_types")
+    what_this_means("Brokerage account", "Roth IRA", "Traditional IRA", "401(k)", "HSA",
+                    "Brokerage", key="gloss_accounts")
     if has_holdings:
         st.caption(":material/science: You're exploring with the example portfolio. When you "
                    "bring in your own, it replaces the example.")

@@ -8,7 +8,10 @@ and figures - drift beyond their own band, a fund's fee above a level, the
 cash share, the goal's projection, open profile answers, the emergency fund
 - and are always questions, never instructions (docs/AI_PLAN.md section 9,
 item 12, and step 15; the plan's old AI "Suggested next steps" was the
-closest thing to a personal conclusion, LEGAL_GATES.md G4).
+closest thing to a personal conclusion, LEGAL_GATES.md G4). The answers
+about getting ready come through learn.readiness (the same check Learn
+shows), and the plan ends with a fixed bank of questions people often ask a
+licensed professional (PRO_QUESTIONS), the same for everyone.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import advising
 import advisor
 import asset_classes
 import fees
+import learn
 import plans
 import alerts
 import metrics as M
@@ -44,8 +48,25 @@ MAX_QUESTIONS = 10
 # asked of everyone, after the ones from their own figures
 GENERAL_QUESTIONS = (
     "How much of a drop - 20%, 30%, more - could I sit through without changing my plan?",
-    "If I ever work with a licensed professional, how are they paid, and do they have to act "
-    "in my best interest?",
+    "Which of these would I like to understand better before changing anything?",
+)
+# A fixed bank, the same for everyone and printed in its own section
+# (AI_PLAN section 9, row 12): what people commonly ask a licensed
+# professional - if they ever choose to work with one. Never a suggestion
+# that they need one, and never which kind (ai_policy rule no_advisor_picks).
+PRO_TITLE = "Questions people often ask a licensed professional"
+PRO_TITLE_CLIENT = "Questions people often ask their advisor"
+PRO_NOTE = ("The same list for everyone - for anyone who ever chooses to work with a "
+            "professional.")
+PRO_QUESTIONS = (
+    "How are you paid: a flat fee, a share of what you manage, commissions, or a mix?",
+    "Are you a fiduciary - required to put my interests first - for all of the advice you "
+    "give me, all of the time?",
+    "What licences or registrations do you hold, and where can I look them up (FINRA "
+    "BrokerCheck, the SEC's adviser search)?",
+    "What would you want to know about my situation before giving any advice?",
+    "What do all the costs come to in a year, in dollars - your fee and the funds' own fees?",
+    "How often would we look at my plan again, and what would make you change it?",
 )
 
 
@@ -137,18 +158,28 @@ def questions(facts: dict) -> list[str]:
         names = ", ".join(advisor.PROFILE_FIELDS[f].lower() for f in missing[:3])
         out.append(f"Some questions about you are still open ({names}"
                    + (" and more" if len(missing) > 3 else "") + "). What are your answers?")
-    ef = p.get("emergency_fund")
-    if ef in ("None", "Under 3 months"):
-        out.append(f"You answered \"{ef}\" for emergency savings. How much would you want set "
-                   "aside for surprises, and where would it sit?")
-    if p.get("high_interest_debt") in ("Some", "A lot"):
+    # the readiness check (learn.readiness, the same one Learn shows): a
+    # question for each item that isn't in place yet. Unanswered items are
+    # the open answers above.
+    ready = {i["key"]: i["state"] for i in learn.readiness(p)}
+
+    def not_in_place(key):
+        return ready.get(key) in (learn.CAUTION, learn.STOP)
+
+    if not_in_place("emergency_fund"):
+        out.append(f"You answered \"{p.get('emergency_fund')}\" for emergency savings. How much "
+                   "would you want set aside for surprises, and where would it sit?")
+    if not_in_place("high_interest_debt"):
         out.append("How does the interest on your high-interest debt compare with what "
                    "investing has earned in the past?")
-    if p.get("employer_match") == "Yes, but I'm not getting all of it":
-        out.append("What would it take to get all of your employer's match, and what are its "
+    if not_in_place("employer_match"):
+        out.append("Does your employer match what you put into a retirement plan, and how?"
+                   if p.get("employer_match") == "Not sure" else
+                   "What would it take to get all of your employer's match, and what are its "
                    "vesting rules?")
-    elif p.get("employer_match") == "Not sure":
-        out.append("Does your employer match what you put into a retirement plan, and how?")
+    if not_in_place("income_stability"):
+        out.append("Your income varies a lot. How many months of expenses would you want set "
+                   "aside for the leaner months?")
 
     # the target mix: their own rule
     plan = facts.get("plan") or {}
@@ -372,6 +403,13 @@ def render_pdf(facts: dict, asks: list[str] | None = None, *, account_name: str,
         para(f"{i}. {ask}")
     pdf.set_text_color(90)
     para(QUESTIONS_NOTE)
+    pdf.set_text_color(0)
+
+    heading(PRO_TITLE_CLIENT if advisor_name else PRO_TITLE)
+    for ask in PRO_QUESTIONS:
+        para(f"- {ask}")
+    pdf.set_text_color(90)
+    para(PRO_NOTE)
     pdf.set_text_color(0)
 
     return bytes(pdf.output())

@@ -67,6 +67,8 @@ OWN = [
     # ones sent to you (without the sender's account id: LEFT_OUT_COLUMNS)
     ("your_introductions", "intro_requests", "person_id", ""),
     ("introductions_to_you", "intro_requests", "advisor_id", ""),
+    # each "Price look wrong?" note they sent (price_report.py)
+    ("price_reports", "price_reports", "user_id", ""),
     # a client's sharing with an advisor, with the words they were shown
     # (consent.py), and each time an advisor opened their account (access_log.py)
     ("sharing_with_an_advisor", "consent_records", "client_id", ""),

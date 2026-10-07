@@ -182,7 +182,8 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # 6 = intro_requests (introductions from Find a guide, intros.py).
 # 7 = advisor_profiles.one_time_cost (a one-time review on a listing, ADR 0005).
 # 8 = share_links (Explain it to someone, explain_share.py).
-SCHEMA_VERSION = 8
+# 9 = price_reports ("Price look wrong?", price_report.py).
+SCHEMA_VERSION = 9
 
 
 def _ensure_schema(conn) -> None:

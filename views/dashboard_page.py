@@ -159,6 +159,8 @@ if PAGE == "Dashboard":
         _render_route()
         render_checkin_card()                 # the Monthly Walk (views/checkin.py)
         render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
+        if flags.on("drills"):
+            render_drill_card()               # this week's drill (views/drills.py)
         # fee check, fund overlap and cash check in one card (views/cash_check.py)
         render_money_checks()
         render_account_map_nudge()            # 2+ accounts, no map yet (views/account_map.py)
@@ -397,6 +399,11 @@ if PAGE == "Dashboard":
                 save_alloc_targets(_new_targets)
             if _new_thresh != load_drift_threshold():
                 save_drift_threshold(_new_thresh)
+    if flags.on("plain_summary") and not hide_amounts:
+        # the mix in plain words: fixed templates, no AI (allocation.py)
+        _plain = summary_words(alloc, positions)
+        if _plain:
+            st.markdown(_plain)
     st.segmented_control("Group by", ["Asset class", "Broker type"], default="Asset class",
                          key="alloc_group", label_visibility="collapsed",
                          help="Asset class is what holdings hold - a bond ETF counts as bonds. "
@@ -422,6 +429,8 @@ if PAGE == "Dashboard":
     else:
         st.caption(f"No single position exceeds {CONCENTRATION_PCT:.0f}% of portfolio value.")
     learn_more("diversification")
+    what_this_means("Asset class", "Asset allocation", "Concentration", "Diversification",
+                    "Drift", "Band", "Rebalancing", key="gloss_home")
 
     _targets = load_alloc_targets()
     if _targets:
@@ -637,6 +646,14 @@ if PAGE == "Dashboard":
             shown[col] = [fmt(v) if fmt else ("—" if _blank(v) else str(v)) for v in df[col]]
             if fmt:
                 as_text[col] = st.column_config.TextColumn(alignment="right")
+    # "Price as of" in words ("3:45 pm ET", "Oct 3 close" - price_report.as_of);
+    # the CSV download keeps the stored time
+    _asof_col = M.BY_KEY["price_at"].label
+    if _asof_col in shown.columns:
+        _asofs = [price_report.as_of(M.value("price_at", ctx), price_report.kind(
+            ctx["pos"]["symbol"], ctx["pos"].get("asset_type"),
+            (ctx.get("info") or {}).get("quote_type"))) for ctx in contexts]
+        shown[_asof_col] = [a["text"] if a else "—" for a in _asofs]
     styler = shown.style.format(fmt_map, na_rep="—")
     if color_cols:   # colored by the numbers, not the text shown
         styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)

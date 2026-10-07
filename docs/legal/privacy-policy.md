@@ -53,6 +53,9 @@ account, contact us and we will delete it.
   holdings, how far your mix was from its target (in points), how your mix moved
   over the month before (in percent), whether a sale was recorded and whether you
   wrote a note - never amounts, and only you see it.
+- Where the sealed envelope is offered, if you make one from your storm drill
+  answer: the day you made it. The envelope itself (a PDF of your own words) is
+  made when you ask and never saved.
 - If you make one, your account map: for each account, its kind, who to call,
   whether a beneficiary is named, where the paperwork is, and your notes for
   family (accounts you add by hand keep at most their last 3 digits).
@@ -67,6 +70,13 @@ account, contact us and we will delete it.
 - Where the four seasons are offered: which of the year's seasonal notes (January,
   April, open enrollment, December) you've opened or put away, by season and
   year only. Only you see it.
+- Where "Price look wrong?" is offered, if you send a note about a price: the
+  ticker, the reason you picked from the list, the price you saw and its time,
+  and when you sent it - kept with your account until you delete it. Northwend's
+  admins see only how many notes each ticker has, never who sent them.
+- Where preparedness drills are offered, the ones you've rehearsed: which
+  situations, which of the offered choices you tapped, the week and how many
+  times - nothing you type, and never an amount. Only you see what you tapped.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -127,7 +137,9 @@ mode work without any.
   wrote down on the Stress test what they'd do in a drop (never what they
   wrote), or what share of the funds pasted into the 401(k) menu decoder were
   recognised (for that, your settings keep three numbers - how many lists,
-  funds and recognised funds - never the list or a fund's name). The counts are
+  funds and recognised funds - never the list or a fund's name), or how many
+  people who tried a preparedness drill came back for a third (never what
+  anyone tapped). The counts are
   worked out by the app's code from what's already stored; nobody looks at one
   person's record to make them. A count is never about one person, is shown only
   for groups of 20 or more (and only on the admin page), and is never shared,
@@ -163,7 +175,7 @@ It is shared only as needed to run the service, with:
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
-list and your Trail Forks, which only you see (the account map is never emailed, and its PDF is only
+list, your Trail Forks and your preparedness drills, which only you see (the account map is never emailed, and its PDF is only
 downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
