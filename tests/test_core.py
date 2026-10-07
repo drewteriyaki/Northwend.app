@@ -4496,6 +4496,29 @@ class HostingTests(unittest.TestCase):
                                            header="CF-Connecting-IP"), "5.5.5.5")
         self.assertEqual(hosting.client_ip({}, "10.0.0.1", header="x-forwarded-for"), "10.0.0.1")
 
+    def test_emailed_links_use_app_url_never_the_visitors_address(self):
+        # st.context.url and the Host header come from the visitor: a crafted
+        # visit asking a reset for someone else's email must not get a link to
+        # its own site into that email
+        import hosting
+        crafted = "https://evil.example/"
+        with unittest.mock.patch.dict(os.environ, {"APP_URL": "https://go.northwend.app"}):
+            self.assertEqual(hosting.app_address(crafted, {"host": "evil.example"}),
+                             "https://go.northwend.app/")
+            self.assertEqual(hosting.app_address(None, {}), "https://go.northwend.app/")
+        with unittest.mock.patch.dict(os.environ, {"APP_URL": ""}):
+            # a local run without APP_URL: what the browser reports, as before
+            self.assertEqual(hosting.app_address("http://localhost:8501/?x=1", {}),
+                             "http://localhost:8501/")
+            self.assertEqual(hosting.app_address("", {"host": "localhost:8501"}),
+                             "http://localhost:8501/")
+            self.assertEqual(hosting.app_address("", {}), "")
+        with open(os.path.join(REPO, "dashboard.py"), encoding="utf-8") as fh:
+            dash = fh.read()
+        body = dash[dash.index("def _app_address"):dash.index("def _send_confirmation")]
+        self.assertIn("hosting.app_address(", body)
+        self.assertNotIn("context.url or", body)
+
     def test_moved_link_keeps_the_query(self):
         import hosting
         self.assertEqual(hosting.moved_link("https://go.northwend.app/", {}),

@@ -44,7 +44,7 @@ services:
       # (hosting.py); sign-up and email limits count per address
       - key: CLIENT_IP_HEADER
         value: cf-connecting-ip
-      # the app's address, for links in emails sent outside the app
+      # the app's address, for links in every email (hosting.app_address)
       - key: APP_URL
         value: https://go.northwend.app/
       # the live copy sends email (staging and local runs keep 1)

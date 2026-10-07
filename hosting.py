@@ -50,6 +50,30 @@ def client_ip(headers, fallback: str | None, header: str | None = None) -> str |
     return value or fallback
 
 
+def app_address(url: str | None, headers) -> str:
+    """This app's address without its ?query, for links sent to people
+    (reset, confirm, setup links). APP_URL when it's set: the address the
+    browser reports (st.context.url) and the Host header both come from the
+    visitor, so a crafted visit could otherwise have a reset link for
+    someone else's account emailed to them pointing at another site.
+    Without APP_URL (local runs), what the browser reports, as before."""
+    configured = _setting("APP_URL").split("?")[0].split("#")[0]
+    if configured:
+        return configured if configured.endswith("/") else configured + "/"
+    base = (url or "").split("?")[0].split("#")[0]
+    if base:
+        return base
+    try:
+        host = headers.get("host") or ""   # e.g. behind a proxy, or older Streamlit
+    except AttributeError:
+        host = ""
+    if not host:
+        return ""
+    local = host.startswith(("localhost", "127.0.0.1"))
+    proto = headers.get("x-forwarded-proto") or ("http" if local else "https")
+    return f"{proto}://{host}/"
+
+
 def moved_to() -> str:
     """The app's new address when this copy is the old one, else ""."""
     return _setting("MOVED_TO").rstrip("/")

@@ -719,16 +719,9 @@ def _session_cookie() -> str | None:
 
 
 def _app_address() -> str:
-    """This app's web address without its ?query, for links to send people."""
-    base = (st.context.url or "").split("?")[0].split("#")[0]
-    if base:
-        return base
-    host = st.context.headers.get("host") or ""   # e.g. behind a proxy, or older Streamlit
-    if not host:
-        return ""
-    local = host.startswith(("localhost", "127.0.0.1"))
-    proto = st.context.headers.get("x-forwarded-proto") or ("http" if local else "https")
-    return f"{proto}://{host}/"
+    """This app's web address without its ?query, for links to send people:
+    APP_URL when set, never only what the visitor's browser says (hosting.py)."""
+    return hosting.app_address(st.context.url, st.context.headers)
 
 
 def _send_confirmation(user_id) -> tuple[bool, str]:

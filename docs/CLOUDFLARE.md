@@ -72,8 +72,32 @@ forgotten it. One rule stops that for the app (the website is not affected):
    `go.northwend.app` (the expression reads `(http.host eq "go.northwend.app")`).
 4. **Cache eligibility: Bypass cache**. Deploy.
 
-Streamlit's own scripts then come from Render each time; it's a small app,
-so nobody will notice.
+Streamlit's own scripts then come from Render each time.
+
+**Optional, faster first visits (Oct 8, 2026):** a first visit downloads
+about 115 of Streamlit's own files (~550 KB compressed) from Render in Ohio;
+measured, about 1.3 s on a good connection before the sign-in form, more on a
+phone's mobile data. Those files live under `/static/`, are the same for
+everyone (no account data, ever) and are named by their contents, and the app
+already marks them `public, immutable` for a year. A second rule lets
+Cloudflare keep just those near the visitor:
+
+1. **Caching** > **Cache Rules** > **Create rule**.
+2. Name: `App: Streamlit's static files`.
+3. **Custom filter expression**: `(http.host eq "go.northwend.app" and
+   starts_with(http.request.uri.path, "/static/"))`.
+4. **Cache eligibility: Eligible for cache**; **Edge TTL: Use cache-control
+   header if present** (the app sends a year); **Browser TTL: Respect origin**.
+   Deploy.
+5. **Order:** when two cache rules match, the one lower in the list wins, so
+   this rule goes **below** `App: never cache` (drag it there if needed).
+6. **Check:** open the app twice, then pick any `/static/...js` address from
+   the page source: `curl -sI https://go.northwend.app/static/js/<that file>`
+   shows `cf-cache-status: HIT`, while `curl -sI https://go.northwend.app/`
+   still shows `DYNAMIC` or `BYPASS`.
+
+Nothing under `/media/` (exports, PDFs, pictures) or the page itself is
+cached either way.
 
 ## 5. The security headers
 
