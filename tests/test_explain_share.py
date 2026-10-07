@@ -567,12 +567,12 @@ class AppTests(unittest.TestCase):
             self.assertIn(xs.LEARN_BUTTON, text)
             for secret in SECRETS_SHOWN_NEVER:
                 self.assertNotIn(secret, text, secret)
-            self.assertNotIn("Quartermaine", repr(at.session_state.filtered_state))
+            self.assertNotIn("Quartermaine", repr(at.session_state.to_dict()))
             # nobody signed in, no menu, no other page
             self.assertNotIn("user_id", at.session_state)
             self.assertEqual(len(at.sidebar.children), 0)
             self.assertNotIn("login_form", text)
-            self.assertNotIn(token, repr(at.session_state.filtered_state))    # only its hash
+            self.assertNotIn(token, repr(at.session_state.to_dict()))    # only its hash
             at.run()                                                  # a rerun: one visit
             self.assertEqual(self._q("SELECT opens FROM share_links"), [(1,)])
             # the one way on: Create account, the link left behind
