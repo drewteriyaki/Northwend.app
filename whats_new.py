@@ -26,6 +26,24 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "The Inheritance Rehearsal",
+     "items": [
+         {"text": "The Inheritance Rehearsal, on the Account page, is a gentle practice run "
+                  "with a made-up family: you walk through looking after a parent's accounts "
+                  "one small step at a time - finding out what there is, whom to call, which "
+                  "papers people are often asked for, and taking care of yourself. Nothing is "
+                  "graded, and it never tells you what to do; it's there so the real thing "
+                  "feels less unfamiliar.", "flag": "inheritance_rehearsal"},
+     ]},
+    {"date": "2026-10-06", "title": "Shadow Trail",
+     "items": [
+         {"text": "A new Shadow Trail tab on the Plan page lets you set up to two shadow mixes "
+                  "of kinds of funds - say, 60% US stocks and 40% bonds - and see how each "
+                  "path has moved on past prices since the day you set it, beside your own "
+                  "mix. Percentages only, and each shadow changes at most once a quarter. "
+                  "Hypothetical - a path you didn't take, not a forecast and not advice. Only "
+                  "you see it.", "flag": "shadow_trail"},
+     ]},
     {"date": "2026-10-06", "title": "Trail Conditions",
      "items": [
          {"text": "Trail Conditions is a short Monday email you can turn on from the Account "

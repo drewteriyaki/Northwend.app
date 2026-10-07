@@ -198,6 +198,14 @@ Each statement about data here must stay true to the code:
   typed text, no dates, amounts or names; never drawn while an advisor is in a
   client's account, not in an advisor's client record, never sent to the AI.
   In the person's own export (settings).
+- The Inheritance Rehearsal (inheritance_rehearsal.py,
+  views/inheritance_rehearsal.py, flag inheritance_rehearsal): under Trail
+  Forks on Account; a practice run with a made-up family, official links only.
+  Kept in the login's own settings (prefs inheritance_rehearsal): which steps
+  were walked through and the day it was finished - not what was tapped, no
+  typed text; never drawn while an advisor is in a client's account, not in an
+  advisor's client record, never sent to the AI. In the person's own export
+  (settings).
 - The Four Seasons (seasons.py, views/seasons.py, flag seasons): a card on Home
   in season, a line on Learn; education with official links only, yearly
   figures dated with their tax year and IRS page and shown only in that year.
@@ -275,6 +283,15 @@ Each statement about data here must stay true to the code:
   either account; in the client's export (brought_to_your_advisor, without
   the advisor's id). The advisor's book also shows "This season for your
   clients" (seasons.season_of; education topics only).
+- Shadow Trail (shadow_trail.py, views/shadow_trail.py, flag shadow_trail and
+  gate L3): a Plan tab drawn from data already kept (the person's holdings and
+  daily_bars; each kind of fund represented by the practice portfolio's
+  stand-in index funds, nothing new fetched). Kept in the login's own settings
+  (prefs shadow_trail): for at most two shadows, the mix (kind-of-fund keys
+  and whole percentages - never a ticker, never free text), the day it was
+  first set and the day it was last changed. The login's own only: never drawn
+  while an advisor is in a client's account and never read for them, never
+  sent to the AI. In the person's own export (settings).
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -407,8 +424,8 @@ to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
-their account map, their Lost & Found list, their Trail Forks, their preparedness drills
-and the rule of thumb they picked on Pay yourself.
+their account map, their Lost & Found list, their Trail Forks, their Inheritance Rehearsal, their preparedness drills,
+the rule of thumb they picked on Pay yourself and their Shadow Trail.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
 and it leaves your view when they untick it or the relationship ends.
@@ -420,7 +437,7 @@ and it leaves your view when they untick it or the relationship ends.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), the Inheritance Rehearsal's steps you've walked through and the day you finished, if you try it (not which choices you tapped, nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), your Shadow Trail mixes if you set any (each mix as percentages of kinds of funds, and the days you set and last changed it - never an amount), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails

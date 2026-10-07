@@ -2386,6 +2386,9 @@ _view("stress_test")
 # Plan: Pay yourself, flag pay_yourself + gate L3 (pay_yourself.py)
 _view("pay_yourself")
 
+# Plan: Shadow Trail, flag shadow_trail + gate L3 (shadow_trail.py)
+_view("shadow_trail")
+
 # Plan and Home: where the next deposit could go (next_deposit.py)
 _view("next_deposit")
 
@@ -2412,6 +2415,9 @@ _view("trail_forks")
 # Bring to my advisor, flag advisor_pack (advisor_pack.py): the client's
 # choices on Account, the advisor's card over meeting prep, the season note
 _view("advisor_pack")
+# and under that: the Inheritance Rehearsal, flag inheritance_rehearsal
+# (inheritance_rehearsal.py)
+_view("inheritance_rehearsal")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
 _view("seasons")
 

@@ -134,6 +134,16 @@ FEATURES = {
     # on("trail_forks")); the person's forks and ticks in their own settings,
     # never drawn while an advisor is in a client's account.
     "trail_forks": {"gates": (), "view": "trail_forks"},
+    # The Inheritance Rehearsal (ROADMAP "Someday" -> built,
+    # inheritance_rehearsal.py): a practice run at looking after a made-up
+    # parent's accounts - a short tap-through story, never graded, official
+    # links only, no rules, deadlines or figures stated. Education
+    # (LEGAL_GATES.md section 6): no gate; L3 looks at the estate and tax
+    # wording as with R8. Under Trail Forks on Account (views/account.py checks
+    # on("inheritance_rehearsal")); the steps walked through and the day
+    # finished in the person's own settings, never drawn while an advisor is
+    # in a client's account, never sent to the AI.
+    "inheritance_rehearsal": {"gates": (), "view": "inheritance_rehearsal"},
     # The Four Seasons (ROADMAP R7, seasons.py): January (this year's limits,
     # last year's IRA window, the fee bill to the goal date), April (tax forms
     # explained), October-November (open enrollment, HSAs), December (Year in
@@ -191,6 +201,16 @@ FEATURES = {
     # never for an advisor's client signed in themselves; an advisor in a
     # client's account sees it with the standing line and saves nothing.
     "pay_yourself": {"gates": ("L3",), "view": "pay_yourself"},
+    # Shadow Trail (ROADMAP R14, shadow_trail.py): a Plan tab after Stress
+    # test - up to two hypothetical mixes of KINDS of funds (never tickers),
+    # each on past prices from the day it was set, beside the person's own
+    # holdings; percentages only, changed at most once a quarter, always
+    # labelled hypothetical, nothing to act on. Hypothetical performance, so it
+    # needs gate L3 as well as its flag: L3 review before it's on anywhere but
+    # staging (LEGAL_GATES.md section 6). views/plan.py checks
+    # on("shadow_trail"); the login's own only - never while an advisor is in
+    # a client's account, never in the AI.
+    "shadow_trail": {"gates": ("L3",), "view": "shadow_trail"},
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not

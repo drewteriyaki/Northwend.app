@@ -1631,6 +1631,24 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         third drill, totals only (`feature_counts.drill_returns`, Admin > Feature
         tests, opt-out respected). Not built: the "this month's world" content source.
         `tests/test_drills.py`
+  - [x] The Inheritance Rehearsal (from "Someday"), flag `inheritance_rehearsal`
+        (no gate: education; L3 looks at the estate and tax wording as with R8) -
+        done Oct 6: `inheritance_rehearsal.py`, `views/inheritance_rehearsal.py`, on
+        Account just under Trail Forks (beside the account map and Lost & Found, the
+        page's "if something happens" corner; Learn stays a route for new
+        investors). A practice run with a made-up parent, Pat (a plan at an old
+        employer, a brokerage account, a bank account, a savings bond; no real firm
+        named), in eight tap-through steps: what there is, whom to call first, the
+        papers people ask for, beneficiaries and the estate, an inherited IRA (only
+        "are there any deadlines?"), what not to rush, Social Security and the final
+        return, taking care of yourself. Two or three taps a step - things to find
+        out or ask, never graded - then "what people often find"; official links only
+        (`trail_forks.OFFICIAL_SITES`); no figures, ages or time limits. Ends gently
+        at "Make your own account map" and, where it's on, Trail Forks' death of a
+        parent. Kept: prefs `inheritance_rehearsal` (step keys, the day finished);
+        never while an advisor is in a client's account, never in the client record
+        or the AI. No gear (it's a one-off rehearsal). Privacy text says so.
+        `tests/test_inheritance_rehearsal.py`
   - [x] Pay Yourself (R11), flag `pay_yourself` + gate L3 (**L3 review required
         before it's turned on anywhere but staging**) - done Oct 6, off:
         `pay_yourself.py`, `views/pay_yourself.py`, a Plan tab next to Money going out.
@@ -1767,11 +1785,15 @@ Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
         -> fact sheets built Oct 6 (flag `decoder_factsheet`, paste only, no AI);
         statements not yet, so this stays open
 - **Phase F - tier 3, explore:** R13 Teach It Back (grades understanding,
-  never money choices); R14 Shadow Trail (hypothetical, labelled, kinds of
-  funds only, changed at most quarterly; L3 review); R16 Client-Owned Book
+  never money choices); [x] R14 Shadow Trail (hypothetical, labelled, kinds of
+  funds only, changed at most quarterly; L3 review) -> built Oct 6 (off; L3
+  before on): flag `shadow_trail` + gate L3, a Plan tab; R16 Client-Owned Book
   (L2; the advisor's records stay with the advisor); Someday: Walk Together,
-  Base Camp, the Inheritance Rehearsal (privacy: they show another person
-  that someone uses a finance app; Base Camp needs moderation).
+  Base Camp (privacy: they show another person that someone uses a finance
+  app; Base Camp needs moderation).
+  - [x] The Inheritance Rehearsal - built Oct 6, off: flag
+        `inheritance_rehearsal`, a made-up family on the person's own Account page
+        (nothing shown to anyone else); see Step 9
 - **Ongoing:** Step 8 service seams.
 - **Gated on the lawyer:** L0 open sign-up; L1 billing (the published "free,
   paid by no one" lines change first; never per client or lead); L2 the
@@ -2193,6 +2215,19 @@ action buttons, no tickers.
 **Risk:** a tinkering toy that encourages chasing whichever path did best.
 **Mitigation:** cap hard (two paths, kinds of funds only, changed at most
 quarterly), always labelled hypothetical.
+-> **built Oct 6 (off; L3 before on):** flag `shadow_trail` + gate L3,
+`shadow_trail.py` + `views/shadow_trail.py`, a Plan tab after Stress test.
+Kinds of funds (US stocks, international stocks, bonds, cash) in 5% steps,
+each represented by the practice portfolio's stand-in index fund prices
+already in `daily_bars` (never named; cash flat; nothing new fetched); the
+person's own line is today's holdings on the same prices. Percentages only,
+one small chart and a table, neutral colours, fixed order; each shadow changes
+at most every 3 months (next date shown; removing doesn't reset it). Kept:
+prefs `shadow_trail` (kind keys, whole percents, set and changed days). The
+login's own only - never while an advisor is in a client's account, never the
+AI. Open for the owner: the stand-ins' prices only stay fresh where someone
+holds or watches them or the practice portfolio loaded them (adding them to
+the nightly sync is a price-fetching change - plan first).
 
 ### R15. People With Your Answers - M
 A percentage-only cohort view ("people with your timeline and direction hold
@@ -2253,6 +2288,7 @@ Walk:
   ever built.
 - **The Inheritance Rehearsal** - practise administering a fictional parent's
   accounts.
+  -> built (Oct 6), flag `inheritance_rehearsal`: see Step 9.
 - **Trail Conditions** - an email that says "calm, nothing to do" almost
   every week, and changes its wording only when something changes; never
   contains a figure.

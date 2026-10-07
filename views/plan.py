@@ -1071,6 +1071,10 @@ def _render_plan(value, growth, alloc_rows):
         sections.append(("Target mix", lambda: _render_target_mix(alloc_rows)))
     if alloc_rows or load_alloc_targets():   # views/stress_test.py
         sections.append(("Stress test", lambda: _render_stress_test(alloc_rows, value)))
+    # Shadow Trail (R14, views/shadow_trail.py): flag shadow_trail and gate L3;
+    # the login's own only, never while an advisor is in a client's account
+    if flags.on("shadow_trail") and _shadow_shown():
+        sections.append((SHADOW_TAB, lambda: _render_shadow_trail(today)))
     # what it could pay each year: for everyone, first for someone retired or
     # nearly (plans.retirement_first: the goal, the timeline, the profile)
     retire = (RETIRE_TAB, lambda: _render_retirement_income(value, today))

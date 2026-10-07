@@ -500,6 +500,9 @@ def _render_account():
     # ---- Trail Forks: life events (views/trail_forks.py) -------------------- #
     if flags.on("trail_forks"):
         render_trail_forks()
+    # ---- the Inheritance Rehearsal: a practice run (views/inheritance_rehearsal.py)
+    if flags.on("inheritance_rehearsal"):
+        render_inheritance_rehearsal()
     # ---- Explain it to someone: a figure-free share link (views/explain_share.py) #
     if flags.on("explain_share"):
         render_explain_share()

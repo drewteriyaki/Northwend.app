@@ -462,6 +462,27 @@ def ticker_history(db_path: str, ticker: str) -> list[dict]:
         conn.close()
 
 
+def adjusted_closes(db, tickers, since: str) -> dict[str, list[tuple[str, float]]]:
+    """{ticker: [(YYYY-MM-DD, price)]} from daily_bars on or after `since`,
+    oldest first: the adjusted close (dividends included), else the close.
+    Reads what's kept; fetches nothing (the Shadow Trail, shadow_trail.py).
+    `db` may be a path or an open connection (see _open)."""
+    tickers = sorted({t for t in tickers if t})
+    out: dict[str, list[tuple[str, float]]] = {t: [] for t in tickers}
+    if not tickers:
+        return out
+    where, params = _in(tickers)
+    with _open(db) as conn:
+        rows = conn.execute(
+            "SELECT ticker, date, adj_close, close FROM daily_bars WHERE date >= ? "
+            "AND COALESCE(adj_close, close) IS NOT NULL" + where + " ORDER BY date",
+            (since, *params)).fetchall()
+    for r in rows:
+        price = r["adj_close"] if r["adj_close"] is not None else r["close"]
+        out[r["ticker"]].append((str(r["date"])[:10], float(price)))
+    return out
+
+
 def has_bars(db_path: str) -> bool:
     conn = connect(db_path)
     try:

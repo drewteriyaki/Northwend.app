@@ -70,7 +70,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   never "withdraw"/"safe"/"enough" - `tests/test_pay_yourself.py` runs every line through
   `ai_policy.findings`; prefs keep the rule key only; an advisor in a client's account
   sees it with the standing line and saves nothing; not for an advisor's client signed
-  in), `overview.py` (advisor clients), `fees.py` +
+  in), `shadow_trail.py` + `views/shadow_trail.py` (Shadow Trail, R14, flag
+  `shadow_trail` + gate L3 - L3 review before it's on beyond staging: a Plan tab, up to
+  two hypothetical mixes of kinds of funds (never tickers) on the practice portfolio's
+  stand-in prices from `daily_bars`, cash flat, nothing fetched; percentages only, neutral
+  colours, fixed order, no action buttons or ranking words; each changes at most every 3
+  months; prefs keep kind keys, whole percents and two days; the login's own only - never
+  while an advisor is in a client's account, never the AI), `overview.py` (advisor clients), `fees.py` +
   `views/fees.py` (Fee check; `security_info.expense_ratio` is a fraction - Yahoo's
   `netExpenseRatio` is a percent, the others fractions: `sync_history._expense_ratio`),
   `fund_holdings.py` + `views/fund_overlap.py` (Fund overlap on Home: each fund's top 10
@@ -165,6 +171,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   & Found, a route per life event - what changes, gather, ask whom, not rush - ending in the
   Walk; divorce/inheritance/death only "what to ask"; forks and ticks as keys in the login's
   own prefs; never in a client's account),
+  `inheritance_rehearsal.py` + `views/inheritance_rehearsal.py` (the Inheritance Rehearsal,
+  flag `inheritance_rehearsal`: under Trail Forks, a tap-through practice run with a made-up
+  parent - never graded, official links only, no rules/deadlines/figures; step keys and the
+  day finished in the login's own prefs; never in a client's account),
   `seasons.py` + `views/seasons.py` (the Four Seasons, R7, flag `seasons`: a card on Home in
   January, April, October-November and December, a line on Learn; yearly figures live in
   `seasons.LIMITS` / `RMD_AGE` with their tax year and IRS page - a test fails once the year

@@ -78,6 +78,9 @@ account, contact us and we will delete it.
   layoff, a new baby, an inheritance, a divorce, the death of a parent) you
   mark as yours, and which of the listed steps you've ticked - nothing you
   type, no dates, amounts or names. Only you see it; it isn't sent to the AI.
+- Where the Inheritance Rehearsal is offered, if you try it: which steps of the
+  practice run you've walked through and the day you finished - not which
+  choices you tapped, nothing you type. Only you see it; it isn't sent to the AI.
 - Where the four seasons are offered: which of the year's seasonal notes (January,
   April, open enrollment, December) you've opened or put away, by season and
   year only. Only you see it.
@@ -96,6 +99,9 @@ account, contact us and we will delete it.
 - Where Bring to my advisor is offered, if you have an advisor and use it:
   which items you chose to show them and the day you shared each one - a fixed
   list, nothing you type. Gone when you untick them or the relationship ends.
+- Where Shadow Trail is offered, if you set a shadow mix there (at most two):
+  each mix as percentages of kinds of funds, the day you set it and the day you
+  last changed it - never an amount or a fund's name. Only you see it.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -199,8 +205,8 @@ It is shared only as needed to run the service, with:
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
-list, your Trail Forks, your preparedness drills and the rule of thumb you
-picked on Pay yourself, which only you see (the account map is never emailed, and its PDF is only
+list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills the rule of thumb you
+picked on Pay yourself and your Shadow Trail, which only you see (the account map is never emailed, and its PDF is only
 downloaded by you) - unless you choose to bring some of them to your advisor
 (below);
 you see your own portfolio, plan and the notes your advisor shares with you (not
