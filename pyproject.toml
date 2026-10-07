@@ -69,6 +69,7 @@ py-modules = [
     "trail_forks",   # Trail Forks: a route per life event (ROADMAP R8)
     "inheritance_rehearsal",   # the Inheritance Rehearsal: a practice run (ROADMAP Someday)
     "seasons",   # the Four Seasons: four moments in the year (ROADMAP R7)
+    "weekly",   # weekly summaries: Your week and The week ahead
     "explain_share",   # Explain it to someone: a figure-free share link (ROADMAP R10)
     "price_report",   # when a price is from, and "Price look wrong?" (PLAN G8)
     "sealed_envelope",   # the Sealed Envelope: the storm drill answer as a PDF

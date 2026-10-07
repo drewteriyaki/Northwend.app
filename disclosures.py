@@ -234,6 +234,13 @@ Each statement about data here must stay true to the code:
   client's account, never sent to the AI. In the person's own export
   (settings). The RMD note is shown only for the "65 or older" age range
   already in the profile; nothing new is asked.
+- Weekly summaries (weekly.py, views/weekly.py, flag weekly): a card on Home,
+  "Your week" from Friday's close through Sunday and "The week ahead" Monday
+  to Thursday; descriptions of the person's own holdings and public calendar
+  dates, read from what's already kept (no new data is fetched). Kept in the
+  login's own settings (prefs weekly: per week, opened or put away - no free
+  text); never written while an advisor is in a client's account, never sent
+  to the AI. In the person's own export (settings).
 - Explain it to someone (explain_share.py, views/explain_share.py, flag
   explain_share): share links made on Account by the login's own account only
   (never an advisor in a client's account, an advisor's client or an admin -

@@ -167,6 +167,8 @@ if PAGE == "Dashboard":
         render_year_card()                    # Year in review (views/year_review.py)
         if flags.on("seasons"):
             render_seasons_card()             # the Four Seasons (views/seasons.py)
+        if flags.on("weekly"):
+            render_weekly()                   # Your week / The week ahead (views/weekly.py)
         check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #

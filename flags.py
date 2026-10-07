@@ -307,6 +307,16 @@ FEATURES = {
     # job (only while this is on); pages never wait on Finnhub for it.
     # Descriptive, like any brokerage app's news (LEGAL_GATES.md E4): no gate.
     "news_feed": {"gates": (), "view": "news_feed", "page": "News"},
+    # Weekly summaries (weekly.py, views/weekly.py): one card on Home -
+    # "Your week" from Friday's close through Sunday (the week's change, the
+    # holdings that went up and down the most, the goal's start and end, a
+    # few kept headlines) and "The week ahead" Monday to Thursday (pay and
+    # earnings dates from the brokerage's file, a hand-kept public calendar).
+    # Factual descriptions of the person's own portfolio and public dates
+    # (LEGAL_GATES.md section 6): no gate. Kept: the week's id and seen or
+    # put away; never written from an advisor's session.
+    # views/dashboard_page.py checks on("weekly").
+    "weekly": {"gates": (), "view": "weekly"},
 }
 
 

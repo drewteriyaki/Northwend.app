@@ -191,6 +191,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   January, April, October-November and December, a line on Learn; yearly figures live in
   `seasons.LIMITS` / `RMD_AGE` with their tax year and IRS page - a test fails once the year
   is past: update them each January),
+  `weekly.py` + `views/weekly.py` (weekly summaries, flag `weekly`: one card on Home via
+  `render_weekly()` - "Your week" Fri after the close to Sun, "The week ahead" Mon-Thu; pure
+  builders `your_week`/`week_ahead` + fixed `*_lines` templates for a later email; reads only
+  kept data (no benchmark, no future ex-dates; earnings/pay dates only from the broker file);
+  `weekly.CALENDAR` (FOMC, NYSE) - a test fails once `CALENDAR_YEAR` is past; prefs keep the
+  week id + seen/put_away, never written from an advisor's session),
   `explain_share.py` + `views/explain_share.py` (Explain it to someone, R10, flag
   `explain_share`: a figure-free share link, `?share=` drawn in `_login()` before sign-in
   and signing nobody in; table `share_links` keeps only the token's SHA-256; 7/30 days,

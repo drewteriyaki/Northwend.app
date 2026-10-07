@@ -2450,6 +2450,8 @@ _view("client_book")
 _view("inheritance_rehearsal")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
 _view("seasons")
+# weekly summaries: "Your week" and "The week ahead", a card on Home, flag weekly (weekly.py)
+_view("weekly")
 # Teach It Back (flag teach_back): "Explain it back in your own words" in
 # Learn's basics window - defined here, drawn by views/get_started.py
 _view("teach_back")

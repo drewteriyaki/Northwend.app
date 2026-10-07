@@ -34,6 +34,16 @@ ENTRIES = [
                   "and only ticker symbols are sent to get them - nothing about you.",
           "flag": "news_feed"},
      ]},
+    {"date": "2026-10-07", "title": "Scout: your week, and the week ahead",
+     "items": [
+         {"text": "Scout is a new card on Home. From Friday after the market closes through the weekend, it "
+                  "shows your week: how much your portfolio's value changed, which of your "
+                  "holdings went up and down the most, where you stand toward your goal, and "
+                  "a few headlines about them. From Monday to Thursday it shows the week "
+                  "ahead instead: dividend pay dates and earnings dates your brokerage's file "
+                  "lists for your holdings, and public dates like market holidays. It only "
+                  "describes - \"Not now\" puts that week's card away.", "flag": "weekly"},
+     ]},
     {"date": "2026-10-07", "title": "Northwend in your browser tab",
      "items": [
          "Your browser tab now says Northwend, with its flag icon, from the moment the "

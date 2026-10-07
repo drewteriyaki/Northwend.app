@@ -73,6 +73,8 @@ account, contact us and we will delete it.
 - Where the four seasons are offered: which of the year's seasonal notes (January,
   April, open enrollment, December) you've opened or put away, by season and
   year only. Only you see it.
+- Where weekly summaries are offered: which week's summary ("Your week" or "The
+  week ahead") you've opened or put away, by week only. Only you see it.
 - Where "Price look wrong?" is offered, if you send a note about a price: the
   ticker, the reason you picked from the list, the price you saw and its time,
   and when you sent it - kept until you delete your account. Northwend's admins
