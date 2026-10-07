@@ -53,6 +53,7 @@ instead of sending (mailer.py); --dry-run counts who would get it.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -249,7 +250,11 @@ def run(conn, app_url: str, today: date, *, send=email, dry_run: bool = False,
         unsub = unsubscribe.link(app_url, unsubscribe.new_token(conn, r["id"], "trail",
                                                                 r["email"]))
         if send(r["email"], lines_of(items), link, unsub, address):
-            prefs.save(conn, r["id"], remember(p, items, today))
+            # only what this job changed, over what's saved now: a change the
+            # person made while the email went out is kept
+            base = json.loads(json.dumps(p))
+            mine = remember(p, items, today)
+            prefs.save(conn, r["id"], prefs.merge(base, mine, prefs.load(conn, r["id"])))
             done["sent"] += 1
             done["calm"] += not items
         else:

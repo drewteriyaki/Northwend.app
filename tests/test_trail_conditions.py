@@ -149,6 +149,22 @@ class SendTests(_DB):
         self.assertEqual(self.sent[0]["link"], "https://app.example/?page=dashboard")
         self.assertTrue(self.sent[0]["unsub"].startswith("https://app.example/?unsubscribe="))
 
+    def test_a_change_made_while_it_sends_is_kept(self):
+        ann = self._person("ann")
+
+        def send_while_she_changes_a_setting(*a):
+            p = prefs.load(self.conn, ann)
+            p["theme"] = "dark"     # saved in the app while the email goes out
+            prefs.save(self.conn, ann, p)
+            return True
+        with _flags("trail_conditions"):
+            done = tc.run(self.conn, "https://app.example/", MONDAY,
+                          send=send_while_she_changes_a_setting, address=ADDRESS)
+        self.assertEqual(done["sent"], 1)
+        p = prefs.load(self.conn, ann)
+        self.assertEqual(p["theme"], "dark")              # hers, not overwritten
+        self.assertEqual(p[tc.PREF_SENT], "2026-W38")     # the job's own change too
+
     def test_once_a_week(self):
         ann = self._person("ann")
         self.assertEqual(self._run()["sent"], 1)

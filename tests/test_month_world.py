@@ -192,6 +192,15 @@ class MixTests(unittest.TestCase):
                          ["stocks"])
         self.assertEqual(mw.lead_of("stocks", 74),
                          "For someone with mostly stocks (about 74% of your mix)")
+        # "mostly" only for the largest class over half: a smaller part says so
+        self.assertEqual(mw.lead_of("bonds", 28, largest=False),
+                         "For the bonds in your mix (about 28%)")
+        self.assertEqual(mw.lead_of("bonds", 60, largest=False),
+                         "For the bonds in your mix (about 60%)")
+        self.assertEqual(mw.lead_of("stocks", 45),
+                         "For the stocks in your mix (about 45%)")
+        self.assertEqual(mw.lead_of("stocks", 50),
+                         "For the stocks in your mix (about 50%)")
 
     def test_a_beginner_gets_no_lines(self):
         self.assertEqual(mw.lines_for(fake("2026-10"), None), [])
@@ -426,7 +435,8 @@ class AppTests(unittest.TestCase):
         at.button(key="world_open_btn").click()
         text = self._text(self._run(at, [self.note]))
         self.assertRegex(text, r"For someone with mostly stocks \(about \d{1,3}% of your mix\)")
-        self.assertRegex(text, r"For someone with mostly bonds \(about \d{1,3}% of your mix\)")
+        self.assertRegex(text, r"For the bonds in your mix \(about \d{1,3}%\)")
+        self.assertNotIn("mostly bonds", text)
         self.assertIn("Made-up line about stocks.", text)
         self.assertIn("Made-up line about bonds.", text)
         self.assertNotIn("Made-up line about cash.", text)

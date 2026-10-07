@@ -39,6 +39,8 @@ def _shadow_real(since):
 
 
 def _shadow_remove(place):
+    if not _shadow_shown():
+        return
     _write_prefs(shadow_trail.without_shadow(_read_prefs(), place))
     st.session_state.pop("shadow_edit", None)
 
@@ -54,6 +56,8 @@ def _shadow_close():
 def _shadow_save(place, today):
     """The form's save (a callback, so the redraw already shows it): kept only
     when it adds up to 100 and the place's date has passed."""
+    if not _shadow_shown():
+        return
     sh = shadow_trail
     values = {k: int(st.session_state.get(f"shadow_{place}_{k}") or 0) for k in sh.KIND_KEYS}
     new, ok = sh.with_shadow(_read_prefs(), place, values, today)

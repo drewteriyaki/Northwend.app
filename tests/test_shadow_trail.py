@@ -19,6 +19,7 @@ import re
 import shutil
 import sys
 import tempfile
+import types
 import unittest
 import unittest.mock
 from datetime import date, timedelta
@@ -278,6 +279,36 @@ def _weekdays(n, end):
             out.append(d)
         d -= timedelta(days=1)
     return sorted(out)
+
+
+class CallbackGuardTests(unittest.TestCase):
+    """The form's callbacks change only the login's own settings, like the
+    tab itself: never while an advisor is in a client's account."""
+
+    def _ns(self, user_id, login_id, on_client):
+        writes = []
+        state = {"shadow_edit": 0}
+        ns = {"st": types.SimpleNamespace(session_state=state, fragment=lambda f: f),
+              "USER_ID": user_id,
+              "LOGIN_ID": login_id, "ON_CLIENT": on_client,
+              "_read_prefs": lambda: {}, "_write_prefs": writes.append}
+        path = os.path.join(REPO, "views", "shadow_trail.py")
+        with open(path, encoding="utf-8") as fh:
+            exec(compile(fh.read(), path, "exec"), ns)  # noqa: S102 - as dashboard._view does
+        return ns, writes, state
+
+    def test_not_in_a_clients_account(self):
+        for args in ((7, 3, True), (7, 3, False)):
+            ns, writes, state = self._ns(*args)
+            ns["_shadow_remove"](0)
+            ns["_shadow_save"](0, DAY)
+            self.assertEqual(writes, [], args)
+            self.assertEqual(state, {"shadow_edit": 0}, args)
+
+    def test_the_login_s_own(self):
+        ns, writes, _state = self._ns(3, 3, False)
+        ns["_shadow_remove"](0)
+        self.assertEqual(len(writes), 1)
 
 
 class AppTests(unittest.TestCase):

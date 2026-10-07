@@ -304,6 +304,32 @@ class AppTests(unittest.TestCase):
                           rows[0]["shown_price"]), (self.hal, "VTI", "too_high", 300.0))
         self.assertTrue(rows[0]["price_as_of"].endswith("Z"))
 
+    def test_a_move_that_is_not_a_number_shows_the_percent_only(self):
+        # a stored per-share move of inf (Postgres can hold NaN too) reads as
+        # missing: the Price delta is the percent alone, never "+inf"/"+nan"
+        later = (datetime.now(UTC) + timedelta(seconds=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        c = portfolio.connect(self.db)
+        try:
+            c.execute("INSERT INTO price_history (ticker, price, prev_close, change, "
+                      "pct_change, fetched_at) VALUES ('VTI', 300.0, 299.0, ?, 0.5, ?)",
+                      (float("inf"), later))
+            c.commit()
+        finally:
+            c.close()
+        try:
+            at = self._run(self._tab(self.hal, "hal", "Dashboard", holdings_pill="VTI"))
+            deltas = [m.proto.delta for m in at.metric if m.label == "Price"
+                      and m.proto.delta.endswith(" today")]
+            self.assertEqual(deltas, ["+0.50% today"])
+        finally:
+            c = portfolio.connect(self.db)
+            try:
+                c.execute("DELETE FROM price_history WHERE ticker = 'VTI' AND fetched_at = ?",
+                          (later,))
+                c.commit()
+            finally:
+                c.close()
+
     def test_homes_price_as_of_column_is_in_words(self):
         import metrics as M
         at = self._run(self._tab(self.hal, "hal", "Dashboard",

@@ -213,8 +213,17 @@ class FeeBillTests(unittest.TestCase):
         self.assertIsNone(bill["total"])
         self.assertIsNone(ss.fee_bill(fees.check([], {}), self.TODAY, "2046-01-01"))
         self.assertIsNone(ss.fee_bill(None, self.TODAY))
-        # a goal date already here still counts a year
-        self.assertEqual(ss.years_to("2026-01-01", self.TODAY), 1)
+        # a goal date already here or past counts no years: "until your goal
+        # date, <month> - about 1 year" would not be true, so January's bill
+        # shows the yearly cost only
+        self.assertIsNone(ss.years_to("2026-01-01", self.TODAY))
+        self.assertIsNone(ss.years_to("2026-01-15", self.TODAY))
+        bill = ss.fee_bill(r, self.TODAY, "2025-06-01")
+        self.assertIsNone(bill["years"])
+        self.assertIsNone(bill["total"])
+        self.assertEqual(bill["yearly"], r["total_yearly"])
+        # a date still ahead, even within the year, counts one
+        self.assertEqual(ss.years_to("2026-06-01", self.TODAY), 1)
         self.assertIsNone(ss.years_to("someday", self.TODAY))
 
 

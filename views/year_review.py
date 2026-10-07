@@ -26,6 +26,8 @@ def _year_pretend():
 
 
 def _year_mark_seen(year):
+    if not _year_shown():
+        return
     p = _read_prefs()
     seen = list(p.get(recap.SEEN_PREF) or [])
     if year not in seen:

@@ -348,17 +348,21 @@ def dated_line(year: int) -> str:
 # --------------------------------------------------------------------------- #
 def years_to(target_date, today: date) -> int | None:
     """Whole years from `today` to a plan's target date (ISO), at least 1;
-    None without a date."""
+    None without a date, or once the date is here or past (there is no
+    "until your goal date" left to count)."""
     try:
         target = date.fromisoformat(str(target_date)[:10])
     except (TypeError, ValueError):
+        return None
+    if target <= today:
         return None
     return max(1, round((target - today).days / 365.25))
 
 
 def fee_bill(fee_result: dict | None, today: date, target_date=None) -> dict | None:
     """The fee check's result (fees.check) as January's fee bill: {yearly,
-    ratio, years, total, growth}. years/total are None without a goal date;
+    ratio, years, total, growth}. years/total are None without a goal date
+    or once it has passed (then only the yearly cost is shown);
     total is fees.cost_over over those years, at the fee check's own growth.
     None when no fund's fee is known."""
     if not fee_result or not fee_result.get("funds"):

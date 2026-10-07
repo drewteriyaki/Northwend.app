@@ -58,8 +58,8 @@ def render_month_world():
         for para in note["paragraphs"]:
             st.markdown(para.replace("$", r"\$"))
         lines = month_world.lines_for(note, _drill_mix())
-        for key, pct, line in lines:
-            st.markdown(f"**{month_world.lead_of(key, pct)}:** "
+        for i, (key, pct, line) in enumerate(lines):
+            st.markdown(f"**{month_world.lead_of(key, pct, largest=i == 0)}:** "
                         + line.replace("$", r"\$"))
         if not lines and not HAS_REAL_HOLDINGS:
             st.caption(month_world.GENERAL_ONLY)

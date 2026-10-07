@@ -6,6 +6,8 @@
 # One ticker's chart and details, opened from the Dashboard or the Watchlist.
 # ruff: noqa: F821
 
+import math
+
 import fees
 import price_report
 
@@ -96,6 +98,12 @@ if PAGE in ("Dashboard", "Watchlist"):
             # row); the holding's move in dollars is Today's Return under Your
             # position. Without a per-share move, just the percent.
             _dchg_share = (_ctx.get("quote") or {}).get("change")
+            try:
+                _dchg_share = float(_dchg_share)
+                if not math.isfinite(_dchg_share):
+                    _dchg_share = None    # a NaN/inf move reads as missing
+            except (TypeError, ValueError):
+                _dchg_share = None
             with hc2:
                 st.metric("Price", fmt_price(_price),
                           delta=(None if hide_amounts or _dchg_pct is None

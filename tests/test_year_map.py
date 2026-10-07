@@ -15,6 +15,7 @@ import os
 import shutil
 import sys
 import tempfile
+import types
 import unittest
 import unittest.mock
 import zipfile
@@ -389,6 +390,29 @@ class AccountMapTests(_DB):
 # --------------------------------------------------------------------------- #
 # the app (AppTest)
 # --------------------------------------------------------------------------- #
+class YearCallbackGuardTests(unittest.TestCase):
+    """Opening the year in review keeps the year seen in the login's own
+    settings only - never while an advisor is in a client's account."""
+
+    def _ns(self, user_id, login_id):
+        writes = []
+        st = types.SimpleNamespace(session_state={}, dialog=lambda *a, **k: (lambda f: f))
+        ns = {"st": st, "USER_ID": user_id, "LOGIN_ID": login_id, "_dialog_closed": None,
+              "_read_prefs": lambda: {}, "_write_prefs": writes.append}
+        path = os.path.join(REPO, "views", "year_review.py")
+        with open(path, encoding="utf-8") as fh:
+            exec(compile(fh.read(), path, "exec"), ns)  # noqa: S102 - as dashboard._view does
+        return ns, writes
+
+    def test_mark_seen_only_in_the_own_account(self):
+        ns, writes = self._ns(7, 3)
+        ns["_year_mark_seen"](2026)
+        self.assertEqual(writes, [])
+        ns, writes = self._ns(3, 3)
+        ns["_year_mark_seen"](2026)
+        self.assertEqual(len(writes), 1)
+
+
 class AppTests(unittest.TestCase):
 
     @classmethod

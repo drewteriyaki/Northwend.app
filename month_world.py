@@ -44,7 +44,12 @@ KEEP = 6
 # the "for someone with mostly ..." lines: asset_classes.CLASSES' own classes,
 # in lower case ("Other" has no line: it's too mixed to say anything about)
 CLASS_KEYS = {"stocks": "Stocks", "bonds": "Bonds", "cash": "Cash"}
-CLASS_WORDS = {"stocks": "mostly stocks", "bonds": "mostly bonds", "cash": "mostly cash"}
+CLASS_WORDS = {"stocks": "stocks", "bonds": "bonds", "cash": "cash"}
+# "mostly" only for the largest class when it's over half the mix; any other
+# line says what it is - a part of the mix
+MOSTLY_LEAD = "For someone with mostly {what} (about {pct}% of your mix)"
+PART_LEAD = "For the {what} in your mix (about {pct}%)"
+MOSTLY_OVER = 50
 SECOND_AT = 25   # the next-largest class's line shows too from this share (whole %)
 
 # every source is an official or primary one - government sites only
@@ -241,9 +246,12 @@ def lines_for(note: dict, mix: dict | None) -> list[tuple[str, int, str]]:
     return out
 
 
-def lead_of(key: str, pct: int) -> str:
-    """'For someone with mostly stocks (about 72% of your mix)'."""
-    return f"For someone with {CLASS_WORDS[key]} (about {pct}% of your mix)"
+def lead_of(key: str, pct: int, largest: bool = True) -> str:
+    """'For someone with mostly stocks (about 72% of your mix)' for the
+    largest class over half the mix; otherwise 'For the bonds in your mix
+    (about 28%)' - true for a smaller part too."""
+    lead = MOSTLY_LEAD if largest and pct > MOSTLY_OVER else PART_LEAD
+    return lead.format(what=CLASS_WORDS[key], pct=pct)
 
 
 # ---- what's kept ------------------------------------------------------------ #
@@ -269,4 +277,4 @@ def mark_seen(p: dict, month: str) -> bool:
 def all_text() -> str:
     """Every fixed word the frame shows (for the wording tests)."""
     return "\n".join([TITLE, INTRO, NOT_ADVICE, GENERAL_ONLY, SOURCES_LEAD, OPEN, CLOSE,
-                      *CLASS_WORDS.values()])
+                      MOSTLY_LEAD, PART_LEAD, *CLASS_WORDS.values()])
