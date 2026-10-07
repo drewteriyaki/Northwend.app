@@ -21,7 +21,8 @@ services:
     region: ohio             # pick the one nearest the Neon database's region
     branch: main             # main only takes commits whose tests passed
     autoDeploy: true
-    buildCommand: pip install -r requirements.txt
+    # brand_page.py: the tab says Northwend (not Streamlit) from the first paint
+    buildCommand: pip install -r requirements.txt && python scripts/brand_page.py
     startCommand: >-
       streamlit run dashboard.py
       --server.port $PORT
