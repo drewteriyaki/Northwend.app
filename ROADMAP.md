@@ -2262,7 +2262,7 @@ action buttons, no tickers.
 **Risk:** a tinkering toy that encourages chasing whichever path did best.
 **Mitigation:** cap hard (two paths, kinds of funds only, changed at most
 quarterly), always labelled hypothetical.
--> **built Oct 6 (off; L3 before on):** flag `shadow_trail` + gate L3,
+-> **built Oct 6; out from behind gate L3 by the owner Oct 8 (its flag only):** flag `shadow_trail`,
 `shadow_trail.py` + `views/shadow_trail.py`, a Plan tab after Stress test.
 Kinds of funds (US stocks, international stocks, bonds, cash) in 5% steps,
 each represented by the practice portfolio's stand-in index fund prices

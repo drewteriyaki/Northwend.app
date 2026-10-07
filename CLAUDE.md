@@ -78,7 +78,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `ai_policy.findings`; prefs keep the rule key only; an advisor in a client's account
   sees it with the standing line and saves nothing; not for an advisor's client signed
   in), `shadow_trail.py` + `views/shadow_trail.py` (Shadow Trail, R14, flag
-  `shadow_trail` + gate L3 - L3 review before it's on beyond staging: a Plan tab, up to
+  `shadow_trail` (out from behind gate L3 by the owner, Oct 8 - its flag only): a Plan tab, up to
   two hypothetical mixes of kinds of funds (never tickers) on the practice portfolio's
   stand-in prices from `daily_bars`, cash flat, nothing fetched; percentages only, neutral
   colours, fixed order, no action buttons or ranking words; each changes at most every 3

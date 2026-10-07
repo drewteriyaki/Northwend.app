@@ -246,12 +246,14 @@ class PathTests(unittest.TestCase):
 
 class FlagTests(unittest.TestCase):
 
-    def test_needs_the_flag_and_gate_l3(self):
+    def test_needs_only_its_flag(self):
+        # out from behind gate L3 by the owner's decision (Oct 8, 2026): L3 itself
+        # stays off, so Pay yourself and the L3 parts of the AI stay as they are
         self.assertEqual(flags.FEATURES["shadow_trail"],
-                         {"gates": ("L3",), "view": "shadow_trail"})
+                         {"gates": (), "view": "shadow_trail"})
         with unittest.mock.patch.object(flags, "_secret", lambda name: None):
-            for f, g, want in (("", "", False), ("shadow_trail", "", False),
-                               ("", "L3", False), ("shadow_trail", "L0", False),
+            for f, g, want in (("", "", False), ("shadow_trail", "", True),
+                               ("", "L3", False), ("shadow_trail", "L0", True),
                                ("shadow_trail", "L3", True)):
                 with unittest.mock.patch.dict(os.environ, {"NORTHWEND_FLAGS": f,
                                                            "NORTHWEND_GATES": g}):
@@ -414,8 +416,8 @@ class AppTests(unittest.TestCase):
         return " ".join([m.value for m in tab.markdown] + [c.value for c in tab.caption]
                         + [i.value for i in tab.info] + [w.value for w in tab.warning])
 
-    def test_off_without_the_flag_or_the_gate(self):
-        for flag, gates in (("", ""), ("shadow_trail", ""), ("", "L3")):
+    def test_off_without_the_flag(self):
+        for flag, gates in (("", ""), ("", "L3")):
             with self.subTest(flag=flag, gates=gates), \
                     self._app(self.alice, "alice", flag=flag, gates=gates) as at:
                 self.assertIn("Stress test", self._labels(at))
