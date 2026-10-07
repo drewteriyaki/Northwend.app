@@ -53,9 +53,19 @@ people already learning on Northwend.
 1. **"Find a guide" directory:** advisors' own listings (name, firm,
    registration and CRD with the public regulator link, credentials, how they're
    paid, minimums, who they serve, states, virtual or in person, a short
-   description, a scheduling link). Shown alphabetically within a few filters
-   (state, meeting style, fee model, who they serve, minimum). No ranking, no
-   featured slots, no reviews, nothing counted about who browses.
+   description, a scheduling link, and whether they offer a **one-time review**
+   with its price as the advisor states it, or "ask"). Under a one-time review
+   the listing says: "Paid to the advisor directly; Northwend takes no part of
+   it." Shown alphabetically within a few filters (state, meeting style, fee
+   model, who they serve, minimum); the one-time review is shown but is not a
+   filter or a sort. No ranking, no featured slots, no reviews, nothing counted
+   about who browses. Beside the listings, a short, neutral "How advisors are
+   paid" explainer (flat fee or one-time review, hourly, subscription, a
+   percentage of assets, commissions; questions to ask about pay and conflicts;
+   links to investor.gov, BrokerCheck and IAPD only). On the individual side, one
+   quiet "Want a second opinion? Find a guide" line appears once someone has
+   finished the Learn section or set a goal - never for someone who already has
+   an advisor, and nothing is counted about who sees or presses it.
 2. **Introductions:** a person sends a message and, if they choose, a figure-free
    outline (asset-class percentages, goal type, timeline, stage). The advisor can
    reply, share a scheduling link or decline.
@@ -110,9 +120,11 @@ review is billed and paid between the person and the advisor.
    advisors tied to introductions or clients**, make Northwend a "promoter" under
    the SEC Marketing Rule (206(4)-1), a solicitor under state rules, or anything
    requiring registration? Does that change once advisors pay a flat seat fee?
-7. Please review the listing fields, the filters (including a possible "offers a
-   one-time review" filter), the alphabetical-only ordering, the intro and two-step
-   consent wording, and the standing line. Our Terms currently say Northwend "does
+7. Please review the listing fields (including the one-time review offering and its
+   "paid to the advisor directly" line), the filters (including whether "offers a
+   one-time review" may become a filter - today it is not), the alphabetical-only
+   ordering, the "How advisors are paid" explainer, the "Find a guide" line on
+   Learn and Plan, the intro and two-step consent wording, and the standing line. Our Terms currently say Northwend "does
    not refer clients to advisors" - how should that be reworded?
 
 **Monetization**

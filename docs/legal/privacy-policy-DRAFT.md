@@ -71,6 +71,13 @@ account, contact us and we will delete it.
   for old accounts, whether you're still looking, found something or found
   nothing there, and the day you last changed it - never an amount, an account
   number or a name. Only you see it.
+- Where Trail Forks is offered, if you use it: which life events (a new job, a
+  layoff, a new baby, an inheritance, a divorce, the death of a parent) you
+  mark as yours, and which of the listed steps you've ticked - nothing you
+  type, no dates, amounts or names. Only you see it; it isn't sent to the AI.
+- Where the four seasons are offered: which of the year's seasonal notes (January,
+  April, open enrollment, December) you've opened or put away, by season and
+  year only. Only you see it.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -85,6 +92,10 @@ account, contact us and we will delete it.
   percents, your goals, a timeline range and where you are on Northwend's route -
   never amounts, holdings or account details), when you sent it, and the
   advisor's answer. Browsing Find a guide isn't recorded at all. [LAWYER: wording.]
+- Where "Explain it to someone" is offered, the share links you make: for each,
+  when you made it, when it stops working, whether it shows your first name,
+  how many times it was opened and the day it was last opened - never who
+  opened it. The link itself isn't kept, only a scrambled version (a hash). [LAWYER: wording.]
 
 You don't have to use real numbers: an example portfolio and a "percentages only"
 mode work without any.
@@ -164,8 +175,8 @@ It is shared only as needed to run the service, with:
 | **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to go.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
 
 Your advisor, if you have one, sees everything in your account except your notes
-to your future self, your monthly walks, your account map and your Lost & Found
-list, which only you see (the account map is never emailed, and its PDF is only
+to your future self, your monthly walks, your account map, your Lost & Found
+list and your Trail Forks, which only you see (the account map is never emailed, and its PDF is only
 downloaded by you);
 you see your own portfolio, plan and the notes your advisor shares with you (not
 ones they mark private).
@@ -177,6 +188,23 @@ Their answer is seen only by you. Sharing your full account with them is a
 separate choice you make afterwards, in two steps that say exactly what they
 would see; only then do they see your account as described above, including the
 name and email on it. [LAWYER: the two-step consent text, `intros.SHARE_LINES`.]
+
+**Share links ("Explain it to someone").** Where it's offered, you can make a
+private link to show a partner or family member your plan in plain words.
+Anyone with the link can open the page without signing in, and sees only: your
+mix by asset class in whole percents, what kind of goal you're investing for
+and a range of years until you need the money, where you are on Northwend's
+route, your target mix by asset class and how far it may drift - and your first
+name only if you tick that box. The page never shows an amount, a holding, a
+fund or ticker, an account name or number, a brokerage, your email or your
+login, and it shows the plan as it is when the link is opened. Only you can make
+one, for your own account (not while an advisor manages it, and never an
+advisor or the person running Northwend on your behalf); you choose 7 or 30
+days, you can have up to 3 at a time, and you can turn any of them off on the
+Account page at any time. A link that has ended or been turned off shows only
+that it's no longer active - nothing about whose it was. Opening one signs no
+one in. If an advisor starts managing your account, your links stop working,
+and an advisor never sees them. [LAWYER: wording; flag `explain_share`.]
 
 Each time an advisor opens a page in a client's account, Northwend records who,
 which client, which page and when - never what was on the page or any figure -
@@ -274,6 +302,8 @@ in step.]
 | Upload, save and download counts per account (counts only) | 1 day |
 | How often the 401(k) decoder without an account was used from one internet address (a hash of the address, never the address or what was pasted) | 1 day [once the no-account decoder is on - PLAN step 3] |
 | Email links (stored only as hashes, each works once) | Password reset 60 minutes, confirm 3 days, an advisor's setup link 7 days |
+| Share links ("Explain it to someone", stored only as hashes), where offered | The 7 or 30 days you choose, or until you turn one off; then deleted |
+| How often share links were opened from one internet address (a hash of the address, never the address or the link) | 1 day |
 | Unsubscribe links in reminder emails | 1 year |
 | Minute-by-minute prices (no personal data) | 1 week, then one closing price a day |
 | Daily prices and fund details (no personal data) | Kept |
@@ -293,7 +323,7 @@ in step.]
   advisor, or us.
 - **Download:** the Account page's "Export everything" downloads everything held for
   your account as spreadsheet (CSV) files, including any introductions you sent
-  or received. Passwords, sign-in tokens, internet
+  or received and the share links you made (not the links themselves). Passwords, sign-in tokens, internet
   address hashes, advisors' private notes and other accounts' data aren't included.
 - **Delete holdings:** the Account page deletes all your holdings, cash, activity
   and value history (your goals, answers, notes and settings stay).

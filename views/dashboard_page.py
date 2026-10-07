@@ -163,6 +163,8 @@ if PAGE == "Dashboard":
         render_money_checks()
         render_account_map_nudge()            # 2+ accounts, no map yet (views/account_map.py)
         render_year_card()                    # Year in review (views/year_review.py)
+        if flags.on("seasons"):
+            render_seasons_card()             # the Four Seasons (views/seasons.py)
         check_milestones(portfolio_value)
 
     # ---- hero: value, today's move, since last visit, headline stats ----- #

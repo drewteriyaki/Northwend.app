@@ -529,6 +529,7 @@ CREATE TABLE IF NOT EXISTS advisor_profiles (
     meeting        TEXT    NOT NULL DEFAULT '',  -- 'virtual' | 'in_person' | 'both'
     description    TEXT    NOT NULL DEFAULT '',
     scheduling_url TEXT    NOT NULL DEFAULT '',  -- https only
+    one_time_cost  TEXT    NOT NULL DEFAULT '',  -- '' not offered, 'ask', or whole dollars (ADR 0005)
     listed         INTEGER NOT NULL DEFAULT 0,   -- the advisor's own switch
     updated_at     TEXT    NOT NULL              -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
 );
@@ -774,3 +775,23 @@ CREATE TABLE IF NOT EXISTS intro_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_intro_requests_person ON intro_requests (person_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_intro_requests_advisor ON intro_requests (advisor_id, status);
+
+-- Share links (explain_share.py, ROADMAP R10 "Explain it to someone"): a
+-- private link the account's owner makes to show a partner or family member
+-- their plan in plain words - percentages and words only, never a figure,
+-- holding or account detail, drawn from current data when it's opened. Only
+-- the token's SHA-256 is kept (the link is shown once); it works until
+-- expires_at, and turning it off deletes the row. opens / last_opened_on
+-- ('YYYY-MM-DD') are for the owner only - nothing about who opened it.
+-- Deleted with the account (admin.ACCOUNT_TABLES); ended ones by tidy.py.
+CREATE TABLE IF NOT EXISTS share_links (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,               -- the owner, who made it
+    token_hash      TEXT    NOT NULL UNIQUE,        -- SHA-256 of the token, never the token
+    created_at      TEXT    NOT NULL,               -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    expires_at      TEXT    NOT NULL,               -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    show_name       INTEGER NOT NULL DEFAULT 0,     -- 1 = the page shows their first name
+    opens           INTEGER NOT NULL DEFAULT 0,     -- how many visits (owner only)
+    last_opened_on  TEXT                            -- 'YYYY-MM-DD' of the last visit
+);
+CREATE INDEX IF NOT EXISTS idx_share_links_user ON share_links (user_id, expires_at);

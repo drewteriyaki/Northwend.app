@@ -4630,6 +4630,44 @@ class WebsiteTests(unittest.TestCase):
                 if anchor:
                     self.assertIn(anchor, ids[target], f"{name}: {href}")
 
+    def test_whats_new_page_shows_only_what_is_on_for_everyone(self):
+        import html as html_mod
+        import whats_new
+        page = html_mod.unescape(self.pages["whats-new.html"])
+        shown = flagged = 0
+        for e in whats_new.ENTRIES:
+            for it in e["items"]:
+                text = it["text"] if isinstance(it, dict) else it
+                if isinstance(it, dict) and it.get("flag"):
+                    self.assertNotIn(text, page)      # a hidden feature is never announced
+                    flagged += 1
+                else:
+                    self.assertIn(text, page)
+                    shown += 1
+        self.assertTrue(shown and flagged)            # both kinds exist, so both checks bite
+        # an entry whose items are all flagged leaves no heading behind
+        for e in whats_new.ENTRIES:
+            if all(isinstance(i, dict) and i.get("flag") for i in e["items"]):
+                self.assertNotIn(f"<h2>{e['title']}</h2>", page)
+        self.assertIn(whats_new.when(whats_new.ENTRIES[0]["date"]), page)
+
+    def test_status_page_is_hand_written_and_linked(self):
+        site, status = self.site, self.pages["status.html"]
+        self.assertIn(site.STATUS_NOW[0], status)
+        self.assertIn("Past notices", status)
+        dates = [d for d, _, _ in site.NOTICES]
+        for d in dates:
+            self.assertIn(f'<time datetime="{d}">', status)
+        self.assertEqual(dates, sorted(dates, reverse=True))   # newest first
+        self.assertNotIn("%", status)                           # no uptime figures
+        for name, page in self.pages.items():                   # in every footer
+            footer = page[page.index('<footer class="site-footer">'):]
+            self.assertIn('href="/status"', footer, name)
+            self.assertIn('href="/whats-new"', footer, name)
+        about = self.pages["about.html"]
+        self.assertIn('href="/status"', about[:about.index("<footer")])
+        self.assertIn('href="/whats-new"', about[:about.index("<footer")])
+
 
 class DisclosureTests(unittest.TestCase):
     def test_text_is_safe_markdown_and_covers_the_basics(self):

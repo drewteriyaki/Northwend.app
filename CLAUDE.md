@@ -117,6 +117,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is
   stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
+  `/whats-new` is built from `whats_new.ENTRIES` (flagged items left out - so
+  rebuild after adding an entry); `/status` is hand-edited (`STATUS_NOW`,
+  `NOTICES` in build.py; no scripts, no uptime figures).
   Pages: Home, New to investing, For advisors, About, 404 (`PAGES`; a page in `HELD` -
   none today - is built for tests but not published; Decode your 401(k) menu is live); its
   tables are worked out in build.py (no scripts: the CSP allows none) and
@@ -144,7 +147,20 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   advisor's view or the AI), `lost_found.py` + `views/lost_found.py` (Lost & Found, R9, flag
   `lost_found`: under the account map, where to look for old 401(k)s and unclaimed money -
   official links only (`OFFICIAL_SITES`), an old 401(k)'s choices side by side, never which;
-  the "places I've looked" list in the login's own prefs; never in a client's account), `checkin.py` + `views/checkin.py` (the monthly check-in;
+  the "places I've looked" list in the login's own prefs; never in a client's account),
+  `trail_forks.py` + `views/trail_forks.py` (Trail Forks, R8, flag `trail_forks`: under Lost
+  & Found, a route per life event - what changes, gather, ask whom, not rush - ending in the
+  Walk; divorce/inheritance/death only "what to ask"; forks and ticks as keys in the login's
+  own prefs; never in a client's account),
+  `seasons.py` + `views/seasons.py` (the Four Seasons, R7, flag `seasons`: a card on Home in
+  January, April, October-November and December, a line on Learn; yearly figures live in
+  `seasons.LIMITS` / `RMD_AGE` with their tax year and IRS page - a test fails once the year
+  is past: update them each January),
+  `explain_share.py` + `views/explain_share.py` (Explain it to someone, R10, flag
+  `explain_share`: a figure-free share link, `?share=` drawn in `_login()` before sign-in
+  and signing nobody in; table `share_links` keeps only the token's SHA-256; 7/30 days,
+  3 at most, revoke deletes; the login's own account only, never client mode or an admin;
+  the view isn't flag-owned so a link shows "no longer active" while the flag is off), `checkin.py` + `views/checkin.py` (the monthly check-in;
   `checkin_email.py` its no-figures reminder), `future_notes.py` (notes to future you).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
@@ -178,7 +194,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   mode), the advisor's "Your directory listing" on Your clients. Alphabetical by name
   within B4's five filters - `directory.sort_key` is the only sort, never anything
   computed or paid; nothing about browsing is written. Intro button: `request_intro_placeholder`
-  while flag `intros` is off.
+  while flag `intros` is off. ADR 0005 (same flag): a listing's one-time review
+  (`one_time_cost`, shown only - never a filter or sort), "How advisors are paid"
+  (`directory.FEES_*`, official links only) and the quiet "Find a guide" line on Learn
+  and Plan (`dashboard._guide_line`, `directory.guide_link_shown`: individuals only).
 - Introductions (PLAN 5.5-5.6): `intros.py` + `views/intros.py` (flag `intros` + gate L2,
   inside Find a guide and Your clients; table `intro_requests`). The advisor sees only the
   name, message and figure-free outline sent (`intros.clean_outline`), only their own;

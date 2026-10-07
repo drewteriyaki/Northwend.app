@@ -1157,6 +1157,10 @@ def _login() -> bool:
     unsub = st.query_params.get("unsubscribe")
     if unsub:  # an email's one-click unsubscribe link - no sign-in (views/unsubscribe.py)
         return _unsubscribe_page(str(unsub))
+    # ?share=...: an "Explain it to someone" link (views/explain_share.py) - the
+    # whole run, signed in or not; it signs nobody in and opens no other page
+    if _share_wanted():
+        return _share_page()
     # ?decode=401k: the 401(k) decoder without an account (views/decoder_public.py),
     # only while its flag is on and nobody is signed in in this tab
     if (flags.on("decoder_public") and not st.session_state.get("user_id")
@@ -1285,6 +1289,9 @@ _view("two_step")
 _view("unsubscribe")
 # the 401(k) decoder without an account, ?decode=401k (decoder_public.py)
 _view("decoder_public")
+# an "Explain it to someone" link, ?share=... (explain_share.py), and the
+# owner's section on Account (always loaded: off, a link says it's not active)
+_view("explain_share")
 
 if not _login():
     st.stop()
@@ -1492,6 +1499,27 @@ _KEEP_ON_SWITCH = ("user_id", "username", "page", "session_token", "pw_stamp", "
 
 def _go(page):
     st.session_state["page"] = page
+
+
+def _guide_line(key):
+    """ADR 0005: the one quiet "Want a second opinion? Find a guide" line, on
+    Learn once it's finished and on Plan once a goal is set. Only where Find
+    a guide is open to this login (flag `directory`, gate L2) and only for an
+    individual on their own account - never an advisor, an admin, client
+    mode or someone with an advisor (directory.guide_link_shown). No pop-up;
+    nothing is written or counted about who sees or presses it."""
+    import directory
+
+    if ("Find a guide" not in PAGES or USER_ID != LOGIN_ID
+            or not directory.guide_link_shown(
+                directory_on=flags.on("directory"), is_advisor=IS_ADVISOR, is_admin=IS_ADMIN,
+                client_mode=CLIENT_MODE, has_advisor=IS_MANAGED_CLIENT)):
+        return
+    with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                      key=f"pt_{key}"):
+        st.caption(directory.GUIDE_LINE, width="content")
+        st.button(directory.GUIDE_BUTTON, key=key, type="tertiary", on_click=_go,
+                  args=("Find a guide",), icon=":material/signpost:")
 
 
 def _advisor_display_name():
@@ -2352,6 +2380,11 @@ _view("account_map")
 
 # just under it: Lost & Found, flag lost_found (lost_found.py)
 _view("lost_found")
+
+# and under that: Trail Forks, flag trail_forks (trail_forks.py)
+_view("trail_forks")
+# the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
+_view("seasons")
 
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")

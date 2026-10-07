@@ -181,6 +181,11 @@ These extra terms apply if you use Northwend as a financial advisor.
   share with them (not ones you mark private). You can see everything in their
   account except what's theirs alone: their notes to their future self and their
   monthly walks.
+- **Your directory listing** (once the directory opens). What your listing says is
+  yours, and must be accurate. If you say you offer a one-time review, its price is
+  the one you state; the person pays you directly, and Northwend takes no part of
+  the payment and is not paid for introductions or clients. [LAWYER: wording, and
+  whether listing alone is "referring" - see the next point.]
 - **Client relationships.** Your relationship with your clients is between you and
   them. Northwend is not a party to it and does not refer clients to advisors.
   Emails you send through Northwend (a client's setup link, or a note that a report

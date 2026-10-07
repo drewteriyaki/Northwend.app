@@ -10,6 +10,7 @@ value goes, it says where, never what.
 
 Contents:
 - [Where things live](#where-things-live)
+- [Calendar](#calendar)
 - [Deploy](#deploy)
 - [Roll back](#roll-back)
 - [Restore the database](#restore-the-database)
@@ -52,6 +53,24 @@ Restarting the app:
   service's Events until it says live.
 - **GitHub jobs:** nothing to restart. The next run uses the new secret. To
   run one now: Actions > Scheduled sync > Run workflow.
+
+---
+
+## Calendar
+
+What comes round on a date (PLAN "Alongside, any time"). Each line points
+to its own steps; copy the dates into your own calendar too. Months, not
+days, except where a day was set.
+
+| When | What | How |
+|---|---|---|
+| Every quarter: January, April, July, October | The restore drill | [Restore the database](#restore-the-database), "Quarterly restore drill": a Neon branch of the live project from an hour ago, then `python scripts/restore_check.py --db "<drill branch>" --against "<live>"` (counts only, read-only). No table missing, differences only the last hour's. Delete the branch and add a line to the drill's table. |
+| Yearly for each listed advisor, as each falls due | The licence re-check | `licence_check.py`: a check is due 11 months after the last one, and the nightly tidy job emails the count each week while any are due. Admin > Licence checks lists them: look each advisor up again on FINRA BrokerCheck or the SEC's IAPD and record the source, the CRD and the day. Past 13 months an advisor is left out of the directory until re-checked. |
+| January | Dated yearly figures | Review dated yearly figures in season content, and anything else that names a year's figure (contribution limits, for one), against the new year's official numbers. Update them, and add a What's new entry if people will notice. |
+| October, with that quarter's drill | Key rotation | [Rotate a key](#rotate-a-key), one key at a time: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `FINNHUB_API_KEY`, the Neon password; live and staging each their own. `NORTHWEND_TOTP_KEY` only through [Two-step key](#two-step-key). Any key that may have been seen is rotated at once, whatever the month. |
+| November 6, 2026 | Retire the old Streamlit Community Cloud app | [Move to Render](#move-to-render), step 9: nobody is still opening the old address, then delete the old live app on Community Cloud (keep the staging app) and move the Streamlit line in the [Monthly budget](#monthly-budget). Then tick ROADMAP 4.8. |
+| Every month | The budget | [Monthly budget](#monthly-budget): fill in the amounts and compare them with seat revenue. |
+| Whenever something isn't working as usual | The website's status page | `STATUS_NOW` in `website/build.py` says what, plainly, and what still works; once it's fixed, back to "All systems normal" with a dated line in `NOTICES` (past notices, newest first). `python website/build.py`, then through staging and release as usual. No figures about people, no uptime percentages. |
 
 ---
 
@@ -426,6 +445,9 @@ Do what fits; when in doubt, do more.
    copy without its database stops at a calm "isn't set up" page before it
    touches any data (`settings.config_problem()`). `MOVED_TO` is for a real
    move, not an outage: it tells people their account is somewhere else.
+   Say so on the website's status page (northwend.app/status, `STATUS_NOW`
+   in `website/build.py`; see the [Calendar](#calendar)) - plainly, with
+   no guesses about the cause.
 5. **Keep the evidence.** Don't clear error records, the admin log or the
    host's logs. If a database copy helps, make a Neon branch at the current
    time; it holds personal data, so delete it once the incident is closed.
@@ -535,6 +557,8 @@ content.
 - [ ] This runbook, `docs/SECURITY_AUDIT.md` and, if a promise changed, the
       Privacy Policy are updated.
 - [ ] A What's new entry if people should know what changed for them.
+- [ ] The website's status page is back to "All systems normal", with a
+      dated line in `NOTICES` (`website/build.py`).
 
 ---
 

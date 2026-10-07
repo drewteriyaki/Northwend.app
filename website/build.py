@@ -6,7 +6,9 @@ serves at northwend.app (no build step there: public/ is committed).
 Plain HTML and CSS, no JavaScript. Pages are templates/base.html around each
 page's content; the About page is made from disclosures.py, so the website
 and the app's About page say the same thing (a test checks public/ is up to
-date). The fonts come from the app's own static/ folder. Change APP_URL here
+date). The What's new page is made from whats_new.ENTRIES (flagged items
+left out), and the status page from STATUS_NOW and NOTICES below, edited
+by hand. The fonts come from the app's own static/ folder. Change APP_URL here
 when the app moves (ROADMAP L4).
 
 The "calculators" are tables worked out here at build time (the CSP allows
@@ -27,6 +29,7 @@ REPO = os.path.dirname(HERE)
 sys.path.insert(0, REPO)
 
 import disclosures  # noqa: E402
+import whats_new  # noqa: E402
 
 SITE_URL = "https://northwend.app"
 APP_URL = "https://go.northwend.app/"  # the live app (Render, behind Cloudflare)
@@ -70,6 +73,13 @@ PAGES = {
                      "What Northwend keeps, what it never keeps, who it's shared with, what's "
                      "sent to the AI, and how to see, download or delete it.",
                      "/privacy"),
+    "whats-new.html": ("whats-new.html", "What's new · Northwend",
+                       "A short, dated list of what's changed in Northwend.",
+                       "/whats-new"),
+    "status.html": ("status.html", "Status · Northwend",
+                    "Whether Northwend is working as usual, and a dated list of past "
+                    "notices.",
+                    "/status"),
     "404.html": ("404.html", "Page not found · Northwend",
                  "This page isn't on the map.", "/404"),
 }
@@ -210,6 +220,57 @@ def about_values() -> dict:
             "LAST_UPDATED": html.escape(disclosures.LAST_UPDATED)}
 
 
+# The What's new page (/whats-new): made from whats_new.ENTRIES, the same list
+# the app shows, so the two never drift. Only what's on for everyone: an item
+# with a "flag" is left out (a feature behind a flag is off on the live app,
+# and a hidden feature is never announced). Rebuild after adding an entry.
+def public_whats_new() -> list[dict]:
+    """The entries with every flagged item dropped (and any entry left empty)."""
+    return whats_new.visible(on=lambda flag: False)
+
+
+def whats_new_values() -> dict:
+    parts = []
+    for e in public_whats_new():
+        items = "\n".join(f"<li>{html.escape(t, quote=False)}</li>" for t in e["items"])
+        parts.append(f'<section class="dated" aria-label="{html.escape(e["title"])}">\n'
+                     f'<p class="small muted"><time datetime="{e["date"]}">'
+                     f'{whats_new.when(e["date"])}</time></p>\n'
+                     f'<h2>{html.escape(e["title"], quote=False)}</h2>\n<ul>\n{items}\n</ul>\n'
+                     "</section>")
+    return {"ENTRIES": "\n".join(parts)}
+
+
+# The status page (/status), edited by hand: no scripts and no live checks.
+# STATUS_NOW is the box at the top - while something isn't working, change it
+# to say what, plainly (and what still works), then back once it's fixed, with
+# a line in NOTICES. STATUS_UPDATED is the day this section was last edited.
+# NOTICES, newest first: (ISO date, title, what happened, in a sentence or two).
+# Only real, past events; never figures about people or uptime percentages.
+STATUS_NOW = ("All systems normal", "The Northwend app and this website are working as usual.")
+STATUS_UPDATED = "2026-10-06"
+NOTICES: list[tuple[str, str, str]] = [
+    ("2026-10-06", "A new home for the app",
+     "Planned: the app moved to go.northwend.app, on its own hosting. Accounts, holdings and "
+     "settings came along unchanged, and the old address sends people to the new one."),
+]
+
+
+def status_values() -> dict:
+    title, text = STATUS_NOW
+    if NOTICES:
+        notices = "\n".join(
+            f'<section class="dated" aria-label="{html.escape(t)}">\n'
+            f'<p class="small muted"><time datetime="{d}">{whats_new.when(d)}</time></p>\n'
+            f"<h3>{html.escape(t, quote=False)}</h3>\n<p>{html.escape(body, quote=False)}</p>\n"
+            "</section>" for d, t, body in NOTICES)
+    else:
+        notices = '<p class="muted">Nothing to report yet.</p>'
+    return {"STATUS_TITLE": html.escape(title, quote=False),
+            "STATUS_TEXT": html.escape(text, quote=False),
+            "STATUS_UPDATED": whats_new.when(STATUS_UPDATED), "NOTICES": notices}
+
+
 # The Terms of Use and the Privacy Policy: markdown in docs/legal/ (the copies
 # people read; the -DRAFT files beside them are the lawyer's working copies,
 # written for after the hosting move). Their {{NAMES}} are filled from
@@ -337,6 +398,10 @@ def render(include_held: bool = False) -> dict[str, str]:
         values = dict(common)
         if name == "about.html":
             values.update(about_values())
+        if name == "whats-new.html":
+            values.update(whats_new_values())
+        if name == "status.html":
+            values.update(status_values())
         if name in LEGAL:
             values["LEGAL"] = legal_html(legal_text(name))
         page = _fill(base, {**common, "TITLE": html.escape(title), "NAV": nav_links(path),

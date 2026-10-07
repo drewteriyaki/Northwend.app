@@ -61,6 +61,19 @@ pasted text and screenshots are not kept. Clients can also use an example or
   sign every account out at once in an emergency.
 - **Email links** (confirm, reset) are one-time and stored as hashes: confirm
   links last 3 days, reset links 60 minutes. Client setup links last 7 days.
+- **Share links** ("Explain it to someone", where it's offered) carry a random
+  256-bit token; only its SHA-256 hash is kept, and the full link is shown once to
+  the person who made it. A link lasts 7 or 30 days (their choice), at most 3 work
+  at once, and turning one off deletes it. Only the account's own login can make
+  one - never an advisor in a client's account, never for an advisor's client
+  (their links stop working if an advisor starts managing the account), never
+  an admin. The page it opens needs no sign-in and signs no one in; it shows only
+  asset-class percentages, the goal's kind and a range of years, the route stage
+  and the target mix - never amounts, holdings, tickers, account details, the
+  email or the login. A link that's unknown, ended or turned off, or any link
+  while the feature is off, shows the same "no longer active" page. Opening links
+  is limited per internet address (a hash of the address, kept one day), and the
+  token is never logged.
 
 ## Two-step sign-in
 
@@ -108,8 +121,10 @@ pasted text and screenshots are not kept. Clients can also use an example or
 - **You** (the client's advisor): everything in that client's account, through the
   advisor-client link (`can_view`), except what's theirs alone - their notes to
   their future self, their monthly walks, their account map (an "if
-  something happens to me" list) and their Lost & Found list (where they've
-  looked for old accounts). Every per-account query is filtered
+  something happens to me" list), their Lost & Found list (where they've
+  looked for old accounts), their Trail Forks (life events they've marked) and
+  their share links. A client whose account you manage can't make share links,
+  and any they made before stop working. Every per-account query is filtered
   by account.
 - **Your client:** their own portfolio, plan, and the notes you share (not notes you
   mark private).

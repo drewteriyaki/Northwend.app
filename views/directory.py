@@ -15,6 +15,10 @@
 # only. "Request an introduction" opens the intro form (views/intros.py,
 # flag `intros`) - only an intro actually sent is written; with that flag off
 # it says introductions open soon (directory.request_intro_placeholder).
+# ADR 0005: a listing may show a one-time review (its price as the advisor
+# states it, paid to them directly), and "How advisors are paid" sits closed
+# above the filters (_dir_fee_explainer). The quiet "Find a guide" line on
+# Learn and Plan is dashboard._guide_line - this view doesn't run while off.
 # ruff: noqa: F821
 
 import directory
@@ -64,7 +68,11 @@ def _dir_listing_card(p):
                  ("Works with", ", ".join(words["serves"])),
                  ("Meets clients", words["meeting"]),
                  ("Serves clients in", where)]
+        if words["one_time"]:   # the advisor's own service, paid to them (ADR 0005)
+            lines.append(("One-time review", words["one_time"]))
         st.markdown("  \n".join(f"**{k}:** {v}" for k, v in lines).replace("$", r"\$"))
+        if words["one_time"]:
+            st.caption(directory.ONE_TIME_NOTE)
         st.markdown(_dir_md(p["description"]))
         with st.container(horizontal=True, gap="small"):
             st.button("Request an introduction", key=f"dir_intro_{uid}",
@@ -79,6 +87,21 @@ def _dir_listing_card(p):
             _intro_compose(p)   # views/intros.py
 
 
+def _dir_fee_explainer():
+    """How advisors are paid (directory.FEES_*): every way in plain words, in
+    the listings' own fee-model order - none favoured - questions to ask,
+    and official sites only. Closed until opened; nothing is recorded."""
+    with st.expander(directory.FEES_TITLE):
+        st.write(directory.FEES_INTRO)
+        st.markdown("\n".join(f"- **{label}.** {words}"
+                              for _, label, words in directory.FEES_EXPLAINED))
+        st.write(directory.FEES_CONFLICTS)
+        st.markdown(f"**{directory.FEES_QUESTIONS_TITLE}**\n\n"
+                    + "\n".join(f"- {q}" for q in directory.FEES_QUESTIONS))
+        st.markdown("Read more: " + " · ".join(f"[{name}]({url})"
+                                               for name, url in directory.OFFICIAL_SITES))
+
+
 def _render_find_a_guide():
     """Find a guide: the copy (DRAFT under L2), the B4 filters, and the
     listings alphabetically by name."""
@@ -88,6 +111,7 @@ def _render_find_a_guide():
     with st.container(border=True):
         for line in directory.ABOUT_LINES:
             st.markdown(line)
+    _dir_fee_explainer()
     if STAGING and directory.COPY_STATUS == "DRAFT":
         st.caption("Draft wording - for review under legal gate L2.")
 
@@ -154,6 +178,9 @@ def _dir_form_defaults(profile, card):
     st.session_state["dir_p_all_states"] = bool(
         profile and len(profile.get("states") or []) == len(directory.STATES))
     st.session_state["dir_p_listed"] = bool(profile and profile.get("listed"))
+    once = (profile or {}).get("one_time_cost") or ""
+    st.session_state["dir_p_one_time"] = "price" if once.isdigit() else once
+    st.session_state["dir_p_one_time_price"] = int(once) if once.isdigit() else None
     st.session_state["dir_p_loaded"] = True
 
 
@@ -162,6 +189,11 @@ def _dir_save_listing():
     fields = {f: g(f"dir_p_{f}") for f in _DIR_FORM}
     if g("dir_p_all_states"):
         fields["states"] = [k for k, _ in directory.STATES]
+    # the one-time review: not offered, "ask", or the price they typed (a set
+    # price left empty is caught by directory.clean)
+    once = g("dir_p_one_time") or ""
+    fields["one_time_cost"] = ((g("dir_p_one_time_price") or "none given") if once == "price"
+                               else once)
     c = connect(DB)
     try:
         result = directory.save_profile(c, LOGIN_ID, fields, listed=bool(g("dir_p_listed")))
@@ -245,6 +277,18 @@ def _render_directory_listing():
                           max_chars=directory.LIMITS["scheduling_url"],
                           placeholder="https://...",
                           help="Your own calendar tool's page. It must start with https://")
+            once = dict(directory.ONE_TIME_CHOICES)
+            low, high = directory.ONE_TIME_RANGE
+            c1, c2 = st.columns(2)
+            c1.radio("Do you offer a one-time review?", list(once), key="dir_p_one_time",
+                     format_func=once.get,
+                     help="A single review for a set price, paid to you directly - Northwend "
+                          "takes no part of it. Shown on your listing; people can't filter "
+                          "on it.")
+            c2.number_input("Its price, in dollars", min_value=low, max_value=high, step=1,
+                            value=None, key="dir_p_one_time_price", placeholder="e.g. 250",
+                            help="Only for \"Yes, at a set price\". Whole dollars, as you "
+                                 "state it.")
             st.checkbox("List me in Find a guide", key="dir_p_listed")
             st.form_submit_button("Save listing", type="primary", on_click=_dir_save_listing)
         if profile is not None:

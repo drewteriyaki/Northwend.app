@@ -174,6 +174,36 @@ Each statement about data here must stay true to the code:
   change; never an amount, account number or name); never drawn while an
   advisor is in a client's account, not in an advisor's client record, never
   sent to the AI. In the person's own export (settings).
+- Trail Forks (trail_forks.py, views/trail_forks.py, flag trail_forks): under
+  Lost & Found on Account; education about life events with official links
+  only. Kept in the login's own settings (prefs trail_forks): which forks the
+  person marked as theirs and which fixed steps they ticked - keys only, no
+  typed text, no dates, amounts or names; never drawn while an advisor is in a
+  client's account, not in an advisor's client record, never sent to the AI.
+  In the person's own export (settings).
+- The Four Seasons (seasons.py, views/seasons.py, flag seasons): a card on Home
+  in season, a line on Learn; education with official links only, yearly
+  figures dated with their tax year and IRS page and shown only in that year.
+  Kept in the login's own settings (prefs seasons: per season and year,
+  opened or put away - no free text); never drawn while an advisor is in a
+  client's account, never sent to the AI. In the person's own export
+  (settings). The RMD note is shown only for the "65 or older" age range
+  already in the profile; nothing new is asked.
+- Explain it to someone (explain_share.py, views/explain_share.py, flag
+  explain_share): share links made on Account by the login's own account only
+  (never an advisor in a client's account, an advisor's client or an admin -
+  explain_share.eligible). Table share_links: the token's SHA-256, never the
+  token (shown once); expires after 7 or 30 days (DAYS_CHOICES); turning it
+  off deletes the row; at most 3 working (MAX_ACTIVE); opens and the day of
+  the last one, for the owner only; deleted with the account, ended ones
+  nightly (tidy.py); in the owner's export without the hash. The page
+  (explain_share.page) shows only asset-class whole percents, the goal's kind
+  and a timeline bucket, the route stage, the target mix and band, and the
+  first name only if ticked; never amounts, holdings, tickers, account names
+  or numbers, email or login. Opening it signs nobody in; each visit is
+  counted once per browser session against a per-address limit (a signups row
+  keyed share: plus the address's SHA-256, a day). Flag off: every link shows
+  "no longer active".
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -306,7 +336,7 @@ to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
-their account map and their Lost & Found list.
+their account map, their Lost & Found list and their Trail Forks.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
@@ -315,7 +345,7 @@ their account map and their Lost & Found list.
   account and bank numbers cut to their last 3 digits), your plan and goals,
   your investing-profile
   answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), and settings, and the name you'd like to be called, if you
+  said, and, where the walk's log is on, its percentages - never amounts), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), and settings, and the name you'd like to be called, if you
   give one (shown in the app, and to your advisor). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
@@ -346,7 +376,16 @@ their account map and their Lost & Found list.
   range, where you are on the route) - never amounts, holdings or your email -
   until you choose, in two separate steps, to share your full account. Those
   introductions are kept until you or the advisor deletes the account, and
-  browsing Find a guide isn't recorded at all. To look after accounts, the person who runs Northwend can see
+  browsing Find a guide isn't recorded at all. Where "Explain it to someone"
+  is offered, anyone you send one of its links to can see a page with your mix
+  by asset class in percents, what you're investing for and roughly when (a
+  range of years), where you are on the route, your target mix and how far it
+  may drift - and your first name only if you tick it. Never an amount, a
+  holding or fund, an account name or number, or your email. A link works for
+  the 7 or 30 days you choose, you can turn it off at any time on the Account
+  page, and only you can make one, for your own account (not while an advisor
+  manages it). Northwend keeps only a scrambled version of the link and, for
+  you, how many times it was opened - nothing about who opened it. To look after accounts, the person who runs Northwend can see
   login details (your email or username, your role, when the account was made
   and last signed in) - not your holdings, plan or answers. If an account has
   no email address, they can set a temporary password to help its owner back
@@ -361,7 +400,8 @@ their account map and their Lost & Found list.
   after 30 days without a sign-in. Sign-ins last 30 days ("stay signed in",
   and skipping the two-step code on a trusted device). Email links work until
   they run out: a password reset after 1 hour, a confirm link after 3 days, an
-  advisor's setup link after 7 days. The scrambled counts that stop automated
+  advisor's setup link after 7 days. An "Explain it to someone" link works for
+  the 7 or 30 days you chose, and is deleted soon after it ends. The scrambled counts that stop automated
   sign-ups and repeated wrong passwords are kept for 1 day, and error records
   (what went wrong and where - nothing about you) for 90 days.
 - **Deleting:** on the **Account** page you can delete all your holdings

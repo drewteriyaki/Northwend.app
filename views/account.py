@@ -455,6 +455,12 @@ def _render_account():
     # ---- Lost & Found: finding old accounts (views/lost_found.py) ----------- #
     if flags.on("lost_found"):
         render_lost_found()
+    # ---- Trail Forks: life events (views/trail_forks.py) -------------------- #
+    if flags.on("trail_forks"):
+        render_trail_forks()
+    # ---- Explain it to someone: a figure-free share link (views/explain_share.py) #
+    if flags.on("explain_share"):
+        render_explain_share()
 
     # ---- delete the account ------------------------------------------------ #
     st.subheader("Delete your account", anchor=False)

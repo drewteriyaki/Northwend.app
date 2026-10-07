@@ -14,9 +14,15 @@ The rules, enforced here and tested (tests/test_directory.py):
   sort in this module and no ORDER BY in its SQL.
 - **Filters per B4, and only those** (FILTERS): the state the person is in,
   virtual or in person, fee model, who they serve, and account minimum in
-  bands. Credentials, registration type, the description and the scheduling
-  link are shown but can't be filtered on (filtering on letters after a
-  name would rank by another name).
+  bands. Credentials, registration type, the description, the scheduling
+  link and a one-time review (ADR 0005: offered or not, its price as the
+  advisor states it, paid to them directly) are shown but can't be filtered
+  on (filtering on letters after a name would rank by another name; a
+  one-time review filter is an L2 question).
+- **Beside the listings**, "How advisors are paid" (FEES_*): each fee model
+  in plain words, questions to ask, official sites only. And on Learn and
+  Plan, one quiet "Want a second opinion? Find a guide" line
+  (guide_link_shown) - nothing counted about who sees or presses it.
 - **Nothing is counted about who browses** (brief 3.4). Browsing, filtering
   and pressing "Request an introduction" write nothing - no views,
   impressions or clicks, for anyone, and advisors see no such numbers. Only
@@ -127,7 +133,8 @@ STATES = (
 # every field, the lists among them, and those a listing needs (credentials
 # and the scheduling link are optional)
 FIELDS = ("display_name", "firm", "reg_type", "reg_number", "credentials", "fee_models",
-          "minimum", "serves", "states", "meeting", "description", "scheduling_url")
+          "minimum", "serves", "states", "meeting", "description", "scheduling_url",
+          "one_time_cost")
 LIST_FIELDS = ("credentials", "fee_models", "serves", "states")
 REQUIRED = ("display_name", "firm", "reg_type", "reg_number", "fee_models", "minimum",
             "serves", "states", "meeting", "description")
@@ -135,9 +142,23 @@ LABELS = {"display_name": "Name", "firm": "Firm", "reg_type": "Registration type
           "reg_number": "CRD number", "credentials": "Credentials",
           "fee_models": "Fee model", "minimum": "Account minimum", "serves": "Who you serve",
           "states": "States served", "meeting": "Virtual or in person",
-          "description": "A short description", "scheduling_url": "Scheduling link"}
+          "description": "A short description", "scheduling_url": "Scheduling link",
+          "one_time_cost": "One-time review"}
 LIMITS = {"display_name": 60, "firm": 80, "reg_number": 20, "credential": 30,
           "credentials": 10, "description": 500, "scheduling_url": 300}
+
+# A one-time review (ADR 0005): the advisor's own service, offered or not, at
+# the price they state or "ask". Stored in one column, one_time_cost: '' (not
+# offered), 'ask', or whole dollars as digits ('250'). Shown on the listing in
+# plain words; never a filter (B4's five stay five - whether it becomes one is
+# an L2 question, LEGAL_GATES) and never a sort (sort_key reads only the name).
+ONE_TIME_ASK = "ask"
+ONE_TIME_RANGE = (1, 10_000)   # whole dollars, as the advisor states it
+ONE_TIME_CHOICES = (           # the advisor's form: (key, label)
+    ("", "I don't offer one"),
+    ("price", "Yes, at a set price"),
+    (ONE_TIME_ASK, "Yes - people ask me for the price"),
+)
 
 # The filters a person can use (decision B4), and nothing else.
 FILTERS = ("state", "meeting", "fee_models", "serves", "minimum")
@@ -169,6 +190,67 @@ NONE_YET = "No advisors are listed yet. Check back later."
 # the button on each listing while the intro flow (flag `intros`) is off
 INTROS_SOON = ("Introductions open soon. Until then, you're welcome to use the advisor's own "
                "scheduling link, or look up their public record.")
+# under a listing's one-time review (ADR 0005 point 4)
+ONE_TIME_NOTE = "Paid to the advisor directly; Northwend takes no part of it."
+
+# ---- the calm link on Learn and Plan (ADR 0005 point 3): DRAFT, gate L2 ----- #
+# One quiet line once someone has finished Learn or set a goal - no pop-up,
+# nothing counted about who sees or presses it. Only for an individual on
+# their own account (guide_link_shown).
+GUIDE_LINE = "Want a second opinion?"
+GUIDE_BUTTON = "Find a guide"
+
+# ---- "How advisors are paid": a beginner's explainer beside the listings ---- #
+# (ADR 0005 point 6; DRAFT for L2.) Plain words for each way the listings say
+# advisors are paid - in FEE_MODELS' own order, then commissions (broker-dealer
+# representatives can be listed, REG_TYPES) - each with its trade-off and a
+# question to ask. Never ranks or favours a way; links go only to the official
+# sites in OFFICIAL_SITES.
+FEES_TITLE = "How advisors are paid"
+FEES_INTRO = ("Advisors are paid in a few common ways, and some use more than one. Each way has "
+              "its own trade-offs, and none is the right one for everyone. Every listing here "
+              "says how that advisor is paid.")
+FEES_EXPLAINED = (
+    ("aum", "A percentage of assets they manage (AUM)",
+     "A yearly fee worked out as a share of the money the advisor manages for you, usually "
+     "taken from the account itself. It rises as the account grows and falls when it shrinks. "
+     "Ask what the percentage comes to in dollars a year on your own amount."),
+    ("flat", "A flat fee, including a one-time review",
+     "A set price for a defined piece of work - for example, one look at your goal, your "
+     "accounts and your questions. You know the cost before you start. Ask what's included, "
+     "and what any later help would cost."),
+    ("hourly", "By the hour",
+     "You pay for the time the advisor spends, at their hourly rate. Ask roughly how many hours "
+     "the work will take before it starts."),
+    ("subscription", "A subscription or retainer",
+     "A regular charge - monthly, quarterly or yearly - for ongoing help, whatever the size of "
+     "your accounts. Ask what it covers and how to stop it."),
+    ("commission", "Commissions",
+     "Some financial professionals, such as broker-dealer representatives, are paid a "
+     "commission when you buy or sell certain products through them, sometimes by the "
+     "company behind the product. Ask which products pay them a commission, and how much."),
+)
+FEES_CONFLICTS = ("Any way of being paid can create a conflict of interest - a reason, even a "
+                  "small one, for an advisor to lean one way. Registered advisers and brokers "
+                  "have to describe how they're paid and their conflicts in writing, and you "
+                  "can read their public records on the official sites below.")
+FEES_QUESTIONS_TITLE = "Questions you can ask any advisor"
+FEES_QUESTIONS = (
+    "How are you paid for working with me, in total - and does anyone else pay you when I "
+    "buy or keep something?",
+    "Do you or your firm earn more if I pick one product, account or service over another?",
+    "What conflicts of interest do you have, and how do you handle them?",
+    "Do you act as a fiduciary - putting my interests first - all the time you work with me?",
+    "Can I have your firm's relationship summary (Form CRS) and your fees in writing?",
+    "If you offer a one-time review, what does it include, and what does it cost?",
+)
+# where to read more: official sources only (sec.gov / investor.gov, FINRA)
+OFFICIAL_SITES = (
+    ("Investor.gov, the SEC's site for investors", "https://www.investor.gov/"),
+    ("FINRA BrokerCheck", "https://brokercheck.finra.org/"),
+    ("The SEC's Investment Adviser Public Disclosure", "https://adviserinfo.sec.gov/"),
+)
+OFFICIAL_HOSTS = ("investor.gov", "sec.gov", "finra.org")   # and their subdomains
 
 _URL_IN_TEXT = re.compile(
     r"(https?://|www\.|\b[a-z0-9-]+\.(com|net|org|io|co|app|us|biz|info|me|ly|ai|link)\b"
@@ -280,7 +362,48 @@ def clean(fields: dict) -> tuple[dict, list[str]]:
         if problem:
             errors.append(problem)
     out["scheduling_url"] = url
+    out["one_time_cost"], problem = one_time_value(fields.get("one_time_cost"))
+    if problem:
+        errors.append(problem)
     return out, errors
+
+
+def one_time_value(raw) -> tuple[str, str | None]:
+    """A one-time review as saved ('' not offered, 'ask', or whole dollars as
+    digits) and what's wrong with it, or None. Takes '', None, 'ask', a whole
+    number, or text like '$1,250'."""
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return "", None
+    if isinstance(raw, str) and raw.strip().casefold() == ONE_TIME_ASK:
+        return ONE_TIME_ASK, None
+    low, high = ONE_TIME_RANGE
+    problem = (f"One-time review: a price in whole dollars from ${low:,} to ${high:,}, or "
+               "\"ask\".")
+    if isinstance(raw, bool):
+        return "", problem
+    if isinstance(raw, float):
+        if not raw.is_integer():
+            return "", problem
+        raw = int(raw)
+    if isinstance(raw, str):
+        text = raw.strip().replace("$", "").replace(",", "").strip()
+        if text.endswith(".00"):
+            text = text[:-3]
+        if not text.isascii() or not text.isdigit():
+            return "", problem
+        raw = int(text)
+    if not isinstance(raw, int) or not low <= raw <= high:
+        return "", problem
+    return str(raw), None
+
+
+def one_time_words(value: str) -> str:
+    """How a listing says its one-time review, or '' when not offered."""
+    if value == ONE_TIME_ASK:
+        return "Offered - ask the advisor for the price"
+    if value and value.isdigit():
+        return f"Offered - ${int(value):,}, the price as the advisor states it"
+    return ""
 
 
 def missing(profile: dict | None) -> list[str]:
@@ -521,7 +644,20 @@ def describe(profile: dict) -> dict:
                    [_label_of(STATES, k) for k in profile.get("states", [])]),
         "all_states": len(profile.get("states", [])) == len(STATES),
         "meeting": _label_of(MEETING, profile.get("meeting")),
+        "one_time": one_time_words(profile.get("one_time_cost") or ""),
     }
+
+
+# ---- the calm link on Learn and Plan --------------------------------------- #
+def guide_link_shown(*, directory_on: bool, is_advisor: bool, is_admin: bool,
+                     client_mode: bool, has_advisor: bool) -> bool:
+    """Whether Learn and Plan may show the quiet "Want a second opinion? Find
+    a guide" line (GUIDE_LINE): only with `directory` on (its gate L2 too),
+    only for an individual on their own account - never an advisor, an
+    admin, client mode, or someone who already has an advisor. Where on the
+    page (Learn finished, a goal set) is the page's to decide."""
+    return bool(directory_on and not is_advisor and not is_admin and not client_mode
+                and not has_advisor)
 
 
 # ---- the introduction while its flag is off -------------------------------- #

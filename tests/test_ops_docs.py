@@ -143,6 +143,17 @@ class RunbookTests(unittest.TestCase):
             self.assertRegex(text, rf"(?m)^### {gate}\b", gate)
         self.assertNotRegex(text, r"(?m)^### L4")
 
+    def test_the_calendar_names_the_dated_chores(self):
+        text = _read("docs/RUNBOOK.md")
+        self.assertIn("- [Calendar](#calendar)", text)   # in the contents
+        cal = text.split("\n## Calendar\n", 1)[1].split("\n## ", 1)[0]
+        for must in ("Every quarter", "scripts/restore_check.py", "licence_check.py",
+                     "January", "season content", "November 6, 2026", "Community Cloud",
+                     "(#rotate-a-key)", "STATUS_NOW"):
+            self.assertIn(must, cal, must)
+        for rel in ("scripts/restore_check.py", "licence_check.py", "website/build.py"):
+            self.assertTrue(os.path.exists(os.path.join(REPO, rel)), rel)
+
     def test_settings_it_names_exist(self):
         # every NAME=... the runbook tells someone to set is a real setting
         listed = env_example()

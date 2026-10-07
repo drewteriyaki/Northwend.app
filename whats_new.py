@@ -8,6 +8,10 @@ what they can now do or will notice, never code or test details. An item
 for a feature behind a flag names it (`flag`), so it only shows on copies
 where that feature is on - a hidden feature is never announced.
 
+The website's What's new page (northwend.app/whats-new) is built from
+ENTRIES too, with every flagged item left out: run `python website/build.py`
+after editing (a test fails while website/public/ is stale).
+
 Nothing nags: the name menu shows a small dot until the newest entry has
 been opened once (PREF_SEEN, in the person's own settings), and that's all.
 """
@@ -22,6 +26,53 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-06", "title": "Find a guide: how advisors are paid",
+     "items": [
+         {"text": "Find a guide now explains, in plain words, the usual ways advisors are paid "
+                  "- a flat fee or one-time review, by the hour, a subscription, a share of "
+                  "what they manage, or commissions - with questions you can ask any advisor "
+                  "and links to the official places to look them up.", "flag": "directory"},
+         {"text": "An advisor's listing can say whether they offer a one-time review, and its "
+                  "price as they state it. You'd pay the advisor directly; Northwend takes no "
+                  "part of it.", "flag": "directory"},
+         {"text": "Once you've finished Learn or set a goal, Learn and Plan show one quiet "
+                  "line, \"Want a second opinion? Find a guide\". It's entirely optional.",
+          "flag": "directory"},
+     ]},
+    {"date": "2026-10-06", "title": "Trail Forks",
+     "items": [
+         {"text": "Trail Forks, on the Account page, is a calm route for big life changes - a "
+                  "new job, a layoff, a new baby, an inheritance, a divorce or the death of a "
+                  "parent. Each one shows what changes, what to gather, what to ask and whom, "
+                  "and what not to rush. It never tells you what to do. You can mark the fork "
+                  "you're on and tick steps as you go; only you see them.",
+          "flag": "trail_forks"},
+     ]},
+    {"date": "2026-10-06", "title": "The four seasons",
+     "items": [
+         {"text": "Four moments in the year now bring something worth a look that isn't your "
+                  "balance: in January, this year's contribution limits and what your funds' "
+                  "fees add up to; in April, your tax forms explained; in October and November, "
+                  "open enrollment and health savings accounts; in December, your year in "
+                  "review and a letter to future you. A card shows on Home in season - put it "
+                  "away with Not now - and Learn has all four any time.", "flag": "seasons"},
+     ]},
+    {"date": "2026-10-06", "title": "What's new and Status, on northwend.app",
+     "items": [
+         "This list is now on the website too, at northwend.app/whats-new, for anyone "
+         "curious about what's changed.",
+         "A status page at northwend.app/status says whether the app is working as usual, "
+         "with a dated list of past notices.",
+     ]},
+    {"date": "2026-10-06", "title": "Explain it to someone",
+     "items": [
+         {"text": "Explain it to someone, on the Account page, makes a private link that shows "
+                  "a partner or family member your plan in plain words: your mix in "
+                  "percentages, what you're investing for and roughly when, and where you are "
+                  "on the route - never an amount, a holding or an account. You choose 7 or "
+                  "30 days, your first name stays off unless you tick it, and you can turn a "
+                  "link off at any time.", "flag": "explain_share"},
+     ]},
     {"date": "2026-10-06", "title": "Lost & Found",
      "items": [
          {"text": "Lost & Found, under your account map on the Account page, shows the free, "

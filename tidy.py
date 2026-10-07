@@ -14,8 +14,9 @@ What goes:
   former client's old advisors keep their own records, as when people
   delete their own account (admin.delete_own).
 - Error records (error_events) not seen for 90 days.
-- Email links (email_tokens), advisors' setup links (invites) and
-  stay-signed-in sessions (login_sessions) past their expiry date.
+- Email links (email_tokens), advisors' setup links (invites),
+  stay-signed-in sessions (login_sessions) and Explain it to someone's share
+  links (share_links, explain_share.prune) past their expiry date.
 - Wrong-password counts (login_failures) not added to for a day whose lock has
   run out, and the day-old sign-up and email-send counts (signups,
   email_sends) - the app clears these only when the next one comes in. The
@@ -43,6 +44,7 @@ import access_log
 import admin
 import auth
 import consent
+import explain_share
 import pgcompat
 import settings
 from portfolio import connect
@@ -115,9 +117,12 @@ def run(conn, *, now: datetime | None = None) -> dict:
     delete("email links", "DELETE FROM email_tokens WHERE expires_at <= ?", (stamp,))
     delete("setup links", "DELETE FROM invites WHERE expires_at <= ?", (stamp,))
     delete("sessions", "DELETE FROM login_sessions WHERE expires_at <= ?", (stamp,))
+    # (ISO timestamps there: explain_share's own prune)
+    done["share links"] = explain_share.prune(conn, now=now)
     delete("wrong-password counts", "DELETE FROM login_failures WHERE window_start < ? "
            "AND (locked_until IS NULL OR locked_until < ?)", (day_ago, stamp))
-    # (the no-account decoder's counts as well: signups rows keyed "decoder:...")
+    # (the no-account decoder's counts as well: signups rows keyed "decoder:...",
+    # and opened share links', keyed "share:..." - explain_share.take)
     delete("sign-up counts", "DELETE FROM signups WHERE created_at < ?", (day_ago,))
     delete("email-send counts", "DELETE FROM email_sends WHERE sent_at < ?", (day_ago,))
     # (`interval` is a keyword on Postgres: qualified. ts is ISO, so a day compares.)

@@ -44,6 +44,8 @@ ACCOUNT_TABLES = {
     "advisor_profiles": ("user_id",),   # an advisor's directory listing (directory.py)
     # an introduction from Find a guide (intros.py): gone with either account
     "intro_requests": ("person_id", "advisor_id"),
+    # Explain it to someone's share links (explain_share.py): the owner's own
+    "share_links": ("user_id",),
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)

@@ -1081,3 +1081,5 @@ def _render_plan(value, growth, alloc_rows):
     for tab, (_name, draw) in zip(st.tabs([s[0] for s in sections], default=first), sections):
         with tab:
             draw()
+    if plans.has_goal(plan) and not editing:
+        _guide_line("plan_guide")   # a goal set: a quiet "Find a guide" (ADR 0005)

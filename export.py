@@ -71,6 +71,9 @@ OWN = [
     # (consent.py), and each time an advisor opened their account (access_log.py)
     ("sharing_with_an_advisor", "consent_records", "client_id", ""),
     ("advisor_visits", "advisor_access_log", "client_id", ""),
+    # Explain it to someone (explain_share.py): the links they made - when,
+    # until when, first name shown or not, visits (never the token or its hash)
+    ("share_links", "share_links", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -82,7 +85,9 @@ LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"},
                     # which admin recorded it: an id of someone else's login
                     "licence_checks": {"checked_by"},
                     # the sender's account id: someone else's login
-                    "introductions_to_you": {"person_id"}}
+                    "introductions_to_you": {"person_id"},
+                    # a share link's hash: never needed, never exported (SECRET_PARTS too)
+                    "share_links": {"token_hash"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -114,6 +119,10 @@ Open them in any spreadsheet. Dates are UTC.
 - sharing_with_an_advisor.csv: when you agreed to share your account with an
   advisor and when that ended, with the exact words you were shown
 - advisor_visits.csv: each time an advisor opened a page in your account
+- share_links.csv: the "Explain it to someone" links you made that still
+  work - when you made each one, when it stops working, whether it shows your
+  first name, and how many times it was opened (the links themselves are never
+  kept)
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

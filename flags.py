@@ -109,6 +109,33 @@ FEATURES = {
     # Under the account map on Account (views/account.py checks on("lost_found")),
     # the login's own only - never while an advisor is in a client's account.
     "lost_found": {"gates": (), "view": "lost_found"},
+    # Trail Forks (ROADMAP R8, trail_forks.py): a route per life event (a new
+    # job, a layoff, a new baby, an inheritance, a divorce, the death of a
+    # parent) - what changes, what to gather, what to ask and whom, what not
+    # to rush - each ending in the Walk. Education (LEGAL_GATES.md section 6):
+    # no gate. Under Lost & Found on Account (views/account.py checks
+    # on("trail_forks")); the person's forks and ticks in their own settings,
+    # never drawn while an advisor is in a client's account.
+    "trail_forks": {"gates": (), "view": "trail_forks"},
+    # The Four Seasons (ROADMAP R7, seasons.py): January (this year's limits,
+    # last year's IRA window, the fee bill to the goal date), April (tax forms
+    # explained), October-November (open enrollment, HSAs), December (Year in
+    # review, a letter to future you, an RMD reminder for the 65-or-older age
+    # range). Education (LEGAL_GATES.md section 6): no gate. A card on Home in
+    # season and a line on Learn (views/dashboard_page.py and
+    # views/get_started.py check on("seasons")); the login's own only.
+    "seasons": {"gates": (), "view": "seasons"},
+    # Explain it to someone (ROADMAP R10, explain_share.py): a private,
+    # expiring, revocable link (?share=...) that shows a partner or family
+    # member the owner's plan in plain words - asset-class percents, the
+    # goal's kind and timeline bucket, the route stage, the target mix and
+    # band; never a figure, holding or account detail. Descriptive (the
+    # person's own data, LEGAL_GATES.md section 6): no gate. Owns no view on
+    # purpose: views/explain_share.py always loads so that, while this is
+    # off, an existing link still shows the calm "no longer active" page
+    # (it checks on("explain_share") itself, as views/account.py does before
+    # drawing the owner's section).
+    "explain_share": {"gates": (), "view": None},
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not

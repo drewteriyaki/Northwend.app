@@ -27,15 +27,28 @@ import unittest.mock
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
+import advisor  # noqa: E402
 import auth  # noqa: E402
 import directory  # noqa: E402
 import flags  # noqa: E402
 import licence_check  # noqa: E402
+import plans  # noqa: E402
 import portfolio  # noqa: E402
+import prefs  # noqa: E402
 import sample_data  # noqa: E402
 import two_step  # noqa: E402
 
 PW = "pw-123456789"
+# every profile question answered, a goal, and Learn walked (as in test_invest_path)
+READY = {"goal": "Build long-term wealth", "time_horizon_years": 10,
+         "risk_tolerance": "moderate", "drawdown_reaction": "Hold and wait",
+         "experience": "new", "age_range": "25-34", "income_stability": "Very stable",
+         "emergency_fund": "3-6 months", "high_interest_debt": "None",
+         "employer_match": "No match or no plan"}
+GOAL = {"goal_type": "Build long-term wealth", "target_amount": 20000.0,
+        "target_date": "2036-10-01", "monthly_contribution": 100.0}
+LEARN_DONE = {"first_steps": {"done": True},
+              "get_started_done": ["goal", "basics", "mix", "practice"]}
 
 
 def _profile(name, firm="A Firm", **over):
@@ -282,7 +295,8 @@ class ListingRuleTests(_DbCase):
         self.assertEqual(directory.FILTERS,
                          ("state", "meeting", "fee_models", "serves", "minimum"))
         for not_a_filter in ("credentials", "reg_type", "description", "scheduling_url",
-                             "rank", "sort", "order", "featured", "rating"):
+                             "one_time_cost", "one_time", "rank", "sort", "order", "featured",
+                             "rating"):
             with self.subTest(not_a_filter), self.assertRaises(ValueError):
                 directory.listings(self.c, {not_a_filter: "x"})
         with self.assertRaises(ValueError):
@@ -310,6 +324,8 @@ class OrderTests(_DbCase):
         serves = [k for k, _ in directory.SERVES]
         mins = [k for k, _ in directory.MINIMUMS]
         meets = [k for k, _ in directory.MEETING]
+        # a one-time review (ADR 0005) varied too: offered at a price, "ask", or not
+        once = ["", "ask", "1", "99", "250", "10000"]
         self.specs = []
         for i, name in enumerate(NAMES):
             self.specs.append(_profile(
@@ -317,6 +333,7 @@ class OrderTests(_DbCase):
                 fee_models=rnd.sample(fees, rnd.randint(1, 3)),
                 serves=rnd.sample(serves, rnd.randint(1, 3)),
                 minimum=rnd.choice(mins), meeting=rnd.choice(meets),
+                one_time_cost=rnd.choice(once),
                 states=rnd.sample(["NY", "CA", "TX", "WA"], rnd.randint(1, 3))))
         rnd.shuffle(self.specs)
         for i, spec in enumerate(self.specs):
@@ -346,6 +363,8 @@ class OrderTests(_DbCase):
                              [p["user_id"] for p in everyone if directory.matches(p, filters)])
             n += 1
         self.assertEqual(n, 6 * 3 * 4 * 3 * 4)
+        # the one-time review is in the mix, and moves no one
+        self.assertGreater(len({p["one_time_cost"] for p in everyone}), 2)
 
     def test_the_names_in_order(self):
         # case, accents and punctuation don't move anyone; the firm only splits
@@ -370,8 +389,13 @@ class OrderTests(_DbCase):
         other = {**p, "user_id": 10 ** 6, "updated_at": "1999-01-01T00:00:00Z",
                  "credentials": ["CFP", "CFA", "PhD"], "fee_models": ["aum"], "states": ["CA"],
                  "minimum": "1m_plus", "listed": False, "description": "x",
-                 "scheduling_url": "", "reg_type": "bd_rep", "reg_number": "1"}
+                 "scheduling_url": "", "reg_type": "bd_rep", "reg_number": "1",
+                 "one_time_cost": "ask" if p["one_time_cost"] != "ask" else "10000"}
         self.assertEqual(directory.sort_key(p), directory.sort_key(other))
+        # one profile, one-time review changed through every value: same key
+        for value in ("", "ask", "1", "250", "10000"):
+            self.assertEqual(directory.sort_key({**p, "one_time_cost": value}),
+                             directory.sort_key(p))
 
 
 class NoRankingTests(unittest.TestCase):
@@ -469,6 +493,150 @@ class NoRankingTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------- #
+# ADR 0005: a one-time review, the calm link, "How advisors are paid"
+# --------------------------------------------------------------------------- #
+# words the directory's own copy never uses (education only; never a nudge,
+# a ranking or a hint that Northwend refers or is paid per lead)
+NEVER_SAID = re.compile(r"\bshould\b|\bbest\b|recommend|\btop\b|\branked\b|\bcheapest\b|"
+                        r"\bmust\b|per lead|referr|refer you|matched|deadline|hurry|\btoday\b",
+                        re.I)
+
+
+class OneTimeReviewTests(_DbCase):
+
+    def test_what_can_be_saved(self):
+        ok = [(None, ""), ("", ""), ("  ", ""), ("ask", "ask"), ("ASK", "ask"), (1, "1"),
+              (250, "250"), (250.0, "250"), ("250", "250"), ("$1,250", "1250"),
+              ("1250.00", "1250"), (10_000, "10000")]
+        for raw, saved in ok:
+            with self.subTest(raw=raw):
+                self.assertEqual(directory.one_time_value(raw), (saved, None))
+        for raw in (0, -5, 10_001, 99.5, "free", "250/hr", "https://x.com", "1e3", True,
+                    "none given", "２５０", [250]):
+            with self.subTest(raw=raw):
+                value, problem = directory.one_time_value(raw)
+                self.assertEqual(value, "")
+                self.assertIn("One-time review", problem)
+        # through clean(): optional, and checked when given
+        self.assertEqual(directory.clean(_profile("A"))[0]["one_time_cost"], "")
+        self.assertTrue(directory.clean(_profile("A", one_time_cost="cheap"))[1])
+        self.assertEqual(directory.clean(_profile("A", one_time_cost=300))[0]["one_time_cost"],
+                         "300")
+
+    def test_saved_shown_in_plain_words_and_exported(self):
+        import export
+        carol = _advisor(self.c, "carol")
+        self.assertTrue(directory.save_profile(self.c, carol, _profile("Carol", one_time_cost=1500),
+                                               listed=True)["ok"])
+        p = directory.get_profile(self.c, carol)
+        self.assertEqual(p["one_time_cost"], "1500")
+        self.assertEqual(directory.describe(p)["one_time"],
+                         "Offered - $1,500, the price as the advisor states it")
+        self.assertEqual(directory.describe({**p, "one_time_cost": "ask"})["one_time"],
+                         "Offered - ask the advisor for the price")
+        self.assertEqual(directory.describe({**p, "one_time_cost": ""})["one_time"], "")
+        # a wrong price saves nothing
+        self.assertFalse(directory.save_profile(self.c, carol, _profile("Carol",
+                                                                        one_time_cost=0))["ok"])
+        self.assertEqual(directory.get_profile(self.c, carol)["one_time_cost"], "1500")
+        # in Export everything (export.OWN: your_directory_listing)
+        import io
+        import zipfile
+        z = zipfile.ZipFile(io.BytesIO(export.export_zip(self.c, carol)))
+        listing = z.read("your_directory_listing.csv").decode()
+        self.assertIn("one_time_cost", listing.splitlines()[0])
+        self.assertIn("1500", listing)
+
+    def test_an_old_database_gets_the_column(self):
+        # made before the column: the back-fill adds it (portfolio._ensure_schema)
+        path = _db(self.tmp, "old.db")
+        old = sqlite3.connect(path)
+        old.execute("CREATE TABLE advisor_profiles (user_id INTEGER PRIMARY KEY, "
+                    "display_name TEXT NOT NULL DEFAULT '', listed INTEGER NOT NULL DEFAULT 0, "
+                    "updated_at TEXT NOT NULL)")
+        old.execute("INSERT INTO advisor_profiles (user_id, display_name, updated_at) "
+                    "VALUES (1, 'Old', '2026-01-01T00:00:00Z')")
+        old.commit()
+        old.close()
+        c = portfolio.connect(path)
+        self.addCleanup(c.close)
+        cols = [r[1] for r in c.execute("PRAGMA table_info(advisor_profiles)")]
+        self.assertIn("one_time_cost", cols)
+        self.assertEqual(c.execute("SELECT one_time_cost FROM advisor_profiles").fetchone()[0], "")
+
+    def test_never_a_filter_or_an_order(self):
+        self.assertNotIn("one_time_cost", directory.FILTERS)
+        self.assertEqual(len(directory.FILTERS), 5)
+        for key in ("one_time_cost", "one_time"):
+            with self.assertRaises(ValueError):
+                directory.check_filters({key: "ask"})
+        self.assertIn("Paid to the advisor directly", directory.ONE_TIME_NOTE)
+        self.assertIn("Northwend takes no part of it", directory.ONE_TIME_NOTE)
+
+
+class GuideLinkTests(unittest.TestCase):
+
+    def test_who_sees_it(self):
+        base = dict(directory_on=True, is_advisor=False, is_admin=False, client_mode=False,
+                    has_advisor=False)
+        self.assertTrue(directory.guide_link_shown(**base))
+        for off in base:
+            with self.subTest(off):
+                flipped = {**base, off: not base[off]}
+                self.assertFalse(directory.guide_link_shown(**flipped))
+        self.assertEqual((directory.GUIDE_LINE, directory.GUIDE_BUTTON),
+                         ("Want a second opinion?", "Find a guide"))
+
+
+class FeeExplainerTests(unittest.TestCase):
+
+    def test_every_fee_model_in_the_listings_own_order(self):
+        keys = [k for k, *_ in directory.FEES_EXPLAINED]
+        self.assertEqual(keys, [k for k, _ in directory.FEE_MODELS] + ["commission"])
+        labels = {k: label for k, label, _ in directory.FEES_EXPLAINED}
+        self.assertIn("one-time review", labels["flat"])
+        for k, label, words in directory.FEES_EXPLAINED:
+            with self.subTest(k):
+                self.assertIn("Ask ", words)       # each says what to ask, none favoured
+                self.assertLess(len(words), 400)
+        self.assertGreaterEqual(len(directory.FEES_QUESTIONS), 4)
+        text = " ".join(directory.FEES_QUESTIONS).lower()
+        for said in ("paid", "conflicts of interest", "fiduciary", "form crs"):
+            self.assertIn(said, text)
+
+    def test_official_sites_only(self):
+        from urllib.parse import urlsplit
+        self.assertTrue(directory.OFFICIAL_SITES)
+        for name, url in directory.OFFICIAL_SITES:
+            with self.subTest(url):
+                parts = urlsplit(url)
+                self.assertEqual(parts.scheme, "https")
+                self.assertTrue(any(parts.hostname == h or parts.hostname.endswith("." + h)
+                                    for h in directory.OFFICIAL_HOSTS), url)
+        hosts = {urlsplit(u).hostname for _, u in directory.OFFICIAL_SITES}
+        self.assertEqual(hosts, {"www.investor.gov", "brokercheck.finra.org",
+                                 "adviserinfo.sec.gov"})
+        # no other links in the words
+        words = " ".join([directory.FEES_INTRO, directory.FEES_CONFLICTS,
+                          *directory.FEES_QUESTIONS,
+                          *(w for _, _, w in directory.FEES_EXPLAINED)])
+        self.assertIsNone(re.search(r"https?://|www\.", words))
+
+    def test_the_new_words_are_education_only(self):
+        self.assertEqual(directory.COPY_STATUS, "DRAFT")
+        new_copy = [directory.FEES_TITLE, directory.FEES_INTRO, directory.FEES_CONFLICTS,
+                    directory.FEES_QUESTIONS_TITLE, *directory.FEES_QUESTIONS,
+                    *(f"{label} {w}" for _, label, w in directory.FEES_EXPLAINED),
+                    directory.ONE_TIME_NOTE, directory.GUIDE_LINE, directory.GUIDE_BUTTON,
+                    *(label for _, label in directory.ONE_TIME_CHOICES),
+                    directory.one_time_words("ask"), directory.one_time_words("250")]
+        for line in new_copy:
+            with self.subTest(line[:40]):
+                self.assertIsNone(NEVER_SAID.search(line), line)
+                self.assertNotRegex(line, r"\d+(\.\d+)?\s*%")   # no invented figures
+
+
+# --------------------------------------------------------------------------- #
 # the flag and the gate
 # --------------------------------------------------------------------------- #
 class FlagTests(unittest.TestCase):
@@ -513,9 +681,31 @@ class DirectoryAppTests(unittest.TestCase):
             sample_data.load(c, cls.dave)
             directory.save_profile(c, cls.carol, _profile("Zed Carol Ruiz", states=["NY", "CA"]),
                                    listed=True)
-            for login, name in (("adv_b", "Bea Okafor"), ("adv_m", "Marcus Lee")):
+            for login, name, once in (("adv_b", "Bea Okafor", "250"),
+                                      ("adv_m", "Marcus Lee", "")):
                 uid = _advisor(c, login)
-                directory.save_profile(c, uid, _profile(name, meeting="virtual"), listed=True)
+                directory.save_profile(c, uid, _profile(name, meeting="virtual",
+                                                        one_time_cost=once), listed=True)
+            # an individual who has finished Learn and set a goal (ADR 0005's link)
+            cls.lena = auth.create_user(c, "lena", PW)
+            advisor.save_profile(c, cls.lena, READY)
+            plans.save_plan(c, cls.lena, GOAL, set_by=cls.lena)
+            prefs.save(c, cls.lena, LEARN_DONE)
+            # carol's client has finished Learn with a goal too (set by carol) -
+            # never the link
+            advisor.save_profile(c, cls.dave, READY)
+            plans.save_plan(c, cls.dave, GOAL, set_by=cls.carol)
+            prefs.save(c, cls.dave, LEARN_DONE)
+            # an admin, the same as lena otherwise - never the link
+            import admin
+            cls.ada = auth.create_user(c, "ada", PW)
+            admin.set_admin(c, "ada", True)
+            secret = two_step.new_secret()
+            two_step.enable(c, cls.ada, secret, two_step.totp(secret))
+            cls.ada_ok = f"{cls.ada}:{two_step.status(c, cls.ada)['stamp']}"
+            advisor.save_profile(c, cls.ada, READY)
+            plans.save_plan(c, cls.ada, GOAL, set_by=cls.ada)
+            prefs.save(c, cls.ada, LEARN_DONE)
             # each advisor's licence checked today (licence_check.py), so they're listed
             for uid in (cls.carol, *(r["id"] for r in c.execute(
                     "SELECT id FROM users WHERE username IN ('adv_b', 'adv_m')"))):
@@ -646,6 +836,93 @@ class DirectoryAppTests(unittest.TestCase):
                              "https://cal.example.com/zed")
         finally:
             c.close()
+
+    def test_the_advisor_sets_a_one_time_review(self):
+        at, env = self._run(self.carol, "carol", "your-clients", two_step_ok=self.carol_ok)
+        self.assertEqual(at.radio(key="dir_p_one_time").value, "")
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            # a set price with no price: refused, nothing saved
+            at.radio(key="dir_p_one_time").set_value("price")
+            at.button(key="FormSubmitter:dir_listing_form-Save listing").click().run()
+            self.assertIn("One-time review", " ".join(e.value for e in at.error))
+            at.number_input(key="dir_p_one_time_price").set_value(300)
+            at.button(key="FormSubmitter:dir_listing_form-Save listing").click().run()
+            self.assertFalse(at.exception, [e.value for e in at.exception])
+        c = portfolio.connect(self.db)
+        try:
+            self.assertEqual(directory.get_profile(c, self.carol)["one_time_cost"], "300")
+            directory.save_profile(c, self.carol, {**directory.get_profile(c, self.carol),
+                                                   "one_time_cost": ""}, listed=True)
+        finally:
+            c.close()
+
+    def test_find_a_guide_shows_the_review_and_the_explainer(self):
+        at, _ = self._run(self.alice, "alice", "find-a-guide")
+        text = self._text(at)
+        self.assertIn(r"**One-time review:** Offered - \$250, the price as the advisor states it",
+                      text)
+        self.assertEqual(text.count(directory.ONE_TIME_NOTE), 1)   # Bea's only
+        self.assertIn(directory.FEES_TITLE, [e.label for e in at.expander])
+        for _, label, words in directory.FEES_EXPLAINED:
+            self.assertIn(words, text)
+        for name, url in directory.OFFICIAL_SITES:
+            self.assertIn(f"[{name}]({url})", text)
+
+    def _guide_buttons(self, at):
+        return [b.key for b in at.button if b.key in ("gs_guide", "plan_guide")]
+
+    def test_the_calm_link_on_learn_and_plan(self):
+        # Learn finished, a goal set: one quiet line on each, with the flag and L2 on
+        for page, key in (("learn", "gs_guide"), ("plan", "plan_guide")):
+            with self.subTest(page):
+                at, _ = self._run(self.lena, "lena", page)
+                self.assertEqual(self._guide_buttons(at), [key])
+                self.assertIn(directory.GUIDE_LINE, [c.value for c in at.caption])
+                # off, the gate alone, or the flag without L2: nothing
+                for flag_value, gate_value in (("", ""), ("", "L2"), ("directory", "L0,L1,L3")):
+                    at, _ = self._run(self.lena, "lena", page, flag_value, gate_value)
+                    self.assertEqual(self._guide_buttons(at), [])
+                    self.assertNotIn(directory.GUIDE_LINE, [c.value for c in at.caption])
+                # someone with an advisor (client mode), and the advisor in their account
+                at, _ = self._run(self.dave, "dave", page)
+                self.assertEqual(self._guide_buttons(at), [])
+                at, _ = self._run(self.carol, "carol", page, two_step_ok=self.carol_ok,
+                                  active_user_id=self.dave)
+                self.assertEqual(self._guide_buttons(at), [])
+        # alice hasn't set a goal or finished Learn: no line yet
+        for page in ("learn", "plan"):
+            at, _ = self._run(self.alice, "alice", page)
+            self.assertEqual(self._guide_buttons(at), [])
+
+    def test_the_link_is_never_shown_to_an_admin(self):
+        # an admin with Learn finished and a goal, past two-step sign-in
+        for page in ("learn", "plan"):
+            at, _ = self._run(self.ada, "ada", page, two_step_ok=self.ada_ok)
+            self.assertEqual(at.session_state["page"], "Plan" if page == "plan" else "Get started")
+            self.assertEqual(self._guide_buttons(at), [])
+
+    def test_seeing_and_pressing_the_link_writes_nothing(self):
+        # settle sign-in's own writes, and the pages' own first-visit ones (the
+        # gear a goal earns, the plan's return assumption) - not the link's
+        for page in ("about", "plan", "learn"):
+            self._run(self.lena, "lena", page)
+        before = self._dump()
+        at, env = self._run(self.lena, "lena", "plan")
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            at.button(key="plan_guide").click().run()
+            self.assertFalse(at.exception, [e.value for e in at.exception])
+        self.assertEqual(at.session_state["page"], "Find a guide")
+        at, env = self._run(self.lena, "lena", "learn")
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            at.button(key="gs_guide").click().run()
+            self.assertFalse(at.exception, [e.value for e in at.exception])
+        self.assertEqual(at.session_state["page"], "Find a guide")
+        after = self._dump()
+        changed = {line.split('"')[1] for line in after ^ before
+                   if line.startswith("INSERT INTO")}
+        # (a page open refreshes the sign-in's own rows; nothing about the link)
+        self.assertLessEqual(changed, {"login_sessions", "users", "value_log"}, changed)
+        self.assertFalse([x for x in after - before if re.search(r"guide|directory|dir_", x)])
 
 
 if __name__ == "__main__":

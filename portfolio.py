@@ -180,7 +180,9 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # 5 = consent_records and advisor_access_log (consent.py, access_log.py), the
 # one-time consent back-fill and their append-only grants on Postgres.
 # 6 = intro_requests (introductions from Find a guide, intros.py).
-SCHEMA_VERSION = 6
+# 7 = advisor_profiles.one_time_cost (a one-time review on a listing, ADR 0005).
+# 8 = share_links (Explain it to someone, explain_share.py).
+SCHEMA_VERSION = 8
 
 
 def _ensure_schema(conn) -> None:
@@ -242,6 +244,8 @@ def _ensure_schema(conn) -> None:
                               ("day_cost_micro", "INTEGER NOT NULL DEFAULT 0")]),
                 # "remember this device" for two-step sign-in (two_step.py)
                 ("login_sessions", [("two_step_until", "TEXT")]),
+                # a one-time review on a directory listing (directory.py, ADR 0005)
+                ("advisor_profiles", [("one_time_cost", "TEXT NOT NULL DEFAULT ''")]),
                 ("investor_profiles", PROFILE_EXTRA_COLS))
     tables = list(dict.fromkeys(t for t, _ in backfill))
     have: dict[str, set] = {t: set() for t in tables}

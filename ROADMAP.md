@@ -1166,7 +1166,7 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         the first hour, who to tell and how fast - deadlines marked "check with a
         lawyer" - the email to affected people, the checklist afterwards) replaces
         "After a breach"; privacy texts and the About page name the counts
-- [ ] **Step 2 - AI foundations** (`docs/AI_PLAN.md` section 10) and the
+- [x] **Step 2 - AI foundations** (built; L3 stays off until the lawyer) (`docs/AI_PLAN.md` section 10) and the
       example-mix rewrite behind L3; the 401(k) decoder text box early (B11)
     - [x] 401(k) decoder text box (B11) - done: `menu_decoder.py` (no AI; reads
           pasted menus line by line - tickers in brackets, labelled or in their
@@ -1286,7 +1286,7 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         cached); a second break shows `FALLBACK`. Each break is counted by
         kind (`ai_spend.note_break`: rows `check:<kind>` with no tokens or
         cost) and shown on Admin > AI use as totals only
-- [ ] **Step 3 - Ritual Tier 1:** the Ledger, the Log, the Storm Drill, the 401(k)
+- [x] **Step 3 - Ritual Tier 1:** (built, behind flags) the Ledger, the Log, the Storm Drill, the 401(k)
       decoder, the no-account decoder route
   - [x] Storm Drill field (R4) - done Oct 6, behind flag `storm_drill`: "What will
         you do when this happens?" after the hard years on Plan's Stress test (no
@@ -1372,7 +1372,7 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         moved"); delete the old live app about November 6. RUNBOOK steps 7 and 9: only `MOVED_TO` left
         in its secrets (the "has moved" page needs no database - a test), delete
         a month later
-- [ ] **Step 5 - Advisor side** behind L1/L2: agreement, directory, intro and
+- [x] **Step 5 - Advisor side** (built; L1/L2 stay off until the lawyer) behind L1/L2: agreement, directory, intro and
       two-step consent, access logs, the standing "advice is the advisor's" line
   - [x] 5.1 Advisor agreement and attestation (brief 4.1, gate L1) - `advisor_agreement.py`
         (DRAFT text for the lawyer, VERSION, a SHA-256 of the text) and
@@ -1484,15 +1484,34 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         in the client's export (`export.OWN`) and the advisor's client record
         (`consent.csv`); both join `tests/test_principle_matrix.py`; Privacy draft,
         security page and disclosures say so; SCHEMA_VERSION 5
-- [ ] **Beginners first; newer advisors** (`docs/adr/0005-beginners-first-and-new-advisors.md`,
+- [x] **Beginners first; newer advisors** (`docs/adr/0005-beginners-first-and-new-advisors.md`,
       owner Oct 6): market as "new to investing? start here"; advisors early in their
       careers are a named audience; never paid per lead, introduction or client; a
       one-time review is the advisor's service, paid to them directly
   - [x] The decision record, and a question for newer advisors on the website's For
         advisors page (no promises of clients, nothing about Find a guide before L2)
-  - [ ] A "one-time review" offering on listings (filter or not: an L2 question)
-  - [ ] The calm "Find a guide" link on Learn and Plan (flag `directory`, never client mode)
-  - [ ] A beginner's "How advisors are paid" explainer beside the directory
+  - [x] A "one-time review" offering on listings (filter or not: an L2 question) - done
+        Oct 6, flag `directory` + L2: new `advisor_profiles.one_time_cost` ('' not offered,
+        'ask', or whole dollars $1-$10,000 - `directory.one_time_value`; both schema files,
+        the back-fill, SCHEMA_VERSION 7; in Export everything). "Do you offer a one-time
+        review?" on Your directory listing; the listing says "Offered - $250, the price as
+        the advisor states it" and "Paid to the advisor directly; Northwend takes no part of
+        it." Not a filter (B4's five stay five; the filter question is in LEGAL_GATES' L2
+        row) and not a sort (the shuffle tests vary it)
+  - [x] The calm "Find a guide" link on Learn and Plan (flag `directory`, never client mode)
+        - done Oct 6: one quiet "Want a second opinion? Find a guide" line on Learn once its
+        Learn stage is complete and on Plan once a goal is set (`dashboard._guide_line`,
+        `directory.guide_link_shown`): an individual on their own account only - never an
+        advisor, an admin, client mode or someone with an advisor. No pop-up; nothing
+        written or counted (a test compares the database before and after seeing and
+        pressing it)
+  - [x] A beginner's "How advisors are paid" explainer beside the directory - done Oct 6:
+        a closed "How advisors are paid" section on Find a guide (`directory.FEES_*`): AUM,
+        flat fee / one-time review, hourly, subscription (the listings' own order) and
+        commissions, each with its trade-off and a question to ask; conflicts of interest;
+        questions for any advisor (how they're paid, conflicts, fiduciary, Form CRS);
+        official links only (`directory.OFFICIAL_SITES`: investor.gov, BrokerCheck, IAPD).
+        Copy DRAFT for L2. What's new has a flagged entry (hidden while `directory` is off)
 - [ ] **Step 6 - Billing** behind L1 (Paddle, by pull; founding seats; owner metrics)
 - [ ] **Step 7 - Remaining AI helpers** (most as rules, not AI)
 - [ ] **Step 8 - Service seams** (no new frontend now)
@@ -1513,6 +1532,67 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         the account map and Add holdings. Never while an advisor is in a client's
         account, never in the client record or the AI. Privacy text says so.
         `tests/test_lost_found.py`
+  - [x] The Four Seasons (R7), flag `seasons` (no gate: education) - done Oct 6:
+        `seasons.py`, `views/seasons.py`. `seasons.season_of(day)` picks January,
+        April, open enrollment (October-November) or December (tested on every
+        month and its edges); between seasons, nothing on Home. January: the IRS's
+        2026 IRA, 401(k) and HSA limits (`seasons.LIMITS`, dated with their tax year,
+        IRS page and the day checked; shown only in that year, and a test fails in
+        2027 so they're reviewed), last year's IRA window, and the fee bill - the Fee
+        check's own figures carried to the goal date (`seasons.fee_bill`, fees.py's
+        `cost_over` and stated growth). April: the W-2, 1099s, 5498 and SSA-1099
+        explained. Fall: open enrollment, HSA and FSA, the Free money check and the
+        401(k) decoder (where `decoder_401k` is on). December: Year in review, a
+        letter to future you (the plan's note to future you, shown back or invited),
+        and an RMD reminder only for the "65 or older" age range. Official links only
+        (`seasons.OFFICIAL_SITES`); "check with your plan or a tax professional".
+        A card on Home in season (Take a look / Not now), a line on Learn any time;
+        prefs `seasons` keeps opened / put away per season, no free text; the
+        login's own only. `tests/test_seasons.py`
+  - [x] Trail Forks (R8), flag `trail_forks` (no gate: education) - done Oct 6:
+        `trail_forks.py`, `views/trail_forks.py`, under Lost & Found on Account. Six
+        routes (a new job, a layoff, a new baby, an inheritance, a divorce, the death of
+        a parent), each: what changes, what to gather, what to ask and whom (HR, the plan
+        administrator, a tax preparer, an attorney, the estate's executor), what not to
+        rush, official links only (`trail_forks.OFFICIAL_SITES`). Divorce, inheritance
+        and a death stay with what to ask, never what to do; they open softly. No
+        invented deadlines or figures ("are there any deadlines?" is asked instead). Each
+        fork ends in the Walk (Home with this month's walk open) or, with the walk off,
+        the Plan. "This is a fork I'm on" and its steps' ticks in the login's own
+        settings (prefs `trail_forks`: keys only). Never while an advisor is in a
+        client's account, never in the client record or the AI. Privacy text says so.
+        `tests/test_trail_forks.py`
+  - [x] Explain It To Someone (R10), flag `explain_share` (no gate: descriptive) - done
+        Oct 6: `explain_share.py`, `views/explain_share.py`, table `share_links`
+        (SCHEMA_VERSION 7). On Account, the login's own account makes a private link
+        (`?share=...`; never an advisor in a client's account, an advisor's client or
+        an admin): 7 or 30 days (default 7), at most 3 working, "Turn off" any or all,
+        first name only if ticked. A 256-bit token, only its SHA-256 kept, the link
+        shown once. The page, opened without sign-in and signing nobody in, is drawn
+        from current data and figure-free - asset-class whole percents
+        (`intros.outline`), the goal's kind and timeline bucket, the route stage, the
+        target mix and band - then offers the Learn route (Create account). Unknown,
+        expired, turned-off and flag-off links all show the same "no longer active"
+        page; visits are limited per hashed address and counted once for the owner.
+        Deleted with the account (`admin.ACCOUNT_TABLES`), ended ones by tidy.py, in
+        the owner's export without the hash (`export.OWN`); principle matrix row.
+        Privacy text (both), security draft and disclosures say so.
+        `tests/test_explain_share.py`
+- [ ] **Alongside, any time** (PLAN "Alongside, any time")
+  - [x] A status page (G7) - done Oct 6: northwend.app/status, hand-edited in
+        `website/build.py` (`STATUS_NOW`, `STATUS_UPDATED`, `NOTICES`); "All systems
+        normal", past notices (the planned move to go.northwend.app). No scripts, no
+        live checks, no uptime figures; "may be unavailable at times", as the Terms
+        say. Linked from every footer and About; the runbook's incident plan updates it
+  - [x] A "what's new" page (G11) - done Oct 6: northwend.app/whats-new, built from
+        `whats_new.ENTRIES` with every flagged item left out (a test checks); footer
+        and About. Rebuild the site after each new entry (the stale-site test says so)
+  - [ ] Price "as of" and "report a wrong price" (G8)
+  - [x] The quarterly restore drill and the yearly licence re-check in the runbook's
+        calendar - done Oct 6: RUNBOOK "Calendar" (restore drill each quarter, licence
+        re-checks as due, January's dated yearly figures, key rotation each October,
+        the old Community Cloud app's retirement November 6, 2026, the monthly budget,
+        the status page); `tests/test_ops_docs.py` checks it
 
 Owner, done Oct 6: GitHub secret scanning, the Anthropic console spend
 limit and a staging workspace, the zero-data-retention request, the Neon
@@ -1530,6 +1610,112 @@ their gates, which stay off. Start each one this far ahead of what it unlocks:
 - **LLC and insurance:** before the first paid seat. Ideally also before the
   directory opens, since that's the first time Northwend connects a person
   with an advisor.
+
+### Order after step 5 (owner, Oct 6)
+
+The owner approved this order on Oct 6. It replaces the step 6-9 order above
+for what gets built next; the gates are unchanged (the lawyer decides each).
+Legal notes are a reading of `docs/LEGAL_GATES.md`, not legal advice.
+
+- **Phase A - in progress:** R7 Four Seasons, R8 Trail Forks, R10 Explain It
+  To Someone, the ADR 0005 items (see Step 9 and step 5 above).
+- **Phase B - small, any time:**
+  - [ ] Price "as of" and "report a wrong price" (descriptive; no free text
+        about holdings in a report)
+  - [x] A public "what's new" page, linked from About (education)
+  - [x] A hand-edited status page on the website (honest notes; no uptime
+        promise the Terms don't make)
+  - [x] The runbook calendar: the quarterly restore drill and the yearly
+        licence re-check (L1/L2 rely on it)
+- **Phase C - the weekly rhythm** (see "The weekly rhythm" below):
+  - [ ] R12 Preparedness drills and the readiness map (L3 review: no right
+        answer on any investment choice)
+  - [ ] Trail Conditions, an opt-in weekly email (no figures, no forecasts;
+        CAN-SPAM: opt-in, one-click unsubscribe, a postal address)
+  - [ ] The Sealed Envelope after a storm drill (printable, figure-free, the
+        person's own words)
+  - [ ] "This month's world, for your mix" (L3 review: past facts only,
+        hand-written and reviewed, never a forecast) - last of the four
+- **Phase C2 - "Bring to my advisor"** (see below).
+- **Phase D - Step 7 helpers, rules first** (`docs/AI_PLAN.md` section 9):
+  - [ ] As rules: Home summary, Log line, storm narrator, glossary, the plan
+        PDF's next steps (today's closest thing to a conclusion; becomes
+        "questions to ask a professional")
+  - [ ] AI: the glossary fallback and the grader (with R13) - the gateway,
+        the conclusion policy, the eval set, counted allowances (L3)
+  - [ ] AI: advisor drafts - an editable box only, sent by the advisor under
+        their name with the standing line (L1/L2)
+- **Phase E - bigger Ritual items:**
+  - [ ] R11 Pay Yourself (L3 review: named rules of thumb the person picks;
+        never "withdraw X")
+  - [ ] R6 Statement and fact-sheet decoder (privacy: fact sheets first;
+        statements only after local redaction is proven; zero data retention)
+- **Phase F - tier 3, explore:** R13 Teach It Back (grades understanding,
+  never money choices); R14 Shadow Trail (hypothetical, labelled, kinds of
+  funds only, changed at most quarterly; L3 review); R16 Client-Owned Book
+  (L2; the advisor's records stay with the advisor); Someday: Walk Together,
+  Base Camp, the Inheritance Rehearsal (privacy: they show another person
+  that someone uses a finance app; Base Camp needs moderation).
+- **Ongoing:** Step 8 service seams.
+- **Gated on the lawyer:** L0 open sign-up; L1 billing (the published "free,
+  paid by no one" lines change first; never per client or lead); L2 the
+  directory, intros and ADR 0005; L3 example mixes, Ask Northwend's
+  conclusion policy, the Walk verdict; L4 in-house advice - never.
+
+### The weekly rhythm (owner, Oct 6)
+
+Daily engagement stays decided against (see "Decided: no daily engagement").
+Each cadence has one job:
+
+| Cadence | What brings someone back | Where |
+|---|---|---|
+| Weekly | one drill, the readiness map's gaps, an opt-in Trail Conditions email | R12, Phase C |
+| Monthly | the Walk | R1 (built) |
+| Seasonal | January, April, Oct-Nov, December | R7 |
+| When life happens | Trail Forks; the storm note when markets fall | R8, T4 |
+| Yearly | Year in review, Letter from Future You | item 9, R7 |
+
+- **Drills:** two minutes, tap-only, on the person's own mix in percentages;
+  hard times and good times weighted equally; each comes back later with a
+  twist. They work before the first dollar.
+- **Trail Conditions:** "calm, nothing to do" almost every week; it changes
+  only when something changes (a storm, a season, a readiness gap). No figure.
+- **One Learn idea a week** inside the drill card (spaced review, weekly).
+- **Metrics:** an unprompted third drill; second-walk completion. Never time
+  in the app or sessions a day.
+- **Guardrails:** regulators look hard at game-like features that push
+  trading (the SEC's 2021 request on digital engagement practices;
+  Massachusetts' gamification case against Robinhood). No reward tied to a
+  buy or sell; no streak that breaks on a missed week; gear for learning and
+  rehearsal only, never returns. No SMS (TCPA). No figures in any email.
+
+### Bring to my advisor (owner, Oct 6) - after Phase C
+
+A pack the client builds for a first review (or any review). Today a
+person's own reflections are private from their advisor (`future_notes.py`,
+`views/kit.py`); this keeps that, and adds a choice.
+
+- [ ] The client ticks what goes in, each off by default: the R10 one-pager;
+      "I'm on a fork" (which fork only, never what they typed); the R12
+      readiness map (rehearsed or not, never their answers); a storm drill
+      note or Sealed Envelope (one at a time); the R9 "places I've looked"
+      ticks; questions they want to ask.
+- [ ] Meeting prep (`meeting.py`) and the advisor's new-client view read only
+      what's ticked; unticking removes it at once; each view goes in the
+      access log.
+- [ ] Through an intro (L2), the pack can go with the request, beside the
+      figure-free outline `intros.outline` already sends.
+- [ ] The advisor's side of R7: a seasonal review calendar that matches what
+      clients see (education; a note, never a sales prompt).
+
+**Legal:** sharing reflections is wider than today's full-sharing consent, so
+it gets its own consent words recorded like `consent.grant`; what an advisor
+has reviewed may become their books and records (as R16), so they see a
+dated copy and keep what they need after an exit; life-event details are
+sensitive, so only the fork's name is shared; anything with an intro sits
+behind L2, and the lawyer sees the consent text either way; the pack is the
+client's information, and anything the advisor writes from it carries the
+standing "advice is the advisor's" line.
 
 ## The Ritual - Northwend's primary direction (Oct 5)
 
@@ -1751,6 +1937,7 @@ balance.
 changes yearly. Being out of date is the real risk.
 **Mitigation:** dated content with sources, reviewed each season;
 "check with your plan or a tax professional".
+-> built (Oct 6), flag `seasons`: see Step 9 above.
 
 ### R8. Trail Forks - M (content-heavy, code-light)
 **User problem:** life events (new job, layoff, new baby, inheritance,
@@ -1770,6 +1957,7 @@ ends in the Walk.
 see the list below.
 **Mitigation:** what to ask a professional (attorney, tax preparer, plan
 administrator) rather than what to do; gentle tone; no deadlines invented.
+-> built (Oct 6), flag `trail_forks`: see Step 9 above.
 
 ### R9. Lost & Found - S/M
 **User problem:** old 401(k)s, unclaimed property and forgotten accounts are
@@ -1803,6 +1991,7 @@ both walking.
 **Principle risk:** privacy (a share link).
 **Mitigation:** no figures, no account details; the link expires, can be
 revoked, and is created only by the owner.
+-> built (Oct 6), flag `explain_share`: see Step 9 above.
 
 ### R11. Pay Yourself - M
 **User problem:** near-retirees can't picture their savings as a paycheck.

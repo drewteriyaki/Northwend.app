@@ -64,6 +64,9 @@ py-modules = [
     # year in review and the account map
     "recap", "account_map",
     "lost_found",   # Lost & Found: finding old accounts (ROADMAP R9)
+    "trail_forks",   # Trail Forks: a route per life event (ROADMAP R8)
+    "seasons",   # the Four Seasons: four moments in the year (ROADMAP R7)
+    "explain_share",   # Explain it to someone: a figure-free share link (ROADMAP R10)
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)

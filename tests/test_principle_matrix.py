@@ -40,6 +40,7 @@ import advisor_agreement  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
 import directory  # noqa: E402
+import explain_share  # noqa: E402
 import consent  # noqa: E402
 import export  # noqa: E402
 import future_notes  # noqa: E402
@@ -132,6 +133,10 @@ MATRIX = {
                        "intros.reply", "intros.share_link", "intros.decline",
                        "intros.withdraw", "intros.answer_email", "intros.can_share",
                        "intros.share_account", "export.collect"),
+    # Explain it to someone's share links: the owner's only, by token or by id
+    "share_links": ("explain_share.create", "explain_share.active", "explain_share.lookup",
+                    "explain_share.page", "explain_share.note_open", "explain_share.revoke",
+                    "explain_share.revoke_all", "export.collect"),
     # kept after deletion (admin.KEPT_AFTER_DELETE), still one account's own
     "consent_records": ("consent.history", "consent.between", "consent.current",
                         "consent.grant", "consent.revoke", "advising.end_relationship",
@@ -143,7 +148,7 @@ ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
                                     advisor_agreement, ai_usage, auth, consent, directory,
-                                    export, future_notes, intros, licence_check, perf, plans,
+                                    explain_share, export, future_notes, intros, licence_check, perf, plans,
                                     portfolio, prefs, proposals, reports, txn_import,
                                     two_step, watchlist)}
 
@@ -245,6 +250,9 @@ class IsolationMatrix(unittest.TestCase):
         ids[f"{side}.map_other"] = account_map.save_other(
             c, uid, {"label": f"{tag} pension", "digits": "789", "notes": f"{tag} notes"})
         account_map.save_family(c, uid, f"{tag} family notes")
+        # a share link (explain_share.py): only its hash is kept
+        cls.tokens[f"{side}.share"] = explain_share.create(c, uid, by=uid, show_name=True)
+        ids[f"{side}.share"] = explain_share.active(c, uid)[0]["id"]
 
         # the advisor side
         a = auth.create_user(c, adv, PW)
@@ -687,6 +695,28 @@ class IsolationMatrix(unittest.TestCase):
         account_map.delete_entry(c, a, self.ids["B.map_other"])
         account_map.save_family(c, a, "")
         account_map.clear(c, a)
+
+    def check_share_links(self):
+        c, a = self.c, self.alice
+        # (check_intro_requests on this copy may have made her carol's client,
+        # and a client's links don't work - client mode)
+        auth.unlink_client(c, self.carol, a)
+        mine = explain_share.lookup(c, self.tokens["A.share"])
+        self.assertEqual(mine["user_id"], a)
+        self.clean(explain_share.page(c, a, show_name=True))
+        self.assertEqual([r["id"] for r in self.clean(explain_share.active(c, a))],
+                         [self.ids["A.share"]])
+        self.clean(export.collect(c, a).get("share_links"))
+        # B's link is B's: A's helpers aimed at it change nothing
+        explain_share.note_open(c, a, self.ids["B.share"])
+        self.assertFalse(explain_share.revoke(c, a, self.ids["B.share"]))
+        with self.assertRaises(PermissionError):
+            explain_share.create(c, self.bob, by=a)
+        explain_share.create(c, a, by=a)
+        explain_share.note_open(c, a, mine["id"])
+        self.assertTrue(explain_share.revoke(c, a, mine["id"]))
+        explain_share.revoke_all(c, a)
+        self.assertEqual(explain_share.active(c, a), [])
 
     def check_advisor_agreements(self):
         c, carol = self.c, self.carol

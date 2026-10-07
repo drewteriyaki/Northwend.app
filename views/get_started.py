@@ -1298,7 +1298,11 @@ def _render_get_started(has_holdings, value):
                 _direction_window(kind["key"])
     elif not TAILORED_MIX and not managed and not CLIENT_MODE and at not in ("mix", "first"):
         _common_points_line("gs_common_points")   # gate L3 off: the same for everyone
+    if flags.on("seasons"):
+        render_seasons_learn()   # the Four Seasons, any time (views/seasons.py)
     st.caption("Learn explains and shows examples; it never tells you what to buy.")
+    if not managed and all(done[k] for k in by_stage[route.LEARN]):
+        _guide_line("gs_guide")   # Learn finished: a quiet "Find a guide" (ADR 0005)
     if not IS_ADVISOR and USER_ID == LOGIN_ID:
         st.button(":material/replay: Go through the first steps again", key="fs_restart",
                   type="tertiary", on_click=_fs_restart)

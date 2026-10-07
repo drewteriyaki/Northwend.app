@@ -471,6 +471,7 @@ CREATE TABLE IF NOT EXISTS advisor_profiles (
     meeting        TEXT    NOT NULL DEFAULT '',
     description    TEXT    NOT NULL DEFAULT '',
     scheduling_url TEXT    NOT NULL DEFAULT '',
+    one_time_cost  TEXT    NOT NULL DEFAULT '',
     listed         INTEGER NOT NULL DEFAULT 0,
     updated_at     TEXT    NOT NULL
 );
@@ -668,3 +669,16 @@ CREATE TABLE IF NOT EXISTS intro_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_intro_requests_person ON intro_requests (person_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_intro_requests_advisor ON intro_requests (advisor_id, status);
+
+-- Share links - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS share_links (
+    id              SERIAL  PRIMARY KEY,
+    user_id         INTEGER NOT NULL,
+    token_hash      TEXT    NOT NULL UNIQUE,
+    created_at      TEXT    NOT NULL,
+    expires_at      TEXT    NOT NULL,
+    show_name       INTEGER NOT NULL DEFAULT 0,
+    opens           INTEGER NOT NULL DEFAULT 0,
+    last_opened_on  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_share_links_user ON share_links (user_id, expires_at);
