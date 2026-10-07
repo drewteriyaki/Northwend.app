@@ -115,7 +115,7 @@ class RunbookTests(unittest.TestCase):
     PAGES = ("Deploy", "Roll back", "Restore", "Rotate a key", "Sign everyone out",
              "Turn off AI or email", "Turn a feature or gate on or off", "Shut down",
              "If something goes wrong: incident and breach response", "Owner prerequisites",
-             "Before turning on a gate", "Monthly budget")
+             "Before turning on a gate", "Monthly budget", "Launch week")
 
     def test_every_page_is_there(self):
         heads = re.findall(r"^##+ (.+)$", _read("docs/RUNBOOK.md"), re.M)
@@ -153,6 +153,27 @@ class RunbookTests(unittest.TestCase):
             self.assertIn(must, cal, must)
         for rel in ("scripts/restore_check.py", "licence_check.py", "website/build.py"):
             self.assertTrue(os.path.exists(os.path.join(REPO, rel)), rel)
+
+    def test_launch_week_names_real_limits(self):
+        # the table quotes limits by their names in the code: still there
+        import auth
+        import ai_usage
+        import error_alerts
+        import rate_limits
+        text = _read("docs/RUNBOOK.md")
+        week = text.split("\n## Launch week\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("- [Launch week](#launch-week)", text)
+        for name in ("SIGNUPS_PER_HOUR", "SIGNUPS_PER_ADDRESS_PER_DAY",
+                     "SIGNUP_TRIES_PER_ADDRESS_PER_HOUR", "EMAILS_PER_ADDRESS_PER_HOUR",
+                     "CONFIRM_GAP_MINUTES", "CONFIRMS_PER_DAY", "send_failed"):
+            self.assertIn(name, week)
+            self.assertTrue(hasattr(auth, name), name)
+        # the messages it quotes are the ones people see
+        self.assertIn("Lots of people are signing up right now", week)
+        self.assertIn("Lots of people are signing up right now", _read("auth.py"))
+        self.assertIn(rate_limits.CALM, week)
+        self.assertTrue(hasattr(ai_usage, "ALLOWANCES") and hasattr(error_alerts, "EVERY"))
+        self.assertIn(f"{auth.SIGNUPS_PER_HOUR} accounts an hour", week)
 
     def test_settings_it_names_exist(self):
         # every NAME=... the runbook tells someone to set is a real setting

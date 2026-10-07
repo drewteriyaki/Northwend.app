@@ -749,6 +749,19 @@ def _email_limit(conn, purpose: str, email: str, ip: str | None, now: datetime) 
     return reason
 
 
+def send_failed(conn, purpose: str, email: str) -> None:
+    """The `purpose` email to `email` that _email_limit just counted didn't go
+    (Resend refused it - on a busy day, its daily allowance - or couldn't be
+    reached): take that count back, so "Send it again" doesn't answer "we just
+    sent one" for an email that never left, and a failed send doesn't use up
+    the day's emails. Only the newest count for that address and purpose."""
+    ekey = _email_key(email)
+    conn.execute("DELETE FROM email_sends WHERE email_key = ? AND purpose = ? AND sent_at = "
+                 "(SELECT MAX(sent_at) FROM email_sends WHERE email_key = ? AND purpose = ?)",
+                 (ekey, purpose, ekey, purpose))
+    conn.commit()
+
+
 # Emails an advisor's clicks send (setup links, "there's a message / report /
 # proposal for you"): limits so no amount of clicking - a double click, a
 # reload, or someone using an advisor's login - can send without end.

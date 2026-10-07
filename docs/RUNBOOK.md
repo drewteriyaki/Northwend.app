@@ -24,6 +24,7 @@ Contents:
 - [If something goes wrong: incident and breach response](#if-something-goes-wrong-incident-and-breach-response)
 - [Move to Render](#move-to-render)
 - [Uptime check](#uptime-check)
+- [Launch week](#launch-week)
 - [Owner prerequisites](#owner-prerequisites)
 - [Before turning on a gate](#before-turning-on-a-gate)
 - [Monthly budget](#monthly-budget)
@@ -809,6 +810,97 @@ monitor's requests aren't challenged.
 |---|---|---|
 | App (`/_stcore/health`) | UptimeRobot, October 6, 2026 | the owner's email |
 | Website | UptimeRobot, October 6, 2026 | the owner's email |
+
+---
+
+## Launch week
+
+What runs out first if many new people arrive in one day (50, 200, 1,000
+sign-ups), what they see when it does, and what to change before marketing.
+Worked out on October 7, 2026 from the code and from measurements on local
+scratch copies - nothing live was loaded or called. Numbers with "about" are
+estimates: check them against the dashboards listed at the end on the day.
+
+### What runs out first
+
+1. **Email (Resend free plan): at about 90 sign-ups in one day.** Each
+   sign-up sends one confirm email, and the day's other emails (resets, error
+   alerts, advisor requests) share the same 100. People can still sign up and
+   use the app, but the AI features wait for a confirmed email.
+2. **Live prices and the database connections: at about 15 tabs open at once
+   in market hours** holding different tickers. The minute-by-minute price
+   check runs one tab at a time and keeps a database connection while it
+   waits. At about 40 such tabs, pages fail with "Something went wrong".
+3. **The server (Render Starter): at about 20-30 tabs open at once in market
+   hours.** Every click gets slow. Memory lasts longer than the processor.
+4. **Neon storage: at about 250 different tickers held** across all
+   accounts, if the database is on Neon's free plan (0.5 GB).
+5. **The AI ceiling: at about 200-300 people using the AI in a month**
+   (about 70-100 if each uses their whole allowance), at the default $100.
+6. **The app-wide sign-up cap: 200 accounts in one hour.** Only a sudden
+   rush reaches it (a post that spreads, a mention in a newsletter).
+
+The per-address limits can stop a group sooner: a class, an office or a
+meetup on one wifi network is one internet address, and the fourth account
+from one address in a day is turned away.
+
+### Each limit
+
+| Limit | Today | Set in | What a person sees | Hit at about | What to do |
+|---|---|---|---|---|---|
+| Sign-ups, whole app | 200 accounts an hour | `auth.SIGNUPS_PER_HOUR` | "Lots of people are signing up right now. Please try again in an hour." | 200 sign-ups in one hour. 1,000 in a day reaches it only if a fifth of them arrive in the same hour. | Keep it: it stops a script making accounts. If a planned event will bring more in an hour, raise it in code for that week. |
+| Sign-ups, one internet address | 3 accounts a day, 10 tries an hour | `auth.SIGNUPS_PER_ADDRESS_PER_DAY`, `SIGNUP_TRIES_PER_ADDRESS_PER_HOUR` | "Too many new accounts from here for now. Please try again tomorrow." | The 4th person on one wifi network that day. Phone networks can share one address among many people. | Before a talk or class: ask people to sign up on phone data, or raise the daily number in code for that day. |
+| Account emails, one internet address | 10 an hour (confirm, reset, new address together) | `auth.EMAILS_PER_ADDRESS_PER_HOUR` | "Too many emails asked for from here. Please try again in an hour." | Rarely: the sign-up limit above comes first. | Nothing. |
+| Confirm emails, one email address | 1 every 2 minutes, 5 a day | `auth.CONFIRM_GAP_MINUTES`, `CONFIRMS_PER_DAY` | "We just sent one - check your inbox and spam folder. You can send another in a couple of minutes." / "That's a lot of emails for one day. Please try again tomorrow." | Only someone pressing Send it again many times. A send Resend refused no longer counts (`auth.send_failed`). | Nothing. |
+| Resend's allowance | Free plan: 100 emails a day, 3,000 a month, and a limit on how many a second (check the Resend dashboard for the plan and its numbers) | The Resend account | The account is made and signed in; a yellow note says "We couldn't send the email just now. Please try again in a few minutes." The "Confirm your email" note with Send it again stays at the top. Until the email is confirmed, every AI feature says "Confirm your email to use this - open the link we sent you (you can send it again from the note at the top of the page)." Forgot password still answers "If there's an account for ..., we've sent it a link" but nothing arrives. | About 90 sign-ups in a day; about 2,500 in a month. | **Before marketing: a paid Resend plan** (no daily cap). Each refused email now shows in Admin > System as `EmailNotSent in dashboard.py` and is emailed to you once Resend accepts email again. Never-confirmed accounts are deleted after 30 days (`tidy.py`): after a day of refused emails, people who signed up then need to press Send it again. |
+| The AI ceiling, whole app | `NORTHWEND_AI_CEILING_USD`; $100 a month when not set | Render's Environment | Nothing below 80%. From 80%: chat answers are shorter and "Reading screenshots is resting until November 1. Everything else in Northwend works as usual." (the same for the other optional helpers). From 95%: "Ask Northwend isn't starting new conversations until November 1. ..." At 100%: "Ask Northwend is resting until November 1. Everything else in Northwend works as usual." You get an email at 50% and at 80%. | About $0.30-0.50 a month for a typical active person, $1.00-1.50 at the most (their allowance plus the walk bonus). Only confirmed accounts use AI. So $100 covers about 200-300 typical people, or about 70-100 who use everything. A launch day where 200 people each ask a few questions: about $10-20. | Set the ceiling from the budget ([Monthly budget](#monthly-budget)) and the Anthropic console limit at about 1.5 times it. Watch Admin's AI panel the first week: its "projected" figure says where the month is heading. |
+| AI allowance, one person | Individual chat $0.25 a day and $1.00 a month (about 15-20 and 75 messages); screenshot and CSV help $0.30 a month; an advisor $17 a month in all | `ai_usage.ALLOWANCES` | "About 12 messages left today", then "You've used today's messages. They start again tomorrow." or "... They start again on November 1." | Each person separately; it keeps one person's use small, not the total. | Nothing. |
+| Anthropic's own limits | The console spend limit, and the account's rate limits (requests and tokens a minute, by usage tier) | The Anthropic console: Billing, and Settings > Limits | "Northwend is busy right now - try again in a minute." (rate limits), or "Ask Northwend isn't available right now." (the spend limit; you also get an error alert). The calm "resting" line in `docs/AI_COSTS.md` section 7.2 is not built for this case. | A new account's lowest tier allows only a few chat answers a minute. Many people chatting at once on launch day can reach it. | **Before marketing: check Settings > Limits.** Buying credit moves the account up a tier. Keep the console spend limit above the app's ceiling, so the ceiling's calm lines come first. |
+| Database connections, the app | 5 per server process (one process today), each page waits up to 30 seconds for one | `pgcompat._pool_options` | After 30 seconds: "Something went wrong on this page. Try again, or open another page from the menu. ..." and you get an alert `PoolTimeout`. | A page uses a connection 6-11 times for a moment each (Home 9, Plan 11, measured). Clicks alone don't fill 5. The live-price check below does. | Fix the live-price check (next row). Use Neon's pooled connection string (the `-pooler` address, `docs/DB_ROLES.md`): Neon's own connection limit is then not a concern. |
+| Live prices while a tab is open | Each open tab checks every minute; each ticker is fetched at most once a minute for everyone. Finnhub's free plan: 60 a minute; past that the app asks Yahoo, which is slower. | `live_prices.py`, `LIVE_EVERY_SEC` in dashboard.py | Prices update later than "every minute"; then clicks wait; then "Something went wrong" (above). | Modelled on a scratch copy with the real price code (Finnhub 0.25 s, Yahoo 1 s): 5 tabs with 8 tickers each: no waits. 15 tabs (120 tickers): some clicks waited up to 18 seconds. 40 tabs (320 tickers): a quarter of the page loads failed after 30 seconds. The same 40 tabs with "skip instead of wait" (below): no page waited. Shared tickers count once, so the same few funds held by everyone is far lighter. | **Before marketing: a change to `live_prices.py`** (CLAUDE.md asks for the plan first): don't hold a database connection while fetching; a tab that finds another tab fetching skips that minute instead of waiting; stay under 60 Finnhub calls a minute. Until then, decision D4's "end-of-day prices first" is the safer setting for a big launch. |
+| The 15-minute price job | Every ticker anyone holds, 4 a second | `update_prices.py --delay 0.25`, `.github/workflows/scheduled-sync.yml` | Nothing directly: prices not refreshed keep their last value. | Past 60 different tickers, Finnhub refuses the rest of the minute. At about 1,000+ tickers a run takes longer than 15 minutes. | Set `--delay 1` in the workflow (60 a minute) and accept slower runs, or a paid market-data plan (D4). If the repository is private, check GitHub Actions minutes too. |
+| The nightly history job (Yahoo) | About 6 requests per ticker, 0.3 s apart | `sync_history.py`, the same workflow | Nothing directly. | About 3-5 seconds per ticker: 500 tickers is about 30-40 minutes. The job counts as failed whenever one ticker gets no data at all, so one mistyped symbol in anyone's holdings sends you "Sync price history failed" every night. | Read the run's log before acting on that email. Changing what counts as failed is a price-fetching change (plan first). |
+| Neon (the database) | The restore window of about 6 hours suggests the free plan: 0.5 GB of storage and a monthly allowance of compute hours (check the Neon plan page) | The Neon project | When storage is full, saves fail ("... didn't work, so nothing was changed") and so do sign-ups. When compute hours run out, the whole app stops until the next month. | Price history takes about 2 MB per different ticker (minute-to-hourly bars), so about 250 tickers fill 0.5 GB. An app that is always open keeps the compute awake. | **Before marketing: a paid Neon plan** (it is needed for the 7-day restore window, D6, anyway). Look at Neon > Usage for storage and compute hours. |
+| The server (Render Starter) | 512 MB of memory, half a processor, one process | `render.yaml` (`plan: starter`) | Pages take longer to draw after each click; prices lag. If memory runs out, Render restarts the app and every open tab reconnects. | Measured on a laptop: the app uses about 190-260 MB once loaded; each open tab keeps about 2-4 MB, plus about 11 MB while its page is drawn; one page draw takes about 0.6 seconds of processor time (expect 1-2 seconds on Starter). In market hours each open tab is redrawn once a minute when its prices change. So about 20-30 tabs open at once in market hours keep Starter busy all the time; memory lasts to about 60-80. | Standard (2 GB, 1 processor) is about twice the room: change `plan:` in `render.yaml` (through staging and release) or in Render's settings before marketing if more than about 20 people at a time are likely. More instances don't help: each tab's session lives in one process, and Render doesn't keep a visitor on one instance. Go up a size instead. |
+| Error alert emails | At most one email an hour for each kind of error | `error_alerts.EVERY` | Nothing: people see the calm "Something went wrong" line. | A bad hour with five kinds of error is five emails. They go through Resend and use its allowance; when Resend refuses them, Admin > System still lists every kind. | Nothing. On launch day, look at Admin > System every few hours rather than waiting for email. |
+| Uploads, saves and downloads, one login | 30/200, 60/300, 30/150 an hour/a day | `rate_limits.LIMITS` | "You've done a lot of that in a short time - please try again in a little while." | Never for a real person. | Nothing. |
+
+### Before marketing: the owner's list
+
+- [ ] Resend: a paid plan, or at least confirm the plan's daily number
+      against the expected sign-ups. Fill in the Resend line in the
+      [Monthly budget](#monthly-budget).
+- [ ] Neon: a paid plan (also D6). Check storage and compute hours on Neon >
+      Usage. `PORTFOLIO_DB` uses the pooled (`-pooler`) address.
+- [ ] Anthropic: Settings > Limits shows a tier that allows more than a
+      handful of chat answers a minute; the console spend limit is set; the
+      app's ceiling is set in Render.
+- [ ] The live-price change above (not holding a database connection while
+      fetching; skipping instead of waiting) is planned, built and released,
+      or minute-by-minute prices are turned down for launch week (D4).
+- [ ] The 15-minute job's `--delay` keeps it under Finnhub's 60 a minute.
+- [ ] Render: Standard, if more than about 20 people at a time are likely in
+      market hours. Fill in the Render line in the budget.
+- [ ] A test sign-up on go.northwend.app with your own address: the confirm
+      email arrives (on a day the Resend allowance isn't used up).
+- [ ] If a talk or class is the launch: decide about the 3-a-day limit per
+      internet address.
+
+### On the day
+
+Look every few hours, counts only:
+- Admin > System: new error kinds (`PoolTimeout`, `EmailNotSent`), the AI
+  panel's percent and projection.
+- Render > Metrics: processor near 100% for long stretches, or memory above
+  about 400 MB on Starter, means it's time for Standard.
+- Neon > Monitoring and Usage: connections, storage, compute hours.
+- Resend's dashboard: emails sent today against the plan's number.
+- The Anthropic console: usage today, and any rate-limit errors.
+
+If something runs out: AI has its own calm lines and nothing else stops.
+Email: a paid Resend plan takes effect at once; people press Send it again.
+The server: change the Render plan (a new deploy, open tabs reconnect).
+Prices: they keep their last value; nothing is lost.
 
 ---
 

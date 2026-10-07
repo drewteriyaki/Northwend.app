@@ -113,6 +113,8 @@ def _acct_change_email():
         return
     sent = mailer.confirm_new_email(res["to"], f"{_app_address()}?email_change={res['token']}",
                                     auth.CONFIRM_DAYS)
+    if not sent:
+        _email_not_sent("change", res["to"])
     st.session_state["acct_new_email"] = ""
     _acct_msg("success" if sent else "warning",
               f"We sent a link to {res['to']}. Your email changes when you open it."

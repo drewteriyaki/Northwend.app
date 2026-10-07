@@ -65,9 +65,10 @@ to a person's answers; AI rules in `advisor.GUARDRAILS`), keeps Northwend within
 ## 4. The AI guide and other AI features
 
 Northwend uses an AI model (Claude, from Anthropic) for the AI guide, for
-advisors' meeting talking points, and - only when
-you choose - for guessing a file's columns and, where it's offered, reading
-screenshots.
+advisors' meeting talking points, and - only when you choose - for guessing a
+file's columns and, where it's offered, reading screenshots. Where they're
+offered, it also writes advisors' first drafts, explains a word the glossary
+doesn't have, and checks an explanation in Teach It Back.
 
 - **AI answers can be wrong, incomplete or out of date.** Check anything important
   before relying on it.
@@ -78,8 +79,8 @@ screenshots.
 - **Projections are hypothetical.** Any figure about the future (growth at a
   yearly rate, reaching a goal, retirement income) is an illustration built on
   assumptions, not a prediction or a promise.
-- Each account has a monthly allowance of AI requests. We may change allowances
-  or turn AI features off at any time.
+- Each account has a monthly allowance for AI use. We may change allowances or
+  turn AI features off at any time.
 - Don't put information into the chat that you don't want sent to the AI provider
   (see the Privacy Policy for what is sent).
 

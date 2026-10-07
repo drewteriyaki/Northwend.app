@@ -724,6 +724,31 @@ def _app_address() -> str:
     return hosting.app_address(st.context.url, st.context.headers)
 
 
+def _email_not_sent(purpose, to):
+    """An account email (`purpose`: confirm, change, reset) didn't go - Resend
+    refused it (on a busy day, its daily allowance) or couldn't be reached.
+    The count it used is given back (auth.send_failed), so "Send it again"
+    tries at once, and the admin hears of it like any error: its kind only,
+    never the address (error_alerts.py; Admin > System lists it). An alert
+    sent through the same Resend can wait until it accepts email again."""
+    try:
+        conn = connect(DB)
+        try:
+            auth.send_failed(conn, purpose, to)
+        finally:
+            conn.close()
+        raise mailer.EmailNotSent(f"a {purpose} email wasn't accepted")
+    except mailer.EmailNotSent as ex:
+        try:
+            import error_alerts
+            error_alerts.report(DB, ex, copy="Staging" if STAGING else "Live",
+                                send=settings.send_error_alerts())
+        except Exception:  # noqa: BLE001 - an alert must never break the page
+            pass
+    except Exception:  # noqa: BLE001 - nor must giving the count back
+        pass
+
+
 def _send_confirmation(user_id) -> tuple[bool, str]:
     """Email this account a confirm-your-email link (auth.start_confirmation,
     mailer.py). (sent, a message to show)."""
@@ -736,6 +761,7 @@ def _send_confirmation(user_id) -> tuple[bool, str]:
         return False, res["error"]
     if not mailer.confirm_email(res["to"], f"{_app_address()}?confirm={res['token']}",
                                 auth.CONFIRM_DAYS):
+        _email_not_sent("confirm", res["to"])
         return False, "We couldn't send the email just now. Please try again in a few minutes."
     return True, (f"We sent a link to {res['to']}. It can take a minute - check your spam "
                   "folder too.")
@@ -1036,9 +1062,10 @@ def _forgot() -> bool:
     if not res["ok"]:
         mid.error(res["error"])
         return False
-    if res["token"]:  # a failure is logged by mailer; the answer must look the same either way
-        mailer.reset_password(res["to"], f"{_app_address()}?reset={res['token']}",
-                              auth.RESET_MINUTES)
+    # the answer must look the same either way, so a failed send only tells the admin
+    if res["token"] and not mailer.reset_password(
+            res["to"], f"{_app_address()}?reset={res['token']}", auth.RESET_MINUTES):
+        _email_not_sent("reset", res["to"])
     st.session_state["forgot_sent"] = auth.normalize_email(email)
     st.rerun()
 

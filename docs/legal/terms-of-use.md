@@ -55,7 +55,9 @@ money, model portfolios, alerts, and every AI answer.
 
 Northwend uses an AI model (Claude, from Anthropic) for the AI guide, for
 advisors' meeting talking points, and - only when you choose - for guessing a
-file's columns and, where it's offered, reading screenshots.
+file's columns and, where it's offered, reading screenshots. Where they're
+offered, it also writes advisors' first drafts, explains a word the glossary
+doesn't have, and checks an explanation in Teach It Back.
 
 - **AI answers can be wrong, incomplete or out of date.** Check anything important
   before relying on it.

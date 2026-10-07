@@ -30,8 +30,9 @@ and isn't paid by anyone for what it shows.
   Cloudflare's proxy. Cloudflare adds security headers to every page: HTTPS only
   (HSTS), no framing by other sites, no camera, microphone or location access
   (`docs/CLOUDFLARE.md`).
-- **Scheduled jobs** (price updates, history, the Monday advisor email) run on
-  GitHub Actions with access to the database.
+- **Scheduled jobs** (price updates, history, the nightly clean-up, the Monday
+  advisor email, and the reminder emails people turn on) run on GitHub Actions
+  with access to the database.
 - **Secrets** (database address, API keys) live in each host's secret settings,
   never in the code repository.
 - **The public website** (northwend.app) is static pages on Cloudflare Pages, with
@@ -124,7 +125,8 @@ pasted text and screenshots are not kept. Clients can also use an example or
   something happens to me" list), their Lost & Found list (where they've
   looked for old accounts), their Trail Forks (life events they've marked), their
   Inheritance Rehearsal (the practice run's steps they've walked through), their
-  preparedness drills (what they tapped), the Learn topics they've explained back
+  preparedness drills (what they tapped), the seasonal notes they've opened or
+  put away, the Learn topics they've explained back
   (whether each held), the rule of thumb they picked on Pay
   yourself (you can look at the same picture with a rule you pick; yours isn't
   saved), their Shadow Trail (hypothetical mixes of kinds of funds they've
@@ -211,16 +213,24 @@ that says the same.
 ## AI and other services
 
 From the stored data, only profile answers and holdings as percentages and facts go
-to the AI provider (Anthropic) - never dollar amounts, share counts, account names or
-numbers, email addresses or your notes' text. What a person types into the chat is
-sent as typed; the guide's own notes between conversations keep goals, dates and
-decisions, with dollar amounts and account numbers taken out before they're saved.
-Draft with Northwend (where it's offered) sends the client's mix and holdings as
-percentages - no notes, no names - and the words you type for that draft, with
-amounts, long numbers and email addresses taken out; a message to several clients
-sends only your words. The draft lands in a box for you to edit and is never sent,
+to the AI provider (Anthropic) - never dollar amounts from the portfolio, share
+counts, account names or numbers, email addresses or your notes' text. What a person
+types into the chat is sent as typed; the guide's own notes between conversations
+keep goals, dates and decisions, with dollar amounts and account numbers taken out
+before they're saved. Meeting prep's talking points send the client's profile
+answers including their "Other notes" box as they typed it (the chat leaves that box
+out), and a holdings summary with each holding's type, sector, gain or loss as a
+percent, dividend yield, beta and P/E. [OWNER: "Other notes" goes unscrubbed here -
+consider leaving it out, as the chat does.] Draft with Northwend (where it's offered)
+sends the client's profile answers (without "Other notes") and their mix and
+holdings as percentages - no notes, no names - a proposal's title and mix or a
+report's period and movement in percents, and the words you type for that draft,
+with amounts, long numbers and email addresses taken out; a message to several
+clients sends only your words. The draft lands in a box for you to edit and is never sent,
 saved or shared on its own: your own Send button does that, under your name, with
 the standing line. Looking up a word in Learn's glossary sends the word only.
+Teach It Back (where it's offered) sends a Learn topic and the person's own
+explanation, with amounts, long numbers, emails and fund symbols taken out.
 Screenshot reading is optional and offered only on some copies of the app [OWNER:
 off in production today]; where it is, the whole picture goes to the AI - including
 balances and account names on screen - only when someone chooses it.

@@ -7,8 +7,9 @@ Each statement about data here must stay true to the code:
 - The AI guide (Ask Northwend): the person's ContextCard (context_card.py -
   profile answers from fixed choices without "Other notes", tickers, market
   data's fund names, what each holds and whole-% weights, the mix, their own
-  target mix, band and drift, the route stage, the guide's typed notes) and
-  the chat; every call through ai_gateway.py. The plan PDF has no AI call
+  target mix, band and drift, the route stage, the guide's typed notes and,
+  for an advisor's client, the advisor's label - name and firm) and the chat;
+  every call through ai_gateway.py. The plan PDF has no AI call
   (client_plan.questions, by fixed rules). advisor.scrub_memory takes amounts
   and account numbers out of the notes before they're saved and before
   they're sent; the notes are listed (and deletable) on the Account page and
@@ -75,12 +76,17 @@ Each statement about data here must stay true to the code:
   consent.grant(how='intro', the exact words, intros.sharing_text) and the
   advisor_clients link in one transaction (intros.share_account). Deleted with
   either account (admin.ACCOUNT_TABLES); in both sides' export.
-- Meeting prep talking points (meeting.facts_for_ai / talking_points): profile,
-  advisor.portfolio_summary, and percentage facts - no dollars, no note text.
+- Meeting prep talking points (meeting.facts_for_ai / talking_points): the
+  profile through advisor.system_prompt - every PROFILE_FIELDS answer as
+  stored, "Other notes" included and not scrubbed (unlike the chat's
+  ContextCard) - advisor.portfolio_summary (tickers, names, weights, type,
+  sector, gain/loss %, yield, beta, P/E) and percentage facts - no dollars
+  from the portfolio, no advisor note text.
 - Advisor drafts (advisor_drafts.py, flag advisor_drafts + gates L1, L2): the
-  client's ContextCard in scope ADVISOR_FULL (percentages, no notes) for a
-  proposal or a report, plus the advisor's typed points (amounts, long numbers
-  and emails taken out first), a proposal's title and mix in whole percents, a
+  client's ContextCard in scope ADVISOR_FULL (the allowlisted profile answers,
+  percentages, no notes) for a proposal or a report, plus the advisor's typed
+  points and a proposal's title (amounts, long numbers and emails taken out
+  first), a proposal's mix in whole percents, a
   report's period and movement in percents; a message to several clients sends
   the points only. The draft goes into the editable box and nowhere else -
   nothing stored but token counts and cost (ai_spend, ai_usage kind "draft").
@@ -113,8 +119,10 @@ Each statement about data here must stay true to the code:
   trail_conditions_consent (when it was turned on; dropped when turned off),
   trail_conditions_sent (the week), and which season / month / week a line
   was last about. The email: fixed lines only (calm, or a storm as a past
-  fact, a season begun, the walk waiting, a readiness-map situation
-  waiting) - no amounts, percentages, tickers, funds or account names, no
+  fact - storms.weather on the person's own holdings, said as "markets have
+  dropped" with no figure - a season begun, the walk waiting, a new note on
+  this month's world, a readiness-map situation waiting) - no amounts,
+  percentages, tickers, funds or account names, no
   forecasts; one-click unsubscribe (unsubscribe.py, kind "trail") and the
   postal address (mailer.POSTAL_ADDRESS; nothing is sent while it's empty).
 - Feature counts (feature_counts.py): totals worked out in code from the
@@ -260,7 +268,8 @@ Each statement about data here must stay true to the code:
   Kept in the login's own settings (prefs drills: which drills were rehearsed,
   the key of the choice tapped, the ISO week and how many times - keys only,
   never free text); never drawn while an advisor is in a client's account, not
-  in an advisor's client record, never sent to the AI; no reminders or emails.
+  in an advisor's client record, never sent to the AI; no reminders of its own
+  (the opt-in Trail Conditions email may say a situation is waiting).
   Counted in totals only (feature_counts.drill_returns: people who rehearsed a
   first drill and how many a third - never a choice). In the person's own
   export (settings).
@@ -475,21 +484,44 @@ to put their holdings here. Northwend doesn't supervise advice or check it for
 suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
-their account map, their Lost & Found list, their Trail Forks, their Inheritance Rehearsal, their preparedness drills,
-the Learn topics they've explained back, the rule of thumb they picked on Pay yourself and their Shadow Trail.
+their account map, their Lost & Found list, their Trail Forks, their Inheritance
+Rehearsal, their preparedness drills, the seasonal notes they've opened or put
+away, the Learn topics they've explained back, the rule of thumb they picked on
+Pay yourself and their Shadow Trail.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
 and it leaves your view when they untick it or the relationship ends.
 """),
     ("Your data", f"""
 - **What's stored:** the holdings you or your advisor add (symbols, shares,
-  cost, value, cash and account names), so the app can show them; any activity history you import (each
-  row's date, kind, symbol, shares, price, amount, fees and description, with
-  account and bank numbers cut to their last 3 digits), your plan and goals,
-  your investing-profile
-  answers, notes, monthly walks (when each was finished and what your own plan
-  said, and, where the walk's log is on, its percentages - never amounts), the day you made a sealed envelope from your storm drill answer, if you make one (the PDF itself is never saved), your account map if you make one, your Lost & Found list if you keep one (whether you've looked in each place and found something - never an amount or account number), the Trail Forks you mark as yours if you use them (which life events, and which listed steps you've ticked - nothing you type), the Inheritance Rehearsal's steps you've walked through and the day you finished, if you try it (not which choices you tapped, nothing you type), any note you send that a price looks wrong (the ticker, the reason you picked, the price you saw and its time - kept with your account until you delete it; admins see only counts, never who), the preparedness drills you've rehearsed (which ones, what you tapped and in which week - nothing you type), which months' notes on this month's world you've opened, where they're offered (the month only),whether you've turned on the Trail Conditions email where it's offered (when you turned it on, and the week it was last sent), the rule of thumb you picked on Pay yourself if you pick one (which rule - never an amount), what you choose to bring to your advisor, if you use Bring to my advisor (which items and the day you shared each - nothing you type), your Shadow Trail mixes if you set any (each mix as percentages of kinds of funds, and the days you set and last changed it - never an amount), the Learn topics you've explained back where Teach It Back is offered (whether each held and the day - never your words), and settings, and the name you'd like to be called, if you
-  give one (shown in the app, and to your advisor). If you created your
+  cost, value, cash and account names), so the app can show them; any activity
+  history you import (each row's date, kind, symbol, shares, price, amount, fees
+  and description, with account and bank numbers cut to their last 3 digits);
+  your plan and goals, your investing-profile answers, notes and settings; and
+  the name you'd like to be called, if you give one (shown in the app, and to
+  your advisor). Where these are offered and you use them, also: your monthly
+  walks (when each was finished and what your own plan said, and, where the
+  walk's log is on, its percentages - never amounts); the day you made a sealed
+  envelope from your storm drill answer (the PDF itself is never saved); your
+  account map; your Lost & Found list (whether you've looked in each place and
+  found something - never an amount or account number); the
+  Trail Forks you mark as yours (which life events, and which listed steps
+  you've ticked - nothing you type);
+  the Inheritance Rehearsal's steps you've walked through and the day you
+  finished (not which choices you tapped, nothing you type); which seasonal
+  notes you've opened or put away; any note you send that a price looks
+  wrong (the ticker, the reason you picked, the price you saw and its time -
+  kept until you delete your account; admins see only counts, never who); the
+  preparedness drills you've rehearsed (which ones, what you tapped and in which
+  week - nothing you type); which months' notes on this month's world you've
+  opened (the month only); whether you've turned on the Trail Conditions email
+  (when you turned it on, and the week it was last sent); the rule of thumb you
+  picked on Pay yourself (which rule - never an amount); what you choose to bring
+  to your advisor (which items and the day you shared each - nothing you type);
+  your Shadow Trail mixes (each as percentages of kinds of funds, and the days
+  you set and last changed it - never an amount); and the Learn topics you've
+  explained back with Teach It Back (whether each held and the day - never your
+  words). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
   (confirming the address, resetting your password; for advisors, an optional
@@ -497,21 +529,25 @@ and it leaves your view when they untick it or the relationship ends.
   to anyone else or sent to the AI - and which version of this page you agreed
   to. Northwend sends no newsletters or advertising email. Where it's offered,
   Trail Conditions is a short Monday email you can turn on: most weeks it
-  says nothing needs your attention, and otherwise only that something is ready in the app
-  (a season's note, your monthly walk, a situation to rehearse) or that
-  markets have fallen a long way recently - never an amount, a percentage,
+  says nothing needs your attention, and otherwise only that something is
+  ready in the app (a season's note, your monthly walk, a new note about this
+  month's markets, a situation to rehearse) or that markets have fallen a long
+  way recently (said when your own holdings are well below their recent high,
+  without a figure) - never an amount, a percentage,
   a holding, a forecast or a suggestion to buy or sell. Every one has a link
   that stops it in one click. If you ask for advisor access, also
   your firm's name and your CRD or licence number, so it can be checked, and a
   note of each check (where it was looked up, the number that matched and the
   day); for an advisor, also which version of the advisor agreement you accepted
-  and when.
+  and when and, where Find a guide is offered, your listing as you enter it
+  (shown to people using Find a guide while it's switched on).
 - **Less is kept than you share:** an uploaded file is read and then deleted -
   the file itself is never kept - and any account number in an account name is
   cut to its last 3 digits before it's saved. Pasted text is read by the app
   itself (not by AI) and isn't saved; only symbols, share counts, cost and cash
   are taken from it. Screenshots, where they can be read, aren't saved either.
-  A fund list pasted into the 401(k) menu decoder isn't saved at all, and nor
+  A fund list pasted into the 401(k) menu decoder, where it's offered, isn't
+  saved at all, and nor
   is a fund fact sheet you have the app read, where that's offered: it's read
   in memory by the app itself (not by AI) and not kept. Account statements
   aren't read there - text that looks like one is cleared without being read.
@@ -524,10 +560,12 @@ and it leaves your view when they untick it or the relationship ends.
   what you choose to paste, upload, type in or photograph.
 - **Who can see it:** you, and - if your account is managed by an advisor -
   that advisor. Your notes to future you, monthly walks, account map, Lost &
-  Found list, Trail Forks and drills stay yours alone unless, where Bring to my
-  advisor is offered, you tick some of them to show your advisor; unticking
-  takes them out of their view at once. Where introductions are offered, an advisor you write to from
-  Find a guide sees only the name you give, your message and the parts you
+  Found list, Trail Forks, Inheritance Rehearsal, drills, seasonal notes, the
+  Learn topics you've explained back, the rule of thumb you picked on Pay
+  yourself and your Shadow Trail stay yours alone. Where Bring to my advisor is
+  offered, you can tick some of them to show your advisor; unticking takes them
+  out of their view at once. Where introductions are offered, an advisor you
+  write to from Find a guide sees only the name you give, your message and the parts you
   choose to include (your mix by asset class in percents, goals, a timeline
   range, where you are on the route) - never amounts, holdings or your email -
   until you choose, in two separate steps, to share your full account. Those
@@ -541,7 +579,8 @@ and it leaves your view when they untick it or the relationship ends.
   the 7 or 30 days you choose, you can turn it off at any time on the Account
   page, and only you can make one, for your own account (not while an advisor
   manages it). Northwend keeps only a scrambled version of the link and, for
-  you, how many times it was opened - nothing about who opened it. To look after accounts, the person who runs Northwend can see
+  you, how many times it was opened - nothing about who opened it. To look
+  after accounts, the person who runs Northwend can see
   login details (your email or username, your role, when the account was made
   and last signed in) - not your holdings, plan or answers. If an account has
   no email address, they can set a temporary password to help its owner back
@@ -557,7 +596,8 @@ and it leaves your view when they untick it or the relationship ends.
   and skipping the two-step code on a trusted device). Email links work until
   they run out: a password reset after 1 hour, a confirm link after 3 days, an
   advisor's setup link after 7 days. An "Explain it to someone" link works for
-  the 7 or 30 days you chose, and is deleted soon after it ends. The scrambled counts that stop automated
+  the 7 or 30 days you chose, and is deleted soon after it ends. The scrambled
+  counts that stop automated
   sign-ups and repeated wrong passwords are kept for 1 day, and error records
   (what went wrong and where - nothing about you) for 90 days.
 - **Deleting:** on the **Account** page you can delete all your holdings
@@ -626,13 +666,14 @@ feature counts** on the **Account** page.
     ("Services Northwend uses", f"""
 {hosting_lines()}
 - **Neon** runs the database, in the United States.
-- **Anthropic** (Claude) powers the AI guide, the optional column guess and,
-  where it's offered, the optional screenshot reader and Teach It Back's check -
-  see the next section for exactly what's sent.
+- **Anthropic** (Claude) powers the AI guide, advisors' meeting talking points
+  and the optional column guess and, where they're offered, advisors' first
+  drafts, looking up a word, Teach It Back's check and the optional screenshot
+  reader - see the next section for exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
-- **GitHub** runs the scheduled price updates and the scheduled emails
-  (sent through Resend).
+- **GitHub** runs the scheduled price updates, the nightly clean-up of what's
+  kept only for a while, and the scheduled emails (sent through Resend).
 - **Resend** delivers the account emails (confirming your address, resetting
   your password, an advisor's Monday summary, the monthly walk reminder and
   Trail Conditions, if you turn them on); it receives only your email
@@ -648,9 +689,10 @@ you use it, the app sends:
   the chat leaves out your "Other notes" box),
 - your holdings: in the chat as **tickers, fund names from market data, what each
   fund holds and each one's share of the portfolio in whole percents**, with your
-  mix and your own target mix; for the plan's suggested next steps also types and
-  sectors, gains or losses as percentages, and figures like dividend yield, beta
-  and P/E - never dollar amounts, share counts, account names or numbers,
+  mix, your own target mix and how far you let it drift, and where you are on
+  Northwend's route - never dollar amounts, share counts, account names or
+  numbers,
+- if you have an advisor, the name and firm they show their clients,
 - what you type in the chat, and short notes the guide saved from earlier
   conversations - goals, dates and decisions, never dollar amounts or account
   numbers (the app takes those out before a note is saved). You can read and
@@ -658,15 +700,20 @@ you use it, the app sends:
   sees or changes them.
 
 If you have an advisor, they can ask the AI to draft **talking points** before
-a meeting. That sends the same profile answers and holdings summary, plus facts
-in percentages - how your portfolio and goal have moved since the last review,
-which holdings were added or reduced, and how far the mix is from its target -
-never dollar amounts or your advisor's notes.
+a meeting. That sends your profile answers - here including your "Other notes"
+box, as you typed it - and a holdings summary: each holding's ticker, name and
+share of the portfolio, its type and sector, gain or loss as a percent, and
+figures like dividend yield, beta and P/E. With it go facts in percentages -
+how your portfolio and goal have moved since the last review, which holdings
+were added or reduced, and how far the mix is from its target - never dollar
+amounts from your portfolio, and never your advisor's notes.
 
 Where it's offered, your advisor can also ask the AI for a **first draft** of a
 proposal's explanation, a progress report's message or a message to clients.
-That sends your mix and holdings as percentages (no notes, no names) and the
-few words your advisor types for the draft - never dollar amounts. A message to
+That sends your profile answers (without "Other notes"), your mix and holdings
+as percentages (no notes, no names), a proposal's title and mix or a report's
+period and how your portfolio moved, in percents, and the few words your
+advisor types for the draft - never dollar amounts. A message to
 several clients sends only your advisor's words. The draft is your advisor's to
 edit, and nothing reaches you until they send it, under their own name.
 

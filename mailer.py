@@ -34,6 +34,13 @@ TIMEOUT = 10  # seconds
 POSTAL_ADDRESS = ""
 
 
+class EmailNotSent(Exception):
+    """An account email (confirm, reset, a new address) that Resend didn't
+    accept - its daily or monthly allowance used up, a bad key, or no answer.
+    Never raised by send(): the app raises and catches it only to tell the
+    admin through error_alerts (its kind and place, never the address)."""
+
+
 def _setting(name: str) -> str:
     return settings.get(name, env_file=True)   # .env first, then the environment
 
