@@ -28,8 +28,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 ## Commands
 - Postgres tests: `NORTHWEND_TEST_PG=postgresql://... python -m unittest tests.test_postgres`
   (skipped without it; CI's `postgres-tests` job runs them on a real Postgres 16).
-- Tests (all must pass): `python -m unittest discover -s tests` (~30s). Quiet:
-  `... 2>&1 | grep -E "^(Ran|OK|FAILED|FAIL:|ERROR:)"`
+- Tests (all must pass): `python -m unittest discover -s tests` (~13 min). Quiet:
+  `... 2>&1 | grep -E "^(Ran|OK|FAILED|FAIL:|ERROR:)"`. CI runs it in 4 shares
+  at once (`scripts/test_shard.py`; the required `unit-tests` check gathers them).
+  One share locally: `python -m unittest $(python scripts/test_shard.py 4 1)`.
+  The main checkout's real `.env` makes some page tests reach the network: run
+  the full suite on a `git archive HEAD` copy.
 - Run locally: `python -m streamlit run dashboard.py`. In the desktop app use the
   `.claude/launch.json` previews (`review-class` = scratch `classtest.db`, user alice).
 - Python 3.13; `pandas==2.2.3` is pinned on purpose (3.0 is blocked on one machine).

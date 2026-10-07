@@ -7,7 +7,8 @@ name: Tests
 # Postgres ones on a throwaway Postgres container on the runner.
 #
 # unit-tests and postgres-tests are the checks main's branch protection
-# requires - keep their names. lint and audit are separate jobs (not required
+# requires - keep their names (unit-tests is the job that gathers the four
+# unit-tests shares below). lint and audit are separate jobs (not required
 # yet; they can be added as required checks in the branch protection rule).
 # Every action is pinned to a full commit SHA, its version in the comment;
 # Dependabot (.github/dependabot.yml) proposes updates weekly.
@@ -18,9 +19,17 @@ on:
   workflow_dispatch: {}  # allow manual runs from the Actions tab
 
 jobs:
-  unit-tests:
+  # The unit tests in four shares at once (scripts/test_shard.py splits the
+  # test files by a rough cost; tests/test_test_shard.py checks every file is
+  # in exactly one share). Each share's coverage data goes up as an artifact.
+  unit-tests-shard:
+    name: unit-tests (${{ matrix.shard }} of 4)
     runs-on: ubuntu-latest
-    timeout-minutes: 20   # coverage measuring slows the run down a little
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false   # let every share finish, so one run shows every failure
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
@@ -28,13 +37,40 @@ jobs:
           python-version: "3.13"
           cache: pip  # reuse installed packages between runs
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      - name: Run tests
-        run: coverage run -m unittest discover -s tests
-      # The share of the code the tests run, printed on every run (no gate yet:
-      # ratchet it up, never down). It shows in the job's summary too.
-      - name: Coverage
+      - name: Run this share of the tests
+        run: coverage run -p -m unittest $(python scripts/test_shard.py 4 ${{ matrix.shard }})
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         if: ${{ !cancelled() }}
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: .coverage.*
+          include-hidden-files: true
+          retention-days: 1
+
+  # The check main's branch protection requires: green only when all four
+  # shares passed. It adds their coverage together - the share of the code the
+  # tests run, printed on every run (no gate yet: ratchet it up, never down).
+  unit-tests:
+    needs: unit-tests-shard
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every share passed
+        run: test "${{ needs.unit-tests-shard.result }}" = "success"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - name: Coverage
         run: |
+          coverage combine
           coverage report --format=total | tee total.txt
           echo "Coverage: $(cat total.txt)% of the code ran in the tests" >> "$GITHUB_STEP_SUMMARY"
 
