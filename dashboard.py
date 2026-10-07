@@ -62,8 +62,8 @@ import whats_new
 import route
 import watchlist
 from allocation import CONCENTRATION_PCT, allocate, summary_words
-from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_source,
-                       temp_upload, upload_label)
+from portfolio import (SAMPLE_SOURCE, DBError, connect, delete_holdings, snapshot_cash,
+                       snapshot_positions, snapshot_source, temp_upload, upload_label)
 from update_prices import ENV_PATH, latest_snapshot, load_env, refresh_prices, resolve_key
 import changes
 
@@ -2835,16 +2835,8 @@ def load(conn):
         # funds go on it before anything is bought)
         watch = watchlist.list_tickers(conn, USER_ID) if PAGE == "Watchlist" else []
         return None, [], {}, overview.latest_quotes(conn, sorted(watch)) if watch else {}, watch
-    rows = conn.execute(
-        "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ? ORDER BY account, symbol",
-        (snap, USER_ID)
-    ).fetchall()
-    cash_by_account = {
-        r["account"]: r["cash_value"] or 0.0
-        for r in conn.execute(
-            "SELECT account, cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
-            (snap, USER_ID))
-    }
+    rows = snapshot_positions(conn, USER_ID, snap)
+    cash_by_account = snapshot_cash(conn, USER_ID, snap)
     # the latest quote of each ticker this account holds or watches - not
     # every ticker in price_history, which grows every minute
     watch = watchlist.list_tickers(conn, USER_ID)   # read once: the Watchlist uses it too

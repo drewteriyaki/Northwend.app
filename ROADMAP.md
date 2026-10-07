@@ -1557,8 +1557,12 @@ ships behind `flags.py`. See `docs/LEGAL_GATES.md` for the gates.
         own button with the standing line. Never imports mailer / proposals / advising
         (tested); a draft that speaks for Northwend, predicts or urges is retried once,
         then dropped
-  - [ ] Still to do: the document decoder and the grader (AI_PLAN section 9)
+  - [x] The grader (R13 Teach It Back, gateway helper `grader`) and the document
+        decoder for fund fact sheets (R6, local, no AI) - built Oct 6-7; account
+        statements and the decoder's optional AI button wait (owner decisions)
 - [ ] **Step 8 - Service seams** (no new frontend now)
+  - [x] No SQL left in dashboard.py either (Oct 8) - Home's holdings load reads
+        through `portfolio.snapshot_positions` / `snapshot_cash`; a test keeps it at 0
   - [x] No SQL left in views/ (Oct 8) - moved to module functions with tests;
         VIEW_SQL_ALLOWED is empty
 - [ ] **Step 9 - Ritual R6-R12**

@@ -191,6 +191,11 @@ class ViewSqlTests(unittest.TestCase):
         for f in VIEW_SQL_ALLOWED:
             self.assertIn(f, now, f"views/{f} is gone - take it out of VIEW_SQL_ALLOWED")
 
+    def test_no_sql_in_dashboard_py(self):
+        # the page script itself, like the views: reads and writes live in modules
+        self.assertEqual(sql_literals(os.path.join(REPO, "dashboard.py")), 0,
+                         "dashboard.py holds SQL: move it into a module it calls")
+
 
 # --------------------------------------------------------------------------- #
 # 1b.4: GitHub Actions pinned by commit SHA

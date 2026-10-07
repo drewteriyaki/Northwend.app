@@ -223,6 +223,23 @@ class OwnRowsTests(_DB):
         self.assertEqual(accounts.held(self.conn, self.ann), ["Brokerage ...123", "Roth ...789"])
         self.assertEqual(accounts.held(self.conn, self.bo), ["Bo's IRA"])
 
+    def test_snapshot_positions_and_cash_one_snapshot_own_only(self):
+        # Home's holdings (dashboard.load): one snapshot, this account's rows only
+        self._position(self.ann, "Roth ...789", "VTI")
+        self._position(self.ann, "Brokerage ...123", "BND")
+        self._position(self.ann, "Brokerage ...123", "AAPL", day="2026-08-01")
+        self._position(self.bo, "Brokerage ...123", "QQQ")
+        for uid, acct, cash in ((self.ann, "Brokerage ...123", 250.0),
+                                (self.ann, "Roth ...789", None), (self.bo, "Brokerage ...123", 9.0)):
+            self.conn.execute("INSERT INTO account_totals (snapshot_date, account, cash_value, "
+                              "user_id) VALUES ('2026-09-01', ?, ?, ?)", (acct, cash, uid))
+        rows = portfolio.snapshot_positions(self.conn, self.ann, "2026-09-01")
+        self.assertEqual([(r["account"], r["symbol"]) for r in rows],
+                         [("Brokerage ...123", "BND"), ("Roth ...789", "VTI")])
+        self.assertEqual(portfolio.snapshot_cash(self.conn, self.ann, "2026-09-01"),
+                         {"Brokerage ...123": 250.0, "Roth ...789": 0.0})
+        self.assertEqual(portfolio.snapshot_positions(self.conn, self.ann, "2026-07-01"), [])
+
 
 # --------------------------------------------------------------------------- #
 # Shared market data: the storm note, Learn's practice prices, Admin

@@ -610,6 +610,21 @@ def snapshot_source(conn, user_id: int, snapshot_date: str | None) -> str | None
     return row["source_file"] if row else None
 
 
+def snapshot_positions(conn, user_id: int, snapshot_date: str) -> list:
+    """Every position (all columns) in one of the account's snapshots, by
+    account then symbol - Home's holdings (dashboard.load)."""
+    return conn.execute(
+        "SELECT * FROM positions WHERE snapshot_date = ? AND user_id = ? ORDER BY account, symbol",
+        (snapshot_date, user_id)).fetchall()
+
+
+def snapshot_cash(conn, user_id: int, snapshot_date: str) -> dict:
+    """{account: cash} in one of the account's snapshots (0.0 where unknown)."""
+    return {r["account"]: r["cash_value"] or 0.0 for r in conn.execute(
+        "SELECT account, cash_value FROM account_totals WHERE snapshot_date = ? AND user_id = ?",
+        (snapshot_date, user_id))}
+
+
 def previous_snapshot(conn, user_id: int, before: str) -> tuple[str | None, list[dict], set]:
     """What a save dated `before` is compared with: (the latest earlier
     snapshot's date, its holdings, every account it names - cash-only ones
