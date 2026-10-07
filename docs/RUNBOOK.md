@@ -340,6 +340,10 @@ Environment after step 4, and the `NORTHWEND_FLAGS` GitHub secret (the walk
 reminders job reads it). Restart the app, then check Admin > System, which
 lists every gate and flag and any name it doesn't know.
 
+When a flag or gate changes on **live**, also change `LIVE_FLAGS` /
+`LIVE_GATES` in `website/build.py`, run `python website/build.py` and release:
+the website's What's new page announces exactly what's on for everyone.
+
 Staging turns everything on. Live turns on only what the owner approved.
 
 **The rule: never turn on a gate without its checklist** in

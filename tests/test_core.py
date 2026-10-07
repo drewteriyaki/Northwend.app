@@ -4641,22 +4641,35 @@ class WebsiteTests(unittest.TestCase):
         import html as html_mod
         import whats_new
         page = html_mod.unescape(self.pages["whats-new.html"])
-        shown = flagged = 0
+        live = self.site.LIVE_FLAGS
+        hidden = lambda it: isinstance(it, dict) and it.get("flag") and it["flag"] not in live  # noqa: E731
+        shown = flagged = live_shown = 0
         for e in whats_new.ENTRIES:
             for it in e["items"]:
                 text = it["text"] if isinstance(it, dict) else it
-                if isinstance(it, dict) and it.get("flag"):
+                if hidden(it):
                     self.assertNotIn(text, page)      # a hidden feature is never announced
                     flagged += 1
                 else:
                     self.assertIn(text, page)
                     shown += 1
-        self.assertTrue(shown and flagged)            # both kinds exist, so both checks bite
-        # an entry whose items are all flagged leaves no heading behind
+                    live_shown += bool(isinstance(it, dict) and it.get("flag"))
+        # all three kinds exist, so every check bites
+        self.assertTrue(shown and flagged and live_shown)
+        # an entry whose items are all hidden leaves no heading behind
         for e in whats_new.ENTRIES:
-            if all(isinstance(i, dict) and i.get("flag") for i in e["items"]):
+            if all(hidden(i) for i in e["items"]):
                 self.assertNotIn(f"<h2>{e['title']}</h2>", page)
         self.assertIn(whats_new.when(whats_new.ENTRIES[0]["date"]), page)
+
+    def test_live_flags_are_real_and_on_for_everyone(self):
+        import flags
+        for f in self.site.LIVE_FLAGS:
+            with self.subTest(f):
+                self.assertIn(f, flags.FEATURES)
+                self.assertLessEqual(set(flags.FEATURES[f]["gates"]), self.site.LIVE_GATES,
+                                     f"{f} needs a gate that's off live - it isn't on for everyone")
+        self.assertNotIn("L4", self.site.LIVE_GATES)
 
     def test_status_page_is_hand_written_and_linked(self):
         site, status = self.site, self.pages["status.html"]

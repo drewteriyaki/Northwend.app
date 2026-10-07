@@ -222,11 +222,27 @@ def about_values() -> dict:
 
 # The What's new page (/whats-new): made from whats_new.ENTRIES, the same list
 # the app shows, so the two never drift. Only what's on for everyone: an item
-# with a "flag" is left out (a feature behind a flag is off on the live app,
-# and a hidden feature is never announced). Rebuild after adding an entry.
+# with a "flag" is left out unless that flag is in LIVE_FLAGS (a hidden feature
+# is never announced). Rebuild after adding an entry.
+#
+# LIVE_FLAGS / LIVE_GATES: what the live app's NORTHWEND_FLAGS and
+# NORTHWEND_GATES (Render) turn on, kept by hand - when one changes live,
+# change it here too, then `python website/build.py` and release (RUNBOOK,
+# "Turn a feature on"). A flag whose gates aren't all in LIVE_GATES isn't on
+# for everyone, so it can't be listed (a test checks).
+LIVE_GATES = frozenset({"L0"})
+LIVE_FLAGS = frozenset({
+    "walk", "walk_log", "ledger", "storm_drill", "decoder_401k", "decoder_public",
+    "lost_found", "seasons", "trail_forks", "explain_share", "price_report",
+    "sealed_envelope", "plain_summary", "glossary", "inheritance_rehearsal",
+    "decoder_factsheet",
+})
+
+
 def public_whats_new() -> list[dict]:
-    """The entries with every flagged item dropped (and any entry left empty)."""
-    return whats_new.visible(on=lambda flag: False)
+    """The entries with every item whose flag isn't on live dropped (and any
+    entry left empty)."""
+    return whats_new.visible(on=lambda flag: flag in LIVE_FLAGS)
 
 
 def whats_new_values() -> dict:

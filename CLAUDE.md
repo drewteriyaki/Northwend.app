@@ -141,7 +141,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is
   stale. The About page comes from `disclosures.py`; `APP_URL` is in build.py.
-  `/whats-new` is built from `whats_new.ENTRIES` (flagged items left out - so
+  `/whats-new` is built from `whats_new.ENTRIES` (flagged items only if in build.py's `LIVE_FLAGS` - so
   rebuild after adding an entry); `/status` is hand-edited (`STATUS_NOW`,
   `NOTICES` in build.py; no scripts, no uptime figures).
   Pages: Home, New to investing, For advisors, About, 404 (`PAGES`; a page in `HELD` -
