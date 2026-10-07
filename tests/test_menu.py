@@ -133,7 +133,7 @@ class MenuTests(unittest.TestCase):
         self._popovers(at)["pt_me"].button(key="menu_Account").click()
         at.run()
         self.assertEqual(at.session_state["page"], "Account")
-        self.assertEqual(at.query_params["page"], ["account"])
+        self.assertEqual(at.query_params["page"], "account")
 
     def test_admin_in_the_name_menu(self):
         # (admins must have two-step sign-in: ann has it, and her tab passed it)
@@ -148,7 +148,7 @@ class MenuTests(unittest.TestCase):
         at.button(key="nav_Money").click()
         at.run()
         self.assertEqual(at.session_state["page"], "Income")
-        self.assertEqual(at.query_params["page"], ["income"])
+        self.assertEqual(at.query_params["page"], "income")
         self.assertEqual(at.title[0].value, "Money")
         self.assertEqual(self._keys(at, "money_"), MONEY_TABS)
         self.assertEqual(self._current(at, "money_"), ["money_Income"])
@@ -159,7 +159,7 @@ class MenuTests(unittest.TestCase):
             at.run()
             self.assertFalse(at.exception, [e.value for e in at.exception])
             self.assertEqual(at.session_state["page"], tab)
-            self.assertEqual(at.query_params["page"], [slug])
+            self.assertEqual(at.query_params["page"], slug)
             self.assertEqual(self._current(at, "money_"), [f"money_{tab}"])
             self.assertEqual(self._current(at, "nav_"), ["nav_Money"])
         # Money goes back to the tab last open
@@ -177,12 +177,12 @@ class MenuTests(unittest.TestCase):
                            ("get-started", "Get started"), ("about", "About")):
             at = self._run(self.alice, "alice", slug)
             self.assertEqual(at.session_state["page"], page, slug)
-        self.assertEqual(at.query_params["page"], ["about"])
+        self.assertEqual(at.query_params["page"], "about")
         # a managed client's page from their advisor, by either name
         for slug in ("advisor-notes", "your-advisor"):
             at = self._run(self.dave, "dave", slug)
             self.assertEqual(at.session_state["page"], "Advisor notes", slug)
-            self.assertEqual(at.query_params["page"], ["your-advisor"])
+            self.assertEqual(at.query_params["page"], "your-advisor")
 
     def test_new_investor_starts_on_learn(self):
         at = self._run(self.bob, "bob")
@@ -219,7 +219,7 @@ class MenuTests(unittest.TestCase):
         at.button(key="viewing_start").click()
         at.run()
         self.assertEqual(at.session_state["page"], "Get started")
-        self.assertEqual(at.query_params["page"], ["get-started"])
+        self.assertEqual(at.query_params["page"], "get-started")
         # her own portfolio: no Notes, no client tools; Add client is on Your clients
         at = self._run(self.carol, "carol", None, two_step_ok=self.carol_ok)
         self.assertEqual(at.session_state["page"], "Clients")

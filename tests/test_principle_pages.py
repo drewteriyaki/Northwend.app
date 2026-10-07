@@ -207,7 +207,7 @@ class AccessPages(unittest.TestCase):
         # the control: her own client opens
         at = self._run(self.carol, "carol", "home", self.dana, two_step_ok=self.carol_ok)
         self.assertEqual(at.session_state["active_user_id"], self.dana)
-        self.assertEqual(at.query_params["client"], [str(self.dana)])
+        self.assertEqual(at.query_params["client"], str(self.dana))
 
     def test_a_client_cant_open_their_advisors_other_clients(self):
         at = self._run(self.zed, "zed", "home", self.dana)
