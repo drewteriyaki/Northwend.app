@@ -700,3 +700,21 @@ CREATE TABLE IF NOT EXISTS advisor_pack (
     shared_on   TEXT    NOT NULL,
     UNIQUE (user_id, advisor_id, item)
 );
+-- Doing it together - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS together_invites (
+    id          SERIAL  PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    token_hash  TEXT    NOT NULL UNIQUE,
+    created_at  TEXT    NOT NULL,
+    expires_at  TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_together_invites_user ON together_invites (user_id, expires_at);
+CREATE TABLE IF NOT EXISTS together_pairs (
+    id          SERIAL  PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    partner_id  INTEGER NOT NULL,
+    since       TEXT    NOT NULL,
+    nudged_at   TEXT,
+    UNIQUE (user_id, partner_id)
+);
+CREATE INDEX IF NOT EXISTS idx_together_pairs_partner ON together_pairs (partner_id);

@@ -55,6 +55,7 @@ import prefs  # noqa: E402
 import price_report  # noqa: E402
 import proposals  # noqa: E402
 import reports  # noqa: E402
+import together  # noqa: E402
 import txn_import  # noqa: E402
 import two_step  # noqa: E402
 import watchlist  # noqa: E402
@@ -155,6 +156,12 @@ MATRIX = {
     "advisor_pack": ("advisor_pack.shared", "advisor_pack.consented", "advisor_pack.for_advisor",
                      "advisor_pack.start", "advisor_pack.tick", "advisor_pack.stop",
                      "advisor_pack.on_unlink", "export.collect"),
+    # Doing it together (together.py): an account's own invitations, and only
+    # its own partners' three facts
+    "together_invites": ("together.invite", "together.open_invites", "together.cancel_invite",
+                         "together.room", "together.find_invite", "export.collect"),
+    "together_pairs": ("together.partners", "together.for_partner", "together.stop",
+                       "together.nudge", "together.history", "export.collect"),
 }
 # every table the matrix must cover
 ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
@@ -163,7 +170,8 @@ _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising,
                                     advisor_agreement, advisor_pack, ai_usage, auth, client_book, consent,
                                     directory,
                                     explain_share, export, future_notes, intros, licence_check, perf, plans,
-                                    portfolio, prefs, price_report, proposals, reports, txn_import,
+                                    portfolio, prefs, price_report, proposals, reports, together,
+                                    txn_import,
                                     two_step, watchlist)}
 
 
@@ -267,6 +275,16 @@ class IsolationMatrix(unittest.TestCase):
         # a share link (explain_share.py): only its hash is kept
         cls.tokens[f"{side}.share"] = explain_share.create(c, uid, by=uid, show_name=True)
         ids[f"{side}.share"] = explain_share.active(c, uid)[0]["id"]
+        # Doing it together (together.py): paired with a friend, and one
+        # invitation not answered yet
+        pal = auth.create_user(c, f"{investor}.pal", PW)
+        auth.set_display_name(c, pal, f"{tag} pal")
+        ids[f"{side}.pal"] = pal
+        link = together.invite(c, uid, by=uid)
+        together.accept(c, together.token_hash(link), pal, by=pal,
+                        text_shown=together.join_text(f"{tag} words"))
+        cls.tokens[f"{side}.together"] = together.invite(c, uid, by=uid)
+        ids[f"{side}.together_invite"] = together.open_invites(c, uid)[0]["id"]
         assert price_report.report(c, uid, ticker, "too_high", price=fig,
                                    price_as_of="2026-09-30T20:01:00Z")["ok"]
 
@@ -773,6 +791,48 @@ class IsolationMatrix(unittest.TestCase):
         self.assertTrue(explain_share.revoke(c, a, mine["id"]))
         explain_share.revoke_all(c, a)
         self.assertEqual(explain_share.active(c, a), [])
+
+    def check_together_invites(self):
+        c, a = self.c, self.alice
+        # (check_intro_requests on this copy may have made her carol's client)
+        auth.unlink_client(c, self.carol, a)
+        self.assertEqual([r["id"] for r in self.clean(together.open_invites(c, a))],
+                         [self.ids["A.together_invite"]])
+        self.assertIsNone(together.find_invite(c, "0" * 64))
+        mine = together.find_invite(c, together.token_hash(self.tokens["A.together"]))
+        self.assertEqual(mine["user_id"], a)
+        self.clean(export.collect(c, a).get("together_invitations"))
+        # B's invitation is B's: A's helpers aimed at it change nothing
+        self.assertFalse(together.cancel_invite(c, a, self.ids["B.together_invite"]))
+        with self.assertRaises(PermissionError):
+            together.invite(c, self.bob, by=a)
+        self.assertGreaterEqual(together.room(c, a), 0)
+        self.assertTrue(together.cancel_invite(c, a, self.ids["A.together_invite"]))
+        token = together.invite(c, a, by=a)
+        self.assertTrue(together.cancel_invite(c, a, together.open_invites(c, a)[0]["id"]))
+        self.assertIsNone(together.find_invite(c, together.token_hash(token)))
+
+    def check_together_pairs(self):
+        c, a, pal = self.c, self.alice, self.ids["A.pal"]
+        auth.unlink_client(c, self.carol, a)
+        self.assertEqual([p["partner_id"] for p in self.clean(together.partners(c, a))], [pal])
+        self.assertEqual(set(self.clean(together.for_partner(c, a, pal))),
+                         set(together.FACTS))
+        self.clean(together.history(c, a))
+        self.clean(export.collect(c, a).get("doing_it_together"))
+        # B and B's friend: nothing to read, stop or nudge
+        for other in (self.bob, self.ids["B.pal"]):
+            with self.assertRaises(PermissionError):
+                together.for_partner(c, a, other)
+            self.assertFalse(together.stop(c, a, other, by=a))
+            with self.assertRaises(PermissionError):
+                together.nudge(c, a, other, by=a, app_url="", send=lambda *x: True)
+        with self.assertRaises(PermissionError):
+            together.stop(c, self.bob, self.ids["B.pal"], by=a)
+        # A's own: a nudge (her friend has no email) and stopping
+        self.assertFalse(together.nudge(c, a, pal, by=a, app_url="", send=lambda *x: True)[0])
+        self.assertTrue(together.stop(c, a, pal, by=a))
+        self.assertEqual(together.partners(c, a), [])
 
     def check_advisor_agreements(self):
         c, carol = self.c, self.carol

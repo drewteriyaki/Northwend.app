@@ -387,6 +387,30 @@ Each statement about data here must stay true to the code:
   snapshots.imported_at). Nothing is written by the advisor's side. The
   privacy wording for when it's on is in docs/legal/privacy-policy-DRAFT.md
   only (the published policy changes when the gate opens).
+- Doing it together (together.py, views/together.py, flag together): on Life,
+  individuals only (never an advisor, an admin, an advisor's client or an
+  advisor in a client's account - together.eligible). An invitation is a
+  one-time link: table together_invites keeps the token's SHA-256 (shown
+  once), 7 days (INVITE_DAYS), deleted when used or cancelled and nightly
+  once ended (tidy.py). The person who opens it is signed in to their own
+  account and says yes to together.JOIN_CONSENT; both sides get a consent
+  grant (scope together; how together_invite with INVITE_CONSENT, dated when
+  the link was made, and together_join) word for word with its SHA-256.
+  Table together_pairs: one row per direction (since, the last nudge). Each
+  sees only together.for_partner: learning days this month (the dates Learn
+  already keeps - learn_dates, learn_reads, teach_back - and the money
+  minute's, where kept), this month's walk done or not (checkin_log), wins
+  earned (prefs wins, else gear_seen) - plus the first name if one was given
+  (letters only). Never a figure, holding, goal, account, verdict or date. At
+  most 3 pairings and invitations. Stop sharing deletes both rows and writes
+  a revoke each way (together_stop / together_ended; account_deleted when an
+  account goes). A nudge is the fixed figure-free "Your walk is waiting" email
+  through mailer, to a confirmed email, while the partner hasn't walked this
+  month, only if they allow nudges (prefs together_nudges_off unset - a
+  switch on Life and the email's one-click unsubscribe, kind together), once
+  a week per person per partner, inside rate_limits (invite, nudge). Never
+  sent to the AI, never in an advisor's client record; in the person's own
+  export without the hash or the partner's id.
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -557,6 +581,7 @@ and it leaves your view when they untick it or the relationship ends.
   picked on Pay yourself (which rule - never an amount); which wins you've
   earned or marked and the day (never an amount); what you choose to bring
   to your advisor (which items and the day you shared each - nothing you type);
+  who you do it together with, since when and when you last sent them a nudge;
   and the Learn topics you've
   explained back with Teach It Back (whether each held and the day - never your
   words); and for today's minute, the days you did one and which cards you've
@@ -564,7 +589,9 @@ and it leaves your view when they untick it or the relationship ends.
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
   (confirming the address, resetting your password; for advisors, an optional
-  Monday summary with counts only - no client names or figures), never shown
+  Monday summary with counts only - no client names or figures; where Doing
+  it together is offered, a weekly-at-most nudge from someone you paired up
+  with that says only "Your walk is waiting"), never shown
   to anyone else or sent to the AI - and which version of this page you agreed
   to. Northwend sends no newsletters or advertising email. Where it's offered,
   Trail Conditions is a short Monday email you can turn on: most weeks it
@@ -618,7 +645,13 @@ and it leaves your view when they untick it or the relationship ends.
   the 7 or 30 days you choose, you can turn it off at any time where you made
   it, and only you can make one, for your own account (not while an advisor
   manages it). Northwend keeps only a scrambled version of the link and, for
-  you, how many times it was opened - nothing about who opened it. To look
+  you, how many times it was opened - nothing about who opened it. Where
+  "Doing it together" is offered and you pair up with someone, each of you
+  sees three things about the other - learning days this month, whether this
+  month's walk is done and wins earned - and your first name if you've given
+  one, never an amount, a holding, a goal or an account; either of you can
+  stop at any time, and only someone who has said yes on their own account
+  sees anything. To look
   after accounts, the person who runs Northwend can see
   login details (your email or username, your role, when the account was made
   and last signed in) - not your holdings, plan or answers. If an account has
@@ -715,8 +748,8 @@ feature counts** on the **Account** page.
   kept only for a while, and the scheduled emails (sent through Resend).
 - **Resend** delivers the account emails (confirming your address, resetting
   your password, an advisor's Monday summary, the monthly walk reminder and
-  Trail Conditions, if you turn them on); it receives only your email
-  address and that message.
+  Trail Conditions, if you turn them on, and Doing it together's nudges); it
+  receives only your email address and that message.
 
 Each has its own privacy policy.
 """),

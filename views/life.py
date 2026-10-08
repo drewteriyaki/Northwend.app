@@ -4,9 +4,9 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # The Life page: the paperwork side of money, in one place - a row of cards
-# (the account map, Lost & Found, Explain it to someone) that jump to their
-# sections, Trail Forks (life changes), the Inheritance Rehearsal, and then
-# the three sections themselves. Every section keeps its own flag and its own
+# (the account map, Lost & Found, Explain it to someone, Doing it together)
+# that jump to their sections, Trail Forks (life changes), the Inheritance
+# Rehearsal, and then those sections themselves. Every section keeps its own flag and its own
 # rules: each draws only the login's own (LOGIN_ID), never while an advisor
 # is in a client's account (views/account_map.py, lost_found.py,
 # trail_forks.py, inheritance_rehearsal.py, explain_share.py decide). Life is
@@ -27,6 +27,9 @@ LIFE_CARDS = (
     ("explain_share", "Sharing", "Explain it to someone",
      "A private link that shows someone your plan in plain words, with percentages only.",
      "Make a link", "explain-it"),
+    ("together", "Sharing", "Doing it together",
+     "Pair up with someone and see each other's habits - never amounts or holdings.",
+     "Open", "together"),
 )
 
 
@@ -37,7 +40,8 @@ def _life_cards_shown():
     client or an admin)."""
     shown = {"account_map": USER_ID == LOGIN_ID,
              "lost_found": flags.on("lost_found") and USER_ID == LOGIN_ID,
-             "explain_share": flags.on("explain_share") and _xs_own()}
+             "explain_share": flags.on("explain_share") and _xs_own(),
+             "together": flags.on("together") and _tg_own()}
     return [c for c in LIFE_CARDS if shown[c[0]]]
 
 
@@ -55,9 +59,13 @@ def _render_life_sections():
         render_lost_found()
     if flags.on("explain_share"):
         render_explain_share()
+    if flags.on("together"):   # Doing it together (views/together.py)
+        render_together()
 
 
 def _render_life():
+    if flags.on("together"):   # a Doing it together link just opened: answered first
+        render_together_invite()
     st.caption(LIFE_INTRO)
     cards = _life_cards_shown()
     if cards:

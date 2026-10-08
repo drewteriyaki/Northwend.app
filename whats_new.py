@@ -57,6 +57,15 @@ ENTRIES = [
                   "months in a row. Each one is earned once, and a new one shows up in This "
                   "month on Home. Only you see them.", "flag": "wins"},
      ]},
+    {"date": "2026-10-07", "title": "Doing it together",
+     "items": [
+         {"text": "Doing it together, on the Life page, lets you pair up with a friend, partner "
+                  "or family member who uses Northwend. You each see three things about the "
+                  "other: learning days this month, whether this month's walk is done, and wins "
+                  "earned - never amounts, holdings, goals or accounts. You can send a nudge "
+                  "that says only \"Your walk is waiting\", and either of you can stop sharing "
+                  "at any time.", "flag": "together"},
+     ]},
     {"date": "2026-10-07", "title": "Home in three parts",
      "items": [
          "Home is laid out in three parts on bigger screens: your chart and holdings in the "

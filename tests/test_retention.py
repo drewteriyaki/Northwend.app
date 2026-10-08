@@ -221,6 +221,9 @@ class TidyTests(_DB):
         for h, days in (("s-old", 1), ("s-live", -1)):   # share links: ISO times
             c.execute("INSERT INTO share_links (user_id, token_hash, created_at, expires_at) "
                       "VALUES (?, ?, ?, ?)", (uid, h, iso(9), iso(days)))
+        for h, days in (("g-old", 1), ("g-live", -1)):   # Doing it together's invitations
+            c.execute("INSERT INTO together_invites (user_id, token_hash, created_at, "
+                      "expires_at) VALUES (?, ?, ?, ?)", (uid, h, iso(9), iso(days)))
         for key, start, locked in (("old", _ago(2), None), ("old-lock-over", _ago(2), _ago(1)),
                                    ("recent", _ago(0.5), None),
                                    ("still-locked", _ago(2), _ago(-0.01))):
@@ -239,7 +242,7 @@ class TidyTests(_DB):
         done = tidy.run(c, now=NOW)
         self.assertEqual(done, {"unconfirmed accounts": 0, "error records": 1, "email links": 1,
                                 "setup links": 1, "sessions": 1, "share links": 1,
-                                "wrong-password counts": 2,
+                                "together invitations": 1, "wrong-password counts": 2,
                                 "sign-up counts": 1, "email-send counts": 1, "minute bars": 1,
                                 # 7 years (B6): nothing that old here
                                 "consent records": 0, "advisor access log rows": 0})
@@ -247,6 +250,7 @@ class TidyTests(_DB):
         self.assertEqual(q("SELECT kind FROM error_events"), [("recent",)])
         self.assertEqual(q("SELECT token_hash FROM email_tokens"), [("t-live",)])
         self.assertEqual(q("SELECT token_hash FROM share_links"), [("s-live",)])
+        self.assertEqual(q("SELECT token_hash FROM together_invites"), [("g-live",)])
         self.assertEqual(sorted(q("SELECT username_key FROM login_failures")),
                          [("recent",), ("still-locked",)])
         self.assertEqual(sorted(q("SELECT b.interval FROM intraday_bars b")),

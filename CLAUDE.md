@@ -254,6 +254,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   + gate L2: "How your book works", counts only and "Client-reported, as of <date>" in Your
   clients; a client's walk shows only if they turn it on (consent scope `walk_signal`);
   Stop sharing lists what each side keeps; any link ending calls `client_book.on_unlink`).
+  `together.py` + `views/together.py` (Doing it together, flag `together`: a section on
+  Life, individuals only - never an advisor, an admin or client mode. A one-time
+  `?together=` link (hash only, 7 days), both yeses via `consent.grant` scope `together`
+  word for word; a partner is read ONLY through `together.for_partner` - learning days
+  this month, walk done, wins - never a figure; at most 3; Stop sharing deletes both
+  `together_pairs` rows and revokes both ways; the "Your walk is waiting" nudge is weekly,
+  opt-out (`together_nudges_off`, unsubscribe kind "together"), `rate_limits.NUDGE`).
   The check-in is shown as the Monthly Walk (R1): `checkin.verdict` is the person's own
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature

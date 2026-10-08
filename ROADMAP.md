@@ -2353,6 +2353,12 @@ Walk:
   -> built (Oct 6), flag `sealed_envelope`: see Step 9.
 - **Walk Together** - two people pair up; the streak counts only if both walk
   in the same week; each sees only that the other walked.
+  -> built as "Doing it together" (Oct 7), flag `together`, off: two individuals
+  pair up with a one-time link (both yeses recorded with consent.py, scope
+  `together`) and each sees three facts about the other - learning days this
+  month, this month's walk done or not, wins earned; a weekly-at-most "Your walk
+  is waiting" nudge, opt-out; either stops in one step. A section on Life. No
+  shared streak yet. For privacy review before it's on (the concern below).
 - **Base Camp** - a monthly text-only, percentage-only thread with one
   prompt, moderated by Ask Northwend for advice and tickers. Invite-only if
   ever built.

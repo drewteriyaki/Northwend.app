@@ -184,7 +184,8 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # 8 = share_links (Explain it to someone, explain_share.py).
 # 9 = price_reports ("Price look wrong?", price_report.py).
 # 10 = advisor_pack (Bring to my advisor, advisor_pack.py).
-SCHEMA_VERSION = 10
+# 11 = together_invites and together_pairs (Doing it together, together.py).
+SCHEMA_VERSION = 11
 
 
 def _ensure_schema(conn) -> None:

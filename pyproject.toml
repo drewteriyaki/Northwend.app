@@ -94,6 +94,7 @@ py-modules = [
     "rate_limits",   # how often one login may upload, save and build downloads (audit 1.8d)
     "glossary_ai",   # the glossary's AI fallback: an unknown word, the term only (AI_PLAN 9)
     "advisor_drafts",   # Draft with Northwend: advisor drafts into an editable box (AI_PLAN 9)
+    "together",   # Doing it together: two people see each other's habits (ROADMAP Walk Together)
 ]
 # the AI eval set (docs/AI_PLAN.md 8): cases, the offline checker, the runner
 packages = ["evals"]

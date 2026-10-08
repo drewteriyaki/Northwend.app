@@ -79,6 +79,11 @@ OWN = [
     # Bring to my advisor (advisor_pack.py): what a client chose to show their
     # advisor and the day (without the advisor's account id: LEFT_OUT_COLUMNS)
     ("brought_to_your_advisor", "advisor_pack", "user_id", ""),
+    # Doing it together (together.py): who you're paired with is someone
+    # else's login, so only since when and your last nudge (LEFT_OUT_COLUMNS);
+    # invitations not yet answered, without their hash
+    ("doing_it_together", "together_pairs", "user_id", ""),
+    ("together_invitations", "together_invites", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -94,7 +99,9 @@ LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"},
                     # a share link's hash: never needed, never exported (SECRET_PARTS too)
                     "share_links": {"token_hash"},
                     # someone else's login
-                    "brought_to_your_advisor": {"advisor_id"}}
+                    "brought_to_your_advisor": {"advisor_id"},
+                    "doing_it_together": {"partner_id"},
+                    "together_invitations": {"token_hash"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -132,6 +139,10 @@ Open them in any spreadsheet. Dates are UTC.
   kept)
 - brought_to_your_advisor.csv: what you chose to show your advisor in Bring to
   my advisor, and the day you shared each one
+- doing_it_together.csv, together_invitations.csv: when you paired up with each
+  person in Doing it together and when you last sent them a nudge, and the
+  invitations you made that haven't been answered (the links themselves are
+  never kept); the words you agreed to are in sharing_with_an_advisor.csv
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

@@ -128,6 +128,11 @@ account, contact us and we will delete it.
   when you made it, when it stops working, whether it shows your first name,
   how many times it was opened and the day it was last opened - never who
   opened it. The link itself isn't kept, only a scrambled version (a hash).
+- Where "Doing it together" is offered and you pair up with someone: who you're
+  paired with, since when, and when you last sent them a nudge; an invitation
+  link you made that hasn't been answered yet (only a scrambled version of it);
+  and, like the other records of sharing, the words each of you agreed to and
+  when.
 
 You don't have to use real numbers: an example portfolio and a "percentages only"
 mode work without any.
@@ -262,6 +267,23 @@ that it's no longer active - nothing about whose it was. Opening one signs no
 one in. If an advisor starts managing your account, your links stop working,
 and an advisor never sees them.
 
+**Doing it together.** Where it's offered, you can pair up with a friend,
+partner or family member who has their own Northwend account. You make a
+one-time invitation link (it works once, for 7 days, and only a scrambled
+version is kept); they open it signed in to their own account and say yes to
+the words shown, and we keep a record of both of your yeses, word for word.
+After that each of you sees three things about the other, and nothing else:
+how many days you've learned something this month, whether this month's walk
+is done, and how many wins you've earned - and your first name, if you've
+given one. Never an amount, a holding, a goal, an account or anything you've
+typed. Either of you can send the other a short email, at most once a week,
+that says only "Your walk is waiting" - with no figures and no names - and
+anyone can turn those off on the Life page or from the email itself. Either of
+you can stop sharing at any time, in one step: the other person simply stops
+seeing anything. You can pair up with up to 3 people. It isn't offered to
+advisors, to the person running Northwend, or while an advisor manages your
+account.
+
 **Who has looked at your account.** Each time an advisor opens a page in a
 client's account, Northwend records who, which page and when - never what was on
 the page or any figure - and the client sees the list on their Account page ("Who
@@ -377,11 +399,13 @@ you delete it.
 | An account made through sign-up whose email was never confirmed | Deleted, with everything in it, after 30 days without a sign-in |
 | Sign-in sessions ("stay signed in") and "remember this device" for two-step sign-in | 30 days; ended sooner by logging out or changing your password |
 | Wrong-password, sign-up and email-send counts (a hash of the internet address, never the address) | 1 day |
-| Upload, save and download counts per account (counts only) | 1 day |
+| Upload, save, download, invitation and nudge counts per account (counts only) | 1 day |
 | How often the 401(k) decoder without an account was used from one internet address, where that's offered (a hash of the address, never the address or what was pasted) | 1 day |
 | Email links (stored only as hashes) | Password reset 60 minutes, confirm 3 days, an advisor's setup link 7 days |
 | Share links ("Explain it to someone", stored only as hashes), where offered | The 7 or 30 days you choose, or until you turn one off; then deleted |
 | How often share links were opened from one internet address (a hash of the address, never the address or the link) | 1 day |
+| Doing it together invitation links (stored only as hashes), where offered | 7 days, or until used or cancelled; then deleted |
+| Doing it together pairings (who, since when, the last nudge), where offered | Until either of you stops sharing or deletes your account; the records of both yeses and of the end are kept like the other records of sharing, below |
 | Unsubscribe links in reminder emails | 1 year |
 | Minute-by-minute prices (no personal data) | 1 week, then one closing price a day |
 | Daily prices and fund details (no personal data) | Kept |
@@ -389,7 +413,7 @@ you delete it.
 | The record of what the person running Northwend did to accounts (never holdings) | 1 year |
 | An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept with the advisor's account, for their record-keeping duties (section 8) |
 | Introductions (the name and message you sent, what you chose to include, the advisor's answer), where offered | Until you or the advisor deletes your account |
-| Records of consent to share with an advisor (when, which advisor, the exact words shown) and of each advisor's visits to a client's account (who, which page, when - never figures) | 7 years after the sharing ends (visits: 7 years), kept even when either account is deleted, to protect the client and the advisor in a dispute |
+| Records of consent to share with an advisor or, where offered, with someone you do it together with (when, with whom, the exact words shown) and of each advisor's visits to a client's account (who, which page, when - never figures) | 7 years after the sharing ends (visits: 7 years), kept even when either account is deleted, to protect the client and the advisor in a dispute |
 | Server logs at the hosts | Under each host's own policy |
 | Requests to the AI | Under Anthropic's terms (section 5) |
 
@@ -425,6 +449,9 @@ you delete it.
 - **Emails:** Northwend sends no newsletters or advertising. Advisors can turn off
   the Monday summary on the Clients page. The monthly walk reminder is off
   unless you turn it on (Account page), and says only that it's time - no figures.
+  Where Doing it together is offered, someone you've paired up with can send you
+  a nudge, at most once a week: it says only "Your walk is waiting" - no figures,
+  no names - and you can turn nudges off on the Life page or from the email.
   Where it's offered, Trail Conditions is off unless you turn it on (Account
   page): a short Monday email that most weeks says nothing needs your attention, and
   otherwise only that something is ready in the app (a season's note, your monthly

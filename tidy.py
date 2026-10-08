@@ -16,7 +16,8 @@ What goes:
 - Error records (error_events) not seen for 90 days.
 - Email links (email_tokens), advisors' setup links (invites),
   stay-signed-in sessions (login_sessions) and Explain it to someone's share
-  links (share_links, explain_share.prune) past their expiry date.
+  links (share_links, explain_share.prune) and Doing it together's
+  invitations (together_invites, together.prune) past their expiry date.
 - Wrong-password counts (login_failures) not added to for a day whose lock has
   run out, and the day-old sign-up and email-send counts (signups,
   email_sends) - the app clears these only when the next one comes in. The
@@ -45,6 +46,7 @@ import admin
 import auth
 import consent
 import explain_share
+import together
 import pgcompat
 import settings
 from portfolio import connect
@@ -119,6 +121,8 @@ def run(conn, *, now: datetime | None = None) -> dict:
     delete("sessions", "DELETE FROM login_sessions WHERE expires_at <= ?", (stamp,))
     # (ISO timestamps there: explain_share's own prune)
     done["share links"] = explain_share.prune(conn, now=now)
+    # Doing it together's invitations not answered in time (together.prune)
+    done["together invitations"] = together.prune(conn, now=now)
     delete("wrong-password counts", "DELETE FROM login_failures WHERE window_start < ? "
            "AND (locked_until IS NULL OR locked_until < ?)", (day_ago, stamp))
     # (the no-account decoder's counts as well: signups rows keyed "decoder:...",

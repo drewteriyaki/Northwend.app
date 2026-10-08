@@ -308,7 +308,8 @@ def _render_who_looked():
     c = connect(DB)
     try:
         seen = access_log.for_client(c, LOGIN_ID, LOGIN_ID)
-        shared = consent.history(c, LOGIN_ID)
+        # (Doing it together's records are on Life, views/together.py)
+        shared = [r for r in consent.history(c, LOGIN_ID) if r["scope"] != consent.TOGETHER]
     finally:
         c.close()
     if not (seen or shared or IS_MANAGED_CLIENT):

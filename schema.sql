@@ -731,7 +731,7 @@ CREATE TABLE IF NOT EXISTS consent_records (
     client_id   INTEGER NOT NULL,
     advisor_id  INTEGER NOT NULL,
     kind        TEXT    NOT NULL,                -- 'grant' | 'revoke'
-    scope       TEXT    NOT NULL,                -- 'full_sharing' | 'advisor_pack' | 'walk_signal' (consent.SCOPES)
+    scope       TEXT    NOT NULL,                -- 'full_sharing' | 'advisor_pack' | 'walk_signal' | 'together' (consent.SCOPES)
     text_shown  TEXT,                            -- verbatim; a revoke may have none
     text_sha256 TEXT,
     how         TEXT    NOT NULL                 -- consent.HOWS: 'setup_link', 'client_stop'...
@@ -823,3 +823,30 @@ CREATE TABLE IF NOT EXISTS advisor_pack (
     shared_on   TEXT    NOT NULL,                -- 'YYYY-MM-DD'
     UNIQUE (user_id, advisor_id, item)
 );
+-- Doing it together (together.py, flag together): two individuals' accounts
+-- paired up, each seeing three habit facts about the other (learning days
+-- this month, this month's walk done or not, wins earned) - never a figure.
+-- together_invites: an invitation not yet answered - only the one-time
+-- link's SHA-256 is kept (shown once), working until expires_at; deleted
+-- when it's used or cancelled, ended ones by tidy.py.
+-- together_pairs: one row per direction - user_id sees partner_id's three
+-- facts; since, and when user_id last sent partner_id a nudge (once a
+-- week). Stopping deletes both rows. Both deleted with either account
+-- (admin.ACCOUNT_TABLES); the consent to it is in consent_records.
+CREATE TABLE IF NOT EXISTS together_invites (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,                -- who made the link
+    token_hash  TEXT    NOT NULL UNIQUE,         -- SHA-256 of the token, never the token
+    created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    expires_at  TEXT    NOT NULL                 -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+);
+CREATE INDEX IF NOT EXISTS idx_together_invites_user ON together_invites (user_id, expires_at);
+CREATE TABLE IF NOT EXISTS together_pairs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,                -- the one who sees
+    partner_id  INTEGER NOT NULL,                -- the one whose three facts they see
+    since       TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    nudged_at   TEXT,                            -- when user_id last nudged partner_id
+    UNIQUE (user_id, partner_id)
+);
+CREATE INDEX IF NOT EXISTS idx_together_pairs_partner ON together_pairs (partner_id);

@@ -60,6 +60,7 @@ import plans
 import prefs
 import price_report
 import rate_limits
+import together
 import whats_new
 import route
 import watchlist
@@ -1495,6 +1496,9 @@ def _login() -> bool:
         _notice = st.session_state.get("login_notice")
         if _notice:
             st.info(_notice)
+        if flags.on("together") and "together" in st.query_params:
+            # a Doing it together invitation: answered after signing in (together.py)
+            st.info(together.SIGN_IN)
         with st.form("login_form", border=True):
             user = st.text_input("Email or username", key="login_user", autocomplete="username")
             pw = st.text_input("Password", type="password", key="login_pw",
@@ -1776,6 +1780,16 @@ OLD_SLUGS = {"ask-sage": "AI Assistant", "clients": "Clients", "dashboard": "Das
              # a managed client's "Your advisor" is the advisor's "Advisor notes"
              # (the report emails link to ?page=advisor-notes)
              "advisor-notes": "Advisor notes", "your-advisor": "Advisor notes"}
+
+# ?together=...: a "Doing it together" invitation (together.py). Only its hash
+# is kept, in this session, and Life opens, where the invitation is answered
+# (views/together.py); the address then loses it (just below).
+if "together" in st.query_params:
+    if flags.on("together") and "Life" in PAGES:
+        st.session_state["together_hash"] = together.token_hash(
+            str(st.query_params.get("together")))
+        st.session_state["page"] = "Life"
+    del st.query_params["together"]
 
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
@@ -2746,6 +2760,8 @@ _view("client_book")
 # and under that: the Inheritance Rehearsal, flag inheritance_rehearsal
 # (inheritance_rehearsal.py)
 _view("inheritance_rehearsal")
+# Doing it together, flag together (together.py): a section on Life
+_view("together")
 # the Life page that draws them (an advisor's own are on Account)
 _view("life")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)

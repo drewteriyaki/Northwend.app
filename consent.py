@@ -7,7 +7,8 @@ advisor, 'grant' or 'revoke', the scope ('full_sharing': the advisor sees
 the whole account - today's `advisor_clients` link; 'advisor_pack': the
 client shows them items that are otherwise only theirs, advisor_pack.py;
 'walk_signal': the client lets them see whether they've walked this month,
-client_book.py), the text shown, stored
+client_book.py; 'together': one person lets a partner see three habit
+facts, together.py - advisor_id is then the partner), the text shown, stored
 verbatim with its SHA-256, and how it happened (HOWS).
 
 Append-only. This module only adds rows (`grant`, `revoke`, `backfill`) and
@@ -48,7 +49,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 
 KINDS = ("grant", "revoke")
-SCOPES = ("full_sharing", "advisor_pack", "walk_signal")
+SCOPES = ("full_sharing", "advisor_pack", "walk_signal", "together")
 FULL_SHARING = "full_sharing"
 # Bring to my advisor (advisor_pack.py): the client shows their advisor items
 # that are otherwise only theirs - its own grant and revoke, beside full sharing
@@ -56,6 +57,10 @@ ADVISOR_PACK = "advisor_pack"
 # The Client-Owned Book (client_book.py): the client lets their advisor see
 # whether they walked this month and the month of their last walk - nothing else
 WALK_SIGNAL = "walk_signal"
+# Doing it together (together.py): two individuals each see three habit facts
+# about the other. Not an advisor relationship: client_id is the person
+# sharing, advisor_id the partner who sees it - one grant per direction
+TOGETHER = "together"
 # how each record came about
 HOWS = (
     "setup_link",       # the client created their login from their advisor's setup link
@@ -68,6 +73,10 @@ HOWS = (
     "sign_in_ask",      # "Keep sharing" when asked once at sign-in (ask_text, to_ask)
     "pack_choice",      # the client's own ticks in Bring to my advisor (scope advisor_pack)
     "walk_choice",      # the client's own switch for sharing their walks (scope walk_signal)
+    "together_invite",  # Doing it together: the inviter's yes, when they made the link
+    "together_join",    # Doing it together: the invitee's yes, on the link
+    "together_stop",    # Doing it together: the person who stopped sharing
+    "together_ended",   # Doing it together: the other side of that stop
 )
 KEEP_DAYS = 2557        # 7 years (PLAN B6), counted from when the sharing ended
 BACKFILL_MARK = "consent_backfill"   # app_state row: the one-time back-fill has run

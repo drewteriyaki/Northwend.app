@@ -26,19 +26,27 @@ UPLOAD = "upload"   # a file read: a positions or activity CSV, screenshots, a c
 SAVE = "save"       # holdings or activity saved, an account removed, the example loaded,
                     # clients added from a file
 EXPORT = "export"   # a ZIP of your data or a client's record, a plan, report or proposal PDF
+INVITE = "invite"   # a Doing it together invitation link made (together.py)
+NUDGE = "nudge"     # a Doing it together nudge email sent (together.py)
 
 # (per hour, per day) for each action, per login. Change them here only.
 LIMITS = {
     UPLOAD: (30, 200),
     SAVE: (60, 300),
     EXPORT: (30, 150),
+    # (a nudge is also once a week per partner, and there are at most 3
+    # partners - together.py; these stop a script making and cancelling links)
+    INVITE: (20, 50),
+    NUDGE: (20, 50),
 }
 LABELS = {
     UPLOAD: "Files read (CSV, activity, screenshots, client lists)",
     SAVE: "Saves (holdings, activity, account removals, the example, clients from a file)",
     EXPORT: "Downloads built (ZIP exports, plan, report and proposal PDFs)",
+    INVITE: "Doing it together invitations made",
+    NUDGE: "Doing it together nudges sent",
 }
-PURPOSE_PREFIX = "limit_"   # email_sends.purpose: limit_upload, limit_save, limit_export
+PURPOSE_PREFIX = "limit_"   # email_sends.purpose: limit_upload, limit_save, limit_export...
 CALM = "You've done a lot of that in a short time - please try again in a little while."
 
 

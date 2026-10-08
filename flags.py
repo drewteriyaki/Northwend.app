@@ -255,6 +255,17 @@ FEATURES = {
     # advisor in client mode or an admin; the intro version (with an intro
     # request) isn't built - that would sit behind `intros` and L2.
     "advisor_pack": {"gates": (), "view": "advisor_pack"},
+    # Doing it together (ROADMAP "Walk Together", together.py, views/together.py):
+    # two individuals pair up with a one-time link and each sees three habit
+    # facts about the other - learning days this month, this month's walk done
+    # or not, wins earned - never a figure, holding, goal or account. Both
+    # sides' yes is a consent grant (scope together) with the exact words;
+    # either stops in one step. A fixed "Your walk is waiting" nudge email, once
+    # a week, opt-out. A section on Life, individuals only (never an advisor,
+    # an admin or client mode). Descriptive, the person's own habits: no gate;
+    # for privacy review (it shows another person that someone uses a finance
+    # app). views/life.py checks on("together") before drawing it.
+    "together": {"gates": (), "view": "together"},
     # The Client-Owned Book (ROADMAP R16, client_book.py, views/client_book.py):
     # in Your clients, "How your book works" (no custody, no aggregation,
     # client-reported figures, the advisor's own notes are theirs), counts only

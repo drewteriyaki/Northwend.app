@@ -51,6 +51,10 @@ ACCOUNT_TABLES = {
     # Bring to my advisor (advisor_pack.py): what a client chose to show
     # their advisor - gone with either account
     "advisor_pack": ("user_id", "advisor_id"),
+    # Doing it together (together.py): open invitations, and pairings - gone
+    # with either account
+    "together_invites": ("user_id",),
+    "together_pairs": ("user_id", "partner_id"),
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)
@@ -313,6 +317,7 @@ def delete_account(conn, user_id: int, *, by: int,
     links = conn.execute("SELECT advisor_id, client_id FROM advisor_clients WHERE "
                          "advisor_id = ? OR client_id = ?", (user_id, user_id)).fetchall()
     import client_book
+    import together
     with conn:
         # sharing this account was part of ends: a revoke each (consent.py),
         # in the same transaction. Consent records and access logs themselves
@@ -326,6 +331,8 @@ def delete_account(conn, user_id: int, *, by: int,
             # and sharing their walks (client_book.py)
             client_book.on_unlink(conn, link["client_id"], link["advisor_id"],
                                   "account_deleted")
+        # doing it together ends with a revoke both ways (together.py)
+        together.on_account_deleted(conn, user_id)
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
             params = (user_id,) * len(cols)
