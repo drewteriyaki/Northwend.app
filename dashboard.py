@@ -191,6 +191,16 @@ def _logo_title(text):
 
 
 PAGE_LABELS = {"AI Assistant": f"Ask {GUIDE}", "Clients": "Your clients"}
+TICKER_PAGE = "Ticker"   # one ticker's own page (views/ticker_detail.py; ?page=ticker&t=VTI)
+TICKER_RE = re.compile(r"[A-Z0-9][A-Z0-9.\-^=]{0,14}")   # what ?t= may hold
+
+
+def _open_ticker(sym, came_from):
+    """A row on Home or the Watchlist: that ticker's own page, with Back to
+    `came_from` (a button's callback, or the old open-ticker state)."""
+    st.session_state["ticker_sym"] = sym
+    st.session_state["ticker_from"] = came_from
+    st.session_state["page"] = TICKER_PAGE
 
 
 def _label(page):
@@ -797,30 +807,46 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-win-num { font-weight: 700; font-size: 1.6rem; color: var(--pt-link);
   font-variant-numeric: tabular-nums; line-height: 1.25; }
 .pt-win-head { margin-bottom: .15rem; }
-/* each card in This month: a hairline edge; a card drawn inside a Done /
-   Not now wrapper (pt_task_*) gives its edge to the wrapper */
-.st-key-pt_month_cards [data-testid="stVerticalBlock"][class*="st-key-pt_"]:not([class*="st-key-pt_tfoot_"]) {
-  border-radius: 12px; }
-.st-key-pt_month_cards [class*="st-key-pt_task_"] { border: 1px solid var(--pt-line);
+/* each card in This month: a hairline edge; a card drawn inside an X / Done
+   wrapper (pt_task_*) gives its edge to the wrapper. The cards after the
+   first few (pt_month_more) stay hidden until Show N more opens them */
+.st-key-pt_home_side [data-testid="stVerticalBlock"][class*="st-key-pt_"]:not([class*="st-key-pt_tfoot_"]):not(.st-key-pt_month_cards):not([class*="st-key-pt_month_more"]) {
+  border-radius: 12px; position: relative; }
+.st-key-pt_home_side [class*="st-key-pt_task_"] { border: 1px solid var(--pt-line);
   padding: .8rem .9rem .3rem; gap: .25rem; }
-.st-key-pt_month_cards [class*="st-key-pt_task_"] > [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"] {
+.st-key-pt_home_side [class*="st-key-pt_task_"] > [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"] {
   border: 0 !important; padding: 0 !important; background: transparent !important;
   box-shadow: none !important; }
-.st-key-pt_month_cards .st-key-pt_walk { background: var(--pt-compass-soft);
+.st-key-pt_home_side .st-key-pt_walk { background: var(--pt-compass-soft);
   border-color: var(--pt-compass) !important; }
+.st-key-pt_month_more { display: none !important; }
 [class*="st-key-pt_tfoot_"] button { min-height: 2rem; padding: 0 .4rem; }
-/* the holdings list: share, value, today's move, in tidy columns */
-[class*="st-key-pt_hl_"] { border-top: 1px solid var(--pt-line); padding-top: .1rem;
-  flex-wrap: nowrap !important; }
-[class*="st-key-pt_hl_"] > [data-testid="stElementContainer"]:last-child { flex: 1 1 auto;
-  min-width: 0; width: auto !important; }
-[class*="st-key-pt_hl_"] button { min-width: 4.5rem; min-height: 2.1rem;
-  justify-content: flex-start; padding: 0 .25rem; }
-.pt-hl-row { display: flex; justify-content: flex-end; gap: 1rem; font-size: .9rem;
-  font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pt-hl-share { min-width: 2.5rem; text-align: right; color: var(--pt-ink-muted); }
-.pt-hl-val { min-width: 6.5rem; text-align: right; }
-.pt-hl-day { min-width: 5rem; text-align: right; }
+/* the small X at a card's top right (put it away until its period ends):
+   the card's first line keeps clear of it */
+.st-key-pt_home_side :is([class*="st-key-task_away_"], .st-key-ss_later, .st-key-wk_later,
+  .st-key-walk_skip, .st-key-year_card_later, .st-key-amap_nudge_off, .st-key-storm_hide) {
+  position: absolute; top: .3rem; right: .3rem; width: auto !important; z-index: 2; }
+.st-key-pt_home_side :is([class*="st-key-task_away_"], .st-key-ss_later, .st-key-wk_later,
+  .st-key-walk_skip, .st-key-year_card_later, .st-key-amap_nudge_off, .st-key-storm_hide) button {
+  min-height: 1.9rem; min-width: 1.9rem; padding: 0; color: var(--pt-ink-muted); }
+.st-key-pt_home_side :is([class*="st-key-task_away_"], .st-key-ss_later, .st-key-wk_later,
+  .st-key-walk_skip, .st-key-year_card_later, .st-key-amap_nudge_off, .st-key-storm_hide)
+  + * { padding-right: 1.6rem; }
+/* Home's holdings: one table under a title row (search, Columns) and a foot
+   row (Show all, Download CSV) */
+.st-key-pt_hold_head, .st-key-pt_hold_foot { flex-wrap: wrap; }
+.st-key-pt_hold_foot [data-testid="stCaptionContainer"] { min-width: 10rem; }
+/* a long read in a window (a season, the week, a drill): about 65 characters a line */
+.st-key-pt_ss_read, .st-key-pt_wk_read, .st-key-pt_drill_read { max-width: 40rem;
+  margin: 0 auto; line-height: 1.6; }
+.st-key-pt_ss_read h3, .st-key-pt_wk_read h3, .st-key-pt_drill_read h3 {
+  font-family: Newsreader, Georgia, serif !important; font-weight: 500 !important; }
+/* a ticker's page (views/ticker_detail.py): Back, its name and where it is
+   on the slim band */
+.st-key-pt_page_band .st-key-ticker_back button { color: #ffffff !important; padding-left: 0;
+  min-height: 2rem; }
+.pt-tk-name { font-size: 1.05rem; font-weight: 600; color: #ffffff; }
+.pt-tk-kind { font-size: .8rem; color: #ffffff; opacity: .8; }
 @media (max-width: 900px) {
   .st-key-pt_home_layout { flex-direction: column !important; align-items: stretch; }
   [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_main),
@@ -833,12 +859,13 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .st-key-pt_month_cards { flex-direction: row !important; flex-wrap: nowrap !important;
     align-items: flex-start; overflow-x: auto; scroll-snap-type: x proximity;
     padding-bottom: .4rem; }
-  .st-key-pt_month_cards > * { flex: 0 0 min(16.5rem, 78vw) !important;
+  .st-key-pt_month_more_open { flex-direction: row !important; flex-wrap: nowrap !important;
+    align-items: flex-start; overflow-x: auto; scroll-snap-type: x proximity;
+    padding-bottom: .4rem; }
+  .st-key-pt_month_cards > *, .st-key-pt_month_more_open > * {
+    flex: 0 0 min(16.5rem, 78vw) !important;
     width: min(16.5rem, 78vw) !important; scroll-snap-align: start;
     max-height: 22rem; overflow-y: auto; }
-  .pt-hl-row { gap: .6rem; font-size: .85rem; }
-  .pt-hl-val { min-width: 0; }
-  .pt-hl-share, .pt-hl-day { min-width: 0; }
 }
 .pt-hero-label { font-size: .85rem; opacity: .7; }
 .pt-hero-value { font-size: 2.6rem; font-weight: 700; line-height: 1.15;
@@ -902,15 +929,6 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 /* a goal with nothing invested yet: a calm compass chip, not a red "Behind" */
 .pt-chip.pt-start { color: var(--pt-link); background: var(--pt-compass-soft);
   border-color: transparent; }
-.pt-wl-name { font-size: .85rem; opacity: .7; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; }
-.pt-wl-quote { text-align: right; font-size: .9rem; line-height: 1.3;
-  font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* when a watchlist price is from (price_report.as_of) */
-.pt-wl-asof { font-size: .75rem; opacity: .7; }
-/* a watchlist row stays on one line; a long name shortens with "..." instead */
-[class*="st-key-wlrow_"] { flex-wrap: nowrap !important; }
-[class*="st-key-wlrow_"] > div { min-width: 0; }
 .pt-chip { display: inline-block; padding: .1rem .6rem; border-radius: 999px; font-size: .8rem;
   font-weight: 600; border: 1px solid currentColor; }
 .pt-goal-top { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
@@ -1850,6 +1868,10 @@ else:
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
              "Watchlist", "Activity", "Income", "News", "AI Assistant", "Life",
              *(["Get started"] if _learn_last else []), "Account", "What's new", "About"]
+# One ticker's page (views/ticker_detail.py, ?page=ticker&t=VTI): opened from
+# a row on Home or the Watchlist, never from the menu - it would be empty
+# without a ticker. The menu shows the page it was opened from (_nav_current).
+PAGES.append(TICKER_PAGE)
 if IS_ADMIN:
     PAGES.append("Admin")
 # while advisor access is being checked: a read-only preview of the advisor
@@ -1933,6 +1955,18 @@ if "page" not in st.session_state:
     _wanted = str(st.query_params.get("page", "")).lower()
     st.session_state["page"] = {_slug(p): p for p in PAGES}.get(
         _wanted, OLD_SLUGS.get(_wanted) if OLD_SLUGS.get(_wanted) in PAGES else PAGES[0])
+    if st.session_state["page"] == TICKER_PAGE:   # ?page=ticker&t=VTI
+        _t = str(st.query_params.get("t", "")).strip().upper()
+        if TICKER_RE.fullmatch(_t):
+            st.session_state["ticker_sym"] = _t
+# a ticker opened the way it used to be (the open row of Home's or the
+# Watchlist's ticker strip): its own page now, Back returns there
+for _old_key, _old_from in (("holdings_pill", "Dashboard"), ("watchlist_pill", "Watchlist")):
+    _old_sym = st.session_state.pop(_old_key, None)
+    if _old_sym:
+        _open_ticker(_old_sym, _old_from)
+if st.session_state.get("page") == TICKER_PAGE and not st.session_state.get("ticker_sym"):
+    st.session_state["page"] = st.session_state.get("ticker_from") or PAGES[0]
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
@@ -2249,7 +2283,9 @@ if PAGE in MONEY_PAGES:
     st.session_state["money_tab"] = PAGE
 # Keep where you are in the address, so a reload or a bookmark comes back here
 # (read above, for a fresh session). The client is re-checked on every load.
-_want_qp = {"page": _slug(PAGE), **({"client": str(USER_ID)} if USER_ID != LOGIN_ID else {})}
+_want_qp = {"page": _slug(PAGE),
+            **({"t": st.session_state["ticker_sym"]} if PAGE == TICKER_PAGE else {}),
+            **({"client": str(USER_ID)} if USER_ID != LOGIN_ID else {})}
 if dict(st.query_params) != _want_qp:
     st.query_params.from_dict(_want_qp)
 
@@ -2263,8 +2299,10 @@ def _nav_target(item):
 
 
 def _nav_current(item):
-    """Whether this menu tab is the page showing (Money: any of its tabs)."""
-    return PAGE in MONEY_PAGES if item == MONEY else PAGE == item
+    """Whether this menu tab is the page showing (Money: any of its tabs). A
+    ticker's page has no menu item: the one it was opened from shows."""
+    page = (st.session_state.get("ticker_from") or "Dashboard") if PAGE == TICKER_PAGE else PAGE
+    return page in MONEY_PAGES if item == MONEY else page == item
 
 
 # The brand at the top of the menu: the logo, then the name; an advisor's
@@ -2403,7 +2441,7 @@ def _render_menu():
             if item == MONEY and _nav_current(MONEY):
                 for p in MONEY_PAGES:
                     st.button(_label(p), key=f"navsub_{p}", on_click=_go, args=(p,),
-                              type="primary" if PAGE == p else "tertiary")
+                              type="primary" if _nav_current(p) else "tertiary")
         with st.container(horizontal=True, vertical_alignment="center", gap="small",
                           key="pt_menu_foot"):
             _SIDE_ROUTE = st.empty()   # filled by _render_side_route, further down
@@ -3324,7 +3362,8 @@ def load(conn):
     if not snap:
         # nothing brought in yet - the watchlist still works (Learn's example
         # funds go on it before anything is bought), and so does News
-        watch = watchlist.list_tickers(conn, USER_ID) if PAGE in ("Watchlist", "News") else []
+        watch = (watchlist.list_tickers(conn, USER_ID)
+                 if PAGE in ("Watchlist", "News", TICKER_PAGE) else [])
         return None, [], {}, overview.latest_quotes(conn, sorted(watch)) if watch else {}, watch
     rows = snapshot_positions(conn, USER_ID, snap)
     cash_by_account = snapshot_cash(conn, USER_ID, snap)
@@ -3509,9 +3548,10 @@ def _money_tabs():
 _HOME_HERO = None   # Home's place for the value on its band (_page_header)
 _PAGE_MAIN = None   # a Money page's main card (_money_parts), else None
 _PAGE_SIDE = None   # a Money page's right-hand panel (_money_parts), else None
-# the slim band's pages, besides Money's (_band_kind): Plan, Learn, Life and
-# Ask Northwend. On Life and Ask a line goes under the title (_slim_band_line)
-BAND_PAGES = ("Plan", "Get started", "Life", "AI Assistant")
+# the slim band's pages, besides Money's (_band_kind): Plan, Learn, Life, Ask
+# Northwend and a ticker's own page. On Life and Ask a line goes under the
+# title (_slim_band_line)
+BAND_PAGES = ("Plan", "Get started", "Life", "AI Assistant", TICKER_PAGE)
 
 
 def _band_kind():
@@ -3594,6 +3634,8 @@ def _page_header(title, *, data=True):
     _PAGE_MAIN = _PAGE_SIDE = None
     if PAGE in MONEY_PAGES:
         title = MONEY
+    if PAGE == TICKER_PAGE:
+        title = st.session_state["ticker_sym"]
     home = PAGE == "Dashboard"
     band = _band_kind()
     # Home's deep blue band (_band_css): the title, the value and today's
@@ -3607,6 +3649,10 @@ def _page_header(title, *, data=True):
         if INVESTOR_VIEW and not IS_ADVISOR and (PAGE == "Get started"
                                                  or home and not CLIENT_MODE):
             st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
+        if PAGE == TICKER_PAGE:   # a ticker's page: back to where it was opened
+            back = st.session_state.get("ticker_from") or "Dashboard"
+            st.button(f"Back to {_label(back)}", key="ticker_back", type="tertiary", icon=":material/arrow_back:",
+                      on_click=_go, args=(back,))
         with st.container(horizontal=True, vertical_alignment="center", gap="small"):
             st.title(title, anchor=False, width="stretch")
             # Learn (and first steps, shown in its place) has nothing of theirs to
@@ -3618,7 +3664,8 @@ def _page_header(title, *, data=True):
                                                                  "dollar and percent with " + MASK)
         if band == "slim" and _slim_band_line():
             st.caption(_slim_band_line())
-        _HOME_HERO = st.container() if home and data else None
+        # Home's value, or a ticker's name (views/ticker_detail.py)
+        _HOME_HERO = st.container() if (home or PAGE == TICKER_PAGE) and data else None
         if data:
             _live_status()
         if PAGE in MONEY_PAGES:
@@ -3713,6 +3760,15 @@ def _next_step_card(key, line, button=None):
             return st.button(label, key=f"next_{key}", type="tertiary", on_click=on_click,
                              args=args)
     return False
+
+
+def _dialog_free():
+    """Whether no window has opened yet in this run: streamlit allows one at a
+    time, and a window kept open by its state (a season, the week, a drill,
+    the storm note, a milestone) waits its turn rather than break the page."""
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    ctx = get_script_run_ctx()
+    return not (ctx is not None and getattr(ctx, "has_dialog_opened", False))
 
 
 def _open_window(window, *args):
@@ -3836,7 +3892,7 @@ if PAGE == "Advisor preview":
     _page_header("See what you'll get", data=False)
     _render_advisor_demo()
     st.stop()
-if not positions and PAGE not in ("Watchlist", "News"):
+if not positions and PAGE not in ("Watchlist", "News", TICKER_PAGE):
     # Nothing brought in yet (the watchlist works regardless - Learn's example
     # funds go on it before anything is bought - and so does the news on what's
     # watched). What shows depends on whose
@@ -3894,7 +3950,8 @@ try:
     DIVIDENDS = (income.received_while_held(
         _bars_conn, USER_ID, _held_symbols, datetime.now().date(),
         skip_sources=(SAMPLE_SOURCE, manual_entry.PCT_SOURCE))
-        if PAGE == "Dashboard" and SNAPSHOT_SOURCE != manual_entry.PCT_SOURCE else {})
+        if PAGE in ("Dashboard", TICKER_PAGE) and SNAPSHOT_SOURCE != manual_entry.PCT_SOURCE
+        else {})
     # Your news (flag news_feed): the stored headlines for what this account
     # holds or watches - read only; the hourly job fetches them (news_feed.py)
     NEWS_ROWS = (news_feed.load(_bars_conn, _my_tickers)
@@ -3907,6 +3964,12 @@ CLASS_OVERRIDES = {s: c for s, c in (_read_prefs().get(asset_classes.OVERRIDES_P
                    if c in asset_classes.CLASSES}
 CLASS_SPLITS = asset_classes.splits_from(positions, sec_info, CLASS_OVERRIDES)
 watch_only = [t for t in watch_tickers if t not in _held_symbols]
+if PAGE == TICKER_PAGE and st.session_state.get("ticker_sym") not in _my_tickers:
+    # a ticker's page only for what this account holds or watches (an old
+    # address, or one just taken off the watchlist): back where it came from
+    st.session_state.pop("ticker_sym", None)
+    st.session_state["page"] = st.session_state.get("ticker_from") or PAGES[0]
+    st.rerun()
 
 # One metric context per position (same order as `positions`). Reused everywhere
 # below: totals, alerts, the holdings table. port_value / acct_value are filled
@@ -3988,12 +4051,54 @@ _page_header(_label(PAGE))
 hide_amounts = st.session_state["hide_amounts"]
 
 
-def _pick_holdings():
-    st.session_state["watchlist_pill"] = None
+def _flip(key):
+    st.session_state[key] = not st.session_state.get(key)
 
 
-def _pick_watchlist():
-    st.session_state["holdings_pill"] = None
+def _show_all_toggle(key, total, noun):
+    """"Show all 22 holdings" / "Show fewer" under a list cut short: the rest
+    open in place (session state `key`), nothing in a window."""
+    showing = bool(st.session_state.get(key))
+    st.button("Show fewer" if showing else f"Show all {total} {noun}", key=f"{key}_btn",
+              type="tertiary", on_click=_flip, args=(key,),
+              icon=":material/expand_less:" if showing else ":material/expand_more:")
+
+
+SPARK_LABEL = "Past month"   # the rows' mini chart column (perf.bar_stats' "spark")
+SPARK_HELP = "Daily closing prices over about the last month."
+
+
+def _spark(sym):
+    """A row's mini chart: the last month's daily closes (read with the
+    page's other history - perf.bar_stats), or an empty line."""
+    return list((bar_stats.get(sym) or {}).get("spark") or [])
+
+
+def _ticker_table(key, frame, symbols, came_from, column_config=None, alt=None):
+    """Tickers as one table (Home's holdings, the Watchlist): headings, the
+    mini chart, numbers right-aligned. Tapping any cell of a row opens that
+    ticker's own page; the table starts afresh after, so coming
+    Back finds nothing still picked. `symbols`: each row's ticker."""
+    n = st.session_state.get(f"{key}_n", 0)
+    wkey = f"{key}_{n}"
+    syms = list(symbols)
+
+    def picked():
+        sel = (st.session_state.get(wkey) or {}).get("selection") or {}
+        rows = list(sel.get("rows") or []) + [c[0] for c in (sel.get("cells") or [])]
+        st.session_state[f"{key}_n"] = n + 1
+        if rows and 0 <= rows[0] < len(syms):
+            _open_ticker(syms[rows[0]], came_from)
+
+    # a cell picks its row: a tap anywhere on a row, without a column of
+    # checkboxes beside the tickers
+    st.dataframe(frame, key=wkey, on_select=picked, selection_mode="single-cell",
+                 hide_index=True,
+                 width="stretch", height="content", row_height=36,
+                 column_config={SPARK_LABEL: st.column_config.LineChartColumn(
+                     SPARK_LABEL, width="small", help=SPARK_HELP, color="auto"),
+                     **(column_config or {})},
+                 alt=alt)
 
 
 _view("news_feed")

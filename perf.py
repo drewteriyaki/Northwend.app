@@ -615,8 +615,11 @@ def ticker_has_bars(db_path: str, ticker: str) -> bool:
         conn.close()
 
 
+SPARK_DAYS = 31   # how far back a row's mini chart reaches (bar_stats' "spark")
+
+
 def bar_stats(db_path: str, tickers=None) -> dict:
-    """{ticker: {last_close, volume, ma_20, ma_50, ma_200}} from daily_bars -
+    """{ticker: {last_close, volume, ma_20, ma_50, ma_200, spark}} from daily_bars -
     only `tickers` (all of them if None), and only as far back as the longest
     moving average needs. `db_path` may also be an open connection (see _open)."""
     since = (datetime.now(timezone.utc) - timedelta(days=int(max(MA_WINDOWS) * 1.5) + 30)
@@ -634,13 +637,17 @@ def bar_stats(db_path: str, tickers=None) -> dict:
     for r in rows:
         if want is not None and r["ticker"] not in want:
             continue
-        series.setdefault(r["ticker"], []).append((r["close"], r["volume"]))
+        series.setdefault(r["ticker"], []).append((r["close"], r["volume"], str(r["date"])[:10]))
 
+    # a row's mini chart (Home's holdings, the watchlist): the last month's
+    # daily closes, from these same rows - no query of its own
+    spark_from = (datetime.now(timezone.utc) - timedelta(days=SPARK_DAYS)).strftime("%Y-%m-%d")
     stats = {}
     for tk, pairs in series.items():
-        closes = [c for c, _ in pairs if c is not None]
+        closes = [c for c, _, _ in pairs if c is not None]
         s = {"last_close": closes[-1] if closes else None,
-             "volume": next((v for _, v in reversed(pairs) if v is not None), None)}
+             "volume": next((v for _, v, _ in reversed(pairs) if v is not None), None),
+             "spark": [float(c) for c, _, d in pairs if c is not None and d >= spark_from]}
         for w in MA_WINDOWS:
             s[f"ma_{w}"] = round(sum(closes[-w:]) / w, 4) if len(closes) >= w else None
         stats[tk] = s

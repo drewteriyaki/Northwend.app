@@ -3,7 +3,8 @@ put away (views/dashboard_page.py).
 
 Each suggestion on Home's right-hand column (today's minute, the route's next
 step, the mix against its target, the money checks, the drill, the practice
-challenge, the kit, the news) can be marked Done or put away with Not now. Both
+challenge, the kit, the news) can be marked Done or put away with the small X
+at its top right. Both
 last until the period ends - the month for most, the week for the drill and the
 news, the day for today's minute - and then it comes back.
 What's kept, in the login's own settings (prefs key PREF), is only the
@@ -36,11 +37,18 @@ TASKS = {
 
 TITLE = "This month"
 DONE_LABEL = "Done"
-AWAY_LABEL = "Not now"
 DONE_HELP = "Marked done for now - it comes back next time."
-AWAY_HELP = "Out of the way until next time, then it comes back."
+# the small X at a card's top right: what it does, said for its period (also
+# the button's name for screen readers - ui_enhancements.js ICON_LABELS)
+AWAY_HELP = {MONTH: "Put away until next month", WEEK: "Put away until next week",
+             DAY: "Put away until tomorrow"}
 PUT_AWAY_LINE = "Put away for now: {names}. They come back next time."
 BRING_BACK = "Bring them back"
+
+# the column shows the first few cards; the rest open in place
+MONTH_LIMIT = 4
+SHOW_MORE = "Show {n} more"
+SHOW_FEWER = "Show fewer"
 
 # what a put-away suggestion is called in the line above
 NAMES = {"minute": "today's minute", "route": "your next step", "mix": "your mix", "checks": "money checks",
@@ -57,12 +65,23 @@ MIX_NO_TARGET = "No target mix set yet. With one, this card shows how far each p
 MIX_LINK = "Open your target mix"
 MIX_NOTE = "By asset class, against the target you set. For learning, not advice."
 
-# the holdings list in the middle
+# the holdings table in the middle: the largest rows first, the rest in place
 HOLDINGS_TITLE = "Holdings"
-HOLDINGS_MORE = "{n} more in the full table below."
-FULL_TABLE = "All holdings - the full table"
+HOLDINGS_NOUN = "holdings"   # "Show all 22 holdings"
+HOLDINGS_TAP = "Tap a row for that holding's chart and details."
 LIST_LIMIT = 8
+# the table's short headings, by metric key (the Columns chooser keeps the
+# metrics' own names)
+HEADINGS = {"symbol": "Ticker", "description": "Name", "pct_of_portfolio": "Share",
+            "market_value": "Value", "day_change_pct": "Today",
+            "day_change_usd": "Today $", "unrealized_usd": "Gain/loss",
+            "unrealized_pct": "Gain/loss %"}
 MASK = "•••"   # dashboard.MASK
+
+
+def away_help(key: str) -> str:
+    """The X's words for this suggestion's period."""
+    return AWAY_HELP[TASKS[key][0]]
 
 
 def today() -> date:
@@ -160,8 +179,9 @@ def mix_summary(rows: list, masked: bool = False) -> str:
 
 def templates() -> list[str]:
     """Every fixed line, for the wording tests."""
-    return [TITLE, DONE_LABEL, AWAY_LABEL, DONE_HELP, AWAY_HELP,
+    return [TITLE, DONE_LABEL, DONE_HELP, *AWAY_HELP.values(),
             PUT_AWAY_LINE.format(names=", ".join(NAMES.values())), BRING_BACK,
+            SHOW_MORE.format(n=3), SHOW_FEWER,
             MIX_TITLE, MIX_OVER.format(label="Stocks", points="15"),
             MIX_UNDER.format(label="Bonds", points="9"), MIX_WITHIN, MIX_NO_TARGET, MIX_LINK,
-            MIX_NOTE, HOLDINGS_TITLE, HOLDINGS_MORE.format(n=4), FULL_TABLE]
+            MIX_NOTE, HOLDINGS_TITLE, HOLDINGS_TAP, *HEADINGS.values()]

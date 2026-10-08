@@ -183,24 +183,34 @@ class CalmPagesTests(unittest.TestCase):
             stats, _ = self._stats(at)
             self.assertEqual((stats["Watching"], stats["Biggest rise today"],
                               stats["Biggest fall today"]), ("7", "NFLX", "NVDA"))
-            rows = [k[8:] for k in self._keys(at) if k.startswith("wl_open_")]
-            self.assertEqual(rows, ["NFLX", "NVDA", "META", "MSFT", "GOOG"])   # biggest moves
-            at.button(key="watch_open").click().run()
-            self.assertEqual([k[10:] for k in self._keys(at) if k.startswith("wl_w_open_")],
-                             sorted(WATCHED))
-            # picking one in the window closes it, and its chart opens on the page
-            at.button(key="wl_w_open_TSLA").click().run()
-            self.assertEqual(at.session_state["watchlist_pill"], "TSLA")
-            self.assertFalse(at.session_state["dialog_open"])
-            self.assertIn("## TSLA", [m.value for m in at.markdown])
+            # one table, as Home's: a row per ticker under headings, the
+            # biggest moves first, the rest opening in place
+            table = self._watch(at)
+            self.assertEqual(list(table.columns),
+                             ["Ticker", "Name", "Past month", "Price", "Today", "As of"])
+            self.assertEqual(list(table["Ticker"]), ["NFLX", "NVDA", "META", "MSFT", "GOOG"])
+            self.assertEqual(at.button(key="watch_all_btn").label, "Show all 7 tickers")
+            at.button(key="watch_all_btn").click().run()
+            self.assertEqual(sorted(self._watch(at)["Ticker"]), sorted(WATCHED))
+            self.assertEqual(at.button(key="watch_all_btn").label, "Show fewer")
+            # a row opens the ticker's own page (what the table's pick does)
+            at.session_state["ticker_sym"] = "TSLA"
+            at.session_state["ticker_from"] = "Watchlist"
+            at.session_state["page"] = "Ticker"
+            at.run()
+            self.assertEqual(at.title[0].value, "TSLA")
+            self.assertEqual(at.button(key="ticker_back").label, "Back to Watchlist")
             # a watched ticker has no shares: today's move per share, not "—"
             price = next(m for m in at.metric if m.label == "Price")
             self.assertEqual(price.proto.delta, "-1.00 (-1.10%) today")
         for view in (self._run(self.erin, "erin", "Watchlist"), self._advisor("Watchlist")):
             with view as at:
-                self.assertEqual([k[8:] for k in self._keys(at) if k.startswith("wl_open_")],
-                                 sorted(WATCHED))
-                self.assertNotIn("watch_open", self._keys(at))
+                self.assertEqual(sorted(self._watch(at)["Ticker"]), sorted(WATCHED))
+                self.assertNotIn("watch_all_btn", self._keys(at))
+
+    @staticmethod
+    def _watch(at):
+        return next(d.value for d in at.dataframe if list(d.value.columns)[:1] == ["Ticker"])
 
     def test_ask_northwend(self):
         with self._run(self.alice, "alice", "AI Assistant") as at:
@@ -250,24 +260,23 @@ class CalmPagesTests(unittest.TestCase):
         with self._run(self.alice, "alice", "Watchlist") as at:
             _, body = self._stats(at)
             self.assertEqual(lists(body, "Summary")[0].count("role='listitem'"), 3)
-            self.assertIn("<span class='pt-sr'>Price </span><b>106.00</b>", body)
-            self.assertIn("+3.00 (+3.30%)</span><span class='pt-sr'> today</span>", body)
-            self.assertIn("-3.00 (-3.30%)", body)                    # a sign, not only red
-            at.button(key="watch_open").click().run()
-            removes = [k for k in self._keys(at) if k.startswith(("wl_del_", "wl_w_del_"))]
-            self.assertIn("wl_w_del_TSLA", removes)                  # the window's copies too
-            self.assertEqual(at.button(key="wl_w_del_TSLA").help,
-                             "Remove TSLA from your watchlist")
+            # the table's headings name the numbers; a change keeps its sign
+            table = self._watch(at)
+            self.assertEqual(list(table["Price"])[:1], ["106.00"])
+            self.assertIn("+3.00 (+3.30%)", list(table["Today"]))
+            self.assertIn("-3.00 (-3.30%)", list(table["Today"]))   # a sign, not only red
+            # the table says what it is, and the remove is a named button
+            self.assertIn("Your watchlist", next(d for d in at.dataframe
+                                                 if "Ticker" in d.value.columns).proto.alt)
+            self.assertEqual(at.button(key="wl_remove_btn").label, "Remove")
         with self._run(self.alice, "alice", "AI Assistant") as at:
             _, body = self._stats(at)
             self.assertIn("Next step<span class='pt-sr'>:</span>", body)
             self.assertRegex(body, r"\(\d+ of \d+ done\)")           # not "0/8"
         with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
             js = fh.read()
-        # icon-only buttons named, here and in the watchlist window ...
-        rule = re.search(r"\[/(\^st-key-wl_.*?)/,", js).group(1)
-        for key in removes:
-            self.assertRegex(f"st-key-{key}", rule)
+        # icon-only buttons named: Home's X says its period ...
+        self.assertIn('[/^st-key-task_away_/, () => "Put away until next month"]', js)
         # ... the profile button's count said in words, and icons beside
         # words left out of names ("open_in_new See all 7" reads "See all 7")
         self.assertIn("st-key-assist_profile_open", js)
@@ -295,6 +304,7 @@ class CalmPagesTests(unittest.TestCase):
                              level)
             self.assertRegex(next(m.proto.delta for m in at.metric if m.label == "Price change"),
                              r"^[+-]\d+\.\d\d%$")
+        with self._run(self.erin, "erin", "Dashboard") as at:
             _, body = self._stats(at)
             # Home's gain %: a change, signed (the price change, with the
             # dividends imported for SCHD a total return beside it)

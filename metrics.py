@@ -221,9 +221,11 @@ BY_KEY = {m.key: m for m in METRICS}
 BY_LABEL = {m.label: m for m in METRICS}
 AVAILABLE = [m for m in METRICS if m.available]
 
+# Home's holdings table (after the ticker and its mini chart): name, share,
+# value, today and the gain or loss - the rest are a Columns pick away
 DEFAULT_KEYS = [
-    "account", "symbol", "description", "quantity", "price",
-    "cost_basis", "market_value", "unrealized_usd", "unrealized_pct",
+    "symbol", "description", "pct_of_portfolio", "market_value", "day_change_pct",
+    "unrealized_usd", "unrealized_pct",
     # shown only when some holding has dividends to add (a column with
     # nothing in it is left out of the table: SHOWN_WHEN_KNOWN)
     "total_return_usd", "total_return_pct",

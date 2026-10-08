@@ -159,7 +159,7 @@ class LearnMorePageTests(unittest.TestCase):
                            ("VXUS", {"etfs"}),     # no Yahoo data: the broker's type says fund
                            ("AAPL", set())):
             with self._run("Dashboard", holdings_pill=sym) as at:
-                self.assertIn(f"## {sym}", [m.value for m in at.markdown])
+                self.assertEqual(at.title[0].value, sym)   # the ticker's own page
                 text = self._links(at)
                 self.assertEqual({t for t, u in url.items() if u in text}, shown, sym)
 

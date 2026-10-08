@@ -53,7 +53,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   under 900px, This month first and a sideways row of cards on a phone. Cards
   without their own done/put-away state get Done / Not now via `home_tasks.py`:
   keys + month/week id in the login's own prefs, nothing written by an advisor in
-  a client's account), `ticker_detail` (one ticker, from Dashboard/Watchlist),
+  a client's account), `ticker_detail` (one ticker's own page `TICKER_PAGE`, `?page=ticker&t=VTI`, opened from a row of Home's holdings table or the Watchlist - `dashboard._ticker_table`; no menu item, Back returns),
   `watchlist`, `activity`, `income`, `plan`, `get_started` (and `first_steps`, the
   new investor's slideshow shown in its place), `assistant` (Ask Northwend),
   `profile`, `account` (the login's own account: name, email, password, data),

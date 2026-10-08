@@ -120,7 +120,16 @@
   // A button showing only an icon would be read out as the icon's name
   // ("close"); give screen readers what it does. Keyed by the widget key.
   const ICON_LABELS = [
-    [/^st-key-wl_(?:w_)?del_(.+)$/, (m) => `Remove ${m[1]} from your watchlist`],
+    // Home's This month: the X at a card's top right, said for its period
+    // (home_tasks.TASKS / AWAY_HELP; the cards with their own state below)
+    [/^st-key-task_away_minute$/, () => "Put away until tomorrow"],
+    [/^st-key-task_away_(?:drill|news)$/, () => "Put away until next week"],
+    [/^st-key-task_away_/, () => "Put away until next month"],
+    [/^st-key-wk_later$/, () => "Put away until next week"],
+    [/^st-key-walk_skip$/, () => "Put away until next month"],
+    [/^st-key-ss_later$/, () => "Put away until next season"],
+    [/^st-key-(?:year_card_later|amap_nudge_off)$/, () => "Put away"],
+    [/^st-key-storm_hide$/, () => "Hide for now"],
     [/^st-key-model_del_/, () => "Delete this model portfolio"],
     [/^st-key-me_del_/, () => "Remove this holding"],
     [/^st-key-me_cdel_/, () => "Remove this cash line"],
@@ -311,12 +320,17 @@
     el.classList.add(cls);
   };
   const pageOf = () => new URLSearchParams(location.search).get("page") || "";
-  let lastPage = pageOf();
+  // (a ticker's page counts its ticker too: ?page=ticker&t=...)
+  const placeOf = () => pageOf() + "|" + (new URLSearchParams(location.search).get("t") || "");
+  let lastPage = placeOf();
   setInterval(() => {
-    const p = pageOf();
+    const p = placeOf();
     if (p !== lastPage) {
       lastPage = p;
       replay(q('[data-testid="stMainBlockContainer"]'), "pt-page-enter");
+      // a new page starts at its top (a row far down Home opens a ticker's page)
+      const sc = scroller();
+      if (sc) sc.scrollTop = 0;
     }
   }, 120);
   // (each rerun builds the trail's images afresh, so remember the picture by

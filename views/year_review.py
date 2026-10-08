@@ -227,14 +227,14 @@ def render_year_card():
     last = recap.january_year(today)
     if last and last not in (_read_prefs().get(recap.SEEN_PREF) or []):
         with st.container(border=True, key="pt_year_card"):
-            with st.container(horizontal=True, vertical_alignment="center"):
-                st.markdown(f":material/auto_stories: **Your {last} in review** - money "
-                            "added, what you learned and the year's ups and downs, just for "
-                            "you.", width="stretch")
-                if st.button("Take a look", key="year_card_open", type="primary"):
-                    _year_open(last)
-                st.button("Not now", key="year_card_later", type="tertiary",
-                          on_click=_year_later, args=(last,))
+            st.button(":material/close:", key="year_card_later", type="tertiary",
+                      help="Put away", on_click=_year_later, args=(last,))
+            st.html(f"<div class='pt-month-card-title'>Your {last} in review</div>"
+                    "<div class='pt-region'>Money added, what you learned and the year's "
+                    "ups and downs, just for you.</div>")
+            if st.button("Take a look", key="year_card_open", type="primary",
+                         icon=":material/auto_stories:"):
+                _year_open(last)
         return
     with st.container(horizontal=True, vertical_alignment="center", key="pt_year_line"):
         st.caption(f"A private look back at {today.year} so far: money added, what you've "

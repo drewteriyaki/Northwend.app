@@ -460,8 +460,10 @@ class AppTests(unittest.TestCase):
             at.button(key="drill_tap_fund").click().run()
             text = self._text(at)
             self.assertIn("3 of 10 situations rehearsed", text)
-            # the whistle: earned, celebrated once
-            self.assertIn("You've earned the <b>whistle</b>", text)
+            # the whistle: earned, celebrated once the drill's window closes
+            # (one window at a time)
+            at.button(key="drill_close").click().run()
+            self.assertIn("You've earned the <b>whistle</b>", self._text(at))
         self.assertIn("whistle", self._prefs(self.ivy)["gear_seen"])
 
     def test_never_while_an_advisor_is_in_a_clients_account(self):

@@ -309,6 +309,10 @@ class MenuTests(unittest.TestCase):
                               if (getattr(getattr(n, "proto", None), "id", "") or "")
                               .endswith("-" + band))
                 self.assertNotIn("pt_agree", self._block_keys(inside), page)
+        # a ticker's own page (?page=ticker&t=VTI) is on the slim band too
+        at = self._run(self.alice, "alice", "ticker", ticker_sym="VTI", ticker_from="Dashboard")
+        self.assertEqual([k for k in bands if k in self._block_keys(at)], ["pt_page_band"])
+        self.assertEqual(at.title[0].value, "VTI")
         from streamlit.testing.v1 import AppTest
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
         at.run()   # signed out: the sign-in screen

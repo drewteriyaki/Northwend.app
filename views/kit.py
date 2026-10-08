@@ -170,8 +170,9 @@ def check_milestones(value):
     queue = st.session_state.get("milestone_queue", []) + fresh
     if queue:
         st.session_state["milestone_queue"] = queue
-        st.session_state["dialog_open"] = True
-        _milestone_window(queue, have)
+        if _dialog_free():   # (another window open: this one waits its turn)
+            st.session_state["dialog_open"] = True
+            _milestone_window(queue, have)
 
 
 @st.dialog("Your kit", width="large", on_dismiss=_dialog_closed)
@@ -255,9 +256,18 @@ def _hide_weather(w):
     _write_prefs(p)
 
 
-@st.dialog("How past market drops played out", width="medium", on_dismiss=_dialog_closed)
-def _storms_window():
+@st.dialog("Recent market moves", width="large", on_dismiss=lambda: _storm_closed())
+def _storms_window(w, words, cloak, own):
     # (every word here is storms.py's fixed narrator: AI_PLAN section 9, row 4)
+    st.markdown(f"### {words['title']}")
+    st.markdown(f"{words['lead']} {words['body']}".replace("$", r"\$"))
+    st.html(f"<div class='pt-region'>{html.escape(words['steady'])}"
+            + (" Staying invested through a big drop earns the <b>storm cloak</b> for "
+               "your kit." if cloak else "") + "</div>")
+    if own:   # their own words back, never an advisor's view (views/future_notes.py)
+        render_storm_notes(w)
+        render_storm_drill()   # the Storm Drill answer (R4, flag storm_drill)
+    st.markdown("#### How past market drops played out")
     st.caption(storms.WINDOW_CAPTION)
     rows = "".join(f"<tr><td>{html.escape(name)}</td><td>{fall}%</td><td>{html.escape(back)}</td></tr>"
                    for name, fall, back in storms.PAST_STORMS)
@@ -265,6 +275,13 @@ def _storms_window():
             f"<th>Back to the old high</th></tr></thead><tbody>{rows}</tbody></table>")
     st.markdown(storms.WINDOW_NOTE)
     learn_more("market_drops")
+    with st.container(horizontal=True):
+        if st.button(f"Ask {GUIDE}", key="storm_ask", type="tertiary"):
+            _storm_ask()
+            st.rerun()
+        if st.button("Close", key="storm_close"):
+            _storm_closed()
+            st.rerun()
 
 
 def render_weather():
@@ -278,25 +295,34 @@ def render_weather():
         return
     storm = w["level"] == "storm"
     words = storms.narrate(w, _fmt_date)   # fixed templates (storms.py's narrator)
-    title, lead, body, nothing = words["title"], words["lead"], words["body"], words["steady"]
+    title, lead = words["title"], words["lead"]
     cloak = (storm and _kit_shown()
              and "cloak" not in (_read_prefs().get("gear_seen") or []))
+    # in the column: the title and its one line; the rest - what it means,
+    # their own words back, how past drops played out - in a window
     with st.container(border=True, key="pt_storm"):
+        if own:
+            st.button(":material/close:", key="storm_hide", type="tertiary",
+                      help="Hide for now", on_click=_hide_weather, args=(w,))
         st.html("<div class='pt-eyebrow' style='margin:0'>Recent market moves</div>"
                 f"<div class='pt-storm-title'>{title}</div>"
-                f"<div>{html.escape(lead)} {html.escape(body)}</div>"
-                f"<div class='pt-region' style='margin-top:.4rem'>{html.escape(nothing)}"
-                + (" Staying invested through a big drop earns the <b>storm cloak</b> for "
-                   "your kit." if cloak else "") + "</div>")
-        if own:   # their own words back, never an advisor's view (views/future_notes.py)
-            render_storm_notes(w)
-            render_storm_drill()   # the Storm Drill answer (R4, flag storm_drill)
-        with st.container(horizontal=True):
-            if st.button("How past drops played out", key="storm_more", type="tertiary"):
-                st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
-                _storms_window()
-            st.button(f"Ask {GUIDE}", key="storm_ask", type="tertiary",
-                      on_click=_ask_route, args=("storm",))
-            if own:
-                st.button("Hide for now", key="storm_hide", type="tertiary",
-                          on_click=_hide_weather, args=(w,))
+                f"<div>{html.escape(lead)}</div>")
+        st.button("Take a look", key="storm_more", type="tertiary",
+                  icon=":material/open_in_new:", on_click=_storm_open)
+    if st.session_state.get("storm_open") and _dialog_free():
+        st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
+        _storms_window(w, words, cloak, own)
+
+
+def _storm_open():
+    st.session_state["storm_open"] = True
+
+
+def _storm_closed():
+    st.session_state.pop("storm_open", None)
+    _dialog_closed()
+
+
+def _storm_ask():
+    _storm_closed()
+    _ask_route("storm")

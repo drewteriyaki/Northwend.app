@@ -4,10 +4,11 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # The Dashboard page (Home): the value on the band, then three parts on a laptop -
-# the performance chart and a compact holdings list in the middle (allocation,
-# accounts and the full holdings table below them) and "This month" on the
-# right: the walk, the next step, the mix and the other cards, each one Done /
-# Not now (home_tasks.py). On a phone: one column, This month first.
+# the performance chart and the holdings table in the middle (a row opens the
+# ticker's own page; allocation and accounts below) and "This month" on the
+# right: the first few cards - the walk, the next step, the mix... - each short,
+# with a small X to put it away (home_tasks.py), long ones opening in a window,
+# and "Show N more" for the rest. On a phone: one column, This month first.
 # ruff: noqa: F821
 
 import home_tasks
@@ -165,7 +166,8 @@ def _render_route():
 # The things to do or look at this month, gathered in one column: each
 # feature's own card, drawn as before. Cards that keep their own state (the
 # walk, the weekly summary, the season, the storm note, the year card, the
-# account map line) use it; the rest get Done / Not now here, kept as keys
+# account map line) use it behind the same X; the rest get the X (and Done
+# where it fits) here, kept as keys
 # and the period's id in the login's own settings. An advisor in a client's
 # account sees the same cards and writes nothing.
 
@@ -193,21 +195,22 @@ def _task_bring_back():
 
 
 def _month_task(key, render):
-    """One suggestion: its card, then Done / Not now (the login's own only).
-    Put away or done this period: nothing."""
+    """One suggestion: the small X at its top right (put away until its
+    period ends), its card, then Done where it has one - the X and Done for
+    the login's own only. Put away or done this period: nothing."""
     if home_tasks.hidden(_read_prefs(), key, home_tasks.today()):
         return
     with st.container(key=f"pt_task_{key}"):
-        render()
         if _task_own():
+            st.button(":material/close:", key=f"task_away_{key}", type="tertiary",
+                      help=home_tasks.away_help(key), on_click=_task_mark,
+                      args=(key, home_tasks.AWAY))
+        render()
+        if _task_own() and home_tasks.TASKS[key][1]:
             with st.container(horizontal=True, gap="small", key=f"pt_tfoot_{key}"):
-                if home_tasks.TASKS[key][1]:
-                    st.button(home_tasks.DONE_LABEL, key=f"task_done_{key}", type="tertiary",
-                              icon=":material/check:", help=home_tasks.DONE_HELP,
-                              on_click=_task_mark, args=(key, home_tasks.DONE))
-                st.button(home_tasks.AWAY_LABEL, key=f"task_away_{key}", type="tertiary",
-                          help=home_tasks.AWAY_HELP, on_click=_task_mark,
-                          args=(key, home_tasks.AWAY))
+                st.button(home_tasks.DONE_LABEL, key=f"task_done_{key}", type="tertiary",
+                          icon=":material/check:", help=home_tasks.DONE_HELP,
+                          on_click=_task_mark, args=(key, home_tasks.DONE))
 
 
 def _open_target_mix():
@@ -267,44 +270,90 @@ def _goal_card():
             st.markdown("Your advisor hasn't set a goal for you yet.")
 
 
+def _month_cards(alloc):
+    """This month's cards, most relevant first: [(name, draw)]. A draw may
+    show nothing (nothing to say this time, or put away)."""
+    cards = []
+    if INVESTOR_VIEW and flags.on("money_minute") and _minute_shown():
+        # today's minute: first, so first on a phone (views/money_minute.py)
+        cards.append(("minute", lambda: _month_task("minute", render_minute_card)))
+    cards.append(("storm", render_weather))   # a storm note while well below the high (T4)
+    if INVESTOR_VIEW:
+        cards.append(("walk", render_checkin_card))   # the Monthly Walk (views/checkin.py)
+        cards.append(("route", lambda: _month_task("route", _render_route)))
+        if flags.on("weekly"):
+            cards.append(("weekly", render_weekly))   # Your week / The week ahead (views/weekly.py)
+        if flags.on("seasons"):
+            cards.append(("season", render_seasons_card))   # the Four Seasons (views/seasons.py)
+    else:
+        cards.append(("goal", _goal_card))
+    if ON_CLIENT or IS_MANAGED_CLIENT:
+        cards.append(("notes", _advisor_notes_card))
+    cards.append(("mix", lambda: _month_task("mix", lambda: _mix_card(alloc))))
+    if INVESTOR_VIEW:
+        if flags.on("drills") and _drill_shown():
+            # this week's drill (views/drills.py)
+            cards.append(("drill", lambda: _month_task("drill", render_drill_card)))
+        if flags.on("challenges") and _ch_shown() and _ch_month_key():
+            cards.append(("challenge",   # views/challenges.py
+                          lambda: _month_task("challenge", render_challenge_card)))
+        # fee check, fund overlap and cash check in one card (views/cash_check.py)
+        _checks = money_check_rows()
+        if _checks:
+            cards.append(("checks", lambda: _month_task("checks",
+                                                        lambda: render_money_checks(_checks))))
+        # 2+ accounts and no map yet (views/account_map.py); Year in review (views/year_review.py)
+        cards.append(("amap", render_account_map_nudge))
+        cards.append(("year", render_year_card))
+        if flags.on("wins") and _wins_shown() and _wins_recent():
+            # a win earned lately (views/wins.py)
+            cards.append(("wins", lambda: _month_task("wins", render_wins_card)))
+        if _kit_shown():
+            cards.append(("kit", lambda: _month_task(   # views/kit.py
+                "kit", lambda: render_kit_card(portfolio_value))))
+    if flags.on("news_feed"):
+        cards.append(("news", lambda: _month_task(   # views/news_feed.py
+            "news", lambda: render_news_card(NEWS_ROWS))))
+    return cards
+
+
+def _drew(box, before):
+    """Whether drawing into `box` added anything since its count was `before`
+    (a card with nothing to say draws nothing)."""
+    return _box_count(box) > before
+
+
+def _box_count(box):
+    """How many things are in a container so far (streamlit's own count of
+    its children; a test pins it)."""
+    return getattr(getattr(box, "_cursor", None), "index", 0)
+
+
 def _render_this_month(alloc):
-    """Home's right-hand column (a row of cards across on a phone)."""
+    """Home's right-hand column (a row of cards across on a phone): the
+    first MONTH_LIMIT cards that have something to say, then "Show N more",
+    which opens the rest in place. The rest are drawn either way (they read
+    nothing more), just hidden until then."""
     today = home_tasks.today()
     st.html(f"<div class='pt-month-title'>{home_tasks.TITLE}</div>")
-    if INVESTOR_VIEW and flags.on("money_minute") and _minute_shown():
-        # today's minute, above the row of cards: first on a phone (views/money_minute.py)
-        _month_task("minute", render_minute_card)
-    with st.container(key="pt_month_cards", gap="small"):
-        render_weather()                      # a storm note while well below the high (T4)
-        if INVESTOR_VIEW:
-            render_checkin_card()             # the Monthly Walk (views/checkin.py)
-            _month_task("route", _render_route)
-            if flags.on("weekly"):
-                render_weekly()               # Your week / The week ahead (views/weekly.py)
-            if flags.on("seasons"):
-                render_seasons_card()         # the Four Seasons (views/seasons.py)
-        else:
-            _goal_card()
-        if ON_CLIENT or IS_MANAGED_CLIENT:
-            _advisor_notes_card()
-        _month_task("mix", lambda: _mix_card(alloc))
-        if INVESTOR_VIEW:
-            if flags.on("drills") and _drill_shown():
-                _month_task("drill", render_drill_card)   # this week's drill (views/drills.py)
-            if flags.on("challenges") and _ch_shown() and _ch_month_key():
-                _month_task("challenge", render_challenge_card)   # views/challenges.py
-            # fee check, fund overlap and cash check in one card (views/cash_check.py)
-            _checks = money_check_rows()
-            if _checks:
-                _month_task("checks", lambda: render_money_checks(_checks))
-            render_account_map_nudge()        # 2+ accounts, no map yet (views/account_map.py)
-            render_year_card()                # Year in review (views/year_review.py)
-            if flags.on("wins") and _wins_shown() and _wins_recent():
-                _month_task("wins", render_wins_card)   # a win earned lately (views/wins.py)
-            if _kit_shown():
-                _month_task("kit", lambda: render_kit_card(portfolio_value))   # views/kit.py
-        if flags.on("news_feed"):
-            _month_task("news", lambda: render_news_card(NEWS_ROWS))   # views/news_feed.py
+    opened = bool(st.session_state.get("month_all"))
+    first = st.container(key="pt_month_cards", gap="small")
+    rest = st.container(key="pt_month_more_open" if opened else "pt_month_more", gap="small")
+    shown = extra = 0
+    for _name, draw in _month_cards(alloc):
+        box = first if shown < home_tasks.MONTH_LIMIT else rest
+        before = _box_count(box)
+        with box:
+            draw()
+        if _drew(box, before):
+            if box is first:
+                shown += 1
+            else:
+                extra += 1
+    if extra:
+        st.button(home_tasks.SHOW_FEWER if opened else home_tasks.SHOW_MORE.format(n=extra),
+                  key="month_more", type="tertiary", on_click=_flip, args=("month_all",),
+                  icon=":material/expand_less:" if opened else ":material/expand_more:")
     away = home_tasks.put_away(_read_prefs(), today)
     if away and _task_own():
         with st.container(horizontal=True, vertical_alignment="center", key="pt_month_away"):
@@ -316,57 +365,130 @@ def _render_this_month(alloc):
         check_milestones(portfolio_value)
 
 
-# ---- the holdings list under the chart ------------------------------------ #
+# ---- the holdings table under the chart ----------------------------------- #
 
-def _open_holding(sym):
-    """A row of the list opens that ticker's details (views/ticker_detail.py),
-    as tapping it in the full table's strip does."""
-    st.session_state["holdings_pill"] = sym
-    st.session_state["watchlist_pill"] = None
+def _holdings_columns():
+    """The metrics the table shows after the ticker and its mini chart: the
+    Columns choice (load_columns), the total-return ones only when some
+    holding has dividends to add, and no dollar amounts or share counts for a
+    percentages portfolio (they're pretend)."""
+    if "col_keys" not in st.session_state:
+        st.session_state["col_keys"] = load_columns()
+    chosen = [M.BY_KEY[k] for k in st.session_state["col_keys"]
+              if k in M.BY_KEY and k != "symbol"] \
+        or [M.BY_KEY[k] for k in M.DEFAULT_KEYS if k != "symbol"]
+    chosen = [m for m in chosen if m.key not in M.SHOWN_WHEN_KNOWN
+              or any(M.value(m.key, ctx) is not None for ctx in contexts)]
+    if SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE:
+        chosen = [m for m in chosen if m.fmt not in ("money", "qty")]
+    return chosen
 
 
-def _render_holdings_list():
-    """Ticker, share of the portfolio, value and today's move - one line
-    each, largest first; the full table is further down."""
-    by_sym = {}
-    for _p, _ctx in zip(positions, contexts):
-        _row = by_sym.setdefault(_p["symbol"], {"mv": 0.0, "day": 0.0, "day_known": False,
-                                                "name": _p.get("description") or ""})
-        _mv = M.eff_mv(_ctx)
-        if _mv is not None:
-            _row["mv"] += _mv
-        _d = M.value("day_change_usd", _ctx)
-        if _d is not None:
-            _row["day"] += _d
-            _row["day_known"] = True
-    rows = sorted(by_sym.items(), key=lambda kv: (-kv[1]["mv"], kv[0]))
-    pretend = SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE   # dollar amounts are pretend
+def _holdings_frame(rows, chosen):
+    """(styled table, its column settings) for the positions at `rows`: the
+    ticker, the past month and the chosen columns under short headings,
+    numbers right-aligned and formatted (masked while amounts are hidden),
+    gains and losses colored by the numbers themselves."""
+    heads = [home_tasks.HEADINGS.get(m.key, m.label) for m in chosen]
+    df = pd.DataFrame([[M.value(m.key, contexts[i]) for m in chosen] for i in rows],
+                      columns=heads)
+    fmt_map = {h: FORMATTERS[m.fmt] for h, m in zip(heads, chosen) if m.fmt in FORMATTERS}
+    color_cols = [h for h, m in zip(heads, chosen) if m.color_sign]
+    # The table draws an empty cell as a grey "None", whatever the format says:
+    # a column with blanks (a holding entered without its cost) is shown as its
+    # formatted text instead (still right-aligned, like numbers), "—" for the blanks.
+    # While amounts are hidden every column is its masked text: the numbers
+    # themselves never reach the page (the table's own copy and download).
+    shown, config = df.copy(), {}
+    for col in df.columns:
+        if _hidden() or df[col].isna().any():
+            fmt = fmt_map.pop(col, None)
+            shown[col] = [fmt(v) if fmt else ("—" if _blank(v) else str(v)) for v in df[col]]
+            if fmt:
+                config[col] = st.column_config.TextColumn(col, alignment="right")
+    # "Price as of" in words ("3:45 pm ET", "Oct 3 close" - price_report.as_of)
+    asof_head = home_tasks.HEADINGS.get("price_at", M.BY_KEY["price_at"].label)
+    if asof_head in shown.columns:
+        asofs = [price_report.as_of(M.value("price_at", contexts[i]), price_report.kind(
+            positions[i]["symbol"], positions[i].get("asset_type"),
+            (contexts[i].get("info") or {}).get("quote_type"))) for i in rows]
+        shown[asof_head] = [a["text"] if a else "—" for a in asofs]
+    shown.insert(0, SPARK_LABEL, [_spark(positions[i]["symbol"]) for i in rows])
+    shown.insert(0, "Ticker", [positions[i]["symbol"] for i in rows])
+    config["Ticker"] = st.column_config.TextColumn("Ticker", pinned=True)
+    if "Name" in shown.columns:
+        config["Name"] = st.column_config.TextColumn("Name", width=150)
+    styler = shown.style.format(fmt_map, na_rep="—")
+    if color_cols:   # colored by the numbers, not the text shown
+        styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)
+    return styler, config
+
+
+def _render_holdings_table():
+    """Home's holdings: one table in its card under the chart - headings, the
+    ticker, the past month's mini chart and the chosen columns. The largest
+    LIST_LIMIT rows first; "Show all" opens the rest in place, and a search
+    shows every match. Tapping a row opens that ticker's own page
+    (dashboard._ticker_table). Columns and Download CSV as before."""
+    chosen = _holdings_columns()
+    order = sorted(range(len(positions)),
+                   key=lambda i: (-(M.eff_mv(contexts[i]) or 0.0), positions[i]["symbol"]))
     with st.container(border=True, key="pt_home_list", gap="small"):
-        st.html(f"<div class='pt-month-card-title'>{home_tasks.HOLDINGS_TITLE}</div>")
-        for sym, r in rows[:home_tasks.LIST_LIMIT]:
-            share = (r["mv"] / portfolio_value * 100) if portfolio_value else None
-            base = r["mv"] - r["day"]
-            day = (r["day"] / base * 100) if r["day_known"] and base else None
-            if day is None:
-                day_html = "—"
-            elif _hidden():
-                day_html = MASK
-            else:
-                arrow = ("<span aria-hidden='true'>" + ("▲" if day >= 0 else "▼") + "</span>"
-                         f"<span class='pt-sr'>{'Up' if day >= 0 else 'Down'}</span> ")
-                day_html = _tone(day, f"{arrow}{day:+.2f}%")
-            with st.container(horizontal=True, vertical_alignment="center", gap="small",
-                              key=f"pt_hl_{sym}"):
-                st.button(f"**{sym}**", key=f"home_hold_{sym}", type="tertiary",
-                          on_click=_open_holding, args=(sym,), help=r["name"] or None)
-                st.html("<div class='pt-hl-row'>"
-                        "<span class='pt-hl-share'>"
-                        + (mask_or(f"{share:.0f}%") if share is not None else "—") + "</span>"
-                        + ("" if pretend else
-                           f"<span class='pt-hl-val'>{fmt_money(r['mv'])}</span>")
-                        + f"<span class='pt-hl-day'>{day_html}</span></div>", width="stretch")
-        if len(rows) > home_tasks.LIST_LIMIT:
-            st.caption(home_tasks.HOLDINGS_MORE.format(n=len(rows) - home_tasks.LIST_LIMIT))
+        with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                          key="pt_hold_head"):
+            st.html(f"<div class='pt-month-card-title'>{home_tasks.HOLDINGS_TITLE}</div>",
+                    width="stretch")
+            search = st.text_input("Search holdings", key="ticker_search",
+                                   placeholder="Search", label_visibility="collapsed",
+                                   width=150, icon=":material/search:")
+            with st.popover("Columns", type="tertiary", icon=":material/view_column:"):
+                # (the ticker is always the first column, so it isn't offered)
+                kept = [k for k in st.session_state["col_keys"] if k in M.BY_KEY and k != "symbol"]
+                labels = st.multiselect(
+                    "Columns — add or remove as many as you want",
+                    [m.label for m in M.AVAILABLE if m.key != "symbol"],
+                    default=[M.BY_KEY[k].label for k in kept], key="col_labels")
+                new_keys = [M.BY_LABEL[lbl].key for lbl in labels]
+                if new_keys and new_keys != kept:
+                    st.session_state["col_keys"] = new_keys
+                    save_columns(new_keys)
+                # any Yahoo history at all (what's already read shows it without asking)
+                if not (_covered or bar_stats or perf.has_bars(DB)):
+                    st.caption("The **Yahoo history** columns (MA, Volume, 52-wk, Beta, P/E, "
+                               "Sector) stay blank until you tap sync history "
+                               "(:material/history:) up top.")
+        q = (search or "").strip().upper()
+        if q:
+            rows = [i for i in order if q in positions[i]["symbol"].upper()
+                    or q in (positions[i].get("description") or "").upper()]
+        elif st.session_state.get("home_hold_all"):
+            rows = order
+        else:
+            rows = order[:home_tasks.LIST_LIMIT]
+        if not rows:
+            st.caption("No holding matches your search.")
+        else:
+            styler, config = _holdings_frame(rows, chosen)
+            _ticker_table("home_table", styler, [positions[i]["symbol"] for i in rows],
+                          "Dashboard", column_config=config,
+                          alt="Your holdings, largest first: ticker, past month and the columns "
+                              "you chose. Select a row to open that holding's page.")
+        with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                          key="pt_hold_foot"):
+            if not q and len(order) > home_tasks.LIST_LIMIT:
+                _show_all_toggle("home_hold_all", len(order), home_tasks.HOLDINGS_NOUN)
+            st.caption(home_tasks.HOLDINGS_TAP, width="stretch")
+            # the CSV keeps every holding and the columns' full names
+            st.download_button(
+                "Download CSV",
+                export.csv_bytes(pd.DataFrame(
+                    [{"Symbol": p["symbol"], **{m.label: M.value(m.key, c) for m in chosen}}
+                     for p, c in zip(positions, contexts)])),
+                file_name="holdings.csv", mime="text/csv", key="holdings_dl",
+                type="tertiary", icon=":material/download:",
+                disabled=hide_amounts, help=(
+                    "Disabled while amounts are hidden — turn off Hide amounts to export real "
+                    "figures." if hide_amounts else None))
 
 
 if PAGE == "Dashboard":
@@ -505,7 +627,7 @@ if PAGE == "Dashboard":
         if flags.on("progress_split"):
             render_progress_split()   # what you did vs what the market did (views/progress_split.py)
 
-        _render_holdings_list()   # the compact list under the chart
+        _render_holdings_table()   # every holding, in one table under the chart
 
         st.html(_stat_row(
             "<div class='pt-stats' role='list' aria-label='Portfolio summary'>"
@@ -756,108 +878,3 @@ if PAGE == "Dashboard":
                     if hide_amounts else None),
             )
         learn_more("account_types")
-
-        st.divider()
-
-        # ---- holdings: the full table (configurable columns) ------------ #
-        with st.expander(home_tasks.FULL_TABLE, icon=":material/table_rows:"):
-            # ---- holdings (configurable columns) -------------------------------- #
-            if "col_keys" not in st.session_state:
-                st.session_state["col_keys"] = load_columns()
-
-            h1, h2 = st.columns([0.75, 0.25])
-            h1.subheader("Holdings")
-            with h2.popover("Columns", width="stretch"):
-                labels = st.multiselect(
-                    "Columns — add or remove as many as you want",
-                    [m.label for m in M.AVAILABLE],
-                    default=[M.BY_KEY[k].label for k in st.session_state["col_keys"] if k in M.BY_KEY],
-                    key="col_labels",
-                )
-                new_keys = [M.BY_LABEL[lbl].key for lbl in labels]
-                if new_keys and new_keys != st.session_state["col_keys"]:
-                    st.session_state["col_keys"] = new_keys
-                    save_columns(new_keys)
-                # any Yahoo history at all (what's already read shows it without asking)
-                if not (_covered or bar_stats or perf.has_bars(DB)):
-                    st.caption("The **Yahoo history** columns (MA, Volume, 52-wk, Beta, P/E, Sector) "
-                               "stay blank until you tap sync history (:material/history:) up top.")
-
-            # A tappable strip of ticker symbols — the Robinhood-style "click the name"
-            # entry point into the detail view below. Deliberately separate from the
-            # data grid's own row/cell interactions (Streamlit's dataframe treats a plain
-            # cell click as spreadsheet-style cell focus, not row selection — only its
-            # checkbox actually selects a row, which isn't the one-tap feel we want here).
-            # The search box keeps this usable as the holdings list grows past a couple
-            # dozen tickers, where a flat pill strip alone starts taking real scrolling.
-            # Only one of the Holdings / Watchlist pill strips can be "the" open ticker
-            # at a time — picking one clears the other via on_change (see _pick_holdings
-            # / _pick_watchlist below), so there's a single unambiguous selection.
-            st.caption("Tap a ticker for its chart and full details:")
-            _desc_by_sym = {p["symbol"]: (p.get("description") or "") for p in positions}
-            _symbols_held = sorted(_desc_by_sym)
-            _search = st.text_input("Search tickers", key="ticker_search",
-                                    placeholder="Filter by symbol or name…", label_visibility="collapsed")
-            if _search.strip():
-                _q = _search.strip().upper()
-                _pill_options = [s for s in _symbols_held if _q in s.upper() or _q in _desc_by_sym[s].upper()]
-            else:
-                _pill_options = _symbols_held
-            # Never let a search term hide the ticker you already have open.
-            _cur_pill = st.session_state.get("holdings_pill")
-            if _cur_pill and _cur_pill not in _pill_options:
-                _pill_options = sorted(_pill_options + [_cur_pill])
-
-
-            if not _pill_options:
-                st.caption("No ticker matches your search.")
-            else:
-                st.pills("Tickers", _pill_options, key="holdings_pill", label_visibility="collapsed",
-                        on_change=_pick_holdings)
-
-            chosen = [M.BY_KEY[k] for k in st.session_state["col_keys"] if k in M.BY_KEY] \
-                or [M.BY_KEY[k] for k in M.DEFAULT_KEYS]
-            # the total-return columns only when some holding has dividends to add:
-            # otherwise the price change alone, without empty columns beside it
-            chosen = [m for m in chosen if m.key not in M.SHOWN_WHEN_KNOWN
-                      or any(M.value(m.key, ctx) is not None for ctx in contexts)]
-
-            records = [{m.label: M.value(m.key, ctx) for m in chosen} for ctx in contexts]
-
-            df = pd.DataFrame(records, columns=[m.label for m in chosen])
-            fmt_map = {m.label: FORMATTERS[m.fmt] for m in chosen if m.fmt in FORMATTERS}
-            color_cols = [m.label for m in chosen if m.color_sign]
-            # The table draws an empty cell as a grey "None", whatever the format says:
-            # a column with blanks (a holding entered without its cost) is shown as its
-            # formatted text instead (still right-aligned, like numbers), "—" for the blanks.
-            shown, as_text = df.copy(), {}
-            for col in df.columns:
-                if df[col].isna().any():
-                    fmt = fmt_map.pop(col, None)
-                    shown[col] = [fmt(v) if fmt else ("—" if _blank(v) else str(v)) for v in df[col]]
-                    if fmt:
-                        as_text[col] = st.column_config.TextColumn(alignment="right")
-            # "Price as of" in words ("3:45 pm ET", "Oct 3 close" - price_report.as_of);
-            # the CSV download keeps the stored time
-            _asof_col = M.BY_KEY["price_at"].label
-            if _asof_col in shown.columns:
-                _asofs = [price_report.as_of(M.value("price_at", ctx), price_report.kind(
-                    ctx["pos"]["symbol"], ctx["pos"].get("asset_type"),
-                    (ctx.get("info") or {}).get("quote_type"))) for ctx in contexts]
-                shown[_asof_col] = [a["text"] if a else "—" for a in _asofs]
-            styler = shown.style.format(fmt_map, na_rep="—")
-            if color_cols:   # colored by the numbers, not the text shown
-                styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)
-            st.dataframe(styler, width="stretch", hide_index=True, column_config=as_text or None)
-            st.download_button(
-                "Download CSV", export.csv_bytes(df),
-                file_name="holdings.csv", mime="text/csv", key="holdings_dl",
-                disabled=hide_amounts, help=(
-                    "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
-                    if hide_amounts else None),
-            )
-            st.caption("Green = gain, red = loss. Price / Market Value / Gain-Loss use the live price where "
-                       "available, otherwise the CSV's figures. Edit the column set with **Columns**."
-                       + (" Unrealized G/L is the price change; **Total return** adds the dividends "
-                          "each holding paid (blank where none are known)."
-                          if any(m.key in M.SHOWN_WHEN_KNOWN for m in chosen) else ""))

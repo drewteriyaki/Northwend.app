@@ -329,8 +329,8 @@ class PagesTests(unittest.TestCase):
 
     @staticmethod
     def _holdings(at):
-        """The Holdings table (the one with share counts)."""
-        return next(d.value for d in at.dataframe if "Qty" in d.value.columns)
+        """Home's Holdings table (the one that starts with the ticker)."""
+        return next(d.value for d in at.dataframe if list(d.value.columns)[:1] == ["Ticker"])
 
     @staticmethod
     def _text(at):
@@ -349,7 +349,7 @@ class PagesTests(unittest.TestCase):
             self.assertIn("from your brokerage's activity history", text)
             cols = list(self._holdings(at).columns)
             self.assertIn("Total return $ (with dividends)", cols)
-            table = self._holdings(at).set_index("Symbol")
+            table = self._holdings(at).set_index("Ticker")
             # (a column with blanks is shown as text, "—" for the blanks)
             self.assertEqual(table.loc["SCHD", "Total return $ (with dividends)"], "$198.00")
             self.assertEqual(set(table.drop(index="SCHD")["Total return $ (with dividends)"]),

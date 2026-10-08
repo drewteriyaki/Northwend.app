@@ -190,7 +190,8 @@ class BeginnerPathTests(unittest.TestCase):
         finally:
             c.close()
         with self._run(self.nina, "nina", "Watchlist") as at:
-            self.assertTrue(any(k.startswith("wl_open_VTI") for k in self._keys(at)))
+            self.assertIn("VTI", [t for d in at.dataframe if "Ticker" in d.value.columns
+                                  for t in d.value["Ticker"]])
 
     def test_advisor_sees_an_empty_client_in_her_own_words(self):
         with self._run(self.carol, "carol", "Dashboard", active_user_id=self.dana,

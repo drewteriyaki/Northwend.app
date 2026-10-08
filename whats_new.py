@@ -26,6 +26,17 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-07", "title": "Your holdings in one table, and a page for each one",
+     "items": [
+         "On Home, your holdings are one table under the chart, with headings and a small "
+         "chart of each one's past month. It starts with your largest; \"Show all\" opens "
+         "the rest right there. The watchlist is the same kind of table.",
+         "Tap any row - on Home or your watchlist - to open that holding's own page: its "
+         "chart, your position, its stats and news. \"Back\" takes you where you were.",
+         "This month on Home is shorter: each card is a line or two, the first few are "
+         "shown, and \"Show more\" opens the rest. Longer reads open in a window. The small "
+         "X on a card puts it away until next time.",
+     ]},
     {"date": "2026-10-07", "title": "A new look for Plan, Money, Learn, Life and Ask Northwend",
      "items": [
          "Plan, Money, Learn, Life and Ask Northwend have the same new look as Home. On Plan, "

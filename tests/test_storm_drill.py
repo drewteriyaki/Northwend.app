@@ -178,8 +178,9 @@ class DrillAppTests(tfn.AppTests):
             self.assertEqual(self._note(self.uma, DRILL)["body"], WORDS)
             self.assertIn("Saved. Only you can see it.", self._text(at))
         with self._run(self.uma, "uma") as at:
+            self.assertIn("A big market drop", self._text(at))
+            at.button(key="storm_more").click().run()   # the note's window: the rest of it
             text = self._text(at)
-            self.assertIn("A big market drop", text)
             self.assertIn("Your storm drill", text)
             self.assertIn("You wrote this when you looked at 2008", text)
             self.assertIn(WORDS, text)
@@ -188,14 +189,16 @@ class DrillAppTests(tfn.AppTests):
                 for word in ("sell", "buy", "trade", "rebalance"):
                     self.assertNotIn(word, label.lower(), label)
             storm_keys = sorted(k for k in self._keys(at) if k.startswith("storm_"))
-            self.assertEqual(storm_keys, ["storm_ask", "storm_hide", "storm_more"])
+            self.assertEqual(storm_keys, ["storm_ask", "storm_close", "storm_hide",
+                                          "storm_more"])
             # the holdings' notes are still theirs, apart from the drill
             self.assertNotIn(DRILL, text)
 
     def test_no_answer_one_quiet_line(self):
         with self._run(self.kai, "kai") as at:
+            self.assertIn("A big market drop", self._text(at))
+            at.button(key="storm_more").click().run()
             text = self._text(at)
-            self.assertIn("A big market drop", text)
             self.assertIn("You can write down what you'd do in a drop like this", text)
             self.assertNotIn("Your storm drill", text)
 
@@ -205,8 +208,9 @@ class DrillAppTests(tfn.AppTests):
             self.assertNotIn(future_notes.DRILL_QUESTION, self._text(at))
             self.assertNotIn("fn_save_drill", self._keys(at))
         with self._run(self.vic, "vic") as at:
+            self.assertIn("A big market drop", self._text(at))     # the storm note as before
+            at.button(key="storm_more").click().run()
             text = self._text(at)
-            self.assertIn("A big market drop", text)               # the storm note as before
             self.assertNotIn("Your storm drill", text)
             self.assertNotIn("breathe", text)
             self.assertNotIn("You can write down what you'd do", text)
@@ -215,6 +219,8 @@ class DrillAppTests(tfn.AppTests):
         for page in ("Dashboard", "Plan"):
             with self._run(self.carol, "carol", page, active_user_id=self.dana,
                            two_step_ok=self.carol_ok) as at:
+                if page == "Dashboard":   # the storm note's window too
+                    at.button(key="storm_more").click().run()
                 text = self._text(at)
                 self.assertNotIn("Quokka", text, page)
                 self.assertNotIn("storm drill", text.lower(), page)
@@ -222,6 +228,7 @@ class DrillAppTests(tfn.AppTests):
                 self.assertNotIn("You can write down what you'd do", text, page)
                 self.assertFalse([k for k in self._keys(at) if k.endswith("_drill")], page)
         with self._run(self.dana, "dana") as at:                  # while she sees her own
+            at.button(key="storm_more").click().run()
             self.assertIn("Quokka drill, kept private", self._text(at))
 
 

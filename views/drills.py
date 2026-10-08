@@ -100,9 +100,9 @@ def _render_drill_map(p):
 
 
 def render_drill_card():
-    """Home's preparedness drill: this week's one, small and calm. Closed, a
-    line and a button; open, the situation and the taps; tapped, what they'd
-    weigh, the note, and next week's day."""
+    """Home's preparedness drill: this week's one, small and calm - a line
+    and a button in the column; the situation, the taps and what they'd weigh
+    open in a window (_drill_window); done, next week's day."""
     if not _drill_shown():
         return
     p = _read_prefs()
@@ -119,18 +119,33 @@ def render_drill_card():
                    if weeks else ""))
         if flags.on("month_world"):
             render_month_world()   # this month's world, if there's a note (views/month_world.py)
-        is_open = bool(st.session_state.get("drill_open"))
-        if done_key and not is_open:
+        if done_key:
             st.caption("Done for this week. The next one is ready on "
                        f"{_fmt_date(drills.next_week_start(today).isoformat())}.")
-            _render_drill_map(p)
-            return
-        if not is_open:
+        else:
             st.caption(drills.INTRO)
             st.button("Try this week's drill", key="drill_start", icon=":material/explore:",
                       on_click=_drill_open)
-            _render_drill_map(p)
-            return
+        _render_drill_map(p)
+    if st.session_state.get("drill_open") and _dialog_free():
+        st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
+        _drill_window(key, repeat)
+
+
+def _drill_closed():
+    st.session_state.pop("drill_open", None)
+    _dialog_closed()
+
+
+@st.dialog("This week's drill", width="large", on_dismiss=_drill_closed)
+def _drill_window(key, repeat):
+    """The drill itself, wide enough to read: the situation, the taps, then
+    what they'd weigh and next week's day."""
+    p = _read_prefs()
+    today = _drill_today()
+    done_key = drills.done_this_week(p, today)
+    with st.container(key="pt_drill_read"):
+        st.markdown(f"### {drills.title_of(key)}")
         st.markdown(drills.BY_KEY[key][3])
         if repeat:
             st.markdown(f"*{drills.twist_of(key)}*")
@@ -157,4 +172,6 @@ def render_drill_card():
                 st.caption("Northwend counts how many people come back for a third drill, "
                            "in totals only - never you by name, never what you tapped. You "
                            "can leave yourself out on Account.")
-        _render_drill_map(p)
+        if st.button("Close", key="drill_close"):
+            _drill_closed()
+            st.rerun()

@@ -12,7 +12,8 @@
 #   and up to three kept headlines about the biggest movers.
 # - Monday to Thursday, "The week ahead": known pay and earnings dates from
 #   the brokerage's file, and the hand-kept public calendar.
-# New: a card ("Take a look" / "Not now"); opened: one quiet line; put away:
+# New: a short card ("Take a look", an X to put it away) - the week itself
+# opens in a large window (_wk_window); opened: one quiet line; put away:
 # nothing until the next moment. What's kept: the moment's id and "seen" or
 # "put_away" (prefs weekly.PREF), and only from the login's own session - an
 # advisor in a client's account sees the same facts and writes nothing.
@@ -158,22 +159,39 @@ def render_weekly():
     why = weekly.WEEK_WHY if week else weekly.AHEAD_WHY
     icon = ":material/date_range:" if week else ":material/event_upcoming:"
     is_open = st.session_state.get("wk_open") == m["id"]
-    if state == "line" and not is_open:
+    if state == "line":
         with st.container(horizontal=True, vertical_alignment="center", key="pt_weekly_line"):
             st.caption(f"{title} - {why}", width="stretch")
             st.button(title, key="wk_open_btn", type="tertiary", icon=icon,
                       on_click=_wk_open, args=(m["id"],))
-        return
-    with st.container(border=True, key="pt_weekly_card"):
-        with st.container(horizontal=True, vertical_alignment="center"):
-            st.markdown(f"{icon} **{title}** - {why}", width="stretch")
-            if is_open:
-                st.button("Close", key="wk_close", type="tertiary", on_click=_wk_close)
-            else:
-                st.button("Take a look", key="wk_open_btn", type="primary",
-                          on_click=_wk_open, args=(m["id"],))
-                if _wk_own():
-                    st.button("Not now", key="wk_later", type="tertiary",
-                              on_click=_wk_put_away, args=(m["id"],))
-        if is_open:
-            (_wk_week_body if week else _wk_ahead_body)(m)
+    else:
+        # in the column: the title, one line and Take a look (the X puts it
+        # away until next week); the week itself opens in a window
+        with st.container(border=True, key="pt_weekly_card"):
+            if _wk_own():
+                st.button(":material/close:", key="wk_later", type="tertiary",
+                          help="Put away until next week", on_click=_wk_put_away,
+                          args=(m["id"],))
+            st.markdown(f"**{_wk_md(title)}**")
+            st.caption(_wk_md(why))
+            st.button("Take a look", key="wk_open_btn", type="primary", icon=icon,
+                      on_click=_wk_open, args=(m["id"],))
+    if is_open and _dialog_free():
+        st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
+        _wk_window(m, title)
+
+
+def _wk_window_closed():
+    _wk_close()
+    _dialog_closed()
+
+
+@st.dialog("This week", width="large", on_dismiss=_wk_window_closed)
+def _wk_window(m, title):
+    """The week (or the week ahead) in a window wide enough to read."""
+    with st.container(key="pt_wk_read"):
+        st.markdown(f"### {title}")
+        (_wk_week_body if m["kind"] == weekly.WEEK else _wk_ahead_body)(m)
+        if st.button("Close", key="wk_close"):
+            _wk_window_closed()
+            st.rerun()

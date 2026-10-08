@@ -346,9 +346,11 @@ class AppTests(unittest.TestCase):
 
     def test_the_watchlist_says_when(self):
         at = self._run(self._tab(self.hal, "hal", "Watchlist"))
-        rows = [h.proto.body for h in at.get("html") if "<div class='pt-wl-quote'>" in h.proto.body]
-        self.assertTrue(rows)
-        self.assertTrue(all("class='pt-wl-asof'>as of " in r for r in rows), rows)
+        # the table's "As of" column: each price's time in words
+        table = next(d.value for d in at.dataframe if "As of" in d.value.columns)
+        words = [w for w, p in zip(table["As of"], table["Price"]) if p != "No price yet"]
+        self.assertTrue(words)
+        self.assertTrue(all(w.endswith(" ET") or w.endswith(" close") for w in words), words)
 
     def test_admin_sees_counts_only(self):
         c = portfolio.connect(self.db)

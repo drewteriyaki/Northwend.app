@@ -274,9 +274,11 @@ def render_account_map_nudge():
         c.close()
     if not account_map.nudge(n, made, False):
         return
-    with st.container(horizontal=True, vertical_alignment="center", key="pt_amap_nudge"):
-        st.caption(f":material/map: You have {n} accounts. An account map lists them for the "
-                   "people you trust - who to call, where the paperwork is. Private to you.",
-                   width="stretch")
-        st.button("Make one", key="amap_nudge_go", type="tertiary", on_click=_amap_nudge_go)
-        st.button("Not now", key="amap_nudge_off", type="tertiary", on_click=_amap_nudge_off)
+    with st.container(border=True, key="pt_amap_nudge"):
+        st.button(":material/close:", key="amap_nudge_off", type="tertiary", help="Put away",
+                  on_click=_amap_nudge_off)
+        st.html("<div class='pt-month-card-title'>An account map</div>"
+                f"<div class='pt-region'>You have {n} accounts. A map lists them for the "
+                "people you trust - who to call, where the paperwork is. Private to you.</div>")
+        st.button("Make one", key="amap_nudge_go", type="tertiary", icon=":material/map:",
+                  on_click=_amap_nudge_go)

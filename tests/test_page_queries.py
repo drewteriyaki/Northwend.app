@@ -100,6 +100,23 @@ class PageQueryTests(unittest.TestCase):
         self.assertLessEqual(queries, HOME_QUERIES)
         self.assertLessEqual(connections, HOME_CONNECTIONS)
 
+    def test_the_rows_mini_charts_read_nothing_more(self):
+        # Home's holdings table and the Watchlist draw each row's past month
+        # from the daily closes already read for the moving averages
+        # (perf.bar_stats' "spark"): no read of their own
+        sql = []
+        self._count(self.alice, "alice", "Dashboard", statements=sql)
+        self.assertEqual(len([s for s in sql if "FROM daily_bars" in s
+                              and "ORDER BY ticker, date" in s]), 1, sql)
+
+    def test_a_tickers_page_stays_under_homes_cap(self):
+        # its own reads: whether it has history, its price history and
+        # stored news - one ticker's, never the whole account's again
+        queries, connections = self._count(self.alice, "alice", "Ticker", ticker_sym="VTI",
+                                           ticker_from="Dashboard")
+        self.assertLessEqual(queries, HOME_QUERIES)
+        self.assertLessEqual(connections, HOME_CONNECTIONS)
+
     def test_home_with_your_news_stays_under_its_cap(self):
         # Your news (flag news_feed) adds one read on the history's connection:
         # the stored headlines - never a fetch

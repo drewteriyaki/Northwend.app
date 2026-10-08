@@ -360,23 +360,22 @@ def render_checkin_card():
     n_done = sum(1 for k in checkin.REQUIRED if k in state["done"])
     is_open = bool(st.session_state.get("checkin_open"))
     with st.container(border=True, key="pt_walk"):
+        if not is_open:   # the X: skip this month's walk (the next one comes as usual)
+            st.button(":material/close:", key="walk_skip", type="tertiary",
+                      help="Put away until next month", on_click=_checkin_skip)
         st.html("<div class='pt-eyebrow' style='margin:0'>The monthly walk</div>"
                 f"<div class='pt-storm-title'>Your {checkin.month_name(state['month'])} "
                 "walk</div>"
-                "<div>About 3 minutes, one step at a time: your holdings, your mix, one short "
-                "read - then what your own plan says for the month.</div>"
+                "<div>About 3 minutes: your holdings, your mix, one short read.</div>"
                 f"<div class='pt-region' style='margin-top:.3rem'>{tally}"
                 + (f" · {n_done} of {len(checkin.STEPS)} steps done" if n_done else "")
                 + "</div>")
         if is_open:
             _render_checkin_steps(state)
         else:
-            with st.container(horizontal=True):
-                st.button("Continue the walk" if n_done else "Start the walk", key="walk_start",
-                          type="primary", width="stretch", icon=":material/hiking:",
-                          on_click=_checkin_open)
-                st.button("Not this month", key="walk_skip", width="stretch",
-                          on_click=_checkin_skip)
+            st.button("Continue the walk" if n_done else "Start the walk", key="walk_start",
+                      type="primary", width="stretch", icon=":material/hiking:",
+                      on_click=_checkin_open)
 
 
 # ---- Account > Monthly walk ----------------------------------------------- #
