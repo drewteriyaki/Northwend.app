@@ -3256,6 +3256,19 @@ class ChartsTests(unittest.TestCase):
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["field"], "t")
         self.assertEqual(spec["layer"][0]["encoding"]["x"]["type"], "temporal")
 
+    def test_a_few_daily_points_label_days_not_hours(self):
+        df = pd.DataFrame({"t": pd.to_datetime(["2026-10-06", "2026-10-07"], utc=True),
+                           "v": [298.0, 300.0]})
+        spec = charts.line(df, x="t", y="v", y_title="V", y_format="$,.2f", tooltip=[],
+                           daily=True).to_dict()
+        x = spec["layer"][0]["encoding"]["x"]
+        self.assertEqual((x["field"], x["type"], x["sort"]),
+                         ("_x", "ordinal", ["Oct 06", "Oct 07"]))
+        # many daily points: the usual time axis
+        many = charts.line(self._df(charts.DAILY_FEW + 5), x="t", y="v", y_title="V",
+                           y_format="$,.2f", tooltip=[], daily=True).to_dict()
+        self.assertEqual(many["layer"][0]["encoding"]["x"]["type"], "temporal")
+
 
 class AppFilesCompileTests(unittest.TestCase):
     """Every app file at least compiles - dashboard.py has no unit tests of

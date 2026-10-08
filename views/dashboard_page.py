@@ -617,6 +617,7 @@ if PAGE == "Dashboard":
                         charts.line(
                             pwin, x="t", y=series_col, y_title=y_title, y_format=AXIS_FORMAT[_fmtname],
                             mask=hide_amounts, compress_gaps=bool(_pcompress),
+                            daily=not _pcompress,   # a few days: day labels, no hours
                             line_color=(SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0],
                             tooltip=_ptips),
                         width="stretch",

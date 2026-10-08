@@ -13,6 +13,8 @@ import pandas as pd
 RANGES = [("1D", 1), ("5D", 5), ("2W", 14), ("1M", 30), ("6M", 182), ("1Y", 365), ("All", None)]
 RANGE_DAYS = dict(RANGES)
 RANGE_LABELS = [label for label, _ in RANGES]
+# up to this many daily points, line(daily=True) labels each day (no time axis)
+DAILY_FEW = 10
 
 # Dollars on a chart's axis: short, with trailing zeros trimmed - "$0", "$500",
 # "$1.5k", "$2M" (d3 calls a billion "G"). Under a dollar the short form would
@@ -90,9 +92,9 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
     `x` must already be sorted ascending; only meaningful for intraday
     resolutions (daily bars have no large gaps to compress).
 
-    `daily=True` (one point a day): the time axis shows days only - never
-    hours between two daily closes - with a tick on each day when there are
-    only a few.
+    `daily=True` (one point a day): with only a few points (DAILY_FEW), one
+    label per day - never hours between two daily closes; with more, the
+    usual time axis (its ticks are days or longer by then).
     """
     df = df.sort_values(x).reset_index(drop=True)
     grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
@@ -109,13 +111,14 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
         x_field, x_type = "_x", "O"
         x_axis = alt.Axis(labelAngle=-40, **grid)
         x_sort = df["_x"].tolist()  # explicit chronological order (row order), not alphabetical
-    elif daily:
-        x_field, x_type = x, "T"
-        few = len(df) <= 8
-        x_axis = alt.Axis(format="%b %d", formatType="utc", **grid,
-                          **({"values": [int(pd.Timestamp(t).timestamp() * 1000)
-                                         for t in df[x]]} if few else {}))
-        x_sort = "ascending"
+    elif daily and len(df) <= DAILY_FEW:
+        # a handful of daily points: one label per day ("Oct 06"), evenly
+        # spaced - a time axis would fill the gap between two closes with hours
+        df = df.copy()
+        df["_x"] = df[x].dt.strftime("%b %d")
+        x_field, x_type = "_x", "O"
+        x_axis = alt.Axis(labelAngle=0, **grid)
+        x_sort = df["_x"].tolist()
     else:
         x_field, x_type = x, "T"
         x_axis = alt.Axis(**grid)
