@@ -326,15 +326,14 @@ if PAGE == TICKER_PAGE:
         _render_ticker_dates(_sym, _pos)
         if not (_covered or bar_stats or perf.has_bars(DB)):   # any Yahoo history at all
             st.caption("Fundamentals (52-wk range, beta, P/E, market cap, sector, moving averages) "
-                       "fill in after you tap sync history (:material/history:) up top.")
+                       "fill in once price history has loaded - usually by the next morning.")
 
     # ---- news: cached Finnhub headlines, fetched when stale --------------- #
     with st.container(border=True, key="pt_tk_news"):
         st.markdown("#### Recent News")
         _news_key = resolve_key(None, ENV_PATH)
         if not _news_key:
-            st.caption("No `FINNHUB_API_KEY` in `.env` — news uses the same key as "
-                       "price refresh.")
+            st.caption("News isn't available on this copy of Northwend right now.")
         else:
             _news_conn = connect(DB)
             try:
