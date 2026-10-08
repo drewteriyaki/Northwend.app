@@ -268,4 +268,5 @@ def yahoo_price_and_name(sym: str):
     except Exception:
         return None, None
     price = info.get("regularMarketPrice") or info.get("navPrice") or info.get("previousClose")
-    return (float(price) if price else None), (info.get("shortName") or info.get("longName"))
+    # the full name: Yahoo cuts its short name at about 32 characters
+    return (float(price) if price else None), (info.get("longName") or info.get("shortName"))

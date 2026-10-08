@@ -141,12 +141,12 @@ These extra terms apply if you use Northwend as a financial advisor.
   privacy notices to your clients, and your firm's policies. Northwend is not a
   books-and-records system. You can download a client's record from Northwend for
   your own files, and you should keep your own records.
-- **Your licence is checked.** You ask for advisor access with your firm's name and
-  your CRD or licence number, and we look you up in public records (such as FINRA
+- **Your license is checked.** You ask for advisor access with your firm's name and
+  your CRD or license number, and we look you up in public records (such as FINRA
   BrokerCheck or the SEC's Investment Adviser Public Disclosure) before turning
   advisor access on, keep a record of where we looked, the number that matched and
   the date, and repeat the check about once a year. We may refuse or remove advisor
-  access at any time, for example if a licence can't be confirmed or lapses.
+  access at any time, for example if a license can't be confirmed or lapses.
 - **Whose advice it is.** What you share with a client through Northwend -
   proposals, progress reports and messages, and the emails saying one is waiting -
   shows your name and firm and says the advice is yours, not Northwend's.

@@ -846,7 +846,8 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
    on the slim band */
 .st-key-pt_page_band .st-key-ticker_back button { color: #ffffff !important; padding-left: 0;
   min-height: 2rem; }
-.pt-tk-name { font-size: 1.05rem; font-weight: 600; color: #ffffff; }
+.pt-tk-name { font-size: 1.05rem; font-weight: 600; color: #ffffff; white-space: normal;
+  overflow-wrap: anywhere; line-height: 1.3; }
 .pt-tk-kind { font-size: .8rem; color: #ffffff; opacity: .8; }
 @media (max-width: 900px) {
   .st-key-pt_home_layout { flex-direction: column !important; align-items: stretch; }
@@ -1354,10 +1355,10 @@ def _signup() -> bool:
                            "can explore Northwend as an investor. Questions about advisor "
                            f"access: {disclosures.CONTACT}")
                 firm = st.text_input("Firm name", key="signup_firm", max_chars=100)
-                licence = st.text_input("CRD or licence number", key="signup_licence",
+                licence = st.text_input("CRD or license number", key="signup_licence",
                                         max_chars=40,
                                         help="Your individual CRD number (FINRA BrokerCheck) or "
-                                             "the licence number where you're registered.")
+                                             "the license number where you're registered.")
             adult = st.checkbox(f"I'm {disclosures.MIN_AGE} or older", key="signup_adult")
             us_resident = st.checkbox(US_RESIDENT_BOX, key="signup_us")
             agreed = st.checkbox(AGREE_BOX, key="signup_agree", help=AGREE_HELP)
@@ -1960,6 +1961,18 @@ if "page" not in st.session_state:
     _wanted = str(st.query_params.get("page", "")).lower()
     st.session_state["page"] = {_slug(p): p for p in PAGES}.get(
         _wanted, OLD_SLUGS.get(_wanted) if OLD_SLUGS.get(_wanted) in PAGES else PAGES[0])
+    # a new investor (Learn leads their menu) who hasn't finished or skipped
+    # the first steps starts there, whatever page the address names
+    # (views/first_steps.py) - e.g. signing up from a ?page=home link
+    if (_wanted and PAGES[0] == "Get started" and not IS_ADVISOR and USER_ID == LOGIN_ID
+            and st.session_state["page"] not in ("Get started", TICKER_PAGE)):
+        _fs_conn = connect(DB)
+        try:
+            _fs = prefs.load(_fs_conn, USER_ID).get("first_steps") or {}
+        finally:
+            _fs_conn.close()
+        if not (_fs.get("done") or _fs.get("skipped")):
+            st.session_state["page"] = "Get started"
     if st.session_state["page"] == TICKER_PAGE:   # ?page=ticker&t=VTI
         _t = str(st.query_params.get("t", "")).strip().upper()
         if TICKER_RE.fullmatch(_t):
@@ -2421,10 +2434,14 @@ def _render_side_route():
     if here is None:
         return
     keys = route.stage_keys(route.stage_of(here), state["managed"])
+    words = route.stage_words(here, state["managed"])
+    if not state["learn_required"] and route.stage_of(here) == route.LEARN:
+        # optional Learn: the goal (or the questions) is what's left of their route
+        keys, words = state["route"], "Still to do"
     reached = sum(1 for k in keys if state["done"].get(k))
     with _SIDE_ROUTE.container(key="pt_side_route"):
         st.html(f"<div class='pt-side-route'>"
-                f"<div>{html.escape(route.stage_words(here, state['managed']))}</div>"
+                f"<div>{html.escape(words)}</div>"
                 f"<div class='pt-side-bar' role='img' aria-label='{reached} of {len(keys)} "
                 f"steps reached'><span style='width:{round(100 * reached / len(keys))}%'>"
                 f"</span></div></div>")
@@ -3048,13 +3065,21 @@ TOOLTIP_FORMAT = {"money": "$,.2f", "price": "$,.2f", "pct": ".2f", "pct_level":
                   "int": "d", "num": ",.2f"}
 
 
-def _stat_tiles(ctx, keys, ncols=4):
+def _stat_tiles(ctx, keys, ncols=4, labels=None, helps=None, skip_blank=False):
     """A compact label/value grid for a list of metrics.py keys — the
     Robinhood-style "stats" block under a ticker's chart. Skips keys with no
-    registered metric; renders '—' for a None value like the Holdings table."""
+    registered metric; renders '—' for a None value like the Holdings table.
+    `labels` / `helps`: plain words and a short explanation per key, in place
+    of the metric's own label. `skip_blank`: leave out stats with no value -
+    their labels are returned, for one "not available" line."""
+    labels, helps = labels or {}, helps or {}
     keys = [k for k in keys if k in M.BY_KEY]
+    blank = [k for k in keys if _blank(v := M.value(k, ctx))
+             or (isinstance(v, str) and v.strip() in ("", "—"))] if skip_blank else []
+    keys = [k for k in keys if k not in blank]
+    left_out = [labels.get(k, M.BY_KEY[k].label) for k in blank]
     if not keys:
-        return
+        return left_out
     # one row of columns per ncols stats, so a phone (where columns stack;
     # two per line there, .st-key-pt_stat_tiles) keeps the reading order
     with st.container(key="pt_stat_tiles"):
@@ -3064,12 +3089,13 @@ def _stat_tiles(ctx, keys, ncols=4):
                 v = M.value(k, ctx)
                 text = FORMATTERS[m.fmt](v) if m.fmt in FORMATTERS else ("—" if _blank(v) else str(v))
                 with col:
-                    st.caption(m.label)
+                    st.caption(labels.get(k, m.label), help=helps.get(k))
                     if m.color_sign and not _hidden() and not _blank(v) and v != 0:
                         st.markdown(f"<span class='{'pt-up' if v > 0 else 'pt-down'}' "
                                     f"style='font-weight:600'>{text}</span>", unsafe_allow_html=True)
                     else:
                         st.markdown(f"**{text}**")
+    return left_out
 
 
 # Categorical palette (dataviz reference palette, fixed slot order), light and

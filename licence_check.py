@@ -1,11 +1,11 @@
-"""Licence evidence and the yearly re-check (PLAN step 5 item 2, decision D15;
+"""License evidence and the yearly re-check (PLAN step 5 item 2, decision D15;
 master brief 4.1; security audit 1.2c).
 
 When the admin approves an advisor (Admin > Advisor requests, through
 admin.approve_advisor) they record the check they made: where they looked
 (FINRA BrokerCheck or the SEC's IAPD - there's no official API, so the look-up
-itself is by hand), the CRD or licence number that matched, and the day. The
-same is recorded about once a year after (Admin > Licence checks). Each check
+itself is by hand), the CRD or license number that matched, and the day. The
+same is recorded about once a year after (Admin > License checks). Each check
 is a row in licence_checks; the latest one counts:
 - due for a re-check once it's DUE_MONTHS (11) months old - Admin lists them,
   and the nightly job emails the admin how many (main(), counts only);
@@ -67,7 +67,7 @@ def check_error(source, crd, checked_on, *, today: date | None = None) -> str | 
         return "Pick where you checked: BrokerCheck or IAPD."
     crd = (crd or "").strip()
     if not crd or len(crd) > 40:
-        return "Enter the CRD or licence number that matched (up to 40 characters)."
+        return "Enter the CRD or license number that matched (up to 40 characters)."
     if not checked_on:
         return "Enter the day you checked."
     try:
@@ -136,7 +136,7 @@ def is_current(check: dict | None, *, today: date | None = None) -> bool:
 
 
 def licence_current(conn, advisor_id: int, *, today: date | None = None) -> bool:
-    """Whether this advisor's licence was checked within CURRENT_MONTHS - for
+    """Whether this advisor's license was checked within CURRENT_MONTHS - for
     the advisor directory: an advisor whose isn't is left out until they're
     re-checked (D15). False with no check on record."""
     return is_current(last_check(conn, advisor_id), today=today)
@@ -207,7 +207,7 @@ def remind(conn, app_url: str | None = None, *, today: date | None = None) -> di
 
 def main(argv=None) -> int:
     from portfolio import connect
-    ap = argparse.ArgumentParser(description="Count advisors due a licence re-check and email "
+    ap = argparse.ArgumentParser(description="Count advisors due a license re-check and email "
                                              "the admin how many (D15). Prints counts only.")
     ap.add_argument("--db", default=settings.get("DATABASE_URL") or settings.get("PORTFOLIO_DB"),
                     help="SQLite file or Postgres connection string (postgresql://...)")
@@ -223,7 +223,7 @@ def main(argv=None) -> int:
         conn.close()
     said = {True: "emailed the admin", False: "the email couldn't be sent",
             None: "no email"}[res["emailed"]]
-    print(f"Licence re-checks: {res['due']} due ({res['overdue']} not current) - {said}.")
+    print(f"License re-checks: {res['due']} due ({res['overdue']} not current) - {said}.")
     if res["emailed"] is False:
         return 1   # the workflow's "Tell the admin it failed" step says so
     return 0

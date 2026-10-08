@@ -62,7 +62,7 @@ PRO_QUESTIONS = (
     "How are you paid: a flat fee, a share of what you manage, commissions, or a mix?",
     "Are you a fiduciary - required to put my interests first - for all of the advice you "
     "give me, all of the time?",
-    "What licences or registrations do you hold, and where can I look them up (FINRA "
+    "What licenses or registrations do you hold, and where can I look them up (FINRA "
     "BrokerCheck, the SEC's adviser search)?",
     "What would you want to know about my situation before giving any advice?",
     "What do all the costs come to in a year, in dollars - your fee and the funds' own fees?",

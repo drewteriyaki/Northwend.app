@@ -67,7 +67,7 @@ days, except where a day was set.
 | When | What | How |
 |---|---|---|
 | Every quarter: January, April, July, October | The restore drill | [Restore the database](#restore-the-database), "Quarterly restore drill": a Neon branch of the live project from an hour ago, then `python scripts/restore_check.py --db "<drill branch>" --against "<live>"` (counts only, read-only). No table missing, differences only the last hour's. Delete the branch and add a line to the drill's table. |
-| Yearly for each listed advisor, as each falls due | The licence re-check | `licence_check.py`: a check is due 11 months after the last one, and the nightly tidy job emails the count each week while any are due. Admin > Licence checks lists them: look each advisor up again on FINRA BrokerCheck or the SEC's IAPD and record the source, the CRD and the day. Past 13 months an advisor is left out of the directory until re-checked. |
+| Yearly for each listed advisor, as each falls due | The license re-check | `licence_check.py`: a check is due 11 months after the last one, and the nightly tidy job emails the count each week while any are due. Admin > License checks lists them: look each advisor up again on FINRA BrokerCheck or the SEC's IAPD and record the source, the CRD and the day. Past 13 months an advisor is left out of the directory until re-checked. |
 | January | Dated yearly figures | Review dated yearly figures in season content, and anything else that names a year's figure (contribution limits, for one), against the new year's official numbers. Update them, and add a What's new entry if people will notice. |
 | October, with that quarter's drill | Key rotation | [Rotate a key](#rotate-a-key), one key at a time: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `FINNHUB_API_KEY`, the Neon password; live and staging each their own. `NORTHWEND_TOTP_KEY` only through [Two-step key](#two-step-key). Any key that may have been seen is rotated at once, whatever the month. |
 | November 6, 2026 | Retire the old Streamlit Community Cloud app | [Move to Render](#move-to-render), step 9: nobody is still opening the old address, then delete the old live app on Community Cloud (keep the staging app) and move the Streamlit line in the [Monthly budget](#monthly-budget). Then tick ROADMAP 4.8. |
@@ -1000,10 +1000,10 @@ before its name goes into the live `NORTHWEND_GATES`.
 - [ ] State coverage is handled as the attorney decided.
 - [ ] The Terms no longer say Northwend "does not refer clients" (reworded
       by the attorney).
-- [ ] Licence checks are stored, and the yearly re-check job runs (D15):
+- [ ] License checks are stored, and the yearly re-check job runs (D15):
       built - the approval form records each check (`licence_check.py`),
-      Admin > Licence checks lists those due, and the nightly tidy job's
-      "Count advisors due a licence check" step emails the count. Every
+      Admin > License checks lists those due, and the nightly tidy job's
+      "Count advisors due a license check" step emails the count. Every
       advisor has a check on record (none shows "no check on record").
 - [ ] Step 4 is done.
 

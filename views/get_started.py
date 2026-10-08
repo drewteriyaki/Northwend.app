@@ -1024,8 +1024,14 @@ def _route_state(has_holdings):
         "bring": real,
     }
     managed = CLIENT_MODE
-    learn_required = route.learn_first(profile.get("experience"), real, managed)
-    keys = route.route_keys(learn_required, managed)
+    # bringing holdings in completes Start investing, never Learn's steps:
+    # Learn stays on a new investor's route until they walk it
+    learn_required = route.learn_first(profile.get("experience"), managed)
+    # Learn optional: the goal and the questions about you stay on the route
+    # while Home still asks for them (route.STILL_ASKED)
+    still_open = tuple(k for k in route.STILL_ASKED if CAN_MANAGE and not done[k]
+                       and (k != "goal" or not plans.has_goal(plan)))
+    keys = route.route_keys(learn_required, managed, still_open)
     titles = dict(GET_STARTED_STEPS)
     return {"profile": profile, "missing": missing, "items": items, "plan": plan,
             "horizon": horizon, "done": done, "pressed": manual,
@@ -1104,7 +1110,12 @@ def _where_html(state):
     here = next((k for k, _, d in waypoints if not d), None)
     if here is None:
         return "<div class='pt-region'>Every step of your route is complete.</div>"
-    then = (f" · then {route.STAGE_NAMES[route.INVEST]}"
+    if not state["learn_required"] and route.stage_of(here) == route.LEARN:
+        # Learn is optional for them: a goal or the questions about you is
+        # the one thing Home still asks for (route.STILL_ASKED)
+        return (f"<div class='pt-region'>Still to do: "
+                f"<b>{html.escape(dict(GET_STARTED_STEPS)[here])}</b></div>")
+    then =(f" · then {route.STAGE_NAMES[route.INVEST]}"
             if route.stage_of(here) == route.LEARN else "")
     return (f"<div class='pt-region'>You're in "
             f"<b>{html.escape(route.stage_words(here, state['managed']))}</b>{then}</div>")

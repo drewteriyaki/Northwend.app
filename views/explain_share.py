@@ -26,6 +26,10 @@
 
 import explain_share as xs
 
+# why "Show my first name" can't be ticked yet - shown under it
+NO_NAME_YET = ("To show your first name, add the name you'd like to be called on your "
+               "Account page first.")
+
 
 # ---- the page the link opens ------------------------------------------------- #
 def _share_wanted() -> bool:
@@ -222,9 +226,9 @@ def render_explain_share():
         if name:
             st.checkbox(f"Show my first name ({name})", key="xs_name", value=False)
         else:
-            st.checkbox("Show my first name", key="xs_name", value=False, disabled=True,
-                        help="Add the name you'd like to be called on your Account page "
-                             "to show it.")
+            st.checkbox("Show my first name", key="xs_name", value=False, disabled=True)
+            # the reason in view, not only in a tooltip
+            st.caption(NO_NAME_YET)
         st.selectbox("The link works for", xs.DAYS_CHOICES, index=0, key="xs_days",
                      format_func=lambda d: f"{d} days")
         with st.expander("What they'll see"):

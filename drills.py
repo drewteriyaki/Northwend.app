@@ -30,6 +30,9 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 PREF = "drills"
+# a new person's first drills are good times (a raise, a bonus): the hard
+# ones, like a sharp market drop, come after these many are rehearsed
+GENTLE_FIRST = 2
 GEAR_AT = 3          # drills rehearsed for the gear (gear.py, "whistle"); the metric's "third drill"
 HARD, GOOD = "hard", "good"
 SIDES = ((HARD, "Hard times"), (GOOD, "Good times"))
@@ -327,13 +330,18 @@ def done_this_week(p: dict | None, today: date) -> str | None:
 def suggested(p: dict | None, today: date) -> tuple[str, bool]:
     """(this week's drill, whether it's a repeat with its twist): the one
     done this week if any; else the first not rehearsed yet (hard and good
-    in turn, DRILLS order); once all ten are rehearsed, the one done longest
-    ago comes back."""
+    in turn, DRILLS order) - good times first while fewer than GENTLE_FIRST
+    are rehearsed, so a new person's first weeks don't open on a market
+    drop; once all ten are rehearsed, the one done longest ago comes back."""
     s = state(p)
     this = done_this_week(p, today)
     if this:
         return this, s["done"][this]["times"] > 1
     todo = [k for k in KEYS if k not in s["done"]]
+    if len(s["done"]) < GENTLE_FIRST:
+        gentle = [k for k in todo if side_of(k) == GOOD]
+        if gentle:
+            return gentle[0], False
     if todo:
         return todo[0], False
     oldest = min(KEYS, key=lambda k: (s["done"][k]["week"], KEYS.index(k)))

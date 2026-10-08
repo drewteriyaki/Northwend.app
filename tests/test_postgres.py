@@ -882,7 +882,7 @@ class AdvisorAgreementTests(_PG):
                                                    "MAIL_DRY_RUN": ""}):
             self.assertTrue(licence_check.remind(c, today=today)["emailed"])
             self.assertIsNone(licence_check.remind(c, today=today)["emailed"])
-        self.assertEqual([s for _, s in box.sent], ["Advisor licence checks due"])
+        self.assertEqual([s for _, s in box.sent], ["Advisor license checks due"])
         self.assertEqual(self.one("SELECT number FROM app_state WHERE name = ?",
                                   (licence_check.MAILED_STATE,)),
                          {"number": today.toordinal()})

@@ -690,7 +690,7 @@ if PAGE == "Dashboard":
         st.divider()
 
         # ---- allocation ----------------------------------------------------- #
-        alloc = allocate(positions, cash_by_account, CLASS_SPLITS)
+        alloc = allocate(positions, cash_by_account, CLASS_SPLITS, sec_info)
         # What the bars group by: asset class (what's held - targets and drift use
         # this) or the broker's own asset type. One color per group across the page.
         _by_type = st.session_state.get("alloc_group") == "Broker type"
@@ -737,15 +737,33 @@ if PAGE == "Dashboard":
             st.html(_alloc_bar(alloc[_group], _title, _asset_slots))
         _render_classification(positions)
 
-        if alloc["concentration"]:
-            lines = "  \n".join(
-                f"- **{r['symbol']}** ({r['account']}) — {fmt_money(r['value'])}, "
-                + (MASK if hide_amounts else f"**{r['pct']:.1f}%**") + " of portfolio"
-                for r in alloc["concentration"]
-            )
-            st.warning(f"Positions over {CONCENTRATION_PCT:.0f}% of portfolio value:  \n{lines}")
-        else:
-            st.caption(f"No single position exceeds {CONCENTRATION_PCT:.0f}% of portfolio value.")
+        # one company (or a fund in one area) above the line; broad funds that
+        # hold many companies aren't counted (allocation.holding_kind)
+        _conc = alloc["concentration"]
+        _limit = f"{CONCENTRATION_PCT:.0f}%"
+        _singles = [r for r in _conc if r["kind"] != "focused_fund"]
+        _focused = [r for r in _conc if r["kind"] == "focused_fund"]
+
+        def _conc_line(r):
+            return (f"- **{r['symbol']}** ({r['account']}) — {fmt_money(r['value'])}, "
+                    + (MASK if hide_amounts else f"**{r['pct']:.1f}%**") + " of your portfolio")
+        _br = "  \n"   # a line break in Markdown
+        if _singles:
+            st.info(("A single company is more than " if len(_singles) == 1 else
+                     "Each of these single companies is more than ")
+                    + f"{_limit} of your portfolio:{_br}"
+                    + _br.join(_conc_line(r) for r in _singles)
+                    + f"{_br}When much of a portfolio rides on one company, its ups and downs "
+                      "move the whole thing more.", icon=":material/info:")
+        if _focused:
+            st.info(("A fund focused on one area (a sector, a region or a theme) is more than "
+                     if len(_focused) == 1 else
+                     "Each of these funds focused on one area is more than ")
+                    + f"{_limit} of your portfolio:{_br}"
+                    + _br.join(_conc_line(r) for r in _focused), icon=":material/info:")
+        if not _conc:
+            st.caption(f"No single company is more than {_limit} of your portfolio. Broad "
+                       "funds that hold many companies aren't counted here.")
         learn_more("diversification")
         what_this_means("Asset class", "Asset allocation", "Concentration", "Diversification",
                         "Drift", "Band", "Rebalancing", key="gloss_home")

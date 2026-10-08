@@ -254,7 +254,7 @@ def _fs_screen_direction(profile):
 
 
 def _fs_screen_bring(profile):
-    if route.learn_first(profile.get("experience"), False):
+    if route.learn_first(profile.get("experience")):
         # new to investing: most people here don't have an account yet, so
         # their route is the first way on - Learn, then Start investing;
         # bringing one in is still a tap away

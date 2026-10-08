@@ -31,7 +31,7 @@ account, contact us and we will delete it.
 - If you turn on two-step sign-in: the key your authenticator app uses
   ({{TWO_STEP_KEY}}) and your backup codes as hashes.
 - "Stay signed in": a random token in a cookie on your device; we store only a hash.
-- For advisors asking for access: your firm's name and your CRD or licence number,
+- For advisors asking for access: your firm's name and your CRD or license number,
   and a note of each check of your registration (where it was looked up, the number
   that matched and the day); where the advisor agreement is in use, which version
   you accepted and when.

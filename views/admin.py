@@ -75,7 +75,7 @@ def _admin_emailed(res):
 
 
 def _admin_check_from(key):
-    """The licence check typed into a form (Advisor requests, Licence checks):
+    """The license check typed into a form (Advisor requests, License checks):
     {"source", "crd", "checked_on"}, and what's wrong with it or None."""
     check = {"source": st.session_state.get(f"admin_src_{key}"),
              "crd": st.session_state.get(f"admin_crd_{key}") or "",
@@ -89,7 +89,7 @@ def _admin_check_form(key, crd=""):
     with st.container(horizontal=True, vertical_alignment="bottom"):
         st.selectbox("Checked on", licence_check.SOURCES, index=None, key=f"admin_src_{key}",
                      placeholder="BrokerCheck or IAPD")
-        st.text_input("CRD or licence number that matched", value=crd, key=f"admin_crd_{key}",
+        st.text_input("CRD or license number that matched", value=crd, key=f"admin_crd_{key}",
                       max_chars=40)
         today = datetime.now(timezone.utc).date()   # as licence_check.check_error counts
         st.date_input("Day checked", value=today, max_value=today, key=f"admin_on_{key}")
@@ -100,7 +100,7 @@ def _admin_check_form(key, crd=""):
 
 def _admin_decide(username, approve):
     """An advisor request: approve or decline it, and email them either way
-    (admin.approve_advisor / decline_advisor). Approving keeps the licence
+    (admin.approve_advisor / decline_advisor). Approving keeps the license
     check typed above it (licence_check.py, D15) - it can't go without one."""
     def act(c):
         if approve:
@@ -122,7 +122,7 @@ def _admin_decide(username, approve):
 
 
 def _admin_record_check(user_id, username):
-    """Licence checks: record a re-check of an advisor (licence_check.record)."""
+    """License checks: record a re-check of an advisor (licence_check.record)."""
     def act(c):
         check, error = _admin_check_from(f"re{user_id}")
         if error:
@@ -130,7 +130,7 @@ def _admin_record_check(user_id, username):
         row = licence_check.record(c, user_id, source=check["source"], crd=check["crd"],
                                    checked_on=check["checked_on"],
                                    by=st.session_state["user_id"])
-        return ("success", f"Recorded {username}'s licence check on {row['source']} "
+        return ("success", f"Recorded {username}'s license check on {row['source']} "
                            f"({row['checked_on']}).",
                 user_id, f"{row['source']} {row['checked_on']}")
     _admin_do(act, "licence_check")
@@ -142,10 +142,10 @@ _LICENCE_WORDS = {licence_check.NONE: "no check on record", licence_check.CURREN
 
 
 def _render_licence_checks(advisors_due):
-    """Advisors whose licence check is 11 months old or more, or missing (D15),
+    """Advisors whose license check is 11 months old or more, or missing (D15),
     each with a form to record a new one. Past 13 months they're flagged:
     the directory leaves them out until they're re-checked."""
-    st.subheader(f"Licence checks due ({len(advisors_due)})", anchor=False)
+    st.subheader(f"License checks due ({len(advisors_due)})", anchor=False)
     if not advisors_due:
         st.caption("Every advisor was checked in the last 11 months.")
         return
@@ -609,7 +609,7 @@ def _render_admin():
         with st.container(border=True):
             # firm and licence are as typed at sign-up: shown as text, never as a
             # link or an image (_md_name escapes markdown)
-            st.markdown(f"**{_md_name(r['username'])}** · {_md_name(r['firm'])} · CRD/licence "
+            st.markdown(f"**{_md_name(r['username'])}** · {_md_name(r['firm'])} · CRD/license "
                         f"**{_md_name(r['licence'])}** · asked {_admin_when(r['requested_at'])}")
             _admin_check_form(r["username"], r["licence"])
             with st.container(horizontal=True):
@@ -639,7 +639,7 @@ def _render_admin():
         # advisors: the agreement version they accepted, and their licence check
         "Agreement": (((a["agreement"]["version"] + ("" if a["agreement"]["current"] else " (old)"))
                        if a["agreement"] else "not yet") if a["is_advisor"] else ""),
-        "Licence": _LICENCE_WORDS[a["licence_status"]] if a["is_advisor"] else "",
+        "License": _LICENCE_WORDS[a["licence_status"]] if a["is_advisor"] else "",
     } for a in shown]), hide_index=True, width="stretch")
 
     pick = st.selectbox("Open an account", [a["id"] for a in shown], index=None,
@@ -658,12 +658,12 @@ def _render_admin():
             if a["is_advisor"]:
                 # what Northwend did: checked a licence number - not an endorsement
                 chk = a["licence_check"]
-                facts.append(f"licence checked {chk['checked_on']} on {chk['source']} "
+                facts.append(f"license checked {chk['checked_on']} on {chk['source']} "
                              f"(**{_md_name(chk['crd'])}**) - {_LICENCE_WORDS[a['licence_status']]}"
                              if chk else
                              f"request approved {_admin_when(a['licence_checked'])[:10]} - no "
-                             "licence check on record" if a["licence_checked"] else
-                             "advisor without a request - no licence check on record")
+                             "license check on record" if a["licence_checked"] else
+                             "advisor without a request - no license check on record")
                 ag = a["agreement"]   # advisor_agreement.py
                 facts.append(f"advisor agreement {ag['version']}"
                              + (" (beta)" if not ag["l1_on"] else "")

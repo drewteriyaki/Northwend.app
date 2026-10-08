@@ -110,7 +110,7 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 | A10 | About and disclosures (in the app and as the website's About page) | `disclosures.py` | Education | L0 (its paid and advisor sections change at L1/L2 - section 7) | No |
 | A11 | "Something went wrong" message; error email to the admin | `friendly_errors.py`, `error_alerts.py` | Account | L0 | No |
 | A12 | Admin portal: accounts, advisor requests, AI use, feature tests, System | `views/admin.py`, `admin.py` | Account | L0 | No |
-| A13 | Asking for advisor access (firm and CRD or licence number; the admin checks and approves) | `auth.py:964-991`, `views/admin.py:48`, `mailer.py:225-266` | Advisor tool | L1 | No. No stored evidence, check date or yearly re-check yet (brief 4.1). **Step 5:** the approval form records the source (BrokerCheck / IAPD), the CRD matched and the day (`licence_check.py`, `licence_checks`); Admin lists re-checks due from 11 months, flags 13; a nightly count is emailed to the admin. |
+| A13 | Asking for advisor access (firm and CRD or license number; the admin checks and approves) | `auth.py:964-991`, `views/admin.py:48`, `mailer.py:225-266` | Advisor tool | L1 | No. No stored evidence, check date or yearly re-check yet (brief 4.1). **Step 5:** the approval form records the source (BrokerCheck / IAPD), the CRD matched and the day (`licence_check.py`, `licence_checks`); Admin lists re-checks due from 11 months, flags 13; a nightly count is emailed to the admin. |
 | A14 | Advisor preview: a made-up book while access is checked | `advisor_demo.py`, `views/advisor_demo.py` | Advisor tool | L1 | No |
 | A15 | AI allowances and the "used up" messages | `ai_usage.py` | Account | L0 | No |
 
@@ -408,7 +408,7 @@ The chat itself has no client-mode rule yet.
 | US-residency attestation; 18+ as its own field | 6 (L0) | Account | L0 | Today 18+ is part of the agreement (audit 1.10c) |
 | Published Terms and Privacy Policy | 6 (L0) | Account | L0 | Drafts in `docs/legal/` |
 | Advisor agreement and attestation at seat activation | 4.1 | Advisor tool | L1 | Marked "beta" while L1 is off. **Built (step 5):** `advisor_agreement.py`, flag `advisor_agreement`; the text is a draft for the lawyer |
-| Licence evidence, check date, yearly re-check job | 4.1 | Advisor tool | L1 | **Built (step 5):** `licence_check.py` - still a manual look-up (no official API), now recorded |
+| License evidence, check date, yearly re-check job | 4.1 | Advisor tool | L1 | **Built (step 5):** `licence_check.py` - still a manual look-up (no official API), now recorded |
 | Seat billing: hosted checkout and portal, signed webhooks, seat status, founding seats, lapse grace period, daily reconciliation | 4.5, 7, 8a | Billing | L1 + `NORTHWEND_BILLING` | Not on Streamlit Community Cloud (brief 7) |
 | Pricing copy (website and app) | 4.5 | Billing | L1 | One flat price; a test that billing never reads client or intro counts |
 | The directory: profiles, filters, alphabetical only, no ranking (tested) | 4.2 | Directory | L2 | **Built** behind flag `directory` + L2 (`directory.py`, `views/directory.py`, `advisor_profiles`): B4's five filters only; alphabetical by name, tested on shuffled profiles for every filter combination. A listing may say it offers a one-time review and its price as the advisor states it (`advisor_profiles.one_time_cost`, ADR 0005) - shown, never filtered or sorted on (a filter is the L2 question above) |

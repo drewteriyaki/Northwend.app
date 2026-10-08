@@ -162,47 +162,62 @@ class WeekTests(unittest.TestCase):
 
     def test_one_a_week_the_next_not_rehearsed(self):
         p = {}
-        self.assertEqual(drills.suggested(p, self.MON), ("drop", False))
-        self.assertTrue(drills.record(p, "drop", "plan", self.MON))
-        self.assertEqual(drills.done_this_week(p, self.MON + timedelta(days=3)), "drop")
+        # a new person's first drill is a good time, never a market drop
+        self.assertEqual(drills.suggested(p, self.MON), ("raise", False))
+        self.assertTrue(drills.record(p, "raise", "split", self.MON))
+        self.assertEqual(drills.done_this_week(p, self.MON + timedelta(days=3)), "raise")
         # the rest of the week: the same drill, done; another isn't kept
-        self.assertEqual(drills.suggested(p, self.MON + timedelta(days=2)), ("drop", False))
-        self.assertFalse(drills.record(p, "raise", "split", self.MON + timedelta(days=2)))
+        self.assertEqual(drills.suggested(p, self.MON + timedelta(days=2)), ("raise", False))
+        self.assertFalse(drills.record(p, "drop", "plan", self.MON + timedelta(days=2)))
         # tapping again on this week's drill changes the choice
-        self.assertTrue(drills.record(p, "drop", "when", self.MON + timedelta(days=1)))
-        self.assertEqual(drills.chosen(p, "drop"), "when")
+        self.assertTrue(drills.record(p, "raise", "match", self.MON + timedelta(days=1)))
+        self.assertEqual(drills.chosen(p, "raise"), "match")
         self.assertEqual(drills.weeks_rehearsed(p), 1)
-        # next week: the next one, a good time
+        # next week: another good time (GENTLE_FIRST), then the hard ones in turn
         nxt = self.MON + timedelta(days=7)
-        self.assertEqual(drills.suggested(p, nxt), ("raise", False))
-        self.assertTrue(drills.record(p, "raise", "match", nxt))
+        self.assertEqual(drills.GENTLE_FIRST, 2)
+        self.assertEqual(drills.suggested(p, nxt), ("bonus", False))
+        self.assertTrue(drills.record(p, "bonus", "fund", nxt))
         self.assertEqual(drills.weeks_rehearsed(p), 2)
-        self.assertEqual(drills.rehearsed(p), ["drop", "raise"])
+        self.assertEqual(drills.rehearsed(p), ["raise", "bonus"])
+        self.assertEqual(drills.suggested(p, nxt + timedelta(days=7)), ("drop", False))
         self.assertFalse(drills.third_done(p))
+
+    def test_first_drills_are_never_hard_times(self):
+        # someone who did a hard one already: the next is still a good time
+        p = {}
+        drills.record(p, "drop", "plan", self.MON)
+        self.assertEqual(drills.suggested(p, self.MON + timedelta(days=7)), ("raise", False))
+        for n in range(20):     # nothing done: whatever the week, a good time first
+            day = self.MON + timedelta(days=7 * n)
+            self.assertEqual(drills.side_of(drills.suggested({}, day)[0]), drills.GOOD)
 
     def test_a_missed_week_costs_nothing(self):
         p = {}
-        drills.record(p, "drop", "plan", self.MON)
+        drills.record(p, "raise", "goal", self.MON)
         later = self.MON + timedelta(days=7 * 5)       # four weeks skipped
         self.assertEqual(drills.weeks_rehearsed(p), 1)
-        self.assertEqual(drills.suggested(p, later), ("raise", False))
-        drills.record(p, "raise", "goal", later)
+        self.assertEqual(drills.suggested(p, later), ("bonus", False))
+        drills.record(p, "bonus", "debt", later)
         self.assertEqual(drills.weeks_rehearsed(p), 2)   # it only grows
         self.assertEqual(drills.weeks_text(2), "Weeks you've rehearsed: 2")
 
     def test_repeats_come_back_with_a_twist(self):
         p = {}
         day = self.MON
-        for k in drills.KEYS:
+        # the two gentle ones first, then the rest in DRILLS order
+        first = [k for k in drills.KEYS if drills.side_of(k) == drills.GOOD][:2]
+        expected = first + [k for k in drills.KEYS if k not in first]
+        for k in expected:
             self.assertEqual(drills.suggested(p, day), (k, False))
             drills.record(p, k, drills.choices_of(k)[0][0], day)
             day += timedelta(days=7)
         # all ten: the one done longest ago comes back, as a repeat
-        self.assertEqual(drills.suggested(p, day), ("drop", True))
-        drills.record(p, "drop", "talk", day)
-        self.assertEqual(drills.state(p)["done"]["drop"]["times"], 2)
-        self.assertEqual(drills.suggested(p, day), ("drop", True))
-        self.assertEqual(drills.suggested(p, day + timedelta(days=7)), ("raise", True))
+        self.assertEqual(drills.suggested(p, day), (expected[0], True))
+        drills.record(p, expected[0], drills.choices_of(expected[0])[1][0], day)
+        self.assertEqual(drills.state(p)["done"][expected[0]]["times"], 2)
+        self.assertEqual(drills.suggested(p, day), (expected[0], True))
+        self.assertEqual(drills.suggested(p, day + timedelta(days=7)), (expected[1], True))
         self.assertEqual(drills.weeks_rehearsed(p), 11)
 
     def test_only_keys_are_kept(self):
@@ -409,29 +424,30 @@ class AppTests(unittest.TestCase):
         with self._app(self.bea, "bea") as at:
             text = self._text(at)
             self.assertIn("This week's drill", text)
-            self.assertIn(drills.title_of("drop"), text)
+            # day one opens on a good time, not a sharp market drop
+            self.assertIn(f"<b>{drills.title_of('raise')}</b>", text)
             self.assertIn("0 of 10 situations rehearsed", text)
             at.button(key="drill_start").click().run()
             text = self._text(at)
-            self.assertIn(drills.BY_KEY["drop"][3], text)
+            self.assertIn(drills.BY_KEY["raise"][3], text)
             self.assertIn(drills.BEGINNER_LINE, text)          # no mix: the beginner version
             self.assertNotIn("% is in stocks", text)
             keys = [b.key for b in at.button]
-            for c, _w in drills.choices_of("drop"):
+            for c, _w in drills.choices_of("raise"):
                 self.assertIn(f"drill_tap_{c}", keys)
-            at.button(key="drill_tap_when").click().run()
+            at.button(key="drill_tap_match").click().run()
             text = self._text(at)
-            self.assertIn(drills.choice_words("drop", "when"), text)
+            self.assertIn(drills.choice_words("raise", "match"), text)
             self.assertIn(drills.THINK_LEAD, text)
-            self.assertIn(drills.think_of("drop"), text)
+            self.assertIn(drills.think_of("raise"), text)
             self.assertIn(drills.NO_RIGHT_ANSWER, text)
             self.assertIn("1 of 10 situations rehearsed", text)
             self.assertIn("Weeks you&#x27;ve rehearsed: 1", text)
-            self.assertNotIn("drill_tap_plan", [b.key for b in at.button])
+            self.assertNotIn("drill_tap_split", [b.key for b in at.button])
         kept = self._prefs(self.bea)[drills.PREF]
-        self.assertEqual(kept, {"done": {"drop": {"choice": "when",
-                                                  "week": drills.iso_week(date.today()),
-                                                  "times": 1}},
+        self.assertEqual(kept, {"done": {"raise": {"choice": "match",
+                                                   "week": drills.iso_week(date.today()),
+                                                   "times": 1}},
                                 "weeks": [drills.iso_week(date.today())]})
         # in her own export, as one of her settings
         c = portfolio.connect(self.db)

@@ -218,7 +218,7 @@ def cmd_set_admin(args, flag: bool) -> int:
 
 
 def cmd_advisor_requests(args) -> int:
-    """Accounts waiting for advisor access: check the firm and licence (e.g.
+    """Accounts waiting for advisor access: check the firm and license (e.g.
     FINRA BrokerCheck or the SEC's adviser search for a CRD number), then
     make-advisor or decline-advisor."""
     conn = connect(args.db)
@@ -227,7 +227,7 @@ def cmd_advisor_requests(args) -> int:
         print("No advisor requests waiting.")
         return 0
     for r in rows:
-        print(f"  {r['username']:<30} {r['firm']:<30} licence {r['licence']:<14} "
+        print(f"  {r['username']:<30} {r['firm']:<30} license {r['licence']:<14} "
               f"asked {r['requested_at']}")
     print("\nCheck each one (BrokerCheck: https://brokercheck.finra.org), then "
           "make-advisor <username> or decline-advisor <username>.")
@@ -588,7 +588,7 @@ def main(argv=None) -> int:
         if name == "make-advisor":   # the licence check made (licence_check.py, D15)
             p.add_argument("--source", choices=("BrokerCheck", "IAPD"),
                            help="where the registration was looked up")
-            p.add_argument("--crd", help="the CRD or licence number that matched")
+            p.add_argument("--crd", help="the CRD or license number that matched")
             p.add_argument("--checked-on", help="the day it was checked (YYYY-MM-DD; today "
                                                 "if left out)")
     sub.add_parser("advisor-requests", help="accounts waiting for advisor access")

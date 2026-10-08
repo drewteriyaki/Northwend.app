@@ -1214,14 +1214,14 @@ def advisor_request_error(firm: str, licence: str) -> str | None:
     if not firm or len(firm) > 100:
         return "Enter your firm's name (up to 100 characters)."
     if not licence or len(licence) > 40:
-        return "Enter your CRD or licence number (up to 40 characters)."
+        return "Enter your CRD or license number (up to 40 characters)."
     return None
 
 
 def request_advisor(conn, user_id: int, firm: str, licence: str, *,
                     now: datetime | None = None) -> None:
     """Record that this account asked for advisor access. The admin checks the
-    firm and licence and approves it (set_advisor / manage_users.py
+    firm and license and approves it (set_advisor / manage_users.py
     make-advisor) or declines it (decline_advisor); until then the account
     is an ordinary investor account. A new request replaces an earlier one."""
     error = advisor_request_error(firm, licence)

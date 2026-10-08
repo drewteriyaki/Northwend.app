@@ -284,7 +284,7 @@ def advisor_request(email: str, firm: str, licence: str, app_link: str = "") -> 
     access, with what to check and where to decide: the Admin portal
     (`app_link` + ?page=admin), or the command line."""
     admin = f"{app_link.split('?')[0]}?page=admin" if app_link else ""
-    text = (f"{email} asked for advisor access.\n\nFirm: {firm}\nCRD or licence number: "
+    text = (f"{email} asked for advisor access.\n\nFirm: {firm}\nCRD or license number: "
             f"{licence}\n\nCheck it (BrokerCheck: https://brokercheck.finra.org), then "
             + (f"approve or decline it in the Admin portal, under Advisor requests:\n  {admin}\n\n"
                "Or from the command line:\n" if admin else "run\n")
@@ -308,18 +308,18 @@ def advisor_approved(to: str, link: str) -> bool:
 
 
 def licence_checks_due(to: str, link: str, due: int, overdue: int) -> bool:
-    """The nightly licence step (licence_check.remind, D15): how many advisors
+    """The nightly license step (licence_check.remind, D15): how many advisors
     need their registration looked up again - counts only, never a name or a
     number. To the admin (error_alerts.alert_to)."""
-    lines = [f"{due} advisor{'s are' if due != 1 else ' is'} due a licence check: no check on "
+    lines = [f"{due} advisor{'s are' if due != 1 else ' is'} due a license check: no check on "
              "record, or the last one is 11 months old or more.",
              (f"{overdue} of them {'have' if overdue != 1 else 'has'} no check in the last 13 "
               "months, so they're left out of the advisor directory until they're re-checked."
               if overdue else "All of them are still within 13 months of their last check."),
              "Look each one up on BrokerCheck or IAPD, then record it in the Admin portal, under "
-             "Licence checks."]
+             "License checks."]
     text = "\n\n".join(lines) + f"\n\nOpen Admin: {link}\n"
-    return send(to, "Advisor licence checks due", text, _html(lines, ("Open Admin", link)))
+    return send(to, "Advisor license checks due", text, _html(lines, ("Open Admin", link)))
 
 
 def advisor_declined(to: str, link: str) -> bool:
@@ -327,7 +327,7 @@ def advisor_declined(to: str, link: str) -> bool:
     admin.decline_advisor). Polite, and says what to do next."""
     lines = ["Thank you for asking for advisor access to Northwend. We weren't able to "
              "approve it this time.",
-             "This usually happens when we can't match the firm or the CRD or licence number "
+             "This usually happens when we can't match the firm or the CRD or license number "
              "to a public record, or when some details were missing.",
              "Your account still works as an investor account. If you think we got it wrong, "
              "or you'd like to send more details, reply to this email or write to "

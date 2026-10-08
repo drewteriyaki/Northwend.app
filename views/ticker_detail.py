@@ -119,6 +119,52 @@ def _remove_from_watchlist(sym):
     _go(st.session_state.get("ticker_from") or "Watchlist")
 
 
+def _tk_full_name(*names):
+    """The longest of a holding's names (the brokerage's description, Yahoo's
+    name) - one may be cut short at the source."""
+    names = [str(n).strip() for n in names if n and str(n).strip()]
+    return max(names, key=len) if names else ""
+
+
+# a ticker's stats in plain words, each with a short explanation (its ⓘ)
+TK_STATS = (
+    ("prev_close", "Yesterday's closing price", None),
+    ("day_open", "Today's opening price", None),
+    ("day_high", "Today's high", None),
+    ("day_low", "Today's low", None),
+    ("week52_high", "Highest price in the past year", None),
+    ("week52_low", "Lowest price in the past year", None),
+    ("pct_off_52wk_high", "Below the past year's high",
+     "How far today's price is under the highest price of the past 52 weeks."),
+    ("volume", "Shares traded (latest day)", None),
+    ("avg_volume", "Shares traded on an average day", None),
+    ("beta", "How much it moves vs the market (beta)",
+     "About 1 means it has tended to move up and down about as much as the market as a "
+     "whole; above 1, more; below 1, less. It looks back, not ahead."),
+    ("pe_ttm", "Price to earnings (P/E)",
+     "The share price divided by the company's profit per share over the past 12 months - "
+     "one way to compare a price with what the company earns."),
+    ("pb_ratio", "Price to book value (P/B)",
+     "The share price compared with what the company owns minus what it owes, per share, "
+     "as its accounts show it."),
+    ("market_cap", "Company size (market value)",
+     "All of the company's shares together, at today's price."),
+    ("sector", "Sector", "The part of the economy the company is in."),
+    ("ma_20", "20-day average price",
+     "The average closing price over the last 20 trading days - it smooths out daily moves."),
+    ("ma_50", "50-day average price", "The average closing price over the last 50 trading days."),
+    ("ma_200", "200-day average price",
+     "The average closing price over the last 200 trading days, about ten months."),
+    ("price_vs_ma50", "Price vs its 50-day average",
+     "How far today's price is above or below its 50-day average price."),
+    ("div_yield_pct", "Dividend yield", "A year's dividends as a percentage of today's price."),
+    ("div_pay_date", "Dividend pay date", None),
+    ("reinvest", "Dividends reinvested", "Whether your brokerage buys more shares with the "
+                                         "dividends this holding pays."),
+    ("next_earnings", "Next earnings report", None),
+)
+
+
 def _ticker_context(sym):
     """(position, metric context, held?) for `sym`: the holding's own, or a
     position-less one for a watched ticker (the metrics read through
@@ -155,10 +201,13 @@ if PAGE == TICKER_PAGE:
                                      (sec_info.get(_sym) or {}).get("quote_type")))
 
     # ---- on the band: its name and what it is, under the ticker ---------- #
+    # the fuller of the two names (Yahoo's short name stops at about 32
+    # characters; a brokerage's description may be longer), wrapped in full
+    _tk_name = _tk_full_name(_pos.get("description"), (sec_info.get(_sym) or {}).get("name"))
     with _HOME_HERO or st.container():
         st.html("<div class='pt-hero pt-tk-hero'>"
-                + (f"<div class='pt-tk-name'>{html.escape(_pos['description'])}</div>"
-                   if _pos.get("description") else "")
+                + (f"<div class='pt-tk-name'>{html.escape(_tk_name)}</div>"
+                   if _tk_name else "")
                 + "<div class='pt-tk-kind'>"
                 + ("In your holdings" if _is_held else "On your watchlist") + "</div></div>")
 
@@ -237,15 +286,20 @@ if PAGE == TICKER_PAGE:
                 if not hide_amounts:
                     _tips.append(alt.Tooltip(f"{tk_col}:Q", title=_title, format=TOOLTIP_FORMAT[_fname]))
                     for _mc, _, _ in mas:
-                        _tips.append(alt.Tooltip(f"{_mc}:Q", title=_mc.replace("ma_", "") + "-day MA",
+                        _tips.append(alt.Tooltip(f"{_mc}:Q", title=_mc.replace("ma_", "") + "-day average",
                                                  format="$,.2f"))
                 st.altair_chart(
                     charts.line(win, x="t", y=tk_col, y_title=_title, y_format=AXIS_FORMAT[_fname],
                                 overlays=mas, tooltip=_tips, mask=hide_amounts,
-                                compress_gaps=(_interval in ("1m", "5m", "15m", "60m"))),
+                                compress_gaps=(_interval in ("1m", "5m", "15m", "60m")),
+                                daily=(_interval == "1d")),
                     width="stretch",
                 )
                 _res_label = perf.INTERVAL_LABEL.get(_interval, _interval)
+                if _has_yahoo and _interval == "1d" and (charts.RANGE_DAYS[rng] or 99) <= 1:
+                    # no prices through the day for 1D: say what the line shows
+                    st.caption(f"Prices through the day aren't kept for {_sym} yet, so this "
+                               f"shows its last {len(win)} daily closing prices.")
                 st.caption(
                     f"{len(win)}" + (f" of {len(full)}" if len(win) != len(full) else "") + " points · "
                     + (f"**{_res_label}** Yahoo bars." if _has_yahoo
@@ -314,19 +368,25 @@ if PAGE == TICKER_PAGE:
     # ---- stats: day range, fundamentals, income -------------------------- #
     with st.container(border=True, key="pt_tk_stats"):
         st.markdown("#### Stats")
-        _stat_tiles(_ctx, [
-            "prev_close", "day_open", "day_high", "day_low",
-            "week52_high", "week52_low", "pct_off_52wk_high",
-            "volume", "avg_volume", "beta", "pe_ttm", "pb_ratio", "market_cap", "sector",
-            "ma_20", "ma_50", "ma_200", "price_vs_ma50",
-            "div_yield_pct", "div_pay_date", "reinvest", "next_earnings",
-        ])
+        # plain words with a short explanation each; stats with nothing to
+        # show are left out and named once, instead of rows of dashes
+        _missing_stats = _stat_tiles(_ctx, [k for k, _, _ in TK_STATS],
+                                     labels={k: w for k, w, _ in TK_STATS},
+                                     helps={k: h for k, _, h in TK_STATS if h},
+                                     skip_blank=True)
+        if _missing_stats:
+            _what = ("this fund" if fees.holding_type((sec_info.get(_sym) or {}).get("quote_type"),
+                                                      _pos.get("asset_type")) == "fund"
+                     else _sym)
+            st.caption(f"Not available for {_what}: " + "; ".join(_missing_stats) + ".")
         if not _blank(M.value("div_yield_pct", _ctx)):
             learn_more("dividends")   # beside its dividend yield
+        what_this_means("Dividend yield", "Volatility", key="tk_stats_words")
         _render_ticker_dates(_sym, _pos)
         if not (_covered or bar_stats or perf.has_bars(DB)):   # any Yahoo history at all
-            st.caption("Fundamentals (52-wk range, beta, P/E, market cap, sector, moving averages) "
-                       "fill in once price history has loaded - usually by the next morning.")
+            st.caption("More stats (the past year's range, beta, price to earnings, company size, "
+                       "sector, average prices) fill in once price history has loaded - usually "
+                       "by the next morning.")
 
     # ---- news: cached Finnhub headlines, fetched when stale --------------- #
     with st.container(border=True, key="pt_tk_news"):

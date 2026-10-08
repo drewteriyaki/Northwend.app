@@ -111,7 +111,7 @@ route drawn as a trail, milestones earned as pieces of gear.
   (3-minute routine, optional no-figures reminder email).
 
 **For advisors**
-- Approval with a licence check; two-step sign-in required.
+- Approval with a license check; two-step sign-in required.
 - Your clients: every client on one page (value, alerts, reviews due, who
   needs a look), client names and households, one-step "add and send invite"
   from the advisor's name and firm.

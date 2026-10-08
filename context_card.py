@@ -379,7 +379,7 @@ def stage_of(*, has_real_holdings: bool, experience: str | None, managed: bool) 
     import route
     if has_real_holdings:
         return "investing"
-    return "learn" if route.learn_first(experience, False, managed) else "invest"
+    return "learn" if route.learn_first(experience, managed) else "invest"
 
 
 def for_conversation(store, account_id: int, make) -> tuple[str, bool]:

@@ -6,7 +6,7 @@
 - the standing line (standing_line.py, brief 4.4) on every advisor-authored
   thing a client sees: proposals, progress reports (in the app and as PDFs),
   the advisor card over their notes, messages, and the emails;
-- licence evidence and the yearly re-check (licence_check.py, D15): recorded
+- license evidence and the yearly re-check (licence_check.py, D15): recorded
   at approval, due after 11 months, not current after 13, a nightly count
   emailed to the admin.
 
@@ -309,8 +309,8 @@ class LicenceTests(_DB):
             self.assertTrue(licence_check.remind(c, today=date(2026, 10, 13))["emailed"])
         self.assertEqual(len(sent), 2)
         to, subject, text = sent[0]
-        self.assertEqual((to, subject), ("owner@example.com", "Advisor licence checks due"))
-        self.assertIn("3 advisors are due a licence check", text)
+        self.assertEqual((to, subject), ("owner@example.com", "Advisor license checks due"))
+        self.assertIn("3 advisors are due a license check", text)
         self.assertIn("https://app.example/?page=admin", text)
         for name in ("carol", "ben", "cy", "1234567"):   # counts only
             self.assertNotIn(name, text)
@@ -324,7 +324,7 @@ class LicenceTests(_DB):
                 contextlib.redirect_stdout(out):
             self.assertEqual(licence_check.main(["--db", self.db]), 0)
         self.assertEqual(out.getvalue().strip(),
-                         "Licence re-checks: 0 due (0 not current) - no email.")
+                         "License re-checks: 0 due (0 not current) - no email.")
 
     def test_the_nightly_step_runs_with_a_failure_alert(self):
         with open(os.path.join(REPO, ".github", "workflows", "scheduled-sync.yml"),
@@ -514,11 +514,11 @@ class AppTests(unittest.TestCase):
                          ("BrokerCheck", "7012345", self.ann))
         self.assertIn("checked on BrokerCheck", log[0]["detail"])
         # carol has no check on record: listed as due, and a re-check is recorded there
-        self.assertIn("Licence checks due", self._text(at))
+        self.assertIn("License checks due", self._text(at))
         at.selectbox(key=f"admin_src_re{self.carol}").set_value("IAPD")
         at.button(key=f"admin_check_{self.carol}").click()
         self._run(at, admins="ann")
-        self.assertIn("Enter the CRD or licence number", self._text(at))   # none typed yet
+        self.assertIn("Enter the CRD or license number", self._text(at))   # none typed yet
         at.text_input(key=f"admin_crd_re{self.carol}").input("CRD 7654321")
         at.button(key=f"admin_check_{self.carol}").click()
         self._run(at, admins="ann")

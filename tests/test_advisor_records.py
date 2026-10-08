@@ -284,7 +284,7 @@ class ClientRecordTests(_DB):
 
 
 class WordingTests(unittest.TestCase):
-    """Northwend checks an advisor's licence number - it doesn't vet or
+    """Northwend checks an advisor's license number - it doesn't vet or
     endorse them, and nothing in the app or on the website says it does."""
 
     PATTERN = (r"\b(vetted|vetting|verified (financial )?advisors?|trusted (financial )?advisors?"
@@ -304,7 +304,7 @@ class WordingTests(unittest.TestCase):
         with open(os.path.join(REPO, "website", "public", "advisors.html"),
                   encoding="utf-8") as fh:
             page = fh.read()
-        self.assertIn("We check your licence", page)
+        self.assertIn("We check your license", page)
         self.assertIn("isn't an endorsement", page.replace("&#x27;", "'").replace("&#39;", "'"))
 
 

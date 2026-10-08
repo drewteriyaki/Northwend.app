@@ -482,7 +482,7 @@ def withdraw(conn, person_id: int, intro_id: int, *, now: datetime | None = None
 def can_share(conn, person_id: int, intro_id: int) -> str | None:
     """Why the person can't share their full account from this intro, or None:
     the advisor has answered and not declined, the person has no advisor yet,
-    and the advisor is still an approved advisor whose licence check and
+    and the advisor is still an approved advisor whose license check and
     agreement are current (directory.OUTSIDE_CHECKS)."""
     import directory
     row = _mine_as_person(conn, person_id, intro_id)

@@ -57,7 +57,7 @@ than the code does.
 | 1.5a | Secrets in git history: none, checked on the full history (141 commits, Oct 5) | Not an issue | - |
 | 1.1c | Login throttling is per username only: nothing limits one address trying many usernames | Partly | P1 |
 | 1.2a | Access checks are sound, but no app-level test tries another person's `?client=` id, and some helpers make the advisor filter optional | Partly | P1 |
-| 1.2c | The advisor licence check is a manual BrokerCheck look. No evidence is kept and nothing re-checks it yearly | Partly | P1 |
+| 1.2c | The advisor license check is a manual BrokerCheck look. No evidence is kept and nothing re-checks it yearly | Partly | P1 |
 | 1.3d | Screenshot reading sends the whole image (balances, account names and numbers) to the AI, and the AI sends back share counts and cost | Needs decision | P1 |
 | 1.4b | "Percentages only" is held by tests, not by a type. The chat's memory tool asks the AI to keep "amounts" | Partly | P1 |
 | 1.4c | AI limits are per account. Nothing caps the whole app's monthly spend, and the chat box has no length limit | Partly | P1 |
@@ -222,8 +222,8 @@ Python code runs and draws it, so "hidden" means "not sent". Client mode
 database (`views/admin.py:20-29`). This would need re-doing in any future
 API (see PLAN.md Phase 3).
 
-**1.2c Advisor approval and licence check - Partly, P1.**
-Done: asking for advisor access stores the firm and the CRD or licence
+**1.2c Advisor approval and license check - Partly, P1.**
+Done: asking for advisor access stores the firm and the CRD or license
 number (`auth.py:964-987`). The admin sees them with a "Check on BrokerCheck"
 link and approves or declines; the person is emailed either way
 (`views/admin.py:318-323`, `admin.py:94-120`). Until then the account is an
@@ -231,7 +231,7 @@ ordinary investor account with no client features. The pending "demo book"
 is made-up data in memory, labelled "Example" and never written anywhere
 (`advisor_demo.py:1-12`, `views/advisor_demo.py:94`).
 Open:
-- What was checked isn't recorded. The approval date is shown as "licence
+- What was checked isn't recorded. The approval date is shown as "license
   checked" (`views/admin.py:361-364`), but there's no CRD match or IAPD link
   saved with it.
 - Nothing re-checks once a year.
@@ -239,7 +239,7 @@ Open:
   (`docs/legal/terms-of-use-DRAFT.md:154-155`).
 *PLAN step 5 (built):* all three. The approval form records the source
 (BrokerCheck or IAPD), the CRD matched and the day (`licence_check.py`,
-`licence_checks`); Admin > Licence checks lists advisors due from 11 months
+`licence_checks`); Admin > License checks lists advisors due from 11 months
 and flags them past 13 (`licence_check.licence_current` for the directory); the
 nightly tidy job emails the admin a count, at most weekly; the Terms draft
 describes the process.

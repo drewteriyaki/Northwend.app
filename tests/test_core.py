@@ -267,6 +267,36 @@ class AllocationTests(unittest.TestCase):
         self.assertEqual(r["by_asset_type"][1]["label"], "ETF / CEF")    # short label
         self.assertEqual(r["concentration"][0]["symbol"], "X")           # 2000/4000 = 50%
         self.assertTrue(all(c["pct"] > allocation.CONCENTRATION_PCT for c in r["concentration"]))
+        self.assertEqual(r["concentration"][0]["kind"], allocation.SINGLE)
+
+    def test_broad_funds_are_not_concentration(self):
+        pos = [
+            {"account": "A", "symbol": "VTI", "asset_type": "ETF", "market_value": 6000},
+            {"account": "A", "symbol": "VFFVX", "asset_type": "Mutual Fund", "market_value": 2000},
+            {"account": "A", "symbol": "XLK", "asset_type": "ETFs & Closed End Funds",
+             "market_value": 1000},
+            {"account": "A", "symbol": "AAPL", "asset_type": "Equity", "market_value": 1000},
+        ]
+        info = {"VTI": {"quote_type": "ETF", "category": "Large Blend",
+                        "name": "Vanguard Total Stock Market Index Fund ETF"},
+                "VFFVX": {"quote_type": "MUTUALFUND", "category": "Target-Date 2055"},
+                "XLK": {"quote_type": "ETF", "category": "Technology"},
+                "AAPL": {"quote_type": "EQUITY", "category": None}}
+        # VTI 60% and the target-date fund 20% are broad; the others 10% each
+        r = allocation.allocate(pos, {}, info=info)
+        self.assertEqual(r["concentration"], [])
+        pos[2]["market_value"] = pos[3]["market_value"] = 2500
+        r = allocation.allocate(pos, {}, info=info)
+        # VTI 46% and the target-date fund 15.4% are broad: never flagged
+        self.assertEqual({c["symbol"]: c["kind"] for c in r["concentration"]},
+                         {"XLK": allocation.FOCUSED_FUND, "AAPL": allocation.SINGLE})
+        # without Yahoo's data, a fund by its broker type isn't one company either
+        r = allocation.allocate(pos, {})
+        self.assertEqual([c["symbol"] for c in r["concentration"]], ["AAPL"])
+        self.assertEqual(allocation.holding_kind({"asset_type": "ETF"},
+                                                 {"category": "Moderate Allocation"}),
+                         allocation.BROAD_FUND)
+        self.assertEqual(allocation.holding_kind({"asset_type": ""}, None), allocation.SINGLE)
 
 
 class AlertTests(unittest.TestCase):

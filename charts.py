@@ -67,7 +67,7 @@ MA_STYLE = {20: ("#f59e0b", [1, 0]), 50: ("#a78bfa", [5, 3]), 200: ("#64748b", [
 def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
          color: str | None = None, color_scale=None, line_color: str | None = None,
          tooltip=None, overlays=None, mask: bool = False, compress_gaps: bool = False,
-         height: int = 320):
+         height: int = 320, daily: bool = False):
     """Layered chart: a smooth gridded line (no permanent point markers), a
     nearest-date hover rule, and an emphasised dot that only appears at the
     hovered date. `tooltip` is a list of alt.Tooltip. `overlays` is a list of
@@ -89,6 +89,10 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
     happened — the same trick real stock-chart tools use for intraday data.
     `x` must already be sorted ascending; only meaningful for intraday
     resolutions (daily bars have no large gaps to compress).
+
+    `daily=True` (one point a day): the time axis shows days only - never
+    hours between two daily closes - with a tick on each day when there are
+    only a few.
     """
     df = df.sort_values(x).reset_index(drop=True)
     grid = dict(grid=True, gridOpacity=0.25, gridDash=[2, 2])
@@ -105,6 +109,13 @@ def line(df: pd.DataFrame, *, x: str, y: str, y_title: str, y_format: str,
         x_field, x_type = "_x", "O"
         x_axis = alt.Axis(labelAngle=-40, **grid)
         x_sort = df["_x"].tolist()  # explicit chronological order (row order), not alphabetical
+    elif daily:
+        x_field, x_type = x, "T"
+        few = len(df) <= 8
+        x_axis = alt.Axis(format="%b %d", formatType="utc", **grid,
+                          **({"values": [int(pd.Timestamp(t).timestamp() * 1000)
+                                         for t in df[x]]} if few else {}))
+        x_sort = "ascending"
     else:
         x_field, x_type = x, "T"
         x_axis = alt.Axis(**grid)

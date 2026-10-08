@@ -147,7 +147,7 @@ def _advisor_email(conn, username: str) -> tuple[dict | None, str | None]:
 def approve_advisor(conn, username: str, app_link: str | None = None, *,
                     check: dict | None = None, by: int | None = None) -> dict:
     """Make `username` an advisor (approving their request, if any) and email
-    them that it's ready (mailer.advisor_approved). `check`: the licence check
+    them that it's ready (mailer.advisor_approved). `check`: the license check
     the admin made - {"source", "crd", "checked_on"} (licence_check.record,
     D15), kept with `by` (the admin); a bad one raises ValueError before
     anything changes (licence_check.check_error). Returns {"ok": False if
@@ -192,7 +192,7 @@ def list_accounts(conn, *, now: datetime | None = None) -> list[dict]:
     (a client's advisor's username), clients (an advisor's count),
     ai_unlimited, signed_up (made it themselves), terms_version and
     terms_accepted_at (agreeing to the disclosures), licence_checked (the day
-    of the latest recorded licence check, else when an advisor request was
+    of the latest recorded license check, else when an advisor request was
     approved, else None), licence_check (the latest recorded check, or None),
     licence_status (an advisor's licence_check.status, else None), agreement
     (the advisor agreement last accepted, advisor_agreement.latest_all, or

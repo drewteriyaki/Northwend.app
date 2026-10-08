@@ -16,7 +16,7 @@ review with an advisor for a flat fee is the easiest way to try advice.
 
 Most of what this needs is built behind flags (PLAN step 5): the directory
 ("Find a guide", flag `directory`, gate L2), introductions and two-step consent
-(flag `intros`, gate L2), the advisor agreement, licence checks, the standing
+(flag `intros`, gate L2), the advisor agreement, license checks, the standing
 "advice is the advisor's" line, consent records and the access log.
 
 ## Decision

@@ -113,7 +113,7 @@ All tests pass on both. Decision B10 is whether to release them.
 | Proposals, reports, meeting prep, message all clients, model portfolios, weekly counts email | `proposals.py`, `reports.py`, `meeting.py`, `weekly_email.py` | §4.4 | The standing line on every advisor artefact a client sees: the advisor's name and firm, and "the advice is the advisor's, not Northwend's". Not there today |
 | Notes archived, edits keep history; client record export | `advising.archive_note`, `export.client_record_zip` | §4.4 | Nothing |
 | Two-step sign-in, required for advisors and admins | `two_step.py`, `views/two_step.py` | §4.1 | An AppTest that the gate can't be skipped (Phase 0) |
-| Advisor request with firm and CRD; admin approval with a BrokerCheck link | `auth.request_advisor`, `admin.approve_advisor` | §4.1 licence check | Evidence and date stored; a yearly re-check job (D15) |
+| Advisor request with firm and CRD; admin approval with a BrokerCheck link | `auth.request_advisor`, `admin.approve_advisor` | §4.1 license check | Evidence and date stored; a yearly re-check job (D15) |
 | Monthly AI allowances, counted atomically | `ai_usage.py` | §5.4 | The rest is in `AI_PLAN.md` |
 | Export everything; self-delete | `export.py`, `admin.delete_account` | L0 | A former advisor's records kept on delete (D7) |
 | 18+ box at sign-up, stored with the terms version | `auth.sign_up` | L0 | US residency, and both as their own timestamped fields (D10) |
@@ -470,7 +470,7 @@ marked "beta".
    L1). Stored like the terms: version, a hash of the exact text, time.
    Shown again when the version changes. Flag `advisor_agreement`, gate L1
    (the beta text shows while L1 is off).
-2. **Licence evidence and the yearly re-check (S-M, 1-2 sessions, D15).**
+2. **License evidence and the yearly re-check (S-M, 1-2 sessions, D15).**
    At approval the admin records the CRD match, the source (BrokerCheck or
    IAPD) and the date. A yearly job emails the admin how many are due. An
    advisor not re-checked within 13 months leaves the directory until
@@ -480,7 +480,7 @@ marked "beta".
    regulator link), credentials, fee model as the advisor states it,
    minimums, who they serve, states served, virtual or in person, a short
    description, a scheduling link. Edited by the advisor; shown only once
-   approved and the licence is current.
+   approved and the license is current.
 4. **"Find a guide": browse with filters (M, 2 sessions).** Filters per
    B4. Order: alphabetical within the filters, and nothing else. No
    featured slots, ratings, reviews or "best match". A test builds
@@ -677,7 +677,7 @@ Each behind its own flag; classification in `LEGAL_GATES.md`.
 - **A status page (S, G7):** hand-edited, on the website, no scripts.
 - **A "what's new" page (S, G11):** a short dated list, linked from About.
 - **Price "as of" and "report a wrong price" (M, G8).**
-- **The quarterly restore drill and the yearly licence re-check** in the
+- **The quarterly restore drill and the yearly license re-check** in the
   runbook's calendar.
 
 ---
@@ -691,7 +691,7 @@ Each behind its own flag; classification in `LEGAL_GATES.md`.
 | 2 | AI foundations; example-mix rewrite | `AI_PLAN.md` | 2-3 weeks (AI_PLAN.md section 10: 18 small steps, about 14-18 sessions) | Yes |
 | 3 | Walk flag, Ledger, Log, Storm Drill, 401(k) decoder, no-account decoder | 12-14 | 2-2.5 weeks | Yes |
 | 4 | Render, Cloudflare, restore drill, keys, roles | 3-5 code + owner time | ~1 week, overlapped with steps 1-3 | Yes (0-1 week on the path) |
-| 5 | Agreement, licence record, directory, intros, consent, access log, standing line | 20-24 | 3-4 weeks | Yes |
+| 5 | Agreement, license record, directory, intros, consent, access log, standing line | 20-24 | 3-4 weeks | Yes |
 | 6 | Seats, pricing, checkout, sync job, lapse, founding seats, owner metrics | 13-16 (+2-3 for a webhook service) | 2-2.5 weeks (+0.5) | Yes |
 | 7 | Remaining AI helpers | `AI_PLAN.md` | `AI_PLAN.md` | No |
 | 8 | Service seams; frontend later | - | ~1 week spread; frontend 3-4 months if ever chosen | No |
@@ -922,7 +922,7 @@ amounts are the provider's.
 *Why:* the key would sit beside the database URL, so it guards a narrow
 case (a leaked backup).
 
-**D15. How is an advisor's licence checked, and how often?** *(updated:
+**D15. How is an advisor's license checked, and how often?** *(updated:
 the brief wants a job)*
 *Recommended:* BrokerCheck or IAPD by CRD at approval, with the match,
 source and date stored. A yearly job emails the admin who's due. An

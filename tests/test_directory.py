@@ -79,7 +79,7 @@ _REAL_OUTSIDE_CHECKS = directory._outside_checks
 
 @contextlib.contextmanager
 def _checks(*fns):
-    """directory's outside checks (the licence and agreement modules,
+    """directory's outside checks (the license and agreement modules,
     directory.OUTSIDE_CHECKS) replaced by these - none: approval alone."""
     with unittest.mock.patch.object(directory, "_outside_checks", lambda: list(fns)):
         yield
@@ -254,7 +254,7 @@ class ListingRuleTests(_DbCase):
         with _checks(lambda conn, uid: fake.licence_current(conn, uid)):
             self.assertEqual(self.names(), [])          # not current: left out
             self.assertIn(self.carol, calls)
-            self.assertIn("Your licence check or advisor agreement needs renewing.",
+            self.assertIn("Your license check or advisor agreement needs renewing.",
                           directory.why_not_shown(self.c, self.carol))
             fake.licence_current = lambda conn, uid: True
             self.assertEqual(self.names(), ["Carol Ruiz"])

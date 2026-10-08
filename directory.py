@@ -32,7 +32,7 @@ The rules, enforced here and tested (tests/test_directory.py):
 - **Shown only when** (visible): the account is an approved advisor
   (users.is_advisor), the profile is complete (missing), the advisor
   switched "listed" on, and - once the other step-5 work lands - the
-  licence check is current and the advisor agreement accepted
+  license check is current and the advisor agreement accepted
   (OUTSIDE_CHECKS: used when those modules exist, skipped until then).
 
 One table, advisor_profiles: one row per advisor (user_id), the lists kept
@@ -535,7 +535,7 @@ def why_not_shown(conn, user_id: int) -> list[str]:
     if not profile["listed"]:
         out.append("You've chosen not to be listed.")
     if not _passes_outside_checks(conn, user_id, _outside_checks()):
-        out.append("Your licence check or advisor agreement needs renewing.")
+        out.append("Your license check or advisor agreement needs renewing.")
     return out
 
 

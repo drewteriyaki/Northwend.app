@@ -154,12 +154,12 @@ These extra terms apply if you use Northwend as a financial advisor.
   FINRA record-keeping and Regulation S-P.] [OWNER: say whether advisors can export
   a client record for their own files; another change in progress adds a client
   record export.]
-- **Your licence is checked.** You ask for advisor access with your firm's name and
-  your CRD or licence number, and we check them before turning advisor access on
+- **Your license is checked.** You ask for advisor access with your firm's name and
+  your CRD or license number, and we check them before turning advisor access on
   (the operator can also turn it on directly, from outside the app). We may refuse
-  or remove advisor access at any time, for example if a licence can't be confirmed
+  or remove advisor access at any time, for example if a license can't be confirmed
   or lapses. The check is done by hand: we look up your firm and your CRD or
-  licence number on FINRA BrokerCheck or the SEC's Investment Adviser Public
+  license number on FINRA BrokerCheck or the SEC's Investment Adviser Public
   Disclosure (IAPD) site and confirm they match a current registration, and we
   keep a record of where we looked, the number that matched and the date. We
   repeat the check about once a year (we're reminded once 11 months have passed).

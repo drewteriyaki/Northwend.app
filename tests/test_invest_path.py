@@ -91,18 +91,24 @@ class StagesTests(unittest.TestCase):
         self.assertEqual(route.stage_of("first"), "invest")
 
     def test_learn_only_for_the_brand_new(self):
-        self.assertTrue(route.learn_first("new", False))
-        self.assertTrue(route.learn_first(None, False))        # not answered yet: Learn first
-        self.assertTrue(route.learn_first("New", False))
-        self.assertFalse(route.learn_first("some", False))
-        self.assertFalse(route.learn_first("experienced", False))
-        self.assertFalse(route.learn_first("new", True))       # already invested
+        self.assertTrue(route.learn_first("new"))
+        self.assertTrue(route.learn_first(None))        # not answered yet: Learn first
+        self.assertTrue(route.learn_first("New"))
+        self.assertFalse(route.learn_first("some"))
+        self.assertFalse(route.learn_first("experienced"))
         learn, invest = route.STAGE_KEYS[route.LEARN], route.STAGE_KEYS[route.INVEST]
         self.assertEqual(route.route_keys(True), learn + invest)
         self.assertEqual(route.route_keys(False), invest)
+        # Learn optional: what Home still asks for (a goal, the questions)
+        # stays on the route, after Start investing
+        self.assertEqual(route.route_keys(False, still_open=("profile", "goal")),
+                         invest + ("goal", "profile"))
+        self.assertEqual(route.route_keys(True, still_open=("goal",)), learn + invest)
         # an advisor's client: Start investing is their advisor's - one
         # waypoint - and Learn is never required, its reads only (client mode)
-        self.assertFalse(route.learn_first("new", False, managed=True))
+        self.assertFalse(route.learn_first("new", managed=True))
+        self.assertEqual(route.route_keys(False, managed=True, still_open=("goal",)),
+                         ("bring",))
         self.assertEqual(route.route_keys(True, managed=True),
                          ("profile", "ready", "basics", "bring"))
         self.assertEqual(route.route_keys(False, managed=True), ("bring",))
@@ -262,6 +268,18 @@ class InvestPathAppTests(unittest.TestCase):
                   "asset_type": "ETF"}], {"Brokerage": 50.0}, {"VTI": {"price": 300.0}},
                 today=date(2026, 9, 30))
             portfolio.write_snapshot(c, cls.rae, meta, rows, totals, manual_entry.SOURCE)
+            # the same, with some experience: Learn is optional for her
+            cls.ray = auth.create_user(c, "ray", "pw-123456789")
+            advisor.save_profile(c, cls.ray, {**READY, "experience": "some"})
+            plans.save_plan(c, cls.ray, GOAL, set_by=cls.ray)
+            prefs.save(c, cls.ray, {**DONE, "get_started_done": ["goal", "basics", "practice"],
+                                    "gear_seen": list(gear.KEYS)})
+            portfolio.write_snapshot(c, cls.ray, meta, rows, totals, manual_entry.SOURCE)
+            # some experience, own holdings brought in, no goal yet
+            cls.kai = auth.create_user(c, "kai", "pw-123456789")
+            advisor.save_profile(c, cls.kai, {**READY, "experience": "some"})
+            prefs.save(c, cls.kai, DONE)
+            portfolio.write_snapshot(c, cls.kai, meta, rows, totals, manual_entry.SOURCE)
             # an advisor and her client (new to investing)
             cls.cara = auth.create_user(c, "cara", "pw-123456789")
             auth.set_advisor(c, "cara", True)
@@ -354,13 +372,37 @@ class InvestPathAppTests(unittest.TestCase):
             self.assertEqual(at.session_state["page"], "Get started")
             self.assertEqual(at.session_state["gs_at"], "brokerage")
 
-    def test_already_invested_lands_on_home_with_learn_optional(self):
+    def test_new_investor_with_holdings_still_walks_learn(self):
+        # bringing holdings in completes Start investing, never Learn's steps
         with self._run(self.rae, "rae", None) as at:
+            self.assertEqual(at.session_state["page"], "Dashboard")
+            body = self._html(at)
+            self.assertNotIn("Every step of your route is complete", body)
+            self.assertIn("Your steps · 9 of 10 done", body)
+            self.assertIn("You're in <b>Learn · step 5 of 6</b>", body)
+        with self._run(self.rae, "rae", "Get started") as at:
+            self.assertEqual(at.session_state["gs_at"], "mix")
+            self.assertNotIn("optional for you", self._html(at))
+            self.assertEqual([s.value for s in at.success], [])
+
+    def test_no_goal_yet_is_never_every_step_complete(self):
+        with self._run(self.kai, "kai", "Dashboard") as at:
+            body = self._html(at)
+            self.assertIn("Next: Set your goal", self._md(at))
+            self.assertNotIn("Every step of your route is complete", body)
+            self.assertIn("Still to do: <b>Set a goal</b>", body)
+            self.assertIn("Your steps · 4 of 5 done", body)
+        with self._run(self.kai, "kai", "Get started") as at:
+            self.assertEqual(at.session_state["gs_at"], "goal")
+            self.assertEqual([s.value for s in at.success], [])
+
+    def test_already_invested_lands_on_home_with_learn_optional(self):
+        with self._run(self.ray, "ray", None) as at:
             self.assertEqual(at.session_state["page"], "Dashboard")
             # their route (Start investing) is walked: no Learn step pushed on Home
             self.assertNotIn("Next: Waypoint", self._md(at))
             self.assertIn("Every step of your route is complete", self._html(at))
-        with self._run(self.rae, "rae", "Get started") as at:
+        with self._run(self.ray, "ray", "Get started") as at:
             self.assertEqual(at.session_state["gs_at"], "mix")    # optional Learn: next open
             self.assertIn("Learn (optional for you)", self._html(at))
             self.assertIn("Every step of your route is complete",
@@ -410,7 +452,7 @@ class InvestPathAppTests(unittest.TestCase):
 
     # ---- milestones ------------------------------------------------------------ #
     def test_milestones_still_earned(self):
-        with self._run(self.rae, "rae", "Dashboard") as at:
+        with self._run(self.ray, "ray", "Dashboard") as at:
             # map, compass, tent, rope and boots: Learn's waypoints and their holdings
             self.assertIn("Your kit · 5 of 9 earned", self._html(at))
             # every step of their route done, in plain words

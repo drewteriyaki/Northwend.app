@@ -50,7 +50,7 @@ Each statement about data here must stay true to the code:
   Email links: hashed, one-time, confirm 3 days / reset 60 minutes; email-send
   limits keep only hashes for a day (email_tokens / email_sends). Unconfirmed
   self-serve accounts can't use the AI (ai_usage.CONFIRM_FOR_AI). Advisor
-  sign-ups store firm + licence (advisor_requests) and email them to the
+  sign-ups store firm + license (advisor_requests) and email them to the
   support address (mailer.advisor_request) for the admin to check; the
   decision is emailed to them (admin.approve_advisor / decline_advisor).
   Each check (source, the CRD matched, the day) is kept in licence_checks
@@ -603,7 +603,7 @@ and it leaves your view when they untick it or the relationship ends.
   without a figure) - never an amount, a percentage,
   a holding, a forecast or a suggestion to buy or sell. Every one has a link
   that stops it in one click. If you ask for advisor access, also
-  your firm's name and your CRD or licence number, so it can be checked, and a
+  your firm's name and your CRD or license number, so it can be checked, and a
   note of each check (where it was looked up, the number that matched and the
   day); for an advisor, also which version of the advisor agreement you accepted
   and when and, where Find a guide is offered, your listing as you enter it

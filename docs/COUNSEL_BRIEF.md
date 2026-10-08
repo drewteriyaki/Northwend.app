@@ -26,7 +26,7 @@ investments. It is in an open beta in the United States.
   instructed never to recommend buying, selling or holding a security or a mix,
   and a checker on every sentence it writes enforces that. It receives holdings
   only as percentages, never dollar amounts or account details.
-- **Advisors** (registered professionals, licence checked on FINRA BrokerCheck or
+- **Advisors** (registered professionals, license checked on FINRA BrokerCheck or
   the SEC's IAPD before access, re-checked yearly) can work with clients they
   bring: notes, proposals, progress reports and messages. Every advisor artefact
   carries a line saying the advice is the advisor's, not Northwend's.
@@ -111,7 +111,7 @@ review is billed and paid between the person and the advisor.
 4. Is the advisor agreement (enclosed) enough to make clear the advice, the
    supervision, Form ADV delivery and record keeping are the advisor's? Anything
    missing (e.g. Regulation S-P service-provider terms)?
-5. The licence check is manual (BrokerCheck / IAPD at approval, yearly re-check).
+5. The license check is manual (BrokerCheck / IAPD at approval, yearly re-check).
    Is that a reasonable standard? Should a lapsed registration also pause access to
    clients' accounts?
 

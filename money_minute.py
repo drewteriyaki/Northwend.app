@@ -49,6 +49,8 @@ import teach_back
 PREF = "money_minute"
 DRILL, QUIZ, MYTH, TEACH = "drill", "quiz", "myth", "teach"
 KINDS = (DRILL, QUIZ, MYTH, TEACH)
+# days answered before "what would you do?" brings in hard times too
+GENTLE_DAYS = 10
 # the days that aren't the teach-back day take turns in this order
 PATTERN = (QUIZ, DRILL, MYTH, QUIZ, MYTH)
 EPOCH = date(2026, 1, 5)   # a Monday: day numbers count from here
@@ -386,6 +388,12 @@ def pick(login, d: date, p: dict | None = None, teach: bool = True) -> str:
     full, within = divmod(slot, len(PATTERN))
     n = full * PATTERN.count(kind) + PATTERN[:within].count(kind)
     ids = order(kind, login)
+    before = sum(1 for day in state(p)["days"] if day < d.isoformat())
+    if kind == DRILL and before < GENTLE_DAYS:
+        # a new person's first days: good-times situations only (a raise, a
+        # bonus) - never a market drop or a lost job as a first impression
+        # (days before today, so answering doesn't change today's card)
+        ids = tuple(i for i in ids if drills.side_of(drill_key(i)) == drills.GOOD)
     return ids[n % len(ids)]
 
 

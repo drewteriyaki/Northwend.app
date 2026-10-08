@@ -137,12 +137,36 @@ class PickTests(unittest.TestCase):
         days = [D + timedelta(days=i) for i in range(14)]
         self.assertNotEqual([mm.pick(1, d, {}) for d in days], [mm.pick(2, d, {}) for d in days])
 
+    def test_first_days_never_open_on_a_hard_time(self):
+        # fewer than GENTLE_DAYS answered: "what would you do?" is a good time
+        for login in range(1, 40):
+            for i in range(60):
+                item = mm.pick(login, D + timedelta(days=i), {}, False)
+                if mm.kind_of(item) == mm.DRILL:
+                    self.assertEqual(drills.side_of(mm.drill_key(item)), drills.GOOD, item)
+        # after that, the hard times come in too
+        seen = {mm.pick(login, D + timedelta(days=i), self.SEASONED, False)
+                for login in (1, 2, 3) for i in range(60)}
+        self.assertTrue({i for i in seen if i.startswith("d_")
+                         and drills.side_of(mm.drill_key(i)) == drills.HARD})
+        # answering today never changes today's card
+        p = {mm.PREF: {"days": [(D - timedelta(days=n)).isoformat()
+                                for n in range(1, mm.GENTLE_DAYS)], "seen": []}}
+        for login in range(1, 30):
+            item = mm.pick(login, D, p, False)
+            q = {mm.PREF: {"days": p[mm.PREF]["days"] + [D.isoformat()], "seen": [item]}}
+            self.assertEqual(mm.pick(login, D, q, False), item)
+
+    # someone with many days of minutes behind them (the whole library in turn)
+    SEASONED = {mm.PREF: {"days": [(D - timedelta(days=n)).isoformat()
+                                   for n in range(1, 30)], "seen": []}}
+
     def test_no_repeats_until_a_kind_goes_round(self):
         for login in (3, 11, 250):
             for teach in (False, True):
                 seen = {k: [] for k in (mm.QUIZ, mm.MYTH, mm.DRILL)}
                 for i in range(400):
-                    item = mm.pick(login, D + timedelta(days=i), {}, teach)
+                    item = mm.pick(login, D + timedelta(days=i), self.SEASONED, teach)
                     kind = mm.kind_of(item)
                     if kind == mm.TEACH:
                         continue

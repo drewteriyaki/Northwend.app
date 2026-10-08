@@ -12,6 +12,19 @@ from asset_classes import from_asset_type
 
 CONCENTRATION_PCT = 15.0  # a single position above this share of the portfolio is flagged
 
+# what a holding is, for the concentration line (holding_kind)
+SINGLE, BROAD_FUND, FOCUSED_FUND = "single", "broad_fund", "focused_fund"
+FUND_QUOTE_TYPES = ("ETF", "MUTUALFUND", "MONEYMARKET")
+# Yahoo (Morningstar) fund categories spread across a whole market, a style
+# box or many bonds: "Large Blend", "Target-Date 2045", "Moderate Allocation",
+# "Intermediate Core Bond", "Foreign Large Blend"... - not one sector or region
+BROAD_CATEGORY_WORDS = ("blend", "growth", "value", "target", "allocation", "retirement",
+                        "bond", "government", "muni", "money market", "inflation",
+                        "diversified", "world", "global", "foreign large", "total")
+BROAD_NAME_WORDS = ("total stock", "total market", "total world", "total bond",
+                    "total international", "s&p 500", "target", "balanced", "lifestrategy",
+                    "all-world", "all world", "aggregate bond")
+
 # Long Schwab asset-type strings -> short labels for the chart.
 SHORT_ASSET_TYPE = {
     "ETFs & Closed End Funds": "ETF / CEF",
@@ -35,15 +48,43 @@ def _rows(totals: dict, portfolio_value: float):
     return rows
 
 
-def allocate(positions, cash_by_account: dict | None = None, splits: dict | None = None):
+def holding_kind(pos: dict, info: dict | None = None) -> str:
+    """What one holding is, for the concentration line: SINGLE (one company,
+    or nothing says it's a fund), BROAD_FUND (a fund spread across many
+    companies or bonds - total market, S&P 500, target date, balanced, core
+    bonds...) or FOCUSED_FUND (a fund in one sector, region or theme, by
+    Yahoo's category). `info` is the holding's security_info row, if any.
+    A fund with no category to go by counts as broad: it isn't flagged."""
+    info = info or {}
+    qt = (info.get("quote_type") or "").upper()
+    at = (pos.get("asset_type") or "").lower()
+    is_fund = (qt in FUND_QUOTE_TYPES
+               or any(w in at for w in ("etf", "fund", "closed end", "money market")))
+    if not is_fund or qt == "EQUITY":
+        return SINGLE
+    category = (info.get("category") or "").lower()
+    if not category or any(w in category for w in BROAD_CATEGORY_WORDS):
+        return BROAD_FUND
+    name = (info.get("name") or pos.get("description") or "").lower()
+    if any(w in name for w in BROAD_NAME_WORDS):
+        return BROAD_FUND
+    return FOCUSED_FUND
+
+
+def allocate(positions, cash_by_account: dict | None = None, splits: dict | None = None,
+             info: dict | None = None):
     """positions: iterable of dicts with account, asset_type, market_value and/or
     live_market_value. cash_by_account: {account: cash_value}. splits:
     {symbol: {class: fraction}} from asset_classes.splits(); a holding without
-    one is classed by its broker asset type.
+    one is classed by its broker asset type. info: {symbol: security_info
+    row} (quote_type, category, name), so broad funds aren't flagged as
+    concentrated (holding_kind).
 
     Returns {"portfolio_value", "by_asset_class", "by_asset_type", "by_account",
     "concentration"}. by_asset_class (Stocks / Bonds / Cash / Other) is what
     targets and drift use; by_asset_type is the broker's own grouping.
+    Concentration lists holdings above CONCENTRATION_PCT that are a single
+    company (kind SINGLE) or a fund focused on one area (FOCUSED_FUND).
     """
     cash_by_account = {k: float(v or 0.0) for k, v in (cash_by_account or {}).items()}
     positions = list(positions)
@@ -76,11 +117,15 @@ def allocate(positions, cash_by_account: dict | None = None, splits: dict | None
         mv = _mv(p)
         share = (mv / portfolio_value * 100) if portfolio_value else 0.0
         if share > CONCENTRATION_PCT:
+            kind = holding_kind(p, (info or {}).get(p.get("symbol")))
+            if kind == BROAD_FUND:
+                continue   # a fund of many companies isn't one company's risk
             concentration.append({
                 "symbol": p.get("symbol"),
                 "account": p.get("account"),
                 "value": round(mv, 2),
                 "pct": round(share, 2),
+                "kind": kind,
             })
     concentration.sort(key=lambda r: r["pct"], reverse=True)
 
