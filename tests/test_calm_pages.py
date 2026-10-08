@@ -155,7 +155,7 @@ class CalmPagesTests(unittest.TestCase):
         for view in (self._run(self.erin, "erin", "Income"), self._advisor("Income")):
             with view as at:
                 self.assertEqual([s.value for s in at.subheader],
-                                 ["Received, last 12 months", "Next 12 months"])
+                                 ["Received, last 12 months", "Next 12 months", "Announced pay dates"])
                 self.assertEqual(len(at.dataframe), 1)
                 self.assertNotIn("tile_income_months", self._keys(at))
 

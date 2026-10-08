@@ -78,6 +78,8 @@ class RenderBlueprintTests(unittest.TestCase):
         "DATABASE_URL": "the GitHub jobs' name for the connection string",
         "ANTHROPIC_API_KEY_EVAL": "the eval workspace's key: never an app's",
         "MOVED_TO": "set only on the old copy, after the move",
+        "MASSIVE_API_KEY": "the jobs' other name for the Polygon key: POLYGON_API_KEY is listed",
+        "DIVIDEND_API_BASE": "only if Polygon/Massive moves its address; the jobs read it, the app never calls it",
     }
     SECRETS = ("PORTFOLIO_DB", "ANTHROPIC_API_KEY", "RESEND_API_KEY", "FINNHUB_API_KEY",
                "NORTHWEND_TOTP_KEY", "NORTHWEND_ADMINS", "ALERT_EMAIL")

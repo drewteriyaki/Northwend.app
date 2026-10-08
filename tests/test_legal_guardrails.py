@@ -469,7 +469,7 @@ class AIGuardrailTests(unittest.TestCase):
         spec = ai_gateway.HelperSpec("dollars", "claude-sonnet-5", 100, None, False, "chat",
                                      "chat", True, 10.0)
         with unittest.mock.patch.dict(ai_gateway.HELPERS, {"dollars": spec}), \
-                unittest.mock.patch.object(settings, "hosted", return_value=True):
+                unittest.mock.patch.object(ai_gateway.settings, "hosted", return_value=True):   # the copy the gateway holds (codefresh may have reloaded settings)
             for zdr, refused in (("", True), ("1", False)):
                 client = _FakeClient()
                 with unittest.mock.patch.dict(os.environ, {"AI_ZDR": zdr}):
