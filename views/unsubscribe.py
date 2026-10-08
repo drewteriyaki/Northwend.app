@@ -26,7 +26,7 @@ def _unsubscribe_page(token: str) -> bool:
     res = done[token]
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         if res["ok"]:
             st.success("You won't get these emails any more. You can turn them back on in "
                        f"{unsubscribe.WHERE[res['kind']]}.")

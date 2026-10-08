@@ -143,7 +143,11 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Look: `.streamlit/config.toml` (the Northwend theme: colors per light/dark,
   Figtree text and Newsreader titles from `static/`, served at `app/static/`),
   and the `--pt-*` colors at the top of dashboard.py's styles. Keep both in
-  step with the Northwend design system.
+  step with the Northwend design system. The logo (star over paper hills) is
+  `static/logo.svg` / `logo-dark.svg` (tab icon, `_logo()` beside the name; the site's
+  `favicon.svg` is the same). Home's deep blue band ("E2"): `_band_css` draws it only on
+  the main area marked `data-pt-band` by ui_enhancements.js, which it sets only while
+  Home's `pt_home_band` container is on the page (never sign-in, other pages or windows).
 - Website (northwend.app, Cloudflare Pages): `website/` - templates and assets,
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is

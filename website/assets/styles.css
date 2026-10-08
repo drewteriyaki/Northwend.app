@@ -98,6 +98,13 @@ p, h1, h2, h3, ul, ol, dl, dd, figure { margin: 0; }
   line-height: 32px; font-weight: 500; color: var(--ink); text-decoration: none; }
 .wordmark:hover { color: var(--ink); }
 .wordmark svg { color: var(--compass); }
+/* the logo, star over paper hills: its rounded square cut by the corners
+   here, and its dark colors on a dark screen */
+.logo { flex: none; border-radius: 23.3%; overflow: hidden; }
+@media (prefers-color-scheme: dark) {
+  .logo-sky { fill: #16304d; } .logo-star { fill: #f2bd57; } .logo-hill1 { fill: #1f4a78; }
+  .logo-hill2 { fill: #2a63a3; } .logo-hill3 { fill: #3987e5; }
+}
 .nav { display: flex; align-items: center; gap: 8px 28px; }
 .nav-link { color: var(--ink-muted); text-decoration: none; font-weight: 600; padding-block: 6px;
   border-bottom: 2px solid transparent; }

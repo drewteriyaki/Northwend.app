@@ -4,7 +4,7 @@ Streamlit ships its own index.html with <title>Streamlit</title> and its
 favicon. The app's st.set_page_config only renames the tab once the script
 has connected and run, so a visitor first sees "Streamlit" in the tab (and
 keeps seeing it while the page loads). This rewrites that file in the
-installed package: the title, a short description and the website's icon.
+installed package: the title, a short description and the app's logo (static/logo.svg).
 
 Run once after `pip install` on a host we run ourselves (render.yaml's
 buildCommand). Standard library only; safe to run again (it changes nothing
@@ -24,7 +24,7 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAME = "Northwend"
 DESCRIPTION = "Northwend: see your investments in one calm place."
-ICON_SOURCE = os.path.join(REPO, "website", "assets", "favicon.svg")
+ICON_SOURCE = os.path.join(REPO, "static", "logo.svg")   # the logo, star over paper hills
 ICON_NAME = "northwend-icon.svg"   # copied next to Streamlit's own favicon.png
 
 TITLE = re.compile(r"<title>.*?</title>", re.S)

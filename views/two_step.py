@@ -149,7 +149,7 @@ def _two_step_sign_out(notice):
 def _two_step_page_top():
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
     return mid
 
 

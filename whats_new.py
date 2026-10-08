@@ -26,6 +26,13 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-07", "title": "A new look",
+     "items": [
+         "Northwend has its own logo now: a star over paper hills, beside the name in "
+         "the menu, on the sign-in page and in your browser tab.",
+         "Home has a deep blue band across the top, with your portfolio's value and "
+         "today's change on it.",
+     ]},
     {"date": "2026-10-07", "title": "News on what you own",
      "items": [
          {"text": "Home has a short list of recent headlines about what you hold or watch, "

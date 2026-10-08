@@ -127,7 +127,7 @@ def _decoder_public_page() -> bool:
     """The whole run for ?decode=401k without signing in. Always False."""
     _, mid, _ = st.columns([1, 4, 1])
     with mid:
-        st.caption(f"{APP_ICON} {APP_NAME}")
+        st.html(_brand_html("pt-brand-line"))
         st.title("Decode a 401(k) menu")
         st.markdown("Paste the list of funds from your workplace plan's enrolment page - one "
                     "fund per line, as it's shown there. You'll see what kind of fund each one "

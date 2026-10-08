@@ -268,6 +268,44 @@ class MenuTests(unittest.TestCase):
         self.assertNotIn("stSidebar", js)
         self.assertNotIn("pt-sb-handle", js)
 
+    @staticmethod
+    def _block_keys(at):
+        """The keys of every keyed container on the page."""
+        found, todo = [], [at._tree]
+        while todo:
+            node = todo.pop()
+            pid = getattr(getattr(node, "proto", None), "id", "") or ""
+            if "-" in pid:
+                found.append(pid.rsplit("-", 1)[-1])
+            todo.extend(getattr(node, "children", {}).values()
+                        if isinstance(getattr(node, "children", None), dict) else [])
+        return found
+
+    def test_the_blue_band_is_on_home_only(self):
+        # Home's deep blue band (dashboard._band_css) is drawn only on the main
+        # area ui_enhancements.js marks while Home's own container is there:
+        # never on sign-in, the agree box or any other page
+        self.assertIn("pt_home_band", self._block_keys(self._run(self.alice, "alice", "home")))
+        for page in ("plan", "life", "about", "account"):
+            self.assertNotIn("pt_home_band",
+                             self._block_keys(self._run(self.alice, "alice", page)), page)
+        from streamlit.testing.v1 import AppTest
+        at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
+        at.run()   # signed out: the sign-in screen
+        self.assertFalse(at.exception)
+        self.assertIn("Northwend", [t.value for t in at.title])
+        self.assertNotIn("pt_home_band", self._block_keys(at))
+        with open(os.path.join(REPO, "dashboard.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        css = src[src.index("def _band_css"):src.index("st.html(_band_css())")]
+        # every rule that paints the band needs the mark (or Home's container)
+        self.assertIn("_BAND_ON = '[data-testid=\"stMainBlockContainer\"][data-pt-band]'", src)
+        self.assertNotIn("stMainBlockContainer", css)
+        with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
+            js = fh.read()
+        self.assertIn('.st-key-pt_home_band', js)
+        self.assertIn('removeAttribute("data-pt-band")', js)
+
     def test_life_is_an_investors_page(self):
         at = self._run(self.alice, "alice", "home")
         at.button(key="nav_Life").click()

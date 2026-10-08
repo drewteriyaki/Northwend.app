@@ -108,7 +108,7 @@ def _share_page() -> bool:
             conn.close()
     _, mid, _ = st.columns([1, 4, 1])
     with mid:
-        st.caption(f"{APP_ICON} {APP_NAME}")
+        st.html(_brand_html("pt-brand-line"))
         if limited:
             st.info(limited, icon=":material/schedule:")
         elif shown is None:

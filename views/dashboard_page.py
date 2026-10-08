@@ -209,13 +209,16 @@ if PAGE == "Dashboard":
                 f"<div class='pt-stat-value'>{value}</div>"
                 + (f"<div class='pt-stat-sub'>{sub}</div>" if sub else "") + "</div>")
 
+    # the value and today's change on the band at the top (_page_header)
+    with _HOME_HERO or st.container():
+        st.html("<div class='pt-hero'>"
+                "<div class='pt-hero-label'>Portfolio value</div>"
+                f"<div class='pt-hero-value'>{fmt_money(portfolio_value)}</div>"
+                + (f"<div class='pt-hero-delta'>{_day_html}</div>" if _day_html else "")
+                + (f"<div class='pt-hero-sub'>{_since_html}</div>" if _since_html else "")
+                + "</div>")
     st.html(_stat_row(
-        "<div class='pt-hero'>"
-        "<div class='pt-hero-label'>Portfolio value</div>"
-        f"<div class='pt-hero-value'>{fmt_money(portfolio_value)}</div>"
-        + (f"<div class='pt-hero-delta'>{_day_html}</div>" if _day_html else "")
-        + (f"<div class='pt-hero-sub'>{_since_html}</div>" if _since_html else "")
-        + "</div><div class='pt-stats' role='list' aria-label='Portfolio summary'>"
+        "<div class='pt-stats' role='list' aria-label='Portfolio summary'>"
         # with dividends known: the price change, then the total return beside it
         + _stat("Price change" if tot_return else "Total gain/loss",
                 _tone(tot_gl, _signed_money(tot_gl)),

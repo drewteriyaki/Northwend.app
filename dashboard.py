@@ -3,6 +3,7 @@
 Run it:  streamlit run dashboard.py   (or double-click dashboard.cmd)
 """
 
+import contextlib
 import functools
 import html
 import json
@@ -147,7 +148,47 @@ def what_this_means(*words, key, label="What does this mean?"):
 APP_NAME = "Northwend"
 TAGLINE = "Your guide from first step to goal."
 GUIDE = APP_NAME  # the AI guide shares the app's name: "Ask Northwend"
-APP_ICON = ":material/flag:"
+# The logo, star over paper hills (static/logo.svg, logo-dark.svg): the tab's
+# icon, and shown beside the name - in the menu column, the phone's top bar
+# and the sign-in screens. In the page it's two images, one per theme (the
+# styles show the one that matches; Streamlit's sanitizer drops inline SVG and
+# serves static files as plain text). Material's flag is Plan's icon only.
+APP_ICON = os.path.join(HERE, "static", "logo.svg")
+
+
+@functools.lru_cache(maxsize=1)
+def _logo_srcs():
+    import base64
+    out = {}
+    for theme, name in (("light", "logo.svg"), ("dark", "logo-dark.svg")):
+        with open(os.path.join(HERE, "static", name), "rb") as fh:
+            out[theme] = "data:image/svg+xml;base64," + base64.b64encode(fh.read()).decode("ascii")
+    return out
+
+
+def _logo(size=""):
+    """The logo (decoration: the name is beside it); `size` 'lg' beside a
+    page-sized title."""
+    cls = "pt-logo" + (f" pt-logo-{size}" if size else "")
+    return "".join(f"<img class='{cls} pt-on-{theme}' alt='' src='{src}'>"
+                   for theme, src in _logo_srcs().items())
+
+
+def _brand_html(extra=""):
+    """The logo and the name, in Newsreader: the menu's brand, and the small
+    line over a page shown without signing in (`extra` 'pt-brand-line')."""
+    return (f"<div class='pt-brand{' ' + extra if extra else ''}'>{_logo()}"
+            f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
+
+
+def _logo_title(text):
+    """A sign-in screen's (or a page shown before signing in) title with the
+    logo before it."""
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.html(_logo("lg"), width="content")
+        st.title(text, anchor=False, width="stretch")
+
+
 PAGE_LABELS = {"AI Assistant": f"Ask {GUIDE}", "Clients": "Your clients"}
 
 
@@ -436,11 +477,15 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
   background: var(--pt-bg, #f5f7f9); border-right: 1px solid var(--pt-line); }
 .st-key-pt_menu > div, .st-key-pt_menu_foot > div { flex: none; width: 100% !important; }
-.pt-brand { display: flex; align-items: center; gap: .35rem; margin: 0 .5rem 1.1rem;
+.pt-brand { display: flex; align-items: center; gap: .5rem; margin: 0 .5rem 1.1rem;
   white-space: nowrap; font-family: Newsreader, Georgia, serif; font-size: 1.35rem;
   font-weight: 500; line-height: 1; }
-.pt-brand-mark { font-family: "Material Symbols Rounded"; font-size: 1.5rem; font-weight: 400;
-  color: var(--pt-compass); font-feature-settings: "liga"; }
+/* the small brand line over a page shown without signing in */
+.pt-brand.pt-brand-line { margin: 0 0 .5rem; font-size: 1.1rem; }
+/* the logo (_logo): one image per theme (.pt-on-light / .pt-on-dark), a
+   little larger beside a sign-in title */
+.pt-logo { display: block; flex: none; width: 1.75rem; height: 1.75rem; }
+.pt-logo.pt-logo-lg { width: 2.75rem; height: 2.75rem; }
 /* the items: plain words, left-aligned, the full width of the column; the
    page showing reads in the link blue on a soft compass tint, bold (and
    aria-current, ui_enhancements.js); Money's tabs listed under it, indented */
@@ -565,6 +610,27 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-life-small { font-size: .75rem; font-weight: 600; color: var(--pt-ink-muted); }
 .pt-life-title { font-size: 1.1rem; font-weight: 600; margin-top: .15rem; }
 .pt-status { font-size: .8rem; opacity: .75; margin-top: -.6rem; }
+/* Home's band (_band_css; key pt_home_band, _page_header): the eyebrow,
+   title, value, today's change and the status line in white on the navy,
+   up and down in the dark theme's colors, signs and arrows kept. Tall enough
+   that the first cards after it overlap the band's foot (it is 22.5rem from
+   the top of the page, 18.5rem on a phone) */
+.st-key-pt_home_band { min-height: 13.5rem; color: #ffffff; --pt-up: #4ade80;
+  --pt-down: #f87171; --pt-link: #a9cdf7; }
+.st-key-pt_home_band h1, .st-key-pt_home_band .pt-eyebrow, .st-key-pt_home_band .pt-hero,
+.st-key-pt_home_band [data-testid="stCaptionContainer"],
+.st-key-pt_home_band .st-key-pt_hide button { color: #ffffff !important; }
+.st-key-pt_home_band [data-testid="stCaptionContainer"] a { color: var(--pt-link) !important; }
+.st-key-pt_home_band .pt-hero-label, .st-key-pt_home_band .pt-hero-sub { opacity: .85; }
+/* Home's cards: white (the theme's raised surface on dark), rounder, lifted
+   off the page by a soft navy shadow instead of an edge */
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
+  background: #ffffff; border-color: transparent !important; border-radius: 16px;
+  box-shadow: 0 12px 28px -6px #132a3e40; }
+:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
+:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
+  background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
 .pt-hero-label { font-size: .85rem; opacity: .7; }
 .pt-hero-value { font-size: 2.6rem; font-weight: 700; line-height: 1.15;
   font-variant-numeric: tabular-nums; }
@@ -670,6 +736,93 @@ def _topo_css() -> str:
 
 st.html(_topo_css())
 
+# Home's deep blue band (the look the owner chose, "E2"): navy behind the top
+# of Home's main area - the title, the value and today's change - with the
+# dawn star at the upper right among a few faint dots, and two paper hills
+# whose last edge falls into the page; the first cards overlap it. Colors per
+# theme: (band, dots, star, near hill, far hill, page, shadow). The page under
+# it is a little bluer than elsewhere, so Home's white cards stand out.
+BAND_COLORS = {"light": ("#132a3e", "#4d6a86", "#f0b23c", "#1d3f62", "#245689", "#eef3f8",
+                         "#0b1a2a"),
+               "dark": ("#09121b", "#2a3847", "#f2bd57", "#15212d", "#1c2a38", "#0d1620",
+                        "#000000")}
+
+
+def _band_svgs(theme):
+    """(hills, sky) drawings for Home's band: the hills (9rem tall) stretch to
+    the main area's width, the sky (star and dots) keeps its shape."""
+    band, dots, star, hill1, hill2, page, shade = BAND_COLORS[theme]
+    hills = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 144' "
+             "preserveAspectRatio='none'><defs><filter id='s' x='-5%' y='-60%' width='110%' "
+             "height='220%'><feDropShadow dx='0' dy='-5' stdDeviation='6' "
+             f"flood-color='{shade}' flood-opacity='.45'/></filter></defs>"
+             "<path d='M0 44 C240 14 470 58 760 32 S1210 4 1440 28 L1440 144 L0 144 Z' "
+             f"fill='{hill1}'/>"
+             "<path d='M0 84 C260 60 560 98 870 76 S1270 54 1440 72 L1440 144 L0 144 Z' "
+             f"fill='{hill2}' filter='url(#s)'/>"
+             "<path d='M0 118 C330 100 700 130 1050 112 S1350 102 1440 108 L1440 144 "
+             f"L0 144 Z' fill='{page}' filter='url(#s)'/></svg>")
+    sky = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 200'>"
+           f"<circle cx='190' cy='70' r='40' fill='{star}' fill-opacity='.10'/>"
+           "<path d='M190 34 L197.5 62.5 L226 70 L197.5 77.5 L190 106 L182.5 77.5 L154 70 "
+           f"L182.5 62.5 Z' fill='{star}'/>"
+           + "".join(f"<circle cx='{x}' cy='{y}' r='{r}' fill='{dots}'/>"
+                     for x, y, r in ((24, 46, 2), (78, 18, 1.6), (112, 104, 2.2),
+                                     (246, 150, 1.8), (58, 140, 1.6), (140, 28, 1.4),
+                                     (250, 16, 2), (16, 170, 1.4)))
+           + "</svg>")
+    return hills, sky
+
+
+# Where the band is drawn: only on Home's main area, and only once
+# ui_enhancements.js has found the band's own container there (key
+# pt_home_band, made by _page_header on Home alone) and marked the main area
+# with data-pt-band and where the band starts and ends (--pt-band-top,
+# --pt-band-end). Anything above it on Home (the staging note, a one-time
+# agree box) stays on the page's own background; sign-in, every other page and
+# every window never have it.
+_BAND_ON = '[data-testid="stMainBlockContainer"][data-pt-band]'
+
+
+@functools.lru_cache(maxsize=1)
+def _band_css() -> str:
+    """Home's band, built into its own stylesheet (like _topo_css): layers on
+    the main area's background - the sky, the hills at the band's foot, and
+    the navy from the band's top down behind the hills. No image is fetched.
+    The words on it (white) and Home's cards are in the main stylesheet."""
+    from urllib.parse import quote
+    rules = []
+    for theme, sel in (("light", ':root:not([data-pt-theme="dark"])'),
+                       ("dark", ':root[data-pt-theme="dark"]')):
+        hills, sky = (quote(s, safe=" =:/,.-") for s in _band_svgs(theme))
+        navy, page = BAND_COLORS[theme][0], BAND_COLORS[theme][5]
+        rules.append(f'{sel} [data-testid="stMain"]:has({_BAND_ON}) '
+                     f"{{ background-color: {page}; }}")
+        rules.append(f"{sel} {_BAND_ON} {{ background-image: "
+                     f'url("data:image/svg+xml,{sky}"), url("data:image/svg+xml,{hills}"), '
+                     f"linear-gradient({navy}, {navy}); }}")
+    # --pt-band-end is where the band's last (page-colored) edge ends: 5rem
+    # past its container when a card overlaps the foot, else at its foot
+    # (ui_enhancements.js); the hills are its last 9rem, the navy above them
+    # The star stays clear of the hide-amounts eye at the title's right: on a
+    # laptop up beside the title, on a phone beside the value
+    top, end = "var(--pt-band-top, 0px)", "var(--pt-band-end, 15rem)"
+    start = "var(--pt-band-start, 3.5rem)"
+    return ("<style>" + "\n".join(rules) + "\n"
+            ".st-key-pt_home_band { padding-bottom: var(--pt-band-pad, 0px); }\n"
+            f"{_BAND_ON} {{ background-repeat: no-repeat; "
+            f"background-position: right 8rem top max({top}, calc({start} - 2.5rem)), "
+            f"0 calc({end} - 9rem), 0 {top}; "
+            f"background-size: 260px 200px, 100% 9rem, 100% calc({end} - {top} - 5rem); }}\n"
+            f"@media (max-width: 640px) {{ {_BAND_ON} {{ "
+            f"background-position: right -.75rem top calc({start} + 3.25rem), "
+            f"0 calc({end} - 9rem), 0 {top}; background-size: 130px 100px, 100% 9rem, "
+            f"100% calc({end} - {top} - 5rem); }} }}\n"
+            "</style>")
+
+
+st.html(_band_css())
+
 if STAGING:
     st.html("<div class='pt-staging' role='note'>Staging copy, for trying changes before "
             "they go live. Use test data only: this is not the real Northwend.</div>")
@@ -679,7 +832,7 @@ if hosting.moved_to():
     _new = hosting.moved_link(hosting.moved_to(), st.query_params.to_dict())
     _, _mid, _ = st.columns([1, 1.4, 1])
     with _mid:
-        st.title(f"{APP_ICON} {APP_NAME} has moved")
+        _logo_title(f"{APP_NAME} has moved")
         st.markdown(f"{APP_NAME} now lives at its own address. Your account, holdings and "
                     "plan came along - sign in there as usual.")
         st.link_button(f"Go to {APP_NAME}", _new, type="primary", width="stretch")
@@ -691,7 +844,7 @@ if hosting.moved_to():
 if settings.config_problem():
     _, _mid, _ = st.columns([1, 1.4, 1])
     with _mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         st.error(settings.config_problem(), icon=":material/settings:")
         st.caption("For the admin: add the database's connection string as PORTFOLIO_DB in "
                    "this host's settings (Environment on Render, Secrets on Streamlit "
@@ -825,7 +978,7 @@ def _invite_setup(token: str) -> bool:
         conn.close()
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         if info is None:
             st.error("This setup link has expired or was already used. Ask your advisor "
                      "for a new one.")
@@ -923,7 +1076,7 @@ def _signup() -> bool:
                                 == "advisor" else "investor")
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         st.subheader("Create your account", anchor=False)
         st.caption(f"Free while {APP_NAME} is in beta. Your email is just your login: it's never "
                    "shown to anyone or sent to the AI, and you never connect a brokerage. We don't sell "
@@ -1042,7 +1195,7 @@ def _forgot() -> bool:
     submitted = False
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         st.subheader("Reset your password", anchor=False)
         sent_to = st.session_state.get("forgot_sent")
         if sent_to:
@@ -1089,7 +1242,7 @@ def _reset_setup(token: str) -> bool:
         conn.close()
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         if info is None:
             st.error("This reset link has expired or was already used. You can ask for a new one.")
             if st.button("Go to sign in", type="primary"):
@@ -1246,7 +1399,7 @@ def _login() -> bool:
 
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        st.title(f"{APP_ICON} {APP_NAME}")
+        _logo_title(APP_NAME)
         st.caption(f"{TAGLINE} Sign in to see your portfolio.")
         _notice = st.session_state.get("login_notice")
         if _notice:
@@ -1873,12 +2026,9 @@ def _nav_current(item):
     return PAGE in MONEY_PAGES if item == MONEY else PAGE == item
 
 
-# The brand at the top of the menu: the flag (Streamlit's own icon font, like
-# the app's other icons), then the name; an advisor's phone shows the flag
-# alone, to make room for Viewing.
-_BRAND = (f"<div class='pt-brand{' pt-brand-compact' if IS_ADVISOR else ''}'>"
-          "<span class='pt-brand-mark' aria-hidden='true' translate='no'>flag</span>"
-          f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
+# The brand at the top of the menu: the logo, then the name; an advisor's
+# phone shows the logo alone, to make room for Viewing.
+_BRAND = _brand_html("pt-brand-compact" if IS_ADVISOR else "")
 ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
                  "What's new": ":material/campaign:", "Find a guide": ":material/signpost:",
                  "Admin": ":material/admin_panel_settings:",
@@ -3101,6 +3251,9 @@ def _money_tabs():
                       type="primary" if PAGE == p else "tertiary")
 
 
+_HOME_HERO = None   # Home's place for the value on its band (_page_header)
+
+
 def _page_header(title, *, data=True):
     """The page's title with the hide-amounts toggle and, on `data` pages
     (this account's portfolio), a status line that keeps prices current by
@@ -3109,25 +3262,33 @@ def _page_header(title, *, data=True):
     Get started carry the map plate above the title (_expedition_eyebrow).
     Income, Activity and Watchlist are the Money page's tabs: their title is
     Money, with the tabs under it (_money_tabs)."""
+    global _HOME_HERO
     if PAGE in MONEY_PAGES:
         title = MONEY
-    # (an advisor's client's Home is their advisor's next step, not an expedition)
-    if INVESTOR_VIEW and not IS_ADVISOR and (PAGE == "Get started"
-                                             or PAGE == "Dashboard" and not CLIENT_MODE):
-        st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
-    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
-        st.title(title, anchor=False, width="stretch")
-        # Learn (and first steps, shown in its place) has nothing of theirs to
-        # hide: examples and practice money only. The setting still holds.
-        if PAGE != "Get started":
-            st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
-                      key="pt_hide", type="tertiary", on_click=_toggle_hide,
-                      help="Show amounts" if _hidden() else "Hide amounts - mask every dollar "
-                                                             "and percent with " + MASK)
+    home = PAGE == "Dashboard"
+    # Home's deep blue band (_band_css): the title, the value and today's
+    # change (written into _HOME_HERO by views/dashboard_page.py) and the
+    # status line sit on it; the cards after it overlap its foot
+    with st.container(key="pt_home_band") if home else contextlib.nullcontext():
+        # (an advisor's client's Home is their advisor's next step, not an expedition)
+        if INVESTOR_VIEW and not IS_ADVISOR and (PAGE == "Get started"
+                                                 or home and not CLIENT_MODE):
+            st.html(f"<div class='pt-eyebrow'>{html.escape(_expedition_eyebrow())}</div>")
+        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+            st.title(title, anchor=False, width="stretch")
+            # Learn (and first steps, shown in its place) has nothing of theirs to
+            # hide: examples and practice money only. The setting still holds.
+            if PAGE != "Get started":
+                st.button(":material/visibility_off:" if _hidden() else ":material/visibility:",
+                          key="pt_hide", type="tertiary", on_click=_toggle_hide,
+                          help="Show amounts" if _hidden() else "Hide amounts - mask every "
+                                                                 "dollar and percent with " + MASK)
+        _HOME_HERO = st.container() if home and data else None
+        if data:
+            _live_status()
     if PAGE in MONEY_PAGES:
         _money_tabs()
     if data:
-        _live_status()
         if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
             with st.container(border=True, horizontal=True, vertical_alignment="center"):
                 st.markdown(":material/science: **This is an example portfolio** - made-up "

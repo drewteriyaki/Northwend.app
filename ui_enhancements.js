@@ -68,6 +68,45 @@
   syncBg();
   setInterval(syncBg, 250);   // a theme picked in Streamlit's own menu, too
 
+  // ---- Home's band -------------------------------------------------------
+  // dashboard.py draws Home's deep blue band (_band_css) on the main area only
+  // while it carries data-pt-band, set here when Home's band container (key
+  // "pt_home_band") is on the page - never on sign-in or any other page -
+  // with where that container starts and ends, so whatever sits above it on
+  // Home (the staging note, a one-time agree box) stays off the navy.
+  const syncBand = () => {
+    const box = q('[data-testid="stMainBlockContainer"]');
+    if (!box) return;
+    const band = q('[data-testid="stMainBlockContainer"] .st-key-pt_home_band');
+    if (!band) {
+      if (box.hasAttribute("data-pt-band")) box.removeAttribute("data-pt-band");
+      return;
+    }
+    const boxTop = box.getBoundingClientRect().top;
+    const r = band.getBoundingClientRect();
+    const pad = parseFloat(getComputedStyle(box).paddingTop) || 0;
+    // the band reaches the top of the page unless something is shown above it
+    const top = r.top - boxTop <= pad + 24 ? 0 : Math.round(r.top - boxTop - 8);
+    // the first thing after it overlaps the band's foot only when it's a card
+    // (white, dark words); anything else starts below the hills
+    let next = band.parentElement && band.parentElement.nextElementSibling;
+    while (next && next.getBoundingClientRect().height === 0) next = next.nextElementSibling;
+    const card = next && (next.querySelector(':scope > [data-testid="stVerticalBlock"]')
+      || next.querySelector('[data-testid="stExpander"]'));
+    const overlaps = card && getComputedStyle(card.matches('[data-testid="stExpander"]')
+      ? card.querySelector("details") || card : card).borderTopStyle !== "none";
+    const set = (k, v) => { if (box.style.getPropertyValue(k) !== v) box.style.setProperty(k, v); };
+    // no card: the band's own foot holds the hills (room below the words)
+    set("--pt-band-pad", overlaps ? "0px" : "3rem");
+    const end = Math.round(band.getBoundingClientRect().bottom - boxTop) + (overlaps ? 80 : 0);
+    set("--pt-band-top", top + "px");
+    set("--pt-band-start", Math.round(r.top - boxTop) + "px");   // its words' top
+    set("--pt-band-end", end + "px");
+    if (!box.hasAttribute("data-pt-band")) box.setAttribute("data-pt-band", "");
+  };
+  syncBand();
+  setInterval(syncBand, 250);
+
   // ---- names for icon-only buttons ---------------------------------------
   // A button showing only an icon would be read out as the icon's name
   // ("close"); give screen readers what it does. Keyed by the widget key.
