@@ -2130,7 +2130,7 @@ class AdvisorRequestTests(TempDBMixin, unittest.TestCase):
 
     def test_details_are_checked(self):
         self.assertIn("firm", auth.advisor_request_error("", "123"))
-        self.assertIn("licence", auth.advisor_request_error("Acme Wealth", " "))
+        self.assertIn("license", auth.advisor_request_error("Acme Wealth", " "))
         self.assertIn("firm", auth.advisor_request_error("x" * 101, "123"))
         self.assertIsNone(auth.advisor_request_error("Acme Wealth", "CRD 1234567"))
         with self.assertRaises(ValueError):

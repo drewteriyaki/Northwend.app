@@ -327,6 +327,15 @@ class AppTests(unittest.TestCase):
         self.assertEqual(at.session_state["user_id"], row["id"])
         self.assertTrue(row["age_confirmed_at"] and row["us_resident_at"])
 
+    def test_signing_up_from_a_home_link_still_opens_the_first_steps(self):
+        at = self._app("L0", query={"signup": "1", "page": "home"},
+                       state={"signup_opened": time.time() - 60})
+        self._run(at)
+        self._fill_signup(at, "from.home@example.com")
+        self._run(at)
+        self.assertEqual(at.session_state["page"], "Get started")
+        self.assertIn("fs_skip", [b.key for b in at.button])   # the first steps slideshow
+
     def test_l0_off_asks_for_a_code(self):
         c = self._conn()
         try:

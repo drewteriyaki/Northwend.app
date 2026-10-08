@@ -161,8 +161,10 @@ TK_STATS = (
     ("div_pay_date", "Dividend pay date", None),
     ("reinvest", "Dividends reinvested", "Whether your brokerage buys more shares with the "
                                          "dividends this holding pays."),
-    ("next_earnings", "Next earnings report", None),
+    ("next_earnings", "Next earnings date", None),
 )
+# a company's own figures: for a fund they're left out, not "not available"
+TK_COMPANY_ONLY = ("pe_ttm", "pb_ratio", "market_cap", "sector", "next_earnings")
 
 
 def _ticker_context(sym):
@@ -374,11 +376,15 @@ if PAGE == TICKER_PAGE:
                                      labels={k: w for k, w, _ in TK_STATS},
                                      helps={k: h for k, _, h in TK_STATS if h},
                                      skip_blank=True)
+        _is_fund = fees.holding_type((sec_info.get(_sym) or {}).get("quote_type"),
+                                     _pos.get("asset_type")) == "fund"
+        if _is_fund:   # a company's own figures aren't missing for a fund: they don't apply
+            _labels = dict((k, w) for k, w, _ in TK_STATS)
+            _missing_stats = [w for w in _missing_stats
+                              if w not in {_labels[k] for k in TK_COMPANY_ONLY}]
         if _missing_stats:
-            _what = ("this fund" if fees.holding_type((sec_info.get(_sym) or {}).get("quote_type"),
-                                                      _pos.get("asset_type")) == "fund"
-                     else _sym)
-            st.caption(f"Not available for {_what}: " + "; ".join(_missing_stats) + ".")
+            st.caption(f"Not available for {'this fund' if _is_fund else _sym}: "
+                       + "; ".join(_missing_stats) + ".")
         if not _blank(M.value("div_yield_pct", _ctx)):
             learn_more("dividends")   # beside its dividend yield
         what_this_means("Dividend yield", "Volatility", key="tk_stats_words")

@@ -1416,6 +1416,10 @@ def _signup() -> bool:
     st.session_state["user_id"] = result["user_id"]
     st.session_state["username"] = result["username"]
     st.session_state["session_token"] = session
+    if role != "advisor":
+        # a new investor starts on Learn's first steps (views/first_steps.py),
+        # even when the sign-up came from a link to another page (?page=home)
+        st.session_state["page"] = "Get started"
     if sent:
         # just signed up: one short line about the link (and, for an advisor,
         # their request), so the welcome screen stays in view - a phone has
@@ -1961,18 +1965,6 @@ if "page" not in st.session_state:
     _wanted = str(st.query_params.get("page", "")).lower()
     st.session_state["page"] = {_slug(p): p for p in PAGES}.get(
         _wanted, OLD_SLUGS.get(_wanted) if OLD_SLUGS.get(_wanted) in PAGES else PAGES[0])
-    # a new investor (Learn leads their menu) who hasn't finished or skipped
-    # the first steps starts there, whatever page the address names
-    # (views/first_steps.py) - e.g. signing up from a ?page=home link
-    if (_wanted and PAGES[0] == "Get started" and not IS_ADVISOR and USER_ID == LOGIN_ID
-            and st.session_state["page"] not in ("Get started", TICKER_PAGE)):
-        _fs_conn = connect(DB)
-        try:
-            _fs = prefs.load(_fs_conn, USER_ID).get("first_steps") or {}
-        finally:
-            _fs_conn.close()
-        if not (_fs.get("done") or _fs.get("skipped")):
-            st.session_state["page"] = "Get started"
     if st.session_state["page"] == TICKER_PAGE:   # ?page=ticker&t=VTI
         _t = str(st.query_params.get("t", "")).strip().upper()
         if TICKER_RE.fullmatch(_t):

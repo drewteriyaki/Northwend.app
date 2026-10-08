@@ -118,11 +118,7 @@ class BeginnerPathTests(unittest.TestCase):
         def offline(*a, **k):
             raise RuntimeError("offline in tests")
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
-        if page and page.startswith("?"):   # a fresh session opened at ?page=...
-            at.query_params["page"] = page[1:]
-            page = {}
-        for k, v in {"user_id": uid, "username": name,
-                     **({} if page == {} else {"page": page}), **state}.items():
+        for k, v in {"user_id": uid, "username": name, "page": page, **state}.items():
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
                if k not in ("FINNHUB_API_KEY", "NORTHWEND_ADMINS")}
@@ -174,14 +170,6 @@ class BeginnerPathTests(unittest.TestCase):
             at.button(key="start_bring").click().run()
             self.assertIn("start_manual", self._keys(at))
             self.assertIn("start_import", self._keys(at))
-
-    def test_a_home_link_still_starts_a_new_account_on_first_steps(self):
-        # first steps not finished: ?page=home opens them, not Home
-        with self._run(self.gina, "gina", "?home") as at:
-            self.assertEqual(at.session_state["page"], "Get started")
-        # finished: the address is followed
-        with self._run(self.nina, "nina", "?home") as at:
-            self.assertEqual(at.session_state["page"], "Dashboard")
 
     def test_home_with_l3_on_shows_their_direction(self):
         with self._run(self.nina, "nina", "Dashboard", gates="L3") as at:
