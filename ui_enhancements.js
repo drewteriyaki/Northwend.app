@@ -68,20 +68,24 @@
   syncBg();
   setInterval(syncBg, 250);   // a theme picked in Streamlit's own menu, too
 
-  // ---- Home's band -------------------------------------------------------
-  // dashboard.py draws Home's deep blue band (_band_css) on the main area only
-  // while it carries data-pt-band, set here when Home's band container (key
-  // "pt_home_band") is on the page - never on sign-in or any other page -
-  // with where that container starts and ends, so whatever sits above it on
-  // Home (the staging note, a one-time agree box) stays off the navy.
+  // ---- the page band -----------------------------------------------------
+  // dashboard.py draws the deep blue band (_band_css) on the main area only
+  // while it carries data-pt-band, set here when a band container is on the
+  // page - Home's tall one (key "pt_home_band": data-pt-band="home") or the
+  // slimmer one of the pages that opt in (key "pt_page_band", Plan and Money:
+  // "slim") - never on sign-in or any other page - with where that container
+  // starts and ends, so whatever sits above it (the staging note, a one-time
+  // agree box) stays off the navy.
   const syncBand = () => {
     const box = q('[data-testid="stMainBlockContainer"]');
     if (!box) return;
-    const band = q('[data-testid="stMainBlockContainer"] .st-key-pt_home_band');
+    const band = q('[data-testid="stMainBlockContainer"] .st-key-pt_home_band')
+      || q('[data-testid="stMainBlockContainer"] .st-key-pt_page_band');
     if (!band) {
       if (box.hasAttribute("data-pt-band")) box.removeAttribute("data-pt-band");
       return;
     }
+    const kind = band.classList.contains("st-key-pt_home_band") ? "home" : "slim";
     const boxTop = box.getBoundingClientRect().top;
     const r = band.getBoundingClientRect();
     const pad = parseFloat(getComputedStyle(box).paddingTop) || 0;
@@ -93,18 +97,21 @@
     while (next && next.getBoundingClientRect().height === 0) next = next.nextElementSibling;
     const card = next && (next.querySelector(':scope > [data-testid="stVerticalBlock"]')
       || next.querySelector('[data-testid="stExpander"]'));
-    // (Home in three parts: its chart and This month are cards, so it overlaps)
-    const parts = next && next.querySelector(":scope > .st-key-pt_home_layout");
+    // (Home in three parts, and Plan's and Money's two: their parts are cards,
+    // so it overlaps)
+    const parts = next && next.querySelector(":scope > .st-key-pt_home_layout, :scope > .st-key-pt_page_layout");
     const overlaps = Boolean(parts) || (card && getComputedStyle(card.matches('[data-testid="stExpander"]')
       ? card.querySelector("details") || card : card).borderTopStyle !== "none");
     const set = (k, v) => { if (box.style.getPropertyValue(k) !== v) box.style.setProperty(k, v); };
-    // no card: the band's own foot holds the hills (room below the words)
-    set("--pt-band-pad", overlaps ? "0px" : "3rem");
-    const end = Math.round(band.getBoundingClientRect().bottom - boxTop) + (overlaps ? 80 : 0);
+    // no card: the band's own foot holds the hills (room below the words);
+    // the slim band's hills are lower, so its cards overlap less
+    set("--pt-band-pad", kind === "home" ? (overlaps ? "0px" : "3rem") : (overlaps ? "1.5rem" : "3rem"));
+    const end = Math.round(band.getBoundingClientRect().bottom - boxTop)
+      + (overlaps ? (kind === "home" ? 80 : 48) : 0);
     set("--pt-band-top", top + "px");
     set("--pt-band-start", Math.round(r.top - boxTop) + "px");   // its words' top
     set("--pt-band-end", end + "px");
-    if (!box.hasAttribute("data-pt-band")) box.setAttribute("data-pt-band", "");
+    if (box.getAttribute("data-pt-band") !== kind) box.setAttribute("data-pt-band", kind);
   };
   syncBand();
   setInterval(syncBand, 250);

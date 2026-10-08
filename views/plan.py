@@ -6,6 +6,8 @@
 # The Plan page: goal, progress, contributions, money in vs growth, target mix.
 # ruff: noqa: F821
 
+import home_tasks   # the mix lines on the right (shared with Home's mix card)
+
 # ---- Plan page ------------------------------------------------------------ #
 # status -> (label, css tone); the label always goes with the color
 PLAN_STATUS = {
@@ -1052,6 +1054,82 @@ def _render_plan(value, growth, alloc_rows):
     account with no holdings yet - the goal and contributions still work."""
     today = datetime.now().date()
     plan = load_plan()
+    # Style C: under the band, the goal card and the tabs in the middle and
+    # "Your mix" on the right (with holdings); one column up to 900px wide
+    with st.container(horizontal=True, gap="medium", key="pt_page_layout"):
+        main = st.container(key="pt_page_main")
+        side = st.container(key="pt_page_side", gap="small") if alloc_rows else None
+    if side is not None:
+        with side:
+            _render_plan_side(alloc_rows)
+    with main:
+        _render_plan_main(plan, today, value, growth, alloc_rows)
+
+
+PLAN_MIX_TITLE = "Your mix"
+PLAN_MIX_HEAD = ("Kind", "Now", "Target")
+PLAN_MIX_OPEN = "Edit target mix"
+PLAN_MIX_SEE = "See target mix"
+PLAN_MIX_SET = "Set a target mix"
+PLAN_DEPOSIT_TITLE = "Your next deposit"
+PLAN_DEPOSIT_OPEN = "Where it could go"
+PLAN_STRESS_TITLE = "Stress test"
+PLAN_STRESS_LINE = "How your mix would have done in 2008, 2020 and 2022."
+PLAN_STRESS_OPEN = "Open"
+
+
+def _open_plan_tab(name):
+    """A card on the right opens one of the tabs (the same way a link from
+    Home does: views/next_deposit.py)."""
+    st.session_state["plan_tab"] = name
+    st.session_state["plan_tabs_n"] = st.session_state.get("plan_tabs_n", 0) + 1
+
+
+def _render_plan_side(alloc_rows):
+    """Plan's right-hand panel: the mix now against the target, in
+    percentages and whole points only (masked while amounts are hidden), the
+    next deposit's direction in words, and the stress test. Each opens its
+    tab; nothing here is read that the page doesn't already have."""
+    targets = load_alloc_targets()
+    actual = {r["label"]: r["pct"] or 0.0 for r in alloc_rows}
+    labels = sorted((lbl for lbl in set(actual) | set(targets)
+                     if round(actual.get(lbl) or 0.0) or lbl in targets),
+                    key=lambda lbl: -(actual.get(lbl) or 0.0))
+    st.html(f"<div class='pt-month-title'>{PLAN_MIX_TITLE}</div>")
+    with st.container(border=True, key="pt_plan_mix"):
+        cells = "".join(f"<span class='pt-pmix-h'>{h}</span>" for h in PLAN_MIX_HEAD)
+        for lbl in labels:
+            t = targets.get(lbl)
+            cells += (f"<span>{html.escape(lbl)}</span>"
+                      f"<span>{html.escape(mask_or(f'{actual.get(lbl, 0.0):.0f}%'))}</span>"
+                      f"<span>{'—' if t is None else f'{t:g}%'}</span>")
+        lines = (home_tasks.mix_lines(actual, targets, load_drift_threshold(), masked=_hidden())
+                 if targets else [home_tasks.MIX_NO_TARGET])
+        warn = bool(targets) and lines != [home_tasks.MIX_WITHIN]
+        st.html(f"<div class='pt-pmix'>{cells}</div>"
+                + "".join(f"<div class='pt-region{' pt-warn' if warn else ''}'>"
+                          f"{html.escape(ln)}</div>" for ln in lines))
+        st.button(PLAN_MIX_OPEN if CAN_MANAGE and targets else
+                  PLAN_MIX_SET if CAN_MANAGE else PLAN_MIX_SEE,
+                  key="plan_side_mix", type="tertiary", on_click=_open_plan_tab,
+                  args=("Target mix",))
+    dep = deposit_line(alloc_rows, targets)   # views/next_deposit.py: words only
+    if dep:
+        with st.container(border=True, key="pt_plan_deposit"):
+            st.html(f"<div class='pt-month-card-title'>{PLAN_DEPOSIT_TITLE}</div>"
+                    f"<div class='pt-region'>{html.escape(dep)}</div>")
+            st.button(PLAN_DEPOSIT_OPEN, key="plan_side_deposit", type="tertiary",
+                      on_click=_open_plan_tab, args=("Target mix",))
+    with st.container(border=True, key="pt_plan_stress"):
+        st.html(f"<div class='pt-month-card-title'>{PLAN_STRESS_TITLE}</div>"
+                f"<div class='pt-region'>{PLAN_STRESS_LINE}</div>")
+        st.button(PLAN_STRESS_OPEN, key="plan_side_stress", type="tertiary",
+                  on_click=_open_plan_tab, args=("Stress test",))
+
+
+def _render_plan_main(plan, today, value, growth, alloc_rows):
+    """Plan's middle: the way back (to the walk or the route), the goal card,
+    the note to future you, and every other part in its tab groups."""
     if st.session_state.get("walk_return"):
         # came from the monthly walk's "Open my target mix": a clear way back
         st.button(":material/arrow_back: Back to your walk", key="plan_back_walk",
@@ -1063,13 +1141,14 @@ def _render_plan(value, growth, alloc_rows):
         st.button(":material/arrow_back: Back to your route", key="plan_back_route",
                   on_click=_go, args=("Get started",),
                   help=f"Back to where you were on {_label('Get started')}.")
-    if not CAN_MANAGE and not plans.has_goal(plan):
-        st.info(f"Your advisor, {_advisor_display_name()}, sets your goal - it shows up here "
-                "once they have.")
-    elif CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan)):
-        _render_plan_form(plan, today, value)
-    else:
-        _render_plan_status(plan, value, today)
+    with st.container(border=True, key="pt_plan_goal"):   # the goal card, on top
+        if not CAN_MANAGE and not plans.has_goal(plan):
+            st.info(f"Your advisor, {_advisor_display_name()}, sets your goal - it shows up "
+                    "here once they have.")
+        elif CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan)):
+            _render_plan_form(plan, today, value)
+        else:
+            _render_plan_status(plan, value, today)
     render_future_note(None)   # private, the person's own (views/future_notes.py)
     editing = CAN_MANAGE and (st.session_state.get("plan_editing") or not plans.has_goal(plan))
     # Everything else one tab at a time (ROADMAP S3); each tab redraws on its
@@ -1116,12 +1195,20 @@ def _render_plan(value, growth, alloc_rows):
         groups = {PLAN_GROUPS[2]: groups[PLAN_GROUPS[2]],
                   **{g: s for g, s in groups.items() if g != PLAN_GROUPS[2]}}
     first_group = next((g for g, s in groups.items() if first in [x[0] for x in s]), None)
-    for outer, (_g, members) in zip(st.tabs(list(groups), default=first_group), groups.items()):
-        with outer:
-            names = [s[0] for s in members]
-            for tab, (_name, draw) in zip(
-                    st.tabs(names, default=first if first in names else None), members):
-                with tab:
-                    draw()
+    # the tab groups, in one card. A card on the right that opens a tab
+    # (_open_plan_tab) counts up `plan_tabs_n`; the tabs sit one box deeper or
+    # shallower each time, so the browser draws them afresh, open on that tab
+    # (tabs keep the one picked otherwise)
+    n = st.session_state.get("plan_tabs_n", 0)
+    with st.container(border=True, key="pt_plan_tabs"), \
+            (st.container(key="pt_plan_tabset") if n % 2 else contextlib.nullcontext()):
+        for outer, (_g, members) in zip(st.tabs(list(groups), default=first_group),
+                                        groups.items()):
+            with outer:
+                names = [s[0] for s in members]
+                for tab, (_name, draw) in zip(
+                        st.tabs(names, default=first if first in names else None), members):
+                    with tab:
+                        draw()
     if plans.has_goal(plan) and not editing:
         _guide_line("plan_guide")   # a goal set: a quiet "Find a guide" (ADR 0005)

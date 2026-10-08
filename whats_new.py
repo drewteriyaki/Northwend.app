@@ -26,6 +26,13 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-07", "title": "Plan and Money have a new look",
+     "items": [
+         "Plan and Money have the same new look as Home. On Plan, your goal is on top with "
+         "everything else in its tabs below, and your mix, your next deposit and the stress "
+         "test are on the right. On Money, each tab is in one card, with your accounts (and "
+         "on Income, the year ahead) on the right. On a phone, everything is in one column.",
+     ]},
     {"date": "2026-10-07", "title": "A practice challenge each month",
      "items": [
          {"text": "Each month there's a practice challenge: pretend money on real past "

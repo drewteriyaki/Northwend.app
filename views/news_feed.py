@@ -69,16 +69,17 @@ def render_news_card(rows):
 
 
 if PAGE == "News":
-    _nf_now = datetime.now(timezone.utc)
-    _nf_picked = news_feed.pick(NEWS_ROWS, now=_nf_now)
-    st.caption(NEWS_NOTE)
-    if not _my_tickers:
-        st.caption("News shows up here for what you hold or watch - add holdings, or a ticker "
-                   "to your watchlist.")
-    elif not _nf_picked:
-        st.caption(NEWS_NONE)
-    else:
-        for _i, _s in enumerate(_nf_picked):
-            with st.container(key=f"news_row_{_i}"):
-                _nf_story(_s, _nf_now)
-    st.caption(NEWS_HOW)
+    with _page_main():   # Money's main card (dashboard._money_parts)
+        _nf_now = datetime.now(timezone.utc)
+        _nf_picked = news_feed.pick(NEWS_ROWS, now=_nf_now)
+        st.caption(NEWS_NOTE)
+        if not _my_tickers:
+            st.caption("News shows up here for what you hold or watch - add holdings, or a ticker "
+                       "to your watchlist.")
+        elif not _nf_picked:
+            st.caption(NEWS_NONE)
+        else:
+            for _i, _s in enumerate(_nf_picked):
+                with st.container(key=f"news_row_{_i}"):
+                    _nf_story(_s, _nf_now)
+        st.caption(NEWS_HOW)

@@ -269,41 +269,59 @@ class MenuTests(unittest.TestCase):
         self.assertNotIn("pt-sb-handle", js)
 
     @staticmethod
-    def _block_keys(at):
-        """The keys of every keyed container on the page."""
-        found, todo = [], [at._tree]
+    def _nodes(at):
+        """Every node on the page (an AppTest, or a node: everything under it)."""
+        found, todo = [], [getattr(at, "_tree", at)]
         while todo:
             node = todo.pop()
-            pid = getattr(getattr(node, "proto", None), "id", "") or ""
-            if "-" in pid:
-                found.append(pid.rsplit("-", 1)[-1])
+            found.append(node)
             todo.extend(getattr(node, "children", {}).values()
                         if isinstance(getattr(node, "children", None), dict) else [])
         return found
 
-    def test_the_blue_band_is_on_home_only(self):
-        # Home's deep blue band (dashboard._band_css) is drawn only on the main
-        # area ui_enhancements.js marks while Home's own container is there:
-        # never on sign-in, the agree box or any other page
-        self.assertIn("pt_home_band", self._block_keys(self._run(self.alice, "alice", "home")))
-        for page in ("plan", "life", "about", "account"):
-            self.assertNotIn("pt_home_band",
-                             self._block_keys(self._run(self.alice, "alice", page)), page)
+    @classmethod
+    def _block_keys(cls, at):
+        """The keys of every keyed container on the page (or under a node)."""
+        ids = ((getattr(getattr(n, "proto", None), "id", "") or "") for n in cls._nodes(at))
+        return [pid.rsplit("-", 1)[-1] for pid in ids if "-" in pid]
+
+    def test_the_blue_band_is_only_on_pages_that_opt_in(self):
+        # The deep blue band (dashboard._band_css) is drawn only on the main
+        # area ui_enhancements.js marks while a band container is there:
+        # Home's tall one, the slim one on Plan and Money's pages - never on
+        # sign-in, the agree box or any other page
+        bands = ("pt_home_band", "pt_page_band")
+        want = {"home": "pt_home_band", "plan": "pt_page_band", "income": "pt_page_band",
+                "activity": "pt_page_band", "watchlist": "pt_page_band",
+                "life": None, "about": None, "account": None, "learn": None}
+        for page, band in want.items():
+            at = self._run(self.alice, "alice", page)
+            keys = self._block_keys(at)
+            self.assertEqual([k for k in bands if k in keys], [band] if band else [], page)
+            if band:
+                # the one-time agree box (alice hasn't agreed) is above the
+                # band, never on it
+                self.assertIn("pt_agree", keys, page)
+                inside = next(n for n in self._nodes(at)
+                              if (getattr(getattr(n, "proto", None), "id", "") or "")
+                              .endswith("-" + band))
+                self.assertNotIn("pt_agree", self._block_keys(inside), page)
         from streamlit.testing.v1 import AppTest
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
         at.run()   # signed out: the sign-in screen
         self.assertFalse(at.exception)
         self.assertIn("Northwend", [t.value for t in at.title])
-        self.assertNotIn("pt_home_band", self._block_keys(at))
+        self.assertFalse(set(bands) & set(self._block_keys(at)))
         with open(os.path.join(REPO, "dashboard.py"), encoding="utf-8") as fh:
             src = fh.read()
         css = src[src.index("def _band_css"):src.index("st.html(_band_css())")]
-        # every rule that paints the band needs the mark (or Home's container)
+        # every rule that paints the band needs the mark (or a band's container)
         self.assertIn("_BAND_ON = '[data-testid=\"stMainBlockContainer\"][data-pt-band]'", src)
         self.assertNotIn("stMainBlockContainer", css)
         with open(os.path.join(REPO, "ui_enhancements.js"), encoding="utf-8") as fh:
             js = fh.read()
         self.assertIn('.st-key-pt_home_band', js)
+        self.assertIn('.st-key-pt_page_band', js)
         self.assertIn('removeAttribute("data-pt-band")', js)
 
     def test_life_is_an_investors_page(self):

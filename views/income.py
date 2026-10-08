@@ -286,20 +286,43 @@ def _render_income_calm(income_rows, plan, unsynced, got):
     _calm_footer()
 
 
+def _render_income_ahead(plan):
+    """Money's "Income ahead" card on Income (dashboard._money_parts' right
+    panel): the next 12 months as small bars and one line, from the schedule
+    the page already worked out - nothing more is read. No bars while amounts
+    are hidden, and no card for a percentages portfolio (pretend dollars)."""
+    if (_PAGE_SIDE is None or not plan["total"]
+            or SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE):
+        return
+    peak = max(r["total"] for r in plan["months"]) or 1.0
+    bars = "".join(f"<div class='pt-inc-bar' style='height:{max(4.0, r['total'] / peak * 100):.0f}%'>"
+                   "</div>" for r in plan["months"])
+    with _PAGE_SIDE:
+        st.html(f"<div class='pt-month-title'>{MONEY_INCOME_TITLE}</div>")
+        with st.container(border=True, key="pt_money_income"):
+            st.html(("" if _hidden() else
+                     f"<div class='pt-inc-bars' aria-hidden='true'>{bars}</div>")
+                    + "<div class='pt-region'>"
+                    + html.escape(MONEY_INCOME_LINE.format(total=fmt_money0(plan["total"])))
+                    + "</div>")
+
+
 if PAGE == "Income":
-    # ---- income: received, the next 12 months, and yields per holding ------ #
-    _income_rows = _income_yield_rows()
-    # what was actually paid in the last 12 months, from an imported activity
-    # export (income.received; None when none was imported), and what the
-    # schedule needs - one connection
-    _income_got, _income_synced, _income_paid = _income_reads()
-    _income_plan, _income_unsynced = _income_schedule(_income_rows, _income_synced,
-                                                      _income_paid)
-    if _show_everything():
-        _render_income_received(_income_got)
-        _render_income_by_month(_income_plan, _income_unsynced)
-        _render_income_table(_income_rows)
-        what_this_means("Dividend", "Dividend yield", "Ex-dividend date", "Yield", "Total return",
-                        key="gloss_income")
-    else:
-        _render_income_calm(_income_rows, _income_plan, _income_unsynced, _income_got)
+    with _page_main():   # Money's main card (dashboard._money_parts)
+        # ---- income: received, the next 12 months, and yields per holding ------ #
+        _income_rows = _income_yield_rows()
+        # what was actually paid in the last 12 months, from an imported activity
+        # export (income.received; None when none was imported), and what the
+        # schedule needs - one connection
+        _income_got, _income_synced, _income_paid = _income_reads()
+        _income_plan, _income_unsynced = _income_schedule(_income_rows, _income_synced,
+                                                          _income_paid)
+        if _show_everything():
+            _render_income_received(_income_got)
+            _render_income_by_month(_income_plan, _income_unsynced)
+            _render_income_table(_income_rows)
+            what_this_means("Dividend", "Dividend yield", "Ex-dividend date", "Yield", "Total return",
+                            key="gloss_income")
+        else:
+            _render_income_calm(_income_rows, _income_plan, _income_unsynced, _income_got)
+    _render_income_ahead(_income_plan)   # Money's right-hand panel

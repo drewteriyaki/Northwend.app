@@ -218,11 +218,12 @@ def _render_activity_calm(all_txns):
 
 
 if PAGE == "Activity":
-    # ---- activity: inferred and imported transaction history -------------- #
-    _all_txns = _load_activity()
-    if not _all_txns:
-        _render_activity_empty()
-    elif _show_everything():
-        _render_activity_table(_all_txns)
-    else:
-        _render_activity_calm(_all_txns)
+    with _page_main():   # Money's main card (dashboard._money_parts)
+        # ---- activity: inferred and imported transaction history -------------- #
+        _all_txns = _load_activity()
+        if not _all_txns:
+            _render_activity_empty()
+        elif _show_everything():
+            _render_activity_table(_all_txns)
+        else:
+            _render_activity_calm(_all_txns)

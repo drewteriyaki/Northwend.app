@@ -152,9 +152,16 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   and the `--pt-*` colors at the top of dashboard.py's styles. Keep both in
   step with the Northwend design system. The logo (star over paper hills) is
   `static/logo.svg` / `logo-dark.svg` (tab icon, `_logo()` beside the name; the site's
-  `favicon.svg` is the same). Home's deep blue band ("E2"): `_band_css` draws it only on
+  `favicon.svg` is the same). The deep blue band ("E2"): `_band_css` draws it only on
   the main area marked `data-pt-band` by ui_enhancements.js, which it sets only while
-  Home's `pt_home_band` container is on the page (never sign-in, other pages or windows).
+  a band container is on the page (never sign-in, the agree box, other pages or windows):
+  Home's tall `pt_home_band`, or the slim `pt_page_band` on the pages that opt in
+  (`_band_kind`: `BAND_PAGES` = Plan, plus Money's pages). Under the slim band, Plan and
+  Money are `pt_page_layout` = `pt_page_main` + `pt_page_side` (~19rem; one column under
+  900px): Plan's goal card `pt_plan_goal`, its tab groups in `pt_plan_tabs`, "Your mix" /
+  next deposit / stress test on the right (each opens its tab: `_open_plan_tab`); Money's
+  views draw `with _page_main():` into one card `pt_money_card`, Accounts (and on Income
+  "Income ahead") on the right, from what's already loaded.
 - Website (northwend.app, Cloudflare Pages): `website/` - templates and assets,
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is

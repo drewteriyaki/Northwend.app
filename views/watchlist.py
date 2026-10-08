@@ -134,43 +134,44 @@ def _render_watch_calm(symbols):
 
 
 if PAGE == "Watchlist":
-    # ---- watchlist: tickers tracked for their chart/stats, not owned ------- #
-    if st.session_state.pop("watch_window_close", False):
-        _dialog_closed()   # a pick in the window that this whole-page run closed
-    with st.form("wl_add_form", clear_on_submit=True, border=False):  # Enter adds it too
-        wc1, wc2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
-        _wl_raw = wc1.text_input("Add a ticker", key="wl_add_input",
-                                 placeholder="Add a ticker, e.g. NVDA", label_visibility="collapsed")
-        _wl_go = wc2.form_submit_button("+ Add to watchlist", width="stretch")
-    if _wl_go and _wl_raw.strip():
-        _wl_conn = connect(DB)
-        try:
-            added = watchlist.add(_wl_conn, USER_ID, _wl_raw)
-        finally:
-            _wl_conn.close()
-        if added and added in _held_symbols:
-            st.session_state["import_flash"] = (f"You already own **{added}** - it's on "
-                                                f"{_label('Dashboard')} with its chart and stats.")
+    with _page_main():   # Money's main card (dashboard._money_parts)
+        # ---- watchlist: tickers tracked for their chart/stats, not owned ------- #
+        if st.session_state.pop("watch_window_close", False):
+            _dialog_closed()   # a pick in the window that this whole-page run closed
+        with st.form("wl_add_form", clear_on_submit=True, border=False):  # Enter adds it too
+            wc1, wc2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
+            _wl_raw = wc1.text_input("Add a ticker", key="wl_add_input",
+                                     placeholder="Add a ticker, e.g. NVDA", label_visibility="collapsed")
+            _wl_go = wc2.form_submit_button("+ Add to watchlist", width="stretch")
+        if _wl_go and _wl_raw.strip():
+            _wl_conn = connect(DB)
+            try:
+                added = watchlist.add(_wl_conn, USER_ID, _wl_raw)
+            finally:
+                _wl_conn.close()
+            if added and added in _held_symbols:
+                st.session_state["import_flash"] = (f"You already own **{added}** - it's on "
+                                                    f"{_label('Dashboard')} with its chart and stats.")
+                st.rerun()
+            if added:
+                st.session_state["import_flash"] = f"Added **{added}** to your watchlist."
+                try:  # its price now, rather than at the next minute's update
+                    live_prices.freshen(lambda: connect(DB), USER_ID, resolve_key(None, ENV_PATH))
+                except Exception:  # noqa: BLE001 - the next update will get it
+                    pass
+                _sync_history([added], quick=True)  # its chart data (reruns the page)
+            else:
+                st.session_state["refresh_msg"] = ("error", f"'{_wl_raw}' doesn't look like a valid ticker.")
             st.rerun()
-        if added:
-            st.session_state["import_flash"] = f"Added **{added}** to your watchlist."
-            try:  # its price now, rather than at the next minute's update
-                live_prices.freshen(lambda: connect(DB), USER_ID, resolve_key(None, ENV_PATH))
-            except Exception:  # noqa: BLE001 - the next update will get it
-                pass
-            _sync_history([added], quick=True)  # its chart data (reruns the page)
+
+        if not watch_only:
+            st.caption("Nothing on your watchlist yet — add a ticker above to follow its price and chart "
+                       "without owning it.")
+        elif _show_everything():
+            st.caption("Prices update by themselves while the market is open. Tap a ticker for its "
+                       "chart and stats.")
+            _render_watch_rows(sorted(watch_only), _watch_quotes(watch_only))
         else:
-            st.session_state["refresh_msg"] = ("error", f"'{_wl_raw}' doesn't look like a valid ticker.")
-        st.rerun()
+            _render_watch_calm(sorted(watch_only))
 
-    if not watch_only:
-        st.caption("Nothing on your watchlist yet — add a ticker above to follow its price and chart "
-                   "without owning it.")
-    elif _show_everything():
-        st.caption("Prices update by themselves while the market is open. Tap a ticker for its "
-                   "chart and stats.")
-        _render_watch_rows(sorted(watch_only), _watch_quotes(watch_only))
-    else:
-        _render_watch_calm(sorted(watch_only))
-
-    st.divider()
+        st.divider()

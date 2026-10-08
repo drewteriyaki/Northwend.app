@@ -3324,7 +3324,9 @@ class PhoneAndDarkStyleTests(unittest.TestCase):
         self.assertRegex(phone, r'\[data-testid="stTabs"\] \[role="tablist"\] \{[^}]*flex-wrap: wrap')
         self.assertRegex(phone, r'\[data-testid="stTabsScrollRight"\] \{ display: none')
         desktop = re.sub(r"@media \(max-width: 640px\) \{(.*?\}) \}", "", self.flat)
-        self.assertNotIn('[role="tablist"]', desktop)
+        # (Plan's tab groups are drawn as one rounded switch everywhere, but
+        # nothing wraps a tab row outside the phone rules)
+        self.assertNotRegex(desktop, r'\[role="tablist"\][^{]*\{[^}]*(flex-wrap|overflow)')
 
     def test_grey_text_is_the_muted_ink_and_passes_aa(self):
         # a metric's plain change chip (theme grayTextColor) read 3.4:1 and a

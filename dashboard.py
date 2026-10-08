@@ -607,6 +607,62 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .st-key-pt_menu [data-testid="stSelectbox"] { width: 9.5rem !important; }
   .st-key-viewing_select [role="group"]::before { content: none; }
 }
+/* Plan and Money in two parts (pt_page_layout: views/plan.py, _money_parts):
+   the middle and a right-hand panel of about 19rem, white cards on the
+   band's paler page. Up to 900px one column, the panel after the middle */
+.st-key-pt_page_layout { align-items: flex-start; flex-wrap: nowrap !important; }
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_main) {
+  flex: 1 1 0 !important; min-width: 0; width: auto !important; }
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_side) {
+  flex: 0 0 19rem !important; width: 19rem !important; min-width: 0; }
+.st-key-pt_page_side { padding: 1.1rem 1rem; }
+.st-key-pt_page_side [data-testid="stVerticalBlock"][class*="st-key-pt_"] { border-radius: 12px; }
+.st-key-pt_plan_goal, .st-key-pt_plan_tabs, .st-key-pt_money_card, .st-key-pt_page_side,
+.st-key-pt_page_main [class*="st-key-pt_fnote_"] {
+  background: #ffffff; border-color: transparent !important; border-radius: 16px;
+  box-shadow: 0 12px 28px -6px #132a3e40; }
+:root[data-pt-theme="dark"] .st-key-pt_plan_goal, :root[data-pt-theme="dark"] .st-key-pt_plan_tabs,
+:root[data-pt-theme="dark"] .st-key-pt_money_card, :root[data-pt-theme="dark"] .st-key-pt_page_side,
+:root[data-pt-theme="dark"] .st-key-pt_page_main [class*="st-key-pt_fnote_"] {
+  background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
+.st-key-pt_plan_goal, .st-key-pt_plan_tabs, .st-key-pt_money_card { padding: 1.1rem 1.4rem; }
+.st-key-pt_plan_goal h4 { font-family: Newsreader, Georgia, serif !important;
+  font-weight: 500 !important; font-size: 1.6rem !important; padding: 0; }
+/* Plan's three tab groups as one rounded switch (the tabs inside each keep
+   their own look) */
+.st-key-pt_plan_tabs [data-testid="stTabs"]:not([data-testid="stTabs"] *) > div > [role="tablist"] {
+  background: var(--pt-sunken); border-radius: 10px; padding: 4px; gap: 4px;
+  width: fit-content; max-width: 100%; border: 0; box-shadow: none; }
+.st-key-pt_plan_tabs [data-testid="stTabs"]:not([data-testid="stTabs"] *) > div > [role="tablist"] > [role="tab"] {
+  border-radius: 8px; padding: .3rem 1rem; border: 0; }
+.st-key-pt_plan_tabs [data-testid="stTabs"]:not([data-testid="stTabs"] *) > div > [role="tablist"]::after,
+.st-key-pt_plan_tabs [data-testid="stTabs"]:not([data-testid="stTabs"] *) > div > [role="tablist"] > [role="tab"] > .react-aria-SelectionIndicator {
+  display: none; }
+.st-key-pt_plan_tabs [data-testid="stTabs"]:not([data-testid="stTabs"] *) > div > [role="tablist"] > [role="tab"][aria-selected="true"] {
+  background: #ffffff; box-shadow: 0 1px 3px #132a3e26; }
+:root[data-pt-theme="dark"] .st-key-pt_plan_tabs [data-testid="stTabs"]:not([data-testid="stTabs"] *) > div > [role="tablist"] > [role="tab"][aria-selected="true"] {
+  background: #2a3847; }
+/* Plan's mix on the right: kind, now and target in three columns */
+.pt-pmix { display: grid; grid-template-columns: 1fr auto auto; gap: .3rem .9rem;
+  font-size: .9rem; font-variant-numeric: tabular-nums; margin-bottom: .4rem; }
+.pt-pmix-h { font-size: .75rem; font-weight: 600; color: var(--pt-ink-muted); }
+/* Money's accounts and the year's income on the right */
+.pt-acct-list { display: flex; flex-direction: column; gap: .45rem; }
+.pt-acct-row { display: flex; justify-content: space-between; gap: .75rem; font-size: .9rem; }
+.pt-acct-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pt-acct-val { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pt-inc-bars { display: flex; align-items: flex-end; gap: 4px; height: 4.4rem; margin-bottom: .4rem; }
+.pt-inc-bar { flex: 1; background: var(--pt-compass); border-radius: 3px; }
+@media (max-width: 900px) {
+  .st-key-pt_page_layout { flex-direction: column !important; align-items: stretch; }
+  [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_main),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_side) {
+    flex: 0 0 auto !important; width: 100% !important; }
+}
+@media (max-width: 640px) {
+  .st-key-pt_page_side { padding: .9rem .75rem; }
+  .st-key-pt_plan_goal, .st-key-pt_plan_tabs, .st-key-pt_money_card { padding: .9rem .8rem; }
+}
 /* Life's cards (views/life.py): a small heading over the title */
 .pt-life-small { font-size: .75rem; font-weight: 600; color: var(--pt-ink-muted); }
 .pt-life-title { font-size: 1.1rem; font-weight: 600; margin-top: .15rem; }
@@ -623,14 +679,29 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .st-key-pt_home_band .st-key-pt_hide button { color: #ffffff !important; }
 .st-key-pt_home_band [data-testid="stCaptionContainer"] a { color: var(--pt-link) !important; }
 .st-key-pt_home_band .pt-hero-label, .st-key-pt_home_band .pt-hero-sub { opacity: .85; }
-/* Home's cards: white (the theme's raised surface on dark), rounder, lifted
-   off the page by a soft navy shadow instead of an edge */
+/* the slim band (key pt_page_band: Plan and Money, _band_kind): the title,
+   the status line and Money's tabs in white on the navy */
+.st-key-pt_page_band { min-height: 5.5rem; color: #ffffff; --pt-link: #a9cdf7; }
+.st-key-pt_page_band h1, .st-key-pt_page_band [data-testid="stCaptionContainer"],
+.st-key-pt_page_band .st-key-pt_hide button,
+.st-key-pt_page_band .st-key-pt_money_tabs button { color: #ffffff !important; }
+.st-key-pt_page_band [data-testid="stCaptionContainer"] a { color: var(--pt-link) !important; }
+.st-key-pt_page_band .st-key-pt_money_tabs { border-bottom-color: #ffffff33; }
+.st-key-pt_page_band .st-key-pt_money_tabs button[kind="primary"] {
+  border-bottom-color: #f0b23c !important; }
+/* Home's cards (and those under the slim band): white (the theme's raised
+   surface on dark), rounder, lifted off the page by a soft navy shadow
+   instead of an edge */
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
-[data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details,
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
   background: #ffffff; border-color: transparent !important; border-radius: 16px;
   box-shadow: 0 12px 28px -6px #132a3e40; }
 :root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
-:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
+:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details,
+:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"],
+:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
   background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
 /* Home in three parts (views/dashboard_page.py): the menu, the middle (the
    chart, the holdings list, the rest below) and This month on the right,
@@ -866,19 +937,20 @@ def _band_svgs(theme):
     return hills, sky
 
 
-# Where the band is drawn: only on Home's main area, and only once
+# Where the band is drawn: only on the main area of a page that opts in
+# (_band_kind: Home's tall one, the slim one on Plan and Money), and only once
 # ui_enhancements.js has found the band's own container there (key
-# pt_home_band, made by _page_header on Home alone) and marked the main area
-# with data-pt-band and where the band starts and ends (--pt-band-top,
-# --pt-band-end). Anything above it on Home (the staging note, a one-time
-# agree box) stays on the page's own background; sign-in, every other page and
-# every window never have it.
+# pt_home_band or pt_page_band, made by _page_header) and marked the main area
+# with data-pt-band ("home" / "slim") and where the band starts and ends
+# (--pt-band-top, --pt-band-end). Anything above it (the staging note, a
+# one-time agree box) stays on the page's own background; sign-in, every other
+# page and every window never have it.
 _BAND_ON = '[data-testid="stMainBlockContainer"][data-pt-band]'
 
 
 @functools.lru_cache(maxsize=1)
 def _band_css() -> str:
-    """Home's band, built into its own stylesheet (like _topo_css): layers on
+    """The band (Home's, and the slim one), built into its own stylesheet (like _topo_css): layers on
     the main area's background - the sky, the hills at the band's foot, and
     the navy from the band's top down behind the hills. No image is fetched.
     The words on it (white) and Home's cards are in the main stylesheet."""
@@ -910,6 +982,18 @@ def _band_css() -> str:
             f"background-position: right -.75rem top calc({start} + 3.25rem), "
             f"0 calc({end} - 9rem), 0 {top}; background-size: 130px 100px, 100% 9rem, "
             f"100% calc({end} - {top} - 5rem); }} }}\n"
+            # the slim band (Plan, Money: key pt_page_band, data-pt-band="slim"):
+            # the same layers, its hills 5.5rem (the navy reaches 3rem into
+            # them, where its cards start) and a smaller star beside the title
+            ".st-key-pt_page_band { padding-bottom: var(--pt-band-pad, 0px); }\n"
+            f'{_BAND_ON}[data-pt-band="slim"] {{ '
+            f"background-position: right 7rem top max({top}, calc({start} - 1.25rem)), "
+            f"0 calc({end} - 5.5rem), 0 {top}; "
+            f"background-size: 156px 120px, 100% 5.5rem, 100% calc({end} - {top} - 3rem); }}\n"
+            f'@media (max-width: 640px) {{ {_BAND_ON}[data-pt-band="slim"] {{ '
+            f"background-position: right 2.75rem top calc({start} - .75rem), "
+            f"0 calc({end} - 5.5rem), 0 {top}; background-size: 104px 80px, 100% 5.5rem, "
+            f"100% calc({end} - {top} - 3rem); }} }}\n"
             "</style>")
 
 
@@ -3371,6 +3455,67 @@ def _money_tabs():
 
 
 _HOME_HERO = None   # Home's place for the value on its band (_page_header)
+_PAGE_MAIN = None   # a Money page's main card (_money_parts), else None
+_PAGE_SIDE = None   # a Money page's right-hand panel (_money_parts), else None
+BAND_PAGES = ("Plan",)   # the slim band's pages, besides Money's (_band_kind)
+
+
+def _band_kind():
+    """Which deep blue band the page opts into (_band_css): Home's tall one
+    ("home", key pt_home_band), the slimmer one with just the title ("slim",
+    key pt_page_band) on Plan and Money, or none. Sign-in, the agree box and
+    windows never have one - they are drawn before or apart from the page."""
+    if PAGE == "Dashboard":
+        return "home"
+    if PAGE in BAND_PAGES or PAGE in MONEY_PAGES:
+        return "slim"
+    return None
+
+
+def _page_main():
+    """Where a Money page draws its content: the main card when the page is
+    in two parts (_money_parts), else just the page."""
+    return _PAGE_MAIN if _PAGE_MAIN is not None else contextlib.nullcontext()
+
+
+def _money_parts():
+    """Money's two parts under its band (Style C): the page's content in one
+    white card in the middle, and on the right the accounts (and, on Income,
+    the year ahead - views/income.py). Built from the holdings already loaded:
+    no reads of its own. One column up to 900px wide."""
+    global _PAGE_MAIN, _PAGE_SIDE
+    side = bool(acct_value)   # (none: the watchlist alone, nothing held)
+    with st.container(horizontal=True, gap="medium", key="pt_page_layout"):
+        with st.container(key="pt_page_main"):
+            _PAGE_MAIN = st.container(border=True, key="pt_money_card")
+        _PAGE_SIDE = st.container(key="pt_page_side", gap="small") if side else None
+    if _PAGE_SIDE is not None:
+        with _PAGE_SIDE:
+            _money_accounts_card()
+
+
+def _money_accounts_card():
+    """Each account and its value now, largest first - or its share of the
+    whole for a percentages portfolio (pretend dollars). Masked when hidden."""
+    pct_only = SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE
+    st.html(f"<div class='pt-month-title'>{MONEY_ACCOUNTS_TITLE}</div>")
+    with st.container(border=True, key="pt_money_accounts"):
+        rows = ""
+        for name, v in sorted(acct_value.items(), key=lambda kv: -(kv[1] or 0.0)):
+            shown = (mask_or(f"{(v or 0.0) / portfolio_value * 100:.0f}%")
+                     if pct_only and portfolio_value else fmt_money0(v))
+            rows += (f"<div class='pt-acct-row'><span class='pt-acct-name'>"
+                     f"{html.escape(str(name))}</span>"
+                     f"<span class='pt-acct-val'>{html.escape(shown)}</span></div>")
+        st.html(f"<div class='pt-acct-list'>{rows}</div>")
+        if pct_only:
+            st.caption(MONEY_ACCOUNTS_PCT)
+
+
+MONEY_ACCOUNTS_TITLE = "Accounts"
+MONEY_ACCOUNTS_PCT = "Each account's share of the whole."
+MONEY_INCOME_TITLE = "Income ahead"
+MONEY_INCOME_LINE = "About {total} over the next 12 months, estimated."
 
 
 def _page_header(title, *, data=True):
@@ -3381,14 +3526,18 @@ def _page_header(title, *, data=True):
     Get started carry the map plate above the title (_expedition_eyebrow).
     Income, Activity and Watchlist are the Money page's tabs: their title is
     Money, with the tabs under it (_money_tabs)."""
-    global _HOME_HERO
+    global _HOME_HERO, _PAGE_MAIN, _PAGE_SIDE
+    _PAGE_MAIN = _PAGE_SIDE = None
     if PAGE in MONEY_PAGES:
         title = MONEY
     home = PAGE == "Dashboard"
+    band = _band_kind()
     # Home's deep blue band (_band_css): the title, the value and today's
     # change (written into _HOME_HERO by views/dashboard_page.py) and the
-    # status line sit on it; the cards after it overlap its foot
-    with st.container(key="pt_home_band") if home else contextlib.nullcontext():
+    # status line sit on it; the cards after it overlap its foot. Plan and
+    # Money have the slimmer one: the title, the status line and Money's tabs
+    with (st.container(key="pt_home_band" if band == "home" else "pt_page_band")
+          if band else contextlib.nullcontext()):
         # (an advisor's client's Home is their advisor's next step, not an expedition)
         if INVESTOR_VIEW and not IS_ADVISOR and (PAGE == "Get started"
                                                  or home and not CLIENT_MODE):
@@ -3405,8 +3554,8 @@ def _page_header(title, *, data=True):
         _HOME_HERO = st.container() if home and data else None
         if data:
             _live_status()
-    if PAGE in MONEY_PAGES:
-        _money_tabs()
+        if PAGE in MONEY_PAGES:
+            _money_tabs()
     if data:
         if SNAPSHOT_SOURCE == SAMPLE_SOURCE:
             with st.container(border=True, horizontal=True, vertical_alignment="center"):
@@ -3428,6 +3577,8 @@ def _page_header(title, *, data=True):
     if _flash:
         st.success(_flash)
     render_future_note_nudge()   # after a first save of holdings (views/future_notes.py)
+    if data and PAGE in MONEY_PAGES:
+        _money_parts()
 
 
 def _signed_money(v):
