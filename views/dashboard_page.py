@@ -299,6 +299,8 @@ def _render_this_month(alloc):
                 _month_task("checks", lambda: render_money_checks(_checks))
             render_account_map_nudge()        # 2+ accounts, no map yet (views/account_map.py)
             render_year_card()                # Year in review (views/year_review.py)
+            if flags.on("wins") and _wins_shown() and _wins_recent():
+                _month_task("wins", render_wins_card)   # a win earned lately (views/wins.py)
             if _kit_shown():
                 _month_task("kit", lambda: render_kit_card(portfolio_value))   # views/kit.py
         if flags.on("news_feed"):
@@ -499,6 +501,9 @@ if PAGE == "Dashboard":
                         + (f"Sync {len(_missing)} more ticker(s) to extend the line: {', '.join(_missing)}."
                            if _missing else "")
                     )
+
+        if flags.on("progress_split"):
+            render_progress_split()   # what you did vs what the market did (views/progress_split.py)
 
         _render_holdings_list()   # the compact list under the chart
 

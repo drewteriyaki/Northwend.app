@@ -45,6 +45,18 @@ ENTRIES = [
                   "never takes anything away. What you tap isn't saved, only that you did "
                   "one that day.", "flag": "money_minute"},
      ]},
+    {"date": "2026-10-07", "title": "What you did, and your wins",
+     "items": [
+         {"text": "Home has a new card under the chart: what you did vs what the market did. "
+                  "For this year, or since you started, it shows the money you added beside "
+                  "the rest of the change in value, from what you've logged on Plan or an "
+                  "activity export you brought in. When Northwend doesn't know what you added, "
+                  "it says so instead of guessing.", "flag": "progress_split"},
+         {"text": "Your wins is a new tab on Plan: things you did that pay off for years, like "
+                  "lower fund fees, getting your whole employer match or adding money three "
+                  "months in a row. Each one is earned once, and a new one shows up in This "
+                  "month on Home. Only you see them.", "flag": "wins"},
+     ]},
     {"date": "2026-10-07", "title": "Home in three parts",
      "items": [
          "Home is laid out in three parts on bigger screens: your chart and holdings in the "

@@ -1427,6 +1427,22 @@ class YearAndMapTests(_PG):
         with unittest.mock.patch.object(recap, "NOTES_TABLE", "no_such_table"):
             self.assertIsNone(recap.notes_written(c, ann, "2026-01-01", "2026-10-05"))
 
+    def test_progress_split_reads_in_one_query_on_postgres(self):
+        # the UNION ALL of small reads (progress_split.read): the same money
+        # and values as plans.money_moves and recap.value_points
+        import progress_split
+        import recap
+        from tests.test_year_map import seed
+        c = self.conn
+        uid = self.user("ann.split")
+        seed(c, uid, imported=True)
+        f = progress_split.read(c, uid)
+        self.assertEqual(progress_split.value_points(f), recap.value_points(c, uid))
+        self.assertEqual(progress_split.moves(f),
+                         sorted((m["date"], m["amount"]) for m in plans.money_moves(c, uid)
+                                if m["counted"]))
+        self.assertIsNotNone(f["window"])
+
     def test_account_map_save_export_and_delete(self):
         import account_map
         from tests.test_year_map import seed

@@ -642,11 +642,12 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_side) {
   flex: 0 0 19rem !important; width: 19rem !important; min-width: 0; }
 .st-key-pt_home_side { padding: 1.1rem 1rem; }
-.st-key-pt_home_chart, .st-key-pt_home_list, .st-key-pt_home_side,
+.st-key-pt_home_chart, .st-key-pt_home_list, .st-key-pt_home_side, .st-key-pt_progress_split,
 .st-key-pt_home_main [data-testid="stExpander"] details {
   background: #ffffff; border-color: transparent !important; border-radius: 16px;
   box-shadow: 0 12px 28px -6px #132a3e40; }
 :root[data-pt-theme="dark"] .st-key-pt_home_chart,
+:root[data-pt-theme="dark"] .st-key-pt_progress_split,
 :root[data-pt-theme="dark"] .st-key-pt_home_list,
 :root[data-pt-theme="dark"] .st-key-pt_home_side,
 :root[data-pt-theme="dark"] .st-key-pt_home_main [data-testid="stExpander"] details {
@@ -672,6 +673,12 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-mm-kind { font-size: .78rem; font-weight: 600; color: var(--pt-link); }
 .pt-mm-next { font-size: .8rem; color: var(--pt-ink-muted); text-align: center; }
 .st-key-pt_mm_note { background: var(--pt-sunken); border-color: transparent !important; }
+/* Your wins (views/wins.py): the earned day, the name, the figure */
+.pt-chip.pt-win-chip { color: inherit; background: var(--pt-dawn-soft); }
+.pt-win-title { font-weight: 600; font-size: 1.05rem; margin-top: .35rem; }
+.pt-win-num { font-weight: 700; font-size: 1.6rem; color: var(--pt-link);
+  font-variant-numeric: tabular-nums; line-height: 1.25; }
+.pt-win-head { margin-bottom: .15rem; }
 /* each card in This month: a hairline edge; a card drawn inside a Done /
    Not now wrapper (pt_task_*) gives its edge to the wrapper */
 .st-key-pt_month_cards [data-testid="stVerticalBlock"][class*="st-key-pt_"]:not([class*="st-key-pt_tfoot_"]) {
@@ -2705,6 +2712,12 @@ _view("next_deposit")
 
 # Learn and Plan: the employer match calculator (employer_match.py)
 _view("free_money")
+
+# Home: what you did vs what the market did, flag progress_split (progress_split.py)
+_view("progress_split")
+
+# Home and Plan: your wins, flag wins (wins.py) - uses progress_split's one read
+_view("wins")
 
 # beside it: the 401(k) Menu Decoder, flag decoder_401k (menu_decoder.py)
 _view("menu_decoder")

@@ -310,6 +310,22 @@ Each statement about data here must stay true to the code:
   saved and the client's pick is never read for them; an advisor's client
   signed in doesn't get the tab. Never sent to the AI. In the person's own
   export (settings).
+- What you did vs what the market did (progress_split.py,
+  views/progress_split.py, flag progress_split): a card on Home worked out
+  from data already kept - money logged on Plan, an imported activity
+  history's deposits, withdrawals and dividends, and the values logged on
+  visits and holdings updates. Nothing new is kept (the period picked lasts
+  the session); a percentages portfolio sees percentages and counts only.
+  "Set up an automatic deposit" only explains how brokerages do it. An advisor
+  in a client's account sees the same card. Never sent to the AI.
+- Your wins (wins.py, views/wins.py, flag wins): milestones worked out from
+  data already kept (fund fees, the Free money check's remembered answers,
+  money added, the About you answers, account names) or marked by the person.
+  Kept in the login's own settings (prefs wins: each win's key, the day it was
+  earned and whether the person marked it - never an amount, a fee or an
+  answer). Never drawn while an advisor is in a client's account or for an
+  advisor's client, never sent to the AI. In the person's own export
+  (settings).
 - Bring to my advisor (advisor_pack.py, views/advisor_pack.py, flag
   advisor_pack): on Account, a client signed in as themselves (never an
   advisor in a client's account, never an admin - advisor_pack.advisor_for)
@@ -506,7 +522,7 @@ except what's theirs alone: their notes to future you, their monthly walks,
 their account map, their Lost & Found list, their Trail Forks, their Inheritance
 Rehearsal, their preparedness drills, their practice challenges, the seasonal
 notes they've opened or put away, the Learn topics they've explained back, the days they did today's minute and the rule of thumb they picked on
-Pay yourself.
+Pay yourself and their wins.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
 and it leaves your view when they untick it or the relationship ends.
@@ -538,7 +554,8 @@ and it leaves your view when they untick it or the relationship ends.
   amount); which months' notes on this month's world you've
   opened (the month only); whether you've turned on the Trail Conditions email
   (when you turned it on, and the week it was last sent); the rule of thumb you
-  picked on Pay yourself (which rule - never an amount); what you choose to bring
+  picked on Pay yourself (which rule - never an amount); which wins you've
+  earned or marked and the day (never an amount); what you choose to bring
   to your advisor (which items and the day you shared each - nothing you type);
   and the Learn topics you've
   explained back with Teach It Back (whether each held and the day - never your

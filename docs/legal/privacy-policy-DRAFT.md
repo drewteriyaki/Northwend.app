@@ -109,6 +109,8 @@ account, contact us and we will delete it.
   last sent, and which season, month or week a line in it was last about.
 - Where Pay yourself is offered, if you pick a rule of thumb there: which rule
   you picked - never an amount. Only you see it.
+- Where Your wins is offered: which wins you've earned or marked yourself, and
+  the day - never an amount. Only you see them.
 - Where Bring to my advisor is offered, if you have an advisor and use it:
   which items you chose to show them and the day you shared each one - a fixed
   list, nothing you type. Gone when you untick them or the relationship ends.
@@ -232,7 +234,7 @@ Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
 list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills,
 your practice challenges, the seasonal notes you've opened or put away, the topics you've explained back
-on Learn, your days of today's minute and the rule of thumb you picked on Pay yourself,
+on Learn, your days of today's minute and the rule of thumb you picked on Pay yourself and your wins,
 which only you see - unless you choose to bring some of them to your advisor
 (below). The account map is never emailed, and its PDF is only downloaded by
 you. You see your own portfolio, plan and the notes your advisor shares with

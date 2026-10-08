@@ -31,6 +31,7 @@ TASKS = {
     "challenge": (MONTH, False),
     "kit": (MONTH, False),
     "news": (WEEK, False),
+    "wins": (MONTH, True),
 }
 
 TITLE = "This month"
@@ -44,7 +45,8 @@ BRING_BACK = "Bring them back"
 # what a put-away suggestion is called in the line above
 NAMES = {"minute": "today's minute", "route": "your next step", "mix": "your mix", "checks": "money checks",
          "drill": "this week's drill", "challenge": "the practice challenge",
-         "kit": "your kit", "news": "news"}
+         "kit": "your kit", "news": "news",
+         "wins": "your new win"}
 
 # the mix card (fixed words; percentages only)
 MIX_TITLE = "Your mix"

@@ -339,6 +339,25 @@ FEATURES = {
     # put away; never written from an advisor's session.
     # views/dashboard_page.py checks on("weekly").
     "weekly": {"gates": (), "view": "weekly"},
+    # What you did vs what the market did (progress_split.py,
+    # views/progress_split.py): a card on Home under the performance chart -
+    # the money added (logged on Plan, or an imported activity export's
+    # deposits) against the rest of the change in value, for this year or
+    # since the first value; percentages only for a percentages portfolio;
+    # "Set up an automatic deposit" only explains how brokerages do it. A
+    # description of the person's own figures (LEGAL_GATES.md section 6): no
+    # gate. Nothing is kept. The view always loads (Your wins uses its read);
+    # views/dashboard_page.py checks on("progress_split").
+    "progress_split": {"gates": (), "view": None},
+    # Your wins (wins.py, views/wins.py): one-time milestones worked out from
+    # data already kept (lower fees, the whole employer match, three months of
+    # deposits in a row, the emergency savings answer, a Roth account) or
+    # marked by the person (a Roth IRA, high-interest debt paid off) - a card
+    # in Home's This month and a tab on Plan. Habits, not trades: buying or
+    # selling earns nothing. Kept: win keys and days in the login's own
+    # settings; never in client mode, never sent to the AI. No gate.
+    # views/dashboard_page.py and views/plan.py check on("wins").
+    "wins": {"gates": (), "view": None},
 }
 
 

@@ -1099,6 +1099,8 @@ def _render_plan(value, growth, alloc_rows):
         sections.insert(0, retire)
     else:
         sections.append(retire)
+    if flags.on("wins") and _wins_shown():   # Your wins (views/wins.py): the login's own
+        sections.append((WINS_TAB, _render_wins))
     if ON_CLIENT:   # the client's advisor: proposals (views/proposals.py)
         sections.append(("Proposals", lambda: _render_proposals_advisor(alloc_rows, value)))
     # a link from elsewhere (Home's "Where it could go") may open one tab

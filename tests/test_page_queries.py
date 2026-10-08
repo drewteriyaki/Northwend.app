@@ -120,6 +120,21 @@ class PageQueryTests(unittest.TestCase):
         self.assertLessEqual(connections, plain[1])
         self.assertLessEqual(queries, HOME_QUERIES)
 
+    def test_home_with_the_split_and_wins_stays_under_its_cap(self):
+        # What you did vs what the market did and Your wins share one read
+        # (progress_split.read, a UNION ALL of the account's small reads) on
+        # one connection of their own: one query and one connection more
+        sql = []
+        plain, plain_conns = self._count(self.alice, "alice", "Dashboard")
+        with unittest.mock.patch.dict(os.environ, {"NORTHWEND_FLAGS": "progress_split wins"}):
+            queries, connections = self._count(self.alice, "alice", "Dashboard", statements=sql)
+        self.assertEqual(len([s for s in sql if "UNION ALL" in s and "FROM contributions" in s]),
+                         1, sql)
+        self.assertLessEqual(queries - plain, 1)
+        self.assertLessEqual(connections - plain_conns, 1)
+        self.assertLessEqual(queries, HOME_QUERIES)
+        self.assertLessEqual(connections, HOME_CONNECTIONS)
+
     def test_the_login_row_is_read_once_a_run(self):
         # the two-step gate's read, handed on to the password check, the email
         # notice and Ask Northwend's allowance (views/two_step.py _gate_read)
