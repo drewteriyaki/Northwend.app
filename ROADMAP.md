@@ -2314,7 +2314,25 @@ everything" versus the advisor's record-keeping duty - see the list below.
 own records (`former_clients`, archived notes) stay with the advisor after an
 exit.
 
-### Decided: no daily engagement (Oct 5)
+### Changed Oct 8: a daily money minute (replaces "no daily engagement")
+The owner chose a daily reason to come back, built so it can't turn into a
+daily balance check (canvas "Northwend reasons to come back"):
+- [ ] **The money minute** (flag `money_minute`) - one card a day under a
+  minute: a "what would you do?" scenario (the drills), a quick question, a
+  myth or fact, and Teach It Back once a week. Never shows the balance. The
+  count is days you learned something; a missed day never resets it. A fixed
+  library that cycles before repeating.
+- [ ] **What you did vs what the market did** (flag `progress_split`) - money
+  you added and market growth shown apart; the part you control leads.
+- [ ] **Your wins** (flag `wins`) - one-time wins with a real number: lower
+  fees found, the full employer match, regular deposits, an emergency fund.
+- [ ] **Practice challenges** (flag `challenges`) - a monthly challenge with
+  practice money on real past prices, scored only on following your own rule.
+- [ ] **Doing it together** (flag `together`) - two people see each other's
+  learning days, walk done and wins count; never amounts; consent recorded.
+Weekly (Scout) and monthly (the Walk) stay the backbone.
+
+### Was decided: no daily engagement (Oct 5) - replaced Oct 8, above
 We considered a "Duolingo for finance" model: a daily two-minute unit,
 streaks, spaced repetition. **We are not pursuing daily usage as a goal.**
 - Finance basics run out in weeks.
