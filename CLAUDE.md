@@ -72,7 +72,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   upload (rows with `origin` 'imported'; worked-out rows have NULL origin).
 - Prices: `live_prices.py` (in-app, every minute while open), `update_prices.py`
   (Finnhub; the 15-min job), `sync_history.py` (Yahoo daily/intraday bars, dividends,
-  fundamentals; nightly job). `price_report.py`: a stored price's time in words on the
+  fundamentals and the ex-dividend / pay / earnings dates in Yahoo's quote; nightly job).
+  `dividend_dates.py`: announced dividends from Polygon (also called Massive;
+  `POLYGON_API_KEY`, ticker symbols only, 12.5 s apart, 200 a night) into the shared
+  `dividend_events` table - its own nightly job; `merged` / `next_for` give Scout's week
+  ahead, Income's "Announced pay dates" and a ticker's page their dates, each with its
+  source - facts only, never estimated. `price_report.py`: a stored price's time in words on the
   market's clock (`as_of`: "3:45 pm ET", "Oct 3 close"; not flagged, reads only
   stored times) and "Price look wrong?" on ticker detail (flag `price_report`: fixed
   reasons, `price_reports` table, counts-only "Price notes" in Admin).

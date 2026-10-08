@@ -234,7 +234,7 @@ explanation, with amounts, long numbers, emails and fund symbols taken out.
 Screenshot reading is optional and offered only on some copies of the app [OWNER:
 off in production today]; where it is, the whole picture goes to the AI - including
 balances and account names on screen - only when someone chooses it.
-Market data providers (Finnhub, Yahoo Finance) receive ticker symbols only. Resend
+Market data providers (Finnhub, Yahoo Finance, Polygon) receive ticker symbols only. Resend
 receives only an email address and the message. Full list: Privacy Policy,
 section 4.
 

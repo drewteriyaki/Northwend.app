@@ -130,7 +130,8 @@ Don't:
   some columns may be guessed. Check what you bring in against your brokerage
   statements. Your brokerage's records are the official ones.
 - **Prices may be delayed or wrong.** Prices, fund details and news come from
-  Finnhub and Yahoo Finance (Yahoo through an unofficial library). They may be
+  Finnhub and Yahoo Finance (Yahoo through an unofficial library), and announced
+  dividend dates also from Polygon and your brokerage's file. They may be
   delayed 15 minutes or more, and occasionally missing or wrong. Mutual funds
   usually price once a day. Don't trade on Northwend's figures - check your
   brokerage first.
@@ -255,7 +256,7 @@ carve-out - include or not.]
 ## 16. Other
 
 - **Not affiliated.** Northwend is independent and not affiliated with or endorsed
-  by any brokerage, fund company, Finnhub, Yahoo or Anthropic. Brokerage and fund
+  by any brokerage, fund company, Finnhub, Yahoo, Polygon or Anthropic. Brokerage and fund
   names are used only to describe what Northwend can read or to give examples.
 - If part of these terms can't be enforced, the rest still applies.
 - These terms, the Privacy Policy and the in-app "About and disclosures" page are

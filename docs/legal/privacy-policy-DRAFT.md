@@ -238,7 +238,8 @@ It is shared only as needed to run the service, with:
 | **Anthropic** (Claude) | The AI guide and advisors' meeting talking points; the column guess, only when you choose it; and, where they're offered, advisors' first drafts, looking up a word, Teach It Back's check and screenshot reading (only when you choose it) | See section 5 |
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
-| **GitHub Actions** | Runs the scheduled jobs: price updates and price history, news headlines for held and watched tickers, the nightly clean-up of what's kept only for a while (section 7), the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
+| **Polygon** (also called Massive) | Announced dividend dates, asked by the nightly update | Ticker symbols only |
+| **GitHub Actions** | Runs the scheduled jobs: price updates and price history, announced dividend dates, news headlines for held and watched tickers, the nightly clean-up of what's kept only for a while (section 7), the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails, and feedback you send to the Northwend team | Your email address and that message (for feedback, your address only if you ask for a reply) |
 | **Cloudflare** | Serves the website northwend.app (Pages), and sits in front of the app: every connection to go.northwend.app passes through it, and it adds security settings | Visitors' IP address and browser details; for the app, the requests and pages passing through it on their way |
 
@@ -453,6 +454,7 @@ in step.]
 | Unsubscribe links in reminder emails | 1 year |
 | Minute-by-minute prices (no personal data) | 1 week, then one closing price a day |
 | Daily prices and fund details (no personal data) | Kept |
+| Announced dividend dates (no personal data) | About 2 years |
 | Error records (the kind of error and where it happened, no personal data) | 90 days |
 | The record of what the person running Northwend did to accounts (never holdings) | 1 year [once the admin action log is in - PLAN 1b.3] |
 | An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept for the advisor's record-keeping duties after the client leaves or deletes their account (section 8) [LAWYER: how long] |

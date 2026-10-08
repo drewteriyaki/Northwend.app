@@ -18,6 +18,7 @@ import secrets
 import admin
 import admin_log
 import ai_spend
+import dividend_dates
 import error_alerts
 import feature_counts
 import flags
@@ -525,6 +526,9 @@ def _render_system(c):
          if HOSTED else "listed below only - a local copy doesn't email"),
         ("AI (Anthropic key)", "set" if _anthropic_key() else "not set - AI features are off"),
         ("Live prices (Finnhub key)", "set" if resolve_key(None) else "not set"),
+        # the nightly job fetches with it (dividend_dates.py); set or not, never the value
+        ("Dividend dates (Polygon key)", "set" if dividend_dates.api_key() else
+         "not set - only Yahoo's and the brokerage file's dates show"),
         *_admin_two_step_rows(c),
         ("Last price update", _admin_when(last_price)),
         ("Newest daily price history", last_bar or "none"),

@@ -35,6 +35,7 @@ import charts
 import consent
 import csv_import
 import disclosures
+import dividend_dates
 import export
 import flags
 import friendly_errors
@@ -3969,6 +3970,14 @@ try:
     # holds or watches - read only; the hourly job fetches them (news_feed.py)
     NEWS_ROWS = (news_feed.load(_bars_conn, _my_tickers)
                  if PAGE in ("Dashboard", "News") and flags.on("news_feed") else [])
+    # Announced dividends from today on (dividend_dates.py; the nightly job
+    # fetches them, nothing here): Income's pay dates for this account's
+    # tickers, a ticker's page for that one ticker. Scout's week ahead reads
+    # its own only when its window is open.
+    DIV_EVENTS = (dividend_dates.upcoming(
+        _bars_conn, [st.session_state.get("ticker_sym")] if PAGE == TICKER_PAGE
+        else _my_tickers, dividend_dates.today())
+        if PAGE in ("Income", TICKER_PAGE) else [])
 finally:
     _bars_conn.close()
 # What each holding holds - Stocks / Bonds / Cash / Other (asset_classes.py):

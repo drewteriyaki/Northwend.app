@@ -215,9 +215,32 @@ CREATE TABLE IF NOT EXISTS security_info (
     week52_low     REAL,
     avg_volume     INTEGER,
     avg_volume_10d INTEGER,
+    -- dates in Yahoo's quote, as given ('YYYY-MM-DD'; sync_history._event_dates):
+    -- the pay date may be the last one, already past - shown only if today or later
+    ex_dividend_date  TEXT,
+    dividend_pay_date TEXT,
+    earnings_date     TEXT,                         -- only when Yahoo doesn't call it an estimate
     source         TEXT    NOT NULL DEFAULT 'yfinance',
     fetched_at     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Announced dividends (dividend_dates.py, the nightly job; from Polygon):
+-- shared market data like security_info, no user_id. One row per ticker and
+-- ex-dividend date, as the company or fund announced it - never estimated. A
+-- row with ex_date '' records when the ticker was last asked (it may have no
+-- dividends). Kept about two years (tidy.py).
+CREATE TABLE IF NOT EXISTS dividend_events (
+    ticker        TEXT    NOT NULL,                 -- as held ('BRK.B'), upper case
+    ex_date       TEXT    NOT NULL,                 -- 'YYYY-MM-DD'; '' = when it was asked
+    pay_date      TEXT,
+    declared_date TEXT,
+    record_date   TEXT,
+    amount        REAL,                             -- cash per share, US dollars
+    source        TEXT    NOT NULL DEFAULT 'polygon',
+    fetched_at    TEXT    NOT NULL,                 -- ISO 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    PRIMARY KEY (ticker, ex_date)
+);
+CREATE INDEX IF NOT EXISTS idx_dividend_events_pay ON dividend_events(pay_date);
 
 -- A fund's top holdings from Yahoo (fund_holdings.py, the Fund overlap window):
 -- shared market data like security_info, no user_id. Fetched on demand and

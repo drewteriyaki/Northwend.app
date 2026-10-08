@@ -117,6 +117,22 @@ class PageQueryTests(unittest.TestCase):
         self.assertLessEqual(queries, HOME_QUERIES)
         self.assertLessEqual(connections, HOME_CONNECTIONS)
 
+    def test_dividend_dates_one_read_on_a_tickers_page_none_on_home(self):
+        # announced dividends (dividend_dates.upcoming): one read on the
+        # market data's connection, for that one ticker; Home reads none
+        # (Scout's week ahead reads its own only while its window is open)
+        sql = []
+        queries, connections = self._count(self.alice, "alice", "Ticker", ticker_sym="VTI",
+                                           ticker_from="Dashboard", statements=sql)
+        reads = [s for s in sql if "FROM dividend_events" in s]
+        self.assertEqual(len(reads), 1, reads)
+        self.assertIn("'VTI'", reads[0])
+        self.assertLessEqual(queries, HOME_QUERIES)
+        self.assertLessEqual(connections, HOME_CONNECTIONS)
+        sql.clear()
+        self._count(self.alice, "alice", "Dashboard", statements=sql)
+        self.assertEqual([s for s in sql if "FROM dividend_events" in s], [])
+
     def test_home_with_your_news_stays_under_its_cap(self):
         # Your news (flag news_feed) adds one read on the history's connection:
         # the stored headlines - never a fetch

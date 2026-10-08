@@ -17,6 +17,8 @@ name: Scheduled sync (hosted Postgres)
 #   APP_URL           the app's address, for the link in the email
 #   NORTHWEND_FLAGS   the walk reminders go out only when it lists "walk" (flags.py),
 #                     and Trail Conditions only when it lists "trail_conditions"
+# and, for announced dividend dates (dividend_dates.py; skipped until set):
+#   POLYGON_API_KEY   a Polygon / Massive key (the free plan is enough)
 # A job that fails emails the admin (error_alerts.py, at most once an hour per
 # job) with RESEND_API_KEY, to the ALERT_EMAIL secret or admin@northwend.app.
 # The refresh job covers every account (--all-users, each ticker fetched
@@ -103,6 +105,37 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: python error_alerts.py job "Sync price history" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # Announced dividend dates (dividend_dates.py) from Polygon (also called
+  # Massive), with the history sync: ticker symbols only are sent. The free
+  # plan allows about 5 calls a minute, so one call each 12.5 s, at most 200
+  # tickers a night (about 42 minutes), the longest-ago first; tickers asked
+  # in the last 3 days wait. Without the POLYGON_API_KEY secret it fetches
+  # nothing and says so. Its own job, so a slow or refused night doesn't hold
+  # up the history sync, and its failure is reported by name.
+  dividend-dates:
+    if: github.event.schedule == '30 21 * * 1-5' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip  # reuse installed packages between runs
+      - run: pip install -r requirements.txt
+      - name: Store announced dividend dates
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+        run: python dividend_dates.py --db "$DATABASE_URL"
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Dividend dates" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   # The retention schedule (PLAN D5), applied nightly with the history sync:
   # never-confirmed sign-ups past 30 days, old error records, expired links and

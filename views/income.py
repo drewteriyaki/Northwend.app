@@ -4,7 +4,8 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # The Income page: dividends received (from an imported activity export),
-# the next 12 months by month, and yields. Calm by default (ROADMAP S6): a
+# the next 12 months by month, the announced pay dates of the next 60 days
+# (dividend_dates.py - facts only, never estimated), and yields. Calm by default (ROADMAP S6): a
 # short summary and one next step, with each part in a window; the full page
 # for advisors and for Show everything (_show_everything).
 # ruff: noqa: F821
@@ -204,6 +205,59 @@ def _render_income_table(income_rows):
         st.caption(YOC_LINE)
 
 
+# ---- announced pay dates (dividend_dates.py) -------------------------------- #
+INCOME_DATES_DAYS = 60
+INCOME_DATES_TITLE = "Announced pay dates"
+INCOME_DATES_NOTE = ("Only dates already announced, each with where it came from - none are "
+                     "worked out from past payments. Companies and funds sometimes move them.")
+
+
+def _income_pay_dates():
+    """The holdings' dividend pay dates in the next INCOME_DATES_DAYS days:
+    announced (DIV_EVENTS, read with the page's market data), Yahoo's
+    (sec_info) and the brokerage file's. Facts only; nothing more is read."""
+    start = dividend_dates.today()
+    held = {p["symbol"] for p in positions if p.get("symbol")}
+    rows = dividend_dates.merged(DIV_EVENTS, sec_info, positions, start=start,
+                                 end=start + timedelta(days=INCOME_DATES_DAYS), tickers=held,
+                                 earnings=False)
+    ex_by = {}   # an announced ex-dividend date beside its pay date
+    for e in DIV_EVENTS:
+        if e.get("pay_date"):
+            ex_by[(e["ticker"], e["pay_date"])] = e.get("ex_date")
+    out = []
+    for r in rows:
+        if r["kind"] != dividend_dates.PAY:
+            continue
+        out.append({**r, "ex": ex_by.get((r["ticker"], r["day"].isoformat()))
+                    if r["source"] == dividend_dates.ANNOUNCED else None})
+    return out
+
+
+def _render_income_dates():
+    """The list of announced pay dates, or one calm line when none are."""
+    st.subheader(INCOME_DATES_TITLE, anchor=False)
+    items = _income_pay_dates()
+    if not items:
+        st.caption(f"{dividend_dates.NONE_YET} for your holdings in the next "
+                   f"{INCOME_DATES_DAYS} days.")
+        return
+    lines = []
+    for r in items:
+        bits = [f"**{r['day']:%a}, {r['day']:%b} {r['day'].day}** - {r['ticker']}"]
+        if r.get("amount") is not None:
+            bits.append(f"pays {fmt_price(r['amount'])} a share".replace("$", "\\$"))
+        if r.get("ex"):
+            bits.append(f"ex-dividend {_fmt_date(r['ex'])}")
+        if r["source"] == dividend_dates.BROKER and snapshot:
+            source = f"From your brokerage's file of {_fmt_date(snapshot)}"
+        else:
+            source = dividend_dates.SOURCE_WORDS[r["source"]]
+        lines.append("- " + ", ".join(bits) + f" ({source})")
+    st.markdown("\n".join(lines))
+    st.caption(INCOME_DATES_NOTE)
+
+
 # ---- the calm view's windows ------------------------------------------------ #
 @st.dialog("Next 12 months", width="large", on_dismiss=_dialog_closed)
 def _income_months_window(plan, unsynced):
@@ -277,6 +331,7 @@ def _render_income_calm(income_rows, plan, unsynced, got):
                          if yoc is not None else ""),
                       "See all holdings", _income_table_window, (income_rows,)))
     _detail_tiles(tiles)
+    _render_income_dates()
     st.caption("Estimates repeat each holding's last year of payments (dividend history from "
                "Yahoo Finance) at today's share count - dividends can change, so these are "
                "estimates, not promises.")
@@ -320,6 +375,8 @@ if PAGE == "Income":
         if _show_everything():
             _render_income_received(_income_got)
             _render_income_by_month(_income_plan, _income_unsynced)
+            _render_income_dates()
+            st.divider()
             _render_income_table(_income_rows)
             what_this_means("Dividend", "Dividend yield", "Ex-dividend date", "Yield", "Total return",
                             key="gloss_income")

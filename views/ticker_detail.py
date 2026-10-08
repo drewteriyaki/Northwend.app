@@ -6,13 +6,15 @@
 # One ticker's own page (TICKER_PAGE, ?page=ticker&t=VTI), opened from a row of
 # Home's holdings or the Watchlist (dashboard._ticker_table): on the slim band
 # the ticker, its name and Back; then cards - the price and its chart, your
-# position (or the watchlist note), the stats and the news.
+# position (or the watchlist note), the stats (with the upcoming dividend and
+# earnings dates, if announced) and the news.
 # ruff: noqa: F821
 
 import math
 
 import fees
 import price_report
+from weekly import parse_day as weekly_parse_day
 
 
 def _send_price_report(sym, price, price_at):
@@ -62,6 +64,48 @@ def _ticker_learn_more(sym, pos):
         learn_more("bonds")
     elif fees.holding_type(info.get("quote_type"), pos.get("asset_type")) == "fund":
         learn_more("etfs")
+
+
+def _tk_source(source):
+    if source == dividend_dates.BROKER and snapshot:
+        return f"From your brokerage's file of {_fmt_date(snapshot)}"
+    return dividend_dates.SOURCE_WORDS.get(source, "")
+
+
+def _render_ticker_dates(sym, pos):
+    """Upcoming dates (dividend_dates.py): the next ex-dividend and pay date
+    and the amount a share if announced, and for a stock its next earnings
+    date - each with where it came from, never estimated. Reads nothing more
+    (DIV_EVENTS and sec_info came with the page's market data)."""
+    info = sec_info.get(sym) or {}
+    today = dividend_dates.today()
+    nxt = dividend_dates.next_for(DIV_EVENTS, info, sym, today)
+    if not nxt["source"]:   # the brokerage file's pay date, as before
+        pay = weekly_parse_day(pos.get("div_pay_date"))
+        if pay and pay >= today:
+            nxt.update(pay=pay, source=dividend_dates.BROKER)
+    st.markdown("##### Upcoming dates")
+    if nxt["source"]:
+        bits = []
+        if nxt["ex"]:
+            bits.append(f"ex-dividend **{_fmt_date(nxt['ex'])}**")
+        if nxt["pay"]:
+            bits.append(f"paid **{_fmt_date(nxt['pay'])}**")
+        if nxt["amount"] is not None:
+            bits.append(f"{fmt_price(nxt['amount'])} a share".replace("$", "\\$"))
+        lines = ["Next dividend: " + ", ".join(bits) + f" ({_tk_source(nxt['source'])})"]
+    else:
+        lines = [f"Next dividend: {dividend_dates.NONE_YET}."]
+    if fees.holding_type(info.get("quote_type"), pos.get("asset_type")) == "stock":
+        earn, src = nxt["earnings"], nxt["earnings_source"]
+        if not earn:
+            earn = weekly_parse_day(pos.get("next_earnings_date"))
+            earn, src = (earn, dividend_dates.BROKER) if earn and earn >= today else (None, None)
+        lines.append(f"Next earnings report: **{_fmt_date(earn)}** ({_tk_source(src)})" if earn
+                     else f"Next earnings report: {dividend_dates.NONE_YET}.")
+    st.markdown("  \n".join(lines))
+    st.caption("Only dates already announced - none are worked out from past payments. "
+               "Companies and funds sometimes move them.")
 
 
 def _remove_from_watchlist(sym):
@@ -279,6 +323,7 @@ if PAGE == TICKER_PAGE:
         ])
         if not _blank(M.value("div_yield_pct", _ctx)):
             learn_more("dividends")   # beside its dividend yield
+        _render_ticker_dates(_sym, _pos)
         if not (_covered or bar_stats or perf.has_bars(DB)):   # any Yahoo history at all
             st.caption("Fundamentals (52-wk range, beta, P/E, market cap, sector, moving averages) "
                        "fill in after you tap sync history (:material/history:) up top.")

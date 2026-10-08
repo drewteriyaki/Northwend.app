@@ -7,7 +7,10 @@
      `intraday_bars` - each resolution requested at Yahoo's own maximum
      look-back, so a 1D/5D chart has real minute-by-minute movement, not one
      point per day
-  4. grabs a small bag of reference fundamentals into `security_info`
+  4. grabs a small bag of reference fundamentals into `security_info`, with
+     the dates Yahoo's quote already carries (no extra request): the
+     ex-dividend date, the dividend pay date and a confirmed earnings date -
+     facts as Yahoo gives them, never worked out (see _event_dates)
 
 This is the one part of the project with a third-party data dependency:
 
@@ -25,6 +28,13 @@ import os
 import sqlite3
 import sys
 import time
+from datetime import datetime, timedelta, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+    _NY = ZoneInfo("America/New_York")
+except Exception:   # pragma: no cover - no tz database: standard time all year
+    _NY = timezone(timedelta(hours=-5))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -88,6 +98,56 @@ def _expense_ratio(raw: dict):
         if v is not None and 0 <= v < _MAX_EXPENSE_RATIO:
             return v
     return None
+
+
+# Dates from the same info reply (Yahoo's quote; no extra request), stored as
+# ISO days. Yahoo gives unix seconds. Its dividendDate can be the LAST pay
+# date, already past: stored as given (security_info.fetched_at is the day it
+# was asked) - the app shows only dates that are today or later. An earnings
+# date is kept only when Yahoo doesn't call it an estimate
+# (isEarningsDateEstimate) and isn't giving a range of days (Start != End):
+# facts only. Funds and ETFs get none of these from Yahoo (JEPQ, VTI: none,
+# Oct 2026); dividend_dates.py asks Polygon for theirs.
+EVENT_COLS = ("ex_dividend_date", "dividend_pay_date", "earnings_date")
+
+
+def _when(v):
+    """Unix seconds as an aware UTC datetime, or None."""
+    n = _num(v)
+    if n is None or n <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(n, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _day_utc(v):
+    """A unix-seconds date (Yahoo's dividend dates are midnight UTC) as
+    'YYYY-MM-DD', or None."""
+    when = _when(v)
+    return when.date().isoformat() if when else None
+
+
+def _day_ny(v):
+    """A unix-seconds moment (an earnings call's time) as its New York day."""
+    when = _when(v)
+    return when.astimezone(_NY).date().isoformat() if when else None
+
+
+def _event_dates(raw: dict) -> dict:
+    """{ex_dividend_date, dividend_pay_date, earnings_date} from Yahoo's info
+    (ISO days or None) - see EVENT_COLS above for what's kept."""
+    earn = None
+    if not raw.get("isEarningsDateEstimate"):
+        start, end = raw.get("earningsTimestampStart"), raw.get("earningsTimestampEnd")
+        if _day_ny(start) and _day_ny(end) and _day_ny(start) != _day_ny(end):
+            earn = None   # a range of days: not settled yet
+        else:
+            earn = _day_ny(raw.get("earningsTimestamp")) or _day_ny(start)
+    return {"ex_dividend_date": _day_utc(raw.get("exDividendDate")),
+            "dividend_pay_date": _day_utc(raw.get("dividendDate")),
+            "earnings_date": earn}
 
 
 def _require_yf():
@@ -186,6 +246,7 @@ def fetch_info(ticker: str) -> dict:
         out[col] = v if v not in ("", "Infinity", "-Infinity") else None
     if raw and out.get("quote_type") is None:
         out["quote_type"] = ""  # asked, and Yahoo has no type for it (None = never asked)
+    out.update(_event_dates(raw))
     fund = out.get("quote_type") in _FUND_TYPES
     out["expense_ratio"] = _expense_ratio(raw) if fund else None
     if not fund:
@@ -277,7 +338,8 @@ def upsert_intraday(conn: sqlite3.Connection, ticker: str, interval: str, rows) 
 
 
 def upsert_info(conn: sqlite3.Connection, ticker: str, info: dict) -> None:
-    cols = list(_INFO_KEYS.keys()) + list(_FUND_SPLIT_KEYS.keys()) + ["expense_ratio"]
+    cols = (list(_INFO_KEYS.keys()) + list(_FUND_SPLIT_KEYS.keys()) + ["expense_ratio"]
+            + list(EVENT_COLS))
     conn.execute(
         f"INSERT INTO security_info (ticker, {', '.join(cols)}, fetched_at) "
         f"VALUES (?, {', '.join('?' for _ in cols)}, datetime('now')) "

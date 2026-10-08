@@ -10,8 +10,9 @@
 # - Friday after the close through Sunday, "Your week": the week's change,
 #   the holdings that went up and down the most, the goal's start and end,
 #   and up to three kept headlines about the biggest movers.
-# - Monday to Thursday, "The week ahead": known pay and earnings dates from
-#   the brokerage's file, and the hand-kept public calendar.
+# - Monday to Thursday, "The week ahead": known ex-dividend, pay and earnings
+#   dates (announced ones kept nightly, Yahoo's, the brokerage's file - each
+#   says which), and the hand-kept public calendar.
 # New: a short card ("Take a look", an X to put it away) - the week itself
 # opens in a large window (_wk_window); opened: one quiet line; put away:
 # nothing until the next moment. What's kept: the moment's id and "seen" or
@@ -20,6 +21,7 @@
 # Reads only what's kept: nothing is fetched here.
 # ruff: noqa: F821
 
+import dividend_dates
 import news
 import weekly
 
@@ -119,22 +121,41 @@ def _wk_week_body(m):
     st.caption(f":material/info: {_wk_md(words['foot'])}")
 
 
+def _wk_events(m):
+    """The announced dividends kept for the holdings (dividend_dates.upcoming),
+    read once per moment and statement - only while the window is open."""
+    key = (USER_ID, snapshot, m["id"])
+    kept = st.session_state.get("wk_events")
+    if kept and kept[0] == key:
+        return kept[1]
+    tickers = sorted({p["symbol"] for p in positions if p.get("symbol")})
+    c = connect(DB)
+    try:
+        rows = dividend_dates.upcoming(c, tickers, m["start"])
+    finally:
+        c.close()
+    st.session_state["wk_events"] = (key, rows)
+    return rows
+
+
 def _wk_ahead_body(m):
     snap_day = None
     try:
         snap_day = date.fromisoformat(str(snapshot)[:10])
     except ValueError:
         pass
-    data = weekly.week_ahead(positions, start=m["start"], end=m["end"], snapshot=snap_day)
+    data = weekly.week_ahead(positions, start=m["start"], end=m["end"], snapshot=snap_day,
+                             events=_wk_events(m), info=sec_info)
     words = weekly.week_ahead_lines(data)
     st.caption(_wk_md(words["span"]))
     if words["holdings"]:
-        st.markdown("\n".join(f"- **{_wk_md(d)}** - {_wk_md(t)}" for d, t in words["holdings"]))
+        st.markdown("\n".join(f"- **{_wk_md(d)}** - {_wk_md(t)}"
+                              + (f" ({_wk_md(s)})" if s else "")
+                              for d, t, s in words["holdings"]))
         if words["source"]:
             st.caption(_wk_md(words["source"]))
     else:
         st.markdown(_wk_md(words["holdings_none"]))
-    st.caption(_wk_md(words["ex_note"]))
     if words["calendar"]:
         st.markdown(f"**{_wk_md(words['cal_lead'])}**")
         st.markdown("\n".join(f"- **{_wk_md(d)}** - {_wk_md(t)} ([source]({u}))"

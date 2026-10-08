@@ -213,21 +213,45 @@ class WeekAheadTests(unittest.TestCase):
     def test_only_known_dates_in_the_window(self):
         d = wk.week_ahead(self.POS, start=date(2026, 10, 5), end=date(2026, 10, 11),
                           snapshot=date(2026, 10, 2))
-        self.assertEqual(d["holdings"], [(date(2026, 10, 9), "VTI", "pay")])
+        self.assertEqual(d["holdings"], [(date(2026, 10, 9), "VTI", "pay", "broker")])
         words = wk.week_ahead_lines(d)
-        self.assertEqual(words["holdings"], [("Fri, Oct 9", "VTI dividend pay date")])
-        self.assertIn("Fri, Oct 2", words["source"])
+        self.assertEqual(words["holdings"], [("Fri, Oct 9", "VTI dividend pay date",
+                                              "From your brokerage's file of Fri, Oct 2")])
+        self.assertEqual(words["source"], wk.HOLDING_SOURCE)
         d = wk.week_ahead(self.POS, start=date(2026, 10, 26), end=date(2026, 11, 1))
-        self.assertEqual(d["holdings"], [(date(2026, 10, 29), "AAPL", "earnings")])
+        self.assertEqual(d["holdings"], [(date(2026, 10, 29), "AAPL", "earnings", "broker")])
         self.assertEqual(wk.week_ahead_lines(d)["holdings"][0][1], "AAPL earnings report date")
+
+    def test_announced_and_yahoo_dates_with_their_sources(self):
+        events = [{"ticker": "SCHD", "ex_date": "2026-10-07", "pay_date": "2026-10-12",
+                   "amount": 0.26},
+                  {"ticker": "NOTHELD", "ex_date": "2026-10-07", "pay_date": None,
+                   "amount": None}]
+        info = {"AAPL": {"ex_dividend_date": "2026-10-06", "dividend_pay_date": "2026-08-14",
+                         "earnings_date": "2026-10-08"},
+                # Yahoo's SCHD date gives way to the announced one
+                "SCHD": {"ex_dividend_date": "2026-10-08", "dividend_pay_date": None}}
+        d = wk.week_ahead(self.POS, start=date(2026, 10, 5), end=date(2026, 10, 12),
+                          snapshot=date(2026, 10, 2), events=events, info=info)
+        self.assertEqual(d["holdings"], [
+            (date(2026, 10, 6), "AAPL", "ex", "yahoo"),
+            (date(2026, 10, 7), "SCHD", "ex", "announced"),
+            (date(2026, 10, 8), "AAPL", "earnings", "yahoo"),
+            (date(2026, 10, 9), "VTI", "pay", "broker"),
+            (date(2026, 10, 12), "SCHD", "pay", "announced")])
+        words = wk.week_ahead_lines(d)["holdings"]
+        self.assertEqual(words[0], ("Tue, Oct 6", "AAPL ex-dividend date", "From Yahoo Finance"))
+        self.assertEqual(words[1], ("Wed, Oct 7", "SCHD ex-dividend date",
+                                    "Announced by the company or fund"))
 
     def test_no_dividends_known_nothing_estimated(self):
         pos = [{"symbol": "VTI"}, {"symbol": "BND", "div_pay_date": "--"}]
         d = wk.week_ahead(pos, start=date(2026, 10, 5), end=date(2026, 10, 11))
         self.assertEqual(d["holdings"], [])
         words = wk.week_ahead_lines(d)
-        self.assertEqual(words["holdings_none"], wk.NO_BROKER_DATES)
-        self.assertEqual(words["ex_note"], wk.EX_NOTE)
+        self.assertEqual(words["holdings_none"], wk.AHEAD_NONE)
+        self.assertIn("No upcoming date announced yet", wk.AHEAD_NONE)
+        self.assertNotIn("ex_note", words)
         d = wk.week_ahead(self.POS, start=date(2026, 11, 2), end=date(2026, 11, 8))
         self.assertEqual(wk.week_ahead_lines(d)["holdings_none"], wk.AHEAD_NONE)
         self.assertEqual(wk.week_ahead([], start=date(2026, 11, 2),
@@ -324,6 +348,13 @@ class AppTests(unittest.TestCase):
                                            "target_date": "2046-01-01"}, set_by=cls.alice)
             c.execute("UPDATE positions SET div_pay_date = '10/08/2026' WHERE user_id = ? "
                       "AND symbol = 'SCHD'", (cls.alice,))
+            # an announced VTI dividend (dividend_dates.py) and Yahoo's AAPL
+            # earnings date (sync_history._event_dates), both in the week ahead
+            c.execute("INSERT INTO dividend_events (ticker, ex_date, pay_date, amount, "
+                      "fetched_at) VALUES ('VTI', '2026-10-09', '2026-10-14', 0.93, "
+                      "'2026-10-05T22:00:00Z')")
+            c.execute("INSERT INTO security_info (ticker, quote_type, earnings_date) "
+                      "VALUES ('AAPL', 'EQUITY', '2026-10-08')")
             # each sample holding's closes: Friday Oct 2, then the week
             for _acct, sym, *_rest, price in sample_data.HOLDINGS:
                 for day, f in (("2026-10-02", 1.0), ("2026-10-05", 1.01), ("2026-10-09",
@@ -452,8 +483,13 @@ class AppTests(unittest.TestCase):
             self.assertIn(wk.AHEAD_WHY, self._text(at))
             at.button(key="wk_open_btn").click().run()
             text = self._text(at)
-            self.assertIn("SCHD dividend pay date", text)
-            self.assertIn(wk.EX_NOTE, text)
+            self.assertIn("SCHD dividend pay date (From your brokerage's file of Fri, Oct 2)",
+                          text)
+            self.assertIn("VTI ex-dividend date (Announced by the company or fund)", text)
+            self.assertIn("AAPL earnings report date (From Yahoo Finance)", text)
+            self.assertNotIn("VTI dividend pay date", text)   # Oct 14: past the window
+            self.assertIn(wk.HOLDING_SOURCE, text)
+            self.assertNotIn("aren't listed", text)
         self._reset(self.alice)
         with self._app(self.alice, "alice", TUE) as at:
             at.button(key="wk_later").click().run()

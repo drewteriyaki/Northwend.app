@@ -1308,6 +1308,43 @@ class HoldingsTests(_PG):
         self.assertEqual(live_prices.trim_history(c), 1)   # one quote a day kept, after a week
         self.assertEqual(len(self.seen("SELECT id FROM price_history WHERE ticker = 'VTI'")), 1)
 
+    def test_dividend_dates_kept_read_and_pruned(self):
+        import dividend_dates
+        c = self.conn
+        soon, later = (TODAY + timedelta(days=5)).isoformat(), (TODAY + timedelta(days=20))
+        old = (TODAY - timedelta(days=800)).isoformat()
+        uid = self.user("dora")
+        sample_data.load(c, uid)
+        dividend_dates.store(c, "VTI", [
+            {"ex_date": soon, "pay_date": later.isoformat(), "declared_date": None,
+             "record_date": soon, "amount": 0.93},
+            {"ex_date": old, "pay_date": old, "declared_date": None, "record_date": None,
+             "amount": 0.8}], now=NOW)
+        dividend_dates.store(c, "AAPL", [], now=NOW)
+        # stored again: the upcoming row is replaced, never doubled
+        dividend_dates.store(c, "VTI", [
+            {"ex_date": soon, "pay_date": later.isoformat(), "declared_date": None,
+             "record_date": soon, "amount": 0.94}], now=NOW)
+        rows = dividend_dates.upcoming(c, ["VTI", "AAPL"], TODAY)
+        self.assertEqual([(r["ticker"], r["ex_date"], r["amount"]) for r in rows],
+                         [("VTI", soon, 0.94)])
+        todo, recent = dividend_dates.tickers_to_fetch(c, now=NOW)
+        self.assertNotIn("VTI", todo)          # just asked
+        self.assertNotIn("AAPL", todo)
+        self.assertGreaterEqual(recent, 2)
+        c.execute("INSERT INTO dividend_events (ticker, ex_date, pay_date, fetched_at) "
+                  "VALUES ('OLD', ?, ?, ?)", (old, old, NOW.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        self.assertEqual(dividend_dates.prune(c, now=NOW), 1)
+        c.commit()
+        with c:
+            sync_history.upsert_info(c, "AAPL", {"name": "Apple", "quote_type": "EQUITY",
+                                                 "ex_dividend_date": soon,
+                                                 "dividend_pay_date": None,
+                                                 "earnings_date": later.isoformat()})
+        self.assertEqual(self.one("SELECT ex_dividend_date, earnings_date FROM security_info "
+                                  "WHERE ticker = 'AAPL'"),
+                         {"ex_dividend_date": soon, "earnings_date": later.isoformat()})
+
 
     def test_the_15_minute_price_job_and_news(self):
         import news

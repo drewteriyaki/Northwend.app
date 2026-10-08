@@ -298,7 +298,9 @@ class PrivacyTextTests(unittest.TestCase):
             self.assertIn("within 45 days", flat)
             self.assertNotIn("does not use analytics", flat)
             self.assertNotIn("doesn't send usage analytics", flat)
-        self.assertEqual(disclosures.LAST_UPDATED, "October 6, 2026")   # everyone's told
+        # everyone's told: the date moved with that change (October 6) and has
+        # moved since (October 8: Polygon for dividend dates), never back
+        self.assertIn(disclosures.LAST_UPDATED, ("October 6, 2026", "October 8, 2026"))
         with open(os.path.join(REPO, "website", "public", "about.html"), encoding="utf-8") as fh:
             self.assertIn("Leave me out of feature counts", fh.read())
 

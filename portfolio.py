@@ -185,7 +185,8 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # 9 = price_reports ("Price look wrong?", price_report.py).
 # 10 = advisor_pack (Bring to my advisor, advisor_pack.py).
 # 11 = together_invites and together_pairs (Doing it together, together.py).
-SCHEMA_VERSION = 11
+# 12 = dividend_events and security_info's Yahoo dates (dividend_dates.py).
+SCHEMA_VERSION = 12
 
 
 def _ensure_schema(conn) -> None:
@@ -240,7 +241,11 @@ def _ensure_schema(conn) -> None:
                                    ("stock_pct", "REAL"), ("bond_pct", "REAL"),
                                    ("cash_pct", "REAL"), ("other_pct", "REAL"),
                                    # a fund's yearly fee, a fraction (fees.py)
-                                   ("expense_ratio", "REAL")]),
+                                   ("expense_ratio", "REAL"),
+                                   # the dates in Yahoo's quote (sync_history._event_dates)
+                                   ("ex_dividend_date", "TEXT"),
+                                   ("dividend_pay_date", "TEXT"),
+                                   ("earnings_date", "TEXT")]),
                 ("plans", [("targets_cleared", "INTEGER")]),
                 # AI allowances in cost, per day and month (ai_usage.py)
                 ("ai_usage", [("cost_micro", "INTEGER NOT NULL DEFAULT 0"), ("day", "TEXT"),

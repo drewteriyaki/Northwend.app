@@ -87,6 +87,9 @@ GitHub Actions on a schedule (`.github/workflows/scheduled-sync.yml`), against
 the live database:
 - prices every 15 minutes in market hours (`update_prices.py`, Finnhub);
 - history, dividends and fund data nightly (`sync_history.py`, Yahoo);
+- announced dividend dates nightly (`dividend_dates.py`, Polygon; ticker
+  symbols only, about 5 a minute, at most 200 a night, nothing without
+  `POLYGON_API_KEY`) into the shared `dividend_events` table;
 - the advisors' Monday email (`weekly_email.py`);
 - walk reminders daily, for those who asked (`checkin_email.py`).
 

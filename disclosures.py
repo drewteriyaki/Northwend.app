@@ -23,7 +23,8 @@ Each statement about data here must stay true to the code:
   (views/holdings_input.py); only symbols / shares / cost / percent / cash
   survive screenshot_read.clean().
 - Market data: tickers only (update_prices.py / live_prices.py / news.py / news_feed.py ->
-  Finnhub, sync_history.py / live_prices.py -> Yahoo Finance); the scheduled
+  Finnhub, sync_history.py / live_prices.py -> Yahoo Finance, dividend_dates.py ->
+  Polygon, also called Massive: announced dividend dates); the scheduled
   jobs run on GitHub Actions (.github/workflows/scheduled-sync.yml).
 - Passwords: PBKDF2-SHA256 with a per-user salt, 600,000 iterations, the count
   kept per login (users.password_iterations; older hashes are re-made at the
@@ -418,7 +419,7 @@ Plain text, no "$" (Streamlit would read a pair of them as math).
 
 import settings
 
-LAST_UPDATED = "October 6, 2026"
+LAST_UPDATED = "October 8, 2026"   # Polygon added for dividend dates
 
 # The app's move from Streamlit Community Cloud to Render behind Cloudflare
 # (PLAN step 4, audit 1.10a). A copy on either host names its own host by
@@ -751,7 +752,9 @@ feature counts** on the **Account** page.
   reader - see the next section for exactly what's sent.
 - **Finnhub** and **Yahoo Finance** provide prices, fund details and news; only
   ticker symbols are sent to them.
-- **GitHub** runs the scheduled price and news updates, the nightly clean-up of what's
+- **Polygon** (also called Massive) provides announced dividend dates; only
+  ticker symbols are sent to it, by the nightly update.
+- **GitHub** runs the scheduled price, dividend date and news updates, the nightly clean-up of what's
   kept only for a while, and the scheduled emails (sent through Resend).
 - **Resend** delivers the account emails (confirming your address, resetting
   your password, an advisor's Monday summary, the monthly walk reminder and
@@ -826,7 +829,9 @@ specific investment or a specific mix for you. AI answers can still be wrong or
 out of date. Check anything important before acting on it.
 """),
     ("Market data", """
-Prices, company details and news come from Finnhub and Yahoo Finance. Prices
+Prices, company details and news come from Finnhub and Yahoo Finance; announced
+dividend dates come from Polygon (also called Massive), Yahoo Finance and your
+brokerage's file, and are never worked out from past payments. Prices
 update by themselves about every minute while the market is open (crypto around
 the clock, mutual funds hourly), but may be delayed (often by 15 minutes) or
 occasionally wrong - check your brokerage for exact figures before trading.
@@ -839,7 +844,7 @@ aren't liable for losses from using it or relying on it.
 """),
     ("Not affiliated", """
 Northwend is independent. It isn't affiliated with, endorsed by or connected to any
-brokerage, or to Finnhub, Yahoo or Anthropic. Brokerage names are used only to
+brokerage, or to Finnhub, Yahoo, Polygon or Anthropic. Brokerage names are used only to
 describe which files and screens it can read.
 """),
     ("Changes to this page", f"""

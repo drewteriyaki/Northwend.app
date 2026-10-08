@@ -75,6 +75,10 @@ services:
         sync: false
       - key: FINNHUB_API_KEY
         sync: false
+      # announced dividend dates (dividend_dates.py): the nightly GitHub job
+      # fetches; here only so Admin > System can say it's set
+      - key: POLYGON_API_KEY
+        sync: false
       # encrypts the two-step keys in the database (two_step.py): the live
       # copy's own key, the same one the live app already has - never staging's
       - key: NORTHWEND_TOTP_KEY

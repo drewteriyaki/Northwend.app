@@ -33,6 +33,16 @@ ENTRIES = [
          "we read every one. It isn't stored in the app, and your email goes with it only if "
          "you tick that you'd like a reply.",
      ]},
+    {"date": "2026-10-08", "title": "Upcoming dividend dates",
+     "items": [
+         "Income lists the dividend pay dates already announced for your holdings in the next "
+         "60 days, and each holding's page shows its next ex-dividend date, pay date and "
+         "amount a share once they're announced - and a company's next earnings date.",
+         {"text": "Scout's week ahead now lists ex-dividend dates too.", "flag": "weekly"},
+         "Each date says where it came from: announced by the company or fund, Yahoo Finance, "
+         "or your brokerage's file. Nothing is worked out from past payments - if nothing is "
+         "announced yet, it says so.",
+     ]},
     {"date": "2026-10-07", "title": "Your holdings in one table, and a page for each one",
      "items": [
          "On Home, your holdings are one table under the chart, with headings and a small "

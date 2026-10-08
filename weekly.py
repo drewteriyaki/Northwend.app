@@ -11,11 +11,12 @@ card on Home by views/weekly.py (render_weekly). The monthly walk
   about the holdings that moved the most (news.latest_news - only what's
   already kept; nothing is fetched).
 - "The week ahead" - Monday through Thursday: dates already known in the
-  next seven days. Dividend pay dates and earnings dates for holdings come
-  only from the brokerage's own file (positions.div_pay_date /
-  next_earnings_date); ex-dividend dates are kept only once they've passed
-  (daily_bars.dividend), so none are listed and none are estimated. Plus a
-  small hand-kept public calendar (CALENDAR: Federal Reserve rate meetings
+  next seven days. Ex-dividend, dividend pay and earnings dates for
+  holdings, each with where it came from (dividend_dates.merged): announced
+  dividends kept by the nightly job (dividend_events, from Polygon), the
+  dates in Yahoo's quote (security_info), and the brokerage's own file
+  (positions.div_pay_date / next_earnings_date). Nothing is estimated from
+  past payments. Plus a small hand-kept public calendar (CALENDAR: Federal Reserve rate meetings
   and US market holidays and early closes, each with its official source);
   a test fails once CALENDAR_YEAR is past, so it gets reviewed each January.
 
@@ -38,6 +39,8 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time, timedelta, timezone
 from urllib.parse import urlparse
+
+import dividend_dates
 
 try:
     from zoneinfo import ZoneInfo
@@ -82,14 +85,13 @@ AHEAD_TITLE = "Scout: the week ahead"
 AHEAD_WHY = "Dates already known for the next seven days."
 AHEAD_SPAN = "{start} to {end}."
 PAY_ITEM = "{ticker} dividend pay date"
+EX_ITEM = "{ticker} ex-dividend date"
 EARN_ITEM = "{ticker} earnings report date"
-HOLDING_SOURCE = ("Pay and earnings dates come from your brokerage's file of {date}. "
-                  "Companies sometimes move them.")
-AHEAD_NONE = "No pay or earnings dates are known for your holdings in these seven days."
-NO_BROKER_DATES = ("Dividend pay dates and earnings dates show here when your brokerage's "
-                   "file includes them.")
-EX_NOTE = ("Ex-dividend dates aren't listed: Northwend keeps them only once they've "
-           "passed.")
+BROKER_FILE = "From your brokerage's file of {date}"
+HOLDING_SOURCE = ("Each date says where it came from. Companies and funds sometimes move "
+                  "them; none are worked out from past payments.")
+AHEAD_NONE = ("No upcoming date announced yet for your holdings' dividends or earnings in "
+              "these seven days.")
 CAL_LEAD = "On the public calendar:"
 CAL_NOTE = "From the official calendars linked here, checked {checked}."
 AHEAD_FOOT = "Dates only, as published - nothing here says what happens on them."
@@ -353,47 +355,48 @@ def parse_day(text) -> date | None:
 
 
 def week_ahead(positions, *, start: date, end: date, snapshot=None,
-               calendar=CALENDAR) -> dict:
+               calendar=CALENDAR, events=None, info=None) -> dict:
     """Known dates from `start` to `end` (both included).
 
     positions: the holdings (dicts with symbol, div_pay_date,
-    next_earnings_date - the brokerage file's own cells). Only dates that
-    parse and fall in the window; nothing is estimated. Returns {"start",
-    "end", "holdings": [(date, ticker, "pay" | "earnings")], "has_broker_dates",
-    "snapshot", "calendar": [(date, words, url)]}."""
-    items, has_dates = set(), False
-    for p in positions or []:
-        sym = p.get("symbol")
-        for field, kind in (("div_pay_date", "pay"), ("next_earnings_date", "earnings")):
-            d = parse_day(p.get(field))
-            if d is None:
-                continue
-            has_dates = True
-            if sym and start <= d <= end:
-                items.add((d, sym, kind))
+    next_earnings_date - the brokerage file's own cells). events: the
+    announced dividends kept for them (dividend_dates.upcoming). info:
+    {ticker: security_info row} (Yahoo's dates). Only dates that parse and
+    fall in the window, for the tickers held; nothing is estimated. Returns
+    {"start", "end", "holdings": [(date, ticker, "ex" | "pay" | "earnings",
+    source)], "snapshot", "calendar": [(date, words, url)]} - source is
+    dividend_dates' "announced", "yahoo" or "broker"."""
+    held = {str(p.get("symbol")).upper() for p in positions or [] if p.get("symbol")}
+    items = [(r["day"], r["ticker"], r["kind"], r["source"]) for r in dividend_dates.merged(
+        events, info, positions, start=start, end=end, tickers=held)]
     cal = [(date.fromisoformat(d), words, url) for d, words, url in calendar
            if start.isoformat() <= d <= end.isoformat()]
-    return {"start": start, "end": end, "holdings": sorted(items), "has_broker_dates": has_dates,
-            "snapshot": snapshot, "calendar": sorted(cal)}
+    return {"start": start, "end": end, "holdings": items, "snapshot": snapshot,
+            "calendar": sorted(cal)}
+
+
+_ITEMS = {"pay": PAY_ITEM, "ex": EX_ITEM, "earnings": EARN_ITEM}
+
+
+def source_words(source: str, snapshot=None, day_fmt=None) -> str:
+    """Where a date came from, in words (the brokerage file's with its day)."""
+    if source == dividend_dates.BROKER and snapshot:
+        return BROKER_FILE.format(date=(day_fmt or _day_words)(snapshot))
+    return dividend_dates.SOURCE_WORDS.get(source, "")
 
 
 def week_ahead_lines(data: dict, *, day_fmt=None) -> dict:
     """The fixed sentences for week_ahead()'s data: {"title", "why", "span",
-    "holdings": [(day, text)], "holdings_none", "source", "ex_note",
+    "holdings": [(day, text, source words)], "holdings_none", "source",
     "cal_lead", "calendar": [(day, text, url)], "cal_note", "foot"}."""
     fmt = day_fmt or _day_words
-    hold = [(fmt(d), (PAY_ITEM if k == "pay" else EARN_ITEM).format(ticker=t))
-            for d, t, k in data["holdings"]]
-    if hold:
-        none = ""
-    else:
-        none = AHEAD_NONE if data["has_broker_dates"] else NO_BROKER_DATES
     snap = data.get("snapshot")
+    hold = [(fmt(d), _ITEMS[k].format(ticker=t), source_words(s, snap, fmt))
+            for d, t, k, s in data["holdings"]]
     return {"title": AHEAD_TITLE, "why": AHEAD_WHY,
             "span": AHEAD_SPAN.format(start=fmt(data["start"]), end=fmt(data["end"])),
-            "holdings": hold, "holdings_none": none,
-            "source": (HOLDING_SOURCE.format(date=fmt(snap)) if hold and snap else ""),
-            "ex_note": EX_NOTE,
+            "holdings": hold, "holdings_none": "" if hold else AHEAD_NONE,
+            "source": HOLDING_SOURCE if hold else "",
             "cal_lead": CAL_LEAD if data["calendar"] else "",
             "calendar": [(fmt(d), w, u) for d, w, u in data["calendar"]],
             "cal_note": (CAL_NOTE.format(checked=CALENDAR_CHECKED) if data["calendar"] else ""),
@@ -411,7 +414,8 @@ def templates() -> list[str]:
             MOVERS_NONE, GOAL_LINE.format(name="Retirement", start="41%", end="42%"),
             NEWS_LEAD, NEWS_NOTE, WEEK_FOOT, AHEAD_TITLE, AHEAD_WHY,
             AHEAD_SPAN.format(start="Mon, Oct 5", end="Sun, Oct 11"),
-            PAY_ITEM.format(ticker="VTI"), EARN_ITEM.format(ticker="AAPL"),
-            HOLDING_SOURCE.format(date="Fri, Oct 2"), AHEAD_NONE, NO_BROKER_DATES, EX_NOTE,
+            PAY_ITEM.format(ticker="VTI"), EX_ITEM.format(ticker="SCHD"),
+            EARN_ITEM.format(ticker="AAPL"), BROKER_FILE.format(date="Fri, Oct 2"),
+            *dividend_dates.SOURCE_WORDS.values(), HOLDING_SOURCE, AHEAD_NONE,
             CAL_LEAD, CAL_NOTE.format(checked=CALENDAR_CHECKED), AHEAD_FOOT,
             *sorted({w for _d, w, _u in CALENDAR})]

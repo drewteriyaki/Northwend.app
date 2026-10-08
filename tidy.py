@@ -27,6 +27,8 @@ What goes:
 - One-minute price bars (intraday_bars '1m') older than 8 days: Yahoo serves
   7 days of them (perf.INTRADAY_INTERVALS); daily bars stay. The quote table's
   minute rows are trimmed by the history sync (live_prices.trim_history).
+- Announced dividends (dividend_events) whose ex-dividend and pay dates are
+  both more than about two years ago (dividend_dates.prune).
 - The admin action log past a year (admin_log.prune), when that module is in.
 - Consent records 7 years after the sharing they record ended (consent.prune),
   and advisor access log rows after 7 years (access_log.prune) - PLAN B6. Both
@@ -45,6 +47,7 @@ import access_log
 import admin
 import auth
 import consent
+import dividend_dates
 import explain_share
 import together
 import pgcompat
@@ -132,6 +135,8 @@ def run(conn, *, now: datetime | None = None) -> dict:
     # (`interval` is a keyword on Postgres: qualified. ts is ISO, so a day compares.)
     delete("minute bars", "DELETE FROM intraday_bars WHERE intraday_bars.interval = '1m' "
            "AND ts < ?", ((now - timedelta(days=MINUTE_BAR_DAYS)).strftime("%Y-%m-%d"),))
+    # announced dividends past about two years (dividend_dates.prune)
+    done["dividend dates"] = dividend_dates.prune(conn, now=now)
     conn.commit()
     if admin_log is not None:
         done["admin log entries"] = int(admin_log.prune(conn, older_than_days=ADMIN_LOG_DAYS)
