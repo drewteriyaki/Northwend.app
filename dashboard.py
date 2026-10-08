@@ -2311,7 +2311,8 @@ _BRAND = _brand_html("pt-brand-compact" if IS_ADVISOR else "")
 ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
                  "What's new": ":material/campaign:", "Find a guide": ":material/signpost:",
                  "Admin": ":material/admin_panel_settings:",
-                 "Advisor preview": ":material/preview:"}
+                 "Advisor preview": ":material/preview:",
+                 "Send feedback": ":material/feedback:"}
 
 
 def _whats_new_unseen():
@@ -2382,6 +2383,10 @@ def _render_name_menu():
             dot = " •" if p == "What's new" and _whats_new_unseen() else ""
             st.button(f"{ACCOUNT_ICONS[p]} {_label(p)}{dot}", key=f"menu_{p}", on_click=_go, args=(p,),
                       width="stretch", type="primary" if PAGE == p else "tertiary")
+        # the open beta's Send feedback window, for everyone signed in - always
+        # the login's own, even in a client's account (views/feedback.py)
+        st.button(f"{ACCOUNT_ICONS['Send feedback']} Send feedback", key="menu_feedback",
+                  on_click=_feedback_open, args=(PAGE,), width="stretch", type="tertiary")
         # flips light/dark in the browser (ui_enhancements.js); nothing runs here
         st.button(":material/contrast: Light / dark", key="pt_theme", type="tertiary",
                   width="stretch", help="Switch between the light and dark theme. System, Light "
@@ -2521,6 +2526,8 @@ def _render_client_login():
         st.button("Set login password", on_click=_set_client_password, width="stretch")
 
 
+# Send feedback (the name menu, the About page): its window (views/feedback.py)
+_view("feedback")
 _render_menu()
 _render_tab_bar()  # phones only (see the styles); fixed to the bottom
 # the menus' click-away and the theme switch, names for icon buttons, the
@@ -3808,6 +3815,8 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
     st.code("python portfolio.py import \"path\\to\\All-Accounts-Positions-....csv\"", language="bash")
     st.stop()
 
+render_feedback()   # the Send feedback window, while it's open (views/feedback.py)
+
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
@@ -3881,6 +3890,10 @@ if PAGE == "What's new":
 if PAGE == "About":
     _page_header("About and disclosures", data=False)
     _render_disclosures()
+    # the same Send feedback window as the name menu's (views/feedback.py)
+    st.caption("Something confusing, broken or missing?")
+    st.button("Send feedback", key="about_feedback", icon=":material/feedback:",
+              on_click=_feedback_open, args=("About",))
     st.stop()
 if PAGE == "Find a guide":
     # the advisor directory - listings, not the viewed account's data

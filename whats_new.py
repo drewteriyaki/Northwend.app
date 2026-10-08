@@ -26,6 +26,13 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-08", "title": "Send us feedback",
+     "items": [
+         "\"Send feedback\" is in the menu under your name, and on the About page. Tell us "
+         "what's confusing, broken or missing - it comes straight to the Northwend team, and "
+         "we read every one. It isn't stored in the app, and your email goes with it only if "
+         "you tick that you'd like a reply.",
+     ]},
     {"date": "2026-10-07", "title": "Your holdings in one table, and a page for each one",
      "items": [
          "On Home, your holdings are one table under the chart, with headings and a small "

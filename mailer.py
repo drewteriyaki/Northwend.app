@@ -98,22 +98,26 @@ UNSUBSCRIBE_LINE = "Stop these emails in one click"
 
 
 def send(to: str, subject: str, text: str, html: str | None = None, *,
-         from_name: str | None = None, headers: dict | None = None) -> bool:
+         from_name: str | None = None, headers: dict | None = None,
+         reply_to: str | None = None) -> bool:
     """Send one email. True if Resend accepted it (or it was logged in dry-run
     mode); False on any failure - the reason goes to the server log, never
     to the person, and the caller shows a calm "try again" instead.
     `from_name` puts an advisor's name in the From line (sender()). The
     subject is made one line (_one_line): some carry a name someone typed.
-    `headers`: extra email headers (unsubscribe_headers), each made one line."""
+    `headers`: extra email headers (unsubscribe_headers), each made one line.
+    `reply_to`: where a reply goes instead of REPLY_TO (feedback.py, only when
+    the person asked for a reply), made one line with no quotes or brackets."""
     subject = _one_line(subject, 150)
+    reply_to = _one_line(reply_to, 254, drop='"<>,;\\') or REPLY_TO
     if dry_run():
-        print(f"[mailer dry run] from={sender(from_name)} to={to} subject={subject!r}\n{text}",
-              file=sys.stderr)
+        print(f"[mailer dry run] from={sender(from_name)} to={to} reply_to={reply_to} "
+              f"subject={subject!r}\n{text}", file=sys.stderr)
         return True
     if not _setting("RESEND_API_KEY"):
         print("[mailer] not sent: RESEND_API_KEY isn't set", file=sys.stderr)
         return False
-    body = {"from": sender(from_name), "to": [to], "reply_to": REPLY_TO, "subject": subject,
+    body = {"from": sender(from_name), "to": [to], "reply_to": reply_to, "subject": subject,
             "text": text}
     if html:
         body["html"] = html

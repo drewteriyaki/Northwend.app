@@ -618,6 +618,13 @@ and it leaves your view when they untick it or the relationship ends.
   in memory by the app itself (not by AI) and not kept. Account statements
   aren't read there - text that looks like one is cleared without being read.
   Nor is what you write when you explain a topic back on Learn.
+- **Feedback you send is emailed to the Northwend team and not stored in
+  the app.** The email holds your words, the kind you picked, the name of the
+  page you were on, which copy and version of the app, and a short code that's
+  the same each time you send (so the team can tell messages from one person
+  apart - it isn't your name or email). Your email address goes with it only
+  if you tick that you'd like a reply. Never your holdings, figures or account
+  details. Only a scrambled count, to stop too many in a row, is kept for a day.
 - **You don't have to share real numbers at all:** try the example portfolio,
   or enter only percentages of a pretend total. Everything except real gains
   and income works the same.
@@ -748,8 +755,9 @@ feature counts** on the **Account** page.
   kept only for a while, and the scheduled emails (sent through Resend).
 - **Resend** delivers the account emails (confirming your address, resetting
   your password, an advisor's Monday summary, the monthly walk reminder and
-  Trail Conditions, if you turn them on, and Doing it together's nudges); it
-  receives only your email address and that message.
+  Trail Conditions, if you turn them on, and Doing it together's nudges) and
+  feedback you send to the Northwend team; it receives only your email address
+  (for feedback, only if you ask for a reply) and that message.
 
 Each has its own privacy policy.
 """),

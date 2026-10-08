@@ -152,6 +152,13 @@ mode work without any.
 - Your brokerage username and password: Northwend never asks for them.
 - What you write in Teach It Back's box (where it's offered): it's checked and
   then forgotten - never saved, never logged.
+- Feedback you send with "Send feedback": it's emailed to the Northwend team and
+  not stored in the app. The email holds your words, the kind you picked, the name
+  of the page you were on, which copy and version of the app, and a short code
+  that's the same each time you send (so we can tell messages from one person
+  apart - it isn't your name or email). Your email address goes with it only if
+  you tick that you'd like a reply. Never your holdings, figures or account
+  details. Only a scrambled count, to stop too many in a row, is kept for a day.
 - Your AI chat messages are kept only for your current visit (in the app's
   memory) and are not saved to the database. Only the guide's own short notes
   are saved (see above).
@@ -216,7 +223,7 @@ It is shared only as needed to run the service, with:
 | **Finnhub** | Live prices, company details, news | Ticker symbols only |
 | **Yahoo Finance** (through the unofficial yfinance library) | Prices, price history, dividends, fund details | Ticker symbols only |
 | **GitHub Actions** | Runs the scheduled jobs: price updates and price history, news headlines for held and watched tickers, the nightly clean-up of what's kept only for a while (section 7), the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
-| **Resend** | Sends account emails | Your email address and that message |
+| **Resend** | Sends account emails, and feedback you send to the Northwend team | Your email address and that message (for feedback, your address only if you ask for a reply) |
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found

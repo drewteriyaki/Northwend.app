@@ -49,7 +49,7 @@ py-modules = [
     "allocation", "asset_classes", "auth", "brokerages", "changes", "charts", "checkin",
     "checkin_email", "cli", "client_book", "client_csv", "client_plan", "codefresh", "context_card",
     "consent", "access_log",
-    "csv_import", "dashboard", "disclosures", "error_alerts", "export", "feature_counts", "fees",
+    "csv_import", "dashboard", "disclosures", "error_alerts", "export", "feature_counts", "feedback", "fees",
     "friendly_errors", "fund_holdings", "future_notes", "gear", "glossary", "home_tasks", "hosting", "income",
     "invite_codes", "learn", "live_prices",
     "mailer", "manage_users", "manual_entry", "meeting", "metrics", "news", "news_feed", "overview",

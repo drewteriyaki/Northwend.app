@@ -319,6 +319,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   day, counted in `email_sends` as hashes; a new heavy action calls `_limit_ok`), the RUNBOOK's
   "If something goes wrong" (incident and breach response). Mail for the owner goes to
   `mailer._admin_to()` (ALERT_EMAIL, else admin@northwend.app); support@ is the public contact.
+- Send feedback: `feedback.py` + `views/feedback.py` (the name menu's and About's window, every
+  signed-in login, no flag): emailed to `mailer._admin_to()` with the words, kind, page name,
+  copy, version and a hashed reference (`feedback.reference`); the login's email only as
+  Reply-To when ticked; nothing stored but `rate_limits.FEEDBACK` (5 an hour, 20 a day).
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting move (PLAN step 4): `docs/CLOUDFLARE.md` (headers, proxy, obfuscation off),

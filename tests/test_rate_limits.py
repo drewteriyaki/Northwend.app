@@ -66,9 +66,13 @@ class LimitTests(unittest.TestCase):
     def test_the_limits_are_generous_named_and_all_there(self):
         self.assertEqual(set(rate_limits.LIMITS), {rate_limits.UPLOAD, rate_limits.SAVE,
                                                    rate_limits.EXPORT, rate_limits.INVITE,
-                                                   rate_limits.NUDGE})
+                                                   rate_limits.NUDGE, rate_limits.FEEDBACK})
         self.assertEqual(set(rate_limits.LABELS), set(rate_limits.LIMITS))
         for action, (per_hour, per_day) in rate_limits.LIMITS.items():
+            if action == rate_limits.FEEDBACK:
+                # each one is an email to the team: a handful, then wait (feedback.py)
+                self.assertEqual((per_hour, per_day), (5, 20))
+                continue
             self.assertGreaterEqual(per_hour, 20, action)    # nobody really gets near
             self.assertGreater(per_day, per_hour, action)
         self.assertEqual(rate_limits.CALM, "You've done a lot of that in a short time - "
