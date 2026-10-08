@@ -3616,6 +3616,9 @@ class LivePricesTests(TempDBMixin, unittest.TestCase):
                 c.close()
         r1, calls1, live1, sql1 = run(self.db, False)
         r2, calls2, live2, sql2 = run(copy, True)
+        # as_of is the fetch's own clock time: two runs can land in different seconds
+        r1.pop("as_of", None)
+        r2.pop("as_of", None)
         self.assertEqual((r1, calls1, live1), (r2, calls2, live2))
         self.assertEqual(r1["fetched"], 3)   # VTI, VTSAX and the watched NVDA
         read_here = ("MAX(snapshot_date)", "DISTINCT symbol, asset_type", "FROM watchlist")
