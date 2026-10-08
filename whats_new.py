@@ -26,6 +26,17 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-09", "title": "Clearer pages for people just starting",
+     "items": [
+         "Your steps on Learn now count only the steps you've done, and Home no longer says "
+         "everything is done while it's still suggesting a next step.",
+         "The first practice questions and drills are gentler ones, like what to do with a "
+         "raise, before the ones about market drops.",
+         "The 15% note on Home now looks at single companies. Broad funds that hold many "
+         "companies, like a total market fund, aren't counted.",
+         "Each holding's page shows its full name, and its numbers have plain names with a "
+         "short note on what they mean. Numbers that aren't available are left out.",
+     ]},
     {"date": "2026-10-08", "title": "Send us feedback",
      "items": [
          "\"Send feedback\" is in the menu under your name, and on the About page. Tell us "
