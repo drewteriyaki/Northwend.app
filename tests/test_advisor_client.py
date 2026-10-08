@@ -57,8 +57,7 @@ def _api_error(cls, status):
 class PureTests(unittest.TestCase):
 
     def setUp(self):
-        import ai_spend
-        ai_spend.use_db(None)   # no AI checks or counts here (an earlier app run's db is gone)
+        offline_net.no_ai_sink()   # no AI checks or counts here (an earlier app run's db is gone)
 
     def test_proposal_emails_carry_no_figures(self):
         sent = []

@@ -51,7 +51,7 @@ def _ceiling(usd="100"):
 
 class _DB(unittest.TestCase):
     def setUp(self):
-        ai_spend.use_db(None)   # an earlier app run's database is long gone
+        offline_net.no_ai_sink()   # an earlier app run's database is long gone
         self.dir = tempfile.mkdtemp(prefix="pt_aispend_")
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.db = os.path.join(self.dir, "t.db")
@@ -72,7 +72,7 @@ class _DB(unittest.TestCase):
 class CapTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)   # an earlier app run's database is long gone
+        offline_net.no_ai_sink()   # an earlier app run's database is long gone
 
     def test_the_caps(self):
         self.assertEqual(advisor.MAX_TOKENS, 2500)

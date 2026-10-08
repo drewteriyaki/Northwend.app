@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import sys
 
 _REAL_CONNECT = socket.socket.connect
 MESSAGE = "offline in tests"
@@ -44,3 +45,22 @@ def connect(self, address):
     if is_loopback(address):
         return _REAL_CONNECT(self, address)
     raise RuntimeError(MESSAGE)
+
+
+def no_ai_sink():
+    """Point ai_spend at no database, and every module that holds it at the
+    current copy. An app run (dashboard.py) sets it to that run's scratch
+    database, and codefresh may have reloaded modules since, so ai_gateway can
+    hold an older copy than `import ai_spend` gives - a later test would then
+    be refused "unchecked" by a database that is gone."""
+    import gc
+    import types
+    current = sys.modules.get("ai_spend")
+    for obj in gc.get_objects():
+        if not isinstance(obj, types.ModuleType):
+            continue
+        if obj.__name__ == "ai_spend" and callable(getattr(obj, "use_db", None)):
+            obj.use_db(None)
+        held = obj.__dict__.get("ai_spend")
+        if current is not None and isinstance(held, types.ModuleType) and held is not current:
+            obj.ai_spend = current
