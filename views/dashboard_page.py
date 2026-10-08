@@ -3,8 +3,14 @@
 # (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# The Dashboard page: value, goal, alerts, performance chart, allocation, holdings.
+# The Dashboard page (Home): the value on the band, then three parts on a laptop -
+# the performance chart and a compact holdings list in the middle (allocation,
+# accounts and the full holdings table below them) and "This month" on the
+# right: the walk, the next step, the mix and the other cards, each one Done /
+# Not now (home_tasks.py). On a phone: one column, This month first.
 # ruff: noqa: F821
+
+import home_tasks
 
 ROUTE_ASK = {   # what "Ask Northwend" starts with, per next step
     "storm": "The market has dropped and my portfolio is down. What have drops like this "
@@ -153,24 +159,210 @@ def _render_route():
                       args=(step["key"],))
 
 
-if PAGE == "Dashboard":
-    render_weather()                          # a storm note while well below the high (T4)
+
+
+# ---- This month: the right-hand column (home_tasks.py) -------------------- #
+# The things to do or look at this month, gathered in one column: each
+# feature's own card, drawn as before. Cards that keep their own state (the
+# walk, the weekly summary, the season, the storm note, the year card, the
+# account map line) use it; the rest get Done / Not now here, kept as keys
+# and the period's id in the login's own settings. An advisor in a client's
+# account sees the same cards and writes nothing.
+
+def _task_own():
+    """Only the login's own settings are ever written (also in a callback)."""
+    return USER_ID == LOGIN_ID
+
+
+def _task_mark(key, mark):
+    if not _task_own():
+        return
+    p = _read_prefs()
+    new = home_tasks.with_mark(p, key, home_tasks.today(), mark)
+    if new != p:
+        _write_prefs(new)
+
+
+def _task_bring_back():
+    if not _task_own():
+        return
+    p = _read_prefs()
+    new = home_tasks.cleared(p)
+    if new != p:
+        _write_prefs(new)
+
+
+def _month_task(key, render):
+    """One suggestion: its card, then Done / Not now (the login's own only).
+    Put away or done this period: nothing."""
+    if home_tasks.hidden(_read_prefs(), key, home_tasks.today()):
+        return
+    with st.container(key=f"pt_task_{key}"):
+        render()
+        if _task_own():
+            with st.container(horizontal=True, gap="small", key=f"pt_tfoot_{key}"):
+                if home_tasks.TASKS[key][1]:
+                    st.button(home_tasks.DONE_LABEL, key=f"task_done_{key}", type="tertiary",
+                              icon=":material/check:", help=home_tasks.DONE_HELP,
+                              on_click=_task_mark, args=(key, home_tasks.DONE))
+                st.button(home_tasks.AWAY_LABEL, key=f"task_away_{key}", type="tertiary",
+                          help=home_tasks.AWAY_HELP, on_click=_task_mark,
+                          args=(key, home_tasks.AWAY))
+
+
+def _open_target_mix():
+    st.session_state["plan_tab"] = "Target mix"
+    _go("Plan")
+
+
+def _mix_card(alloc):
+    """The mix by asset class against its target, in percentages and whole
+    points only - what the Plan's target mix says, never what to trade."""
+    rows = alloc["by_asset_class"]
+    targets = load_alloc_targets()
+    hidden = _hidden()
+    slots = _slot_map({r["label"] for r in rows}, CLASS_SLOT)
+    colors = SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT
+    segs = "".join(
+        f"<div class='pt-alloc-seg' style='flex:{r['value']} 0 0;background:"
+        f"{colors[slots[r['label']]] if slots.get(r['label']) is not None else SERIES_OTHER}'>"
+        "</div>" for r in rows if (r["value"] or 0) > 0)
+    summary = home_tasks.mix_summary(rows, masked=hidden)
+    lines = (home_tasks.mix_lines({r["label"]: r["pct"] for r in rows}, targets,
+                                  load_drift_threshold(), masked=hidden)
+             if targets else [home_tasks.MIX_NO_TARGET])
+    warn = bool(targets) and lines != [home_tasks.MIX_WITHIN]
+    with st.container(border=True, key="pt_mix_card"):
+        st.html(f"<div class='pt-month-card-title'>{home_tasks.MIX_TITLE}</div>"
+                + ("" if hidden or not segs else
+                   f"<div class='pt-alloc-bar pt-mini' aria-hidden='true'>{segs}</div>")
+                + (f"<div class='pt-region'>{html.escape(summary)}</div>" if summary else "")
+                + "".join(f"<div class='pt-region{' pt-warn' if warn else ''}'>"
+                          f"{html.escape(ln)}</div>" for ln in lines))
+        if CAN_MANAGE and "Plan" in PAGES:
+            st.button(home_tasks.MIX_LINK, key="mix_open", type="tertiary",
+                      on_click=_open_target_mix)
+
+
+def _goal_card():
+    """The goal in one line from the plan, or a way to set one (the advisor's
+    own portfolio; the investor home has it in Your route)."""
+    _plan = load_plan()
+    with st.container(border=True, key="pt_goal_card"):
+        if plans.has_goal(_plan):
+            _gp = _goal_progress(_plan, portfolio_value)
+            _glabel, _gtone = PLAN_STATUS[_gp["status"]]
+            _gpct = mask_or(f"{_gp['pct_of_target'] or 0:.0f}%")
+            st.html(f"<span class='pt-chip {_gtone}'>{_glabel}</span>&nbsp; "
+                    f"<b>{html.escape(_plan.get('goal_name') or _plan['goal_type'] or 'Goal')}</b>"
+                    f" · {_gpct} of "
+                    f"{fmt_money0(_gp['target'])} by {_fmt_month(_plan['target_date'])}")
+            st.button("Open plan", key="dash_open_plan", type="tertiary", on_click=_go,
+                      args=("Plan",))
+        elif CAN_MANAGE:
+            st.markdown("Set a goal to see whether you're on track.")
+            st.button("Set a goal", key="dash_set_goal", type="tertiary", on_click=_go,
+                      args=("Plan",))
+        else:
+            st.markdown("Your advisor hasn't set a goal for you yet.")
+
+
+def _render_this_month(alloc):
+    """Home's right-hand column (a row of cards across on a phone)."""
+    today = home_tasks.today()
+    st.html(f"<div class='pt-month-title'>{home_tasks.TITLE}</div>")
+    with st.container(key="pt_month_cards", gap="small"):
+        render_weather()                      # a storm note while well below the high (T4)
+        if INVESTOR_VIEW:
+            render_checkin_card()             # the Monthly Walk (views/checkin.py)
+            _month_task("route", _render_route)
+            if flags.on("weekly"):
+                render_weekly()               # Your week / The week ahead (views/weekly.py)
+            if flags.on("seasons"):
+                render_seasons_card()         # the Four Seasons (views/seasons.py)
+        else:
+            _goal_card()
+        if ON_CLIENT or IS_MANAGED_CLIENT:
+            _advisor_notes_card()
+        _month_task("mix", lambda: _mix_card(alloc))
+        if INVESTOR_VIEW:
+            if flags.on("drills") and _drill_shown():
+                _month_task("drill", render_drill_card)   # this week's drill (views/drills.py)
+            # fee check, fund overlap and cash check in one card (views/cash_check.py)
+            _checks = money_check_rows()
+            if _checks:
+                _month_task("checks", lambda: render_money_checks(_checks))
+            render_account_map_nudge()        # 2+ accounts, no map yet (views/account_map.py)
+            render_year_card()                # Year in review (views/year_review.py)
+            if _kit_shown():
+                _month_task("kit", lambda: render_kit_card(portfolio_value))   # views/kit.py
+        if flags.on("news_feed"):
+            _month_task("news", lambda: render_news_card(NEWS_ROWS))   # views/news_feed.py
+    away = home_tasks.put_away(_read_prefs(), today)
+    if away and _task_own():
+        with st.container(horizontal=True, vertical_alignment="center", key="pt_month_away"):
+            st.caption(home_tasks.PUT_AWAY_LINE.format(
+                names=", ".join(home_tasks.NAMES[k] for k in away)), width="stretch")
+            st.button(home_tasks.BRING_BACK, key="task_bring_back", type="tertiary",
+                      on_click=_task_bring_back)
     if INVESTOR_VIEW:
-        _render_route()
-        render_checkin_card()                 # the Monthly Walk (views/checkin.py)
-        render_kit_card(portfolio_value)      # milestones and gear (views/kit.py)
-        if flags.on("drills"):
-            render_drill_card()               # this week's drill (views/drills.py)
-        # fee check, fund overlap and cash check in one card (views/cash_check.py)
-        render_money_checks()
-        render_account_map_nudge()            # 2+ accounts, no map yet (views/account_map.py)
-        render_year_card()                    # Year in review (views/year_review.py)
-        if flags.on("seasons"):
-            render_seasons_card()             # the Four Seasons (views/seasons.py)
-        if flags.on("weekly"):
-            render_weekly()                   # Your week / The week ahead (views/weekly.py)
         check_milestones(portfolio_value)
 
+
+# ---- the holdings list under the chart ------------------------------------ #
+
+def _open_holding(sym):
+    """A row of the list opens that ticker's details (views/ticker_detail.py),
+    as tapping it in the full table's strip does."""
+    st.session_state["holdings_pill"] = sym
+    st.session_state["watchlist_pill"] = None
+
+
+def _render_holdings_list():
+    """Ticker, share of the portfolio, value and today's move - one line
+    each, largest first; the full table is further down."""
+    by_sym = {}
+    for _p, _ctx in zip(positions, contexts):
+        _row = by_sym.setdefault(_p["symbol"], {"mv": 0.0, "day": 0.0, "day_known": False,
+                                                "name": _p.get("description") or ""})
+        _mv = M.eff_mv(_ctx)
+        if _mv is not None:
+            _row["mv"] += _mv
+        _d = M.value("day_change_usd", _ctx)
+        if _d is not None:
+            _row["day"] += _d
+            _row["day_known"] = True
+    rows = sorted(by_sym.items(), key=lambda kv: (-kv[1]["mv"], kv[0]))
+    pretend = SNAPSHOT_SOURCE == manual_entry.PCT_SOURCE   # dollar amounts are pretend
+    with st.container(border=True, key="pt_home_list", gap="small"):
+        st.html(f"<div class='pt-month-card-title'>{home_tasks.HOLDINGS_TITLE}</div>")
+        for sym, r in rows[:home_tasks.LIST_LIMIT]:
+            share = (r["mv"] / portfolio_value * 100) if portfolio_value else None
+            base = r["mv"] - r["day"]
+            day = (r["day"] / base * 100) if r["day_known"] and base else None
+            if day is None:
+                day_html = "—"
+            elif _hidden():
+                day_html = MASK
+            else:
+                arrow = ("<span aria-hidden='true'>" + ("▲" if day >= 0 else "▼") + "</span>"
+                         f"<span class='pt-sr'>{'Up' if day >= 0 else 'Down'}</span> ")
+                day_html = _tone(day, f"{arrow}{day:+.2f}%")
+            with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                              key=f"pt_hl_{sym}"):
+                st.button(f"**{sym}**", key=f"home_hold_{sym}", type="tertiary",
+                          on_click=_open_holding, args=(sym,), help=r["name"] or None)
+                st.html("<div class='pt-hl-row'>"
+                        "<span class='pt-hl-share'>"
+                        + (mask_or(f"{share:.0f}%") if share is not None else "—") + "</span>"
+                        + ("" if pretend else
+                           f"<span class='pt-hl-val'>{fmt_money(r['mv'])}</span>")
+                        + f"<span class='pt-hl-day'>{day_html}</span></div>", width="stretch")
+        if len(rows) > home_tasks.LIST_LIMIT:
+            st.caption(home_tasks.HOLDINGS_MORE.format(n=len(rows) - home_tasks.LIST_LIMIT))
+
+
+if PAGE == "Dashboard":
     # ---- hero: value, today's move, since last visit, headline stats ----- #
     _day_base = portfolio_value - day_change_total
     _day_pct = (day_change_total / _day_base * 100) if _day_base else None
@@ -217,468 +409,445 @@ if PAGE == "Dashboard":
                 + (f"<div class='pt-hero-delta'>{_day_html}</div>" if _day_html else "")
                 + (f"<div class='pt-hero-sub'>{_since_html}</div>" if _since_html else "")
                 + "</div>")
-    st.html(_stat_row(
-        "<div class='pt-stats' role='list' aria-label='Portfolio summary'>"
-        # with dividends known: the price change, then the total return beside it
-        + _stat("Price change" if tot_return else "Total gain/loss",
-                _tone(tot_gl, _signed_money(tot_gl)),
-                _tone(tot_glp, fmt_pct(tot_glp)) if tot_glp is not None else "")
-        + (_stat("Total return, with dividends",
-                 _tone(tot_return["usd"], _signed_money(tot_return["usd"])),
-                 _tone(tot_return["usd"], fmt_pct(tot_return["pct"]))
-                 if tot_return["pct"] is not None else "") if tot_return else "")
-        + _stat("Holdings", fmt_money(tot_mv), f"{len(positions)} positions")
-        + _stat("Cash", fmt_money(cash),
-                "" if hide_amounts or not portfolio_value
-                else f"{cash / portfolio_value * 100:.1f}% of total")
-        + "</div>"
-    ))
-    if tot_return:
-        # "$" escaped: two amounts would be read as a math formula
-        st.caption((f"Total return adds the {fmt_money(tot_return['dividends'])} in dividends "
-                    "your holdings paid to their price change. "
-                    + income.source_words(DIVIDENDS[p["symbol"]]["source"]
-                                          for p, c in zip(positions, contexts)
-                                          if c["dividends"] and p["cost_basis"] is not None))
-                   .replace("$", r"\$"))
 
-    # ---- goal: one line from the plan, or a nudge to set one ----------- #
-    # (the advisor's own portfolio; the investor home has it in Your route)
-    _plan = load_plan()
-    _goal_box = (st.container(border=True, horizontal=True, vertical_alignment="center")
-                 if not INVESTOR_VIEW else None)
-    if _goal_box is not None:
-        with _goal_box:
-            if plans.has_goal(_plan):
-                _gp = _goal_progress(_plan, portfolio_value)
-                _glabel, _gtone = PLAN_STATUS[_gp["status"]]
-                _gpct = mask_or(f"{_gp['pct_of_target'] or 0:.0f}%")
-                st.html(f"<span class='pt-chip {_gtone}'>{_glabel}</span>&nbsp; "
-                        f"<b>{html.escape(_plan.get('goal_name') or _plan['goal_type'] or 'Goal')}</b>"
-                        f" · {_gpct} of "
-                        f"{fmt_money0(_gp['target'])} by {_fmt_month(_plan['target_date'])}",
-                        width="stretch")
-                st.button("Open plan", key="dash_open_plan", type="tertiary", on_click=_go,
-                          args=("Plan",))
-            elif CAN_MANAGE:
-                st.markdown("Set a goal to see whether you're on track.", width="stretch")
-                st.button("Set a goal", key="dash_set_goal", type="tertiary", on_click=_go,
-                          args=("Plan",))
+    # ---- the layout (Style C): the middle - the chart, then the holdings -
+    # and "This month" on the right; one column on a phone, This month first
+    _home_alloc = allocate(positions, cash_by_account, CLASS_SPLITS)
+    with st.container(horizontal=True, gap="medium", key="pt_home_layout"):
+        _home_main = st.container(key="pt_home_main")
+        _home_side = st.container(key="pt_home_side")
+    with _home_side:
+        _render_this_month(_home_alloc)
+
+    with _home_main:
+        # ---- performance over time: the largest thing on Home --------- #
+        with st.container(border=True, key="pt_home_chart"):
+            p1, p2 = st.columns([0.65, 0.35])
+            p1.subheader("Performance")
+            series_col = p2.selectbox(
+                "Series", [c for c, _, _ in perf.SERIES],
+                index=[c for c, _, _ in perf.SERIES].index(load_perf_series()),
+                format_func=lambda c: perf.SERIES_LABEL[c], key="perf_series_sel",
+                label_visibility="collapsed",
+            )
+            if series_col != load_perf_series():
+                save_perf_series(series_col)
+
+            prng = st.segmented_control("Range", charts.RANGE_LABELS, default="1D",
+                                        key="perf_range", label_visibility="collapsed") or "1D"
+
+            # history() picks the reconstruction's resolution to match `prng`, exactly like
+            # ticker_series() does for a single ticker (finest Yahoo interval that covers
+            # the window). With only daily bars so far (right after the automatic
+            # backfill, before the nightly intraday sync) a short range can come back
+            # empty - then show the shortest wider range that has data, and say so.
+            _shown_rng = prng
+            _hist_conn = connect(DB)   # one connection for every range tried
+            try:
+                _hist = perf.history(_hist_conn, USER_ID, days=charts.RANGE_DAYS[prng],
+                                     include_app_open=False, basis=PERF_BASIS)
+                for _wider in charts.RANGE_LABELS[charts.RANGE_LABELS.index(prng) + 1:]:
+                    if len(_hist) >= 2:
+                        break
+                    _shown_rng = _wider
+                    _hist = perf.history(_hist_conn, USER_ID, days=charts.RANGE_DAYS[_wider],
+                                         include_app_open=False, basis=PERF_BASIS)
+            finally:
+                _hist_conn.close()
+            if _shown_rng != prng and len(_hist) >= 2:
+                st.caption(f"No {prng} data yet - showing {_shown_rng}. Intraday history loads each evening.")
+            if len(_hist) < 2:
+                st.caption("Your performance chart fills in once price history for your holdings has "
+                           "loaded - it updates on its own every trading day.")
             else:
-                st.markdown("Your advisor hasn't set a goal for you yet.", width="stretch")
+                _fmtname = perf.SERIES_FMT[series_col]
+                y_title = perf.SERIES_LABEL[series_col]
+                hist_df = pd.DataFrame(_hist)
+                hist_df["t"] = pd.to_datetime(hist_df["t"], utc=True, format="mixed")
+                pwin = hist_df.dropna(subset=[series_col]).sort_values("t")
 
-    if ON_CLIENT or IS_MANAGED_CLIENT:
-        _advisor_notes_card()
+                if len(pwin) < 2:
+                    st.caption(f"No **{y_title}** recorded in this window yet.")
+                else:
+                    # Intraday-resolution data (minutes/hours apart) gets the gaps-compressed
+                    # axis; daily-resolution data (~1 day apart, weekends aside) doesn't need it.
+                    _pcompress = pwin["t"].diff().dt.total_seconds().median() < 20 * 3600
 
-    # ---- alerts: one line, open for the list and the limits ------------ #
-    _rules = load_rules()
-    _fired = alerts.evaluate(contexts, _rules)
-    _alert_label = (f":red[:material/notifications_active:] **{len(_fired)} "
-                    f"alert{'s' if len(_fired) != 1 else ''}** · positions past your limits"
-                    if _fired else ":material/notifications: No alerts")
-    with st.expander(_alert_label):
-        for _a in _fired:
-            st.markdown(_a.masked_message if hide_amounts else _a.message)
-        if not _fired:
-            st.caption("No position is past its day-move or gain/loss limit.")
-        if CAN_MANAGE:
-            st.markdown("**Limits**")
-            _new = []
-            for _col, _r in zip(st.columns(len(alerts.DEFAULT_RULES)), alerts.DEFAULT_RULES):
-                cur = next((x["abs_gt"] for x in _rules if x["key"] == _r["key"]), _r["abs_gt"])
-                val = _col.number_input(f"{_r['label']} — flag beyond ±%", min_value=0.0,
-                                        max_value=1000.0, value=float(cur), step=0.5,
-                                        key=f"rule_{_r['key']}")
-                _new.append({**_r, "abs_gt": val})
-            if _new != _rules:
-                save_rules(_new)
-                st.rerun()
-            st.caption("Checked against the latest prices every time the page loads.")
-        else:
-            st.caption("Limits set by your advisor: " + " · ".join(
-                f"{r['label']} beyond ±{r['abs_gt']:g}%" for r in _rules) + ".")
+                    _pf, _pl, ppct = charts.window_change(pwin, "t", series_col)
+                    pmcol, _ = st.columns([0.4, 0.6])
+                    pmcol.metric(y_title, mask_or(FORMATTERS[_fmtname](_pl)),
+                                 delta=(None if hide_amounts or ppct is None else f"{ppct:+.2f}% over {_shown_rng}"))
 
-    st.divider()
+                    _ptips = [alt.Tooltip("t:T", title="When", format="%b %d, %Y  %H:%M")]
+                    if not hide_amounts:
+                        _ptips.append(alt.Tooltip(f"{series_col}:Q", title=y_title, format=TOOLTIP_FORMAT[_fmtname]))
+                    st.altair_chart(
+                        charts.line(
+                            pwin, x="t", y=series_col, y_title=y_title, y_format=AXIS_FORMAT[_fmtname],
+                            mask=hide_amounts, compress_gaps=bool(_pcompress),
+                            line_color=(SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0],
+                            tooltip=_ptips),
+                        width="stretch",
+                    )
+                    st.caption(
+                        f"{len(pwin)} points · reconstructed from current holdings × each bar's close. "
+                        + (f"Sync {len(_missing)} more ticker(s) to extend the line: {', '.join(_missing)}."
+                           if _missing else "")
+                    )
 
-    # ---- performance over time ---------------------------------------- #
-    p1, p2 = st.columns([0.65, 0.35])
-    p1.subheader("Performance")
-    series_col = p2.selectbox(
-        "Series", [c for c, _, _ in perf.SERIES],
-        index=[c for c, _, _ in perf.SERIES].index(load_perf_series()),
-        format_func=lambda c: perf.SERIES_LABEL[c], key="perf_series_sel",
-        label_visibility="collapsed",
-    )
-    if series_col != load_perf_series():
-        save_perf_series(series_col)
+        _render_holdings_list()   # the compact list under the chart
 
-    prng = st.segmented_control("Range", charts.RANGE_LABELS, default="1D",
-                                key="perf_range", label_visibility="collapsed") or "1D"
+        st.html(_stat_row(
+            "<div class='pt-stats' role='list' aria-label='Portfolio summary'>"
+            # with dividends known: the price change, then the total return beside it
+            + _stat("Price change" if tot_return else "Total gain/loss",
+                    _tone(tot_gl, _signed_money(tot_gl)),
+                    _tone(tot_glp, fmt_pct(tot_glp)) if tot_glp is not None else "")
+            + (_stat("Total return, with dividends",
+                     _tone(tot_return["usd"], _signed_money(tot_return["usd"])),
+                     _tone(tot_return["usd"], fmt_pct(tot_return["pct"]))
+                     if tot_return["pct"] is not None else "") if tot_return else "")
+            + _stat("Holdings", fmt_money(tot_mv), f"{len(positions)} positions")
+            + _stat("Cash", fmt_money(cash),
+                    "" if hide_amounts or not portfolio_value
+                    else f"{cash / portfolio_value * 100:.1f}% of total")
+            + "</div>"
+        ))
+        if tot_return:
+            # "$" escaped: two amounts would be read as a math formula
+            st.caption((f"Total return adds the {fmt_money(tot_return['dividends'])} in dividends "
+                        "your holdings paid to their price change. "
+                        + income.source_words(DIVIDENDS[p["symbol"]]["source"]
+                                              for p, c in zip(positions, contexts)
+                                              if c["dividends"] and p["cost_basis"] is not None))
+                       .replace("$", r"\$"))
 
-    # history() picks the reconstruction's resolution to match `prng`, exactly like
-    # ticker_series() does for a single ticker (finest Yahoo interval that covers
-    # the window). With only daily bars so far (right after the automatic
-    # backfill, before the nightly intraday sync) a short range can come back
-    # empty - then show the shortest wider range that has data, and say so.
-    _shown_rng = prng
-    _hist_conn = connect(DB)   # one connection for every range tried
-    try:
-        _hist = perf.history(_hist_conn, USER_ID, days=charts.RANGE_DAYS[prng],
-                             include_app_open=False, basis=PERF_BASIS)
-        for _wider in charts.RANGE_LABELS[charts.RANGE_LABELS.index(prng) + 1:]:
-            if len(_hist) >= 2:
-                break
-            _shown_rng = _wider
-            _hist = perf.history(_hist_conn, USER_ID, days=charts.RANGE_DAYS[_wider],
-                                 include_app_open=False, basis=PERF_BASIS)
-    finally:
-        _hist_conn.close()
-    if _shown_rng != prng and len(_hist) >= 2:
-        st.caption(f"No {prng} data yet - showing {_shown_rng}. Intraday history loads each evening.")
-    if len(_hist) < 2:
-        st.caption("Your performance chart fills in once price history for your holdings has "
-                   "loaded - it updates on its own every trading day.")
-    else:
-        _fmtname = perf.SERIES_FMT[series_col]
-        y_title = perf.SERIES_LABEL[series_col]
-        hist_df = pd.DataFrame(_hist)
-        hist_df["t"] = pd.to_datetime(hist_df["t"], utc=True, format="mixed")
-        pwin = hist_df.dropna(subset=[series_col]).sort_values("t")
+        # ---- alerts: one line, open for the list and the limits ------------ #
+        _rules = load_rules()
+        _fired = alerts.evaluate(contexts, _rules)
+        _alert_label = (f":red[:material/notifications_active:] **{len(_fired)} "
+                        f"alert{'s' if len(_fired) != 1 else ''}** · positions past your limits"
+                        if _fired else ":material/notifications: No alerts")
+        with st.expander(_alert_label):
+            for _a in _fired:
+                st.markdown(_a.masked_message if hide_amounts else _a.message)
+            if not _fired:
+                st.caption("No position is past its day-move or gain/loss limit.")
+            if CAN_MANAGE:
+                st.markdown("**Limits**")
+                _new = []
+                for _col, _r in zip(st.columns(len(alerts.DEFAULT_RULES)), alerts.DEFAULT_RULES):
+                    cur = next((x["abs_gt"] for x in _rules if x["key"] == _r["key"]), _r["abs_gt"])
+                    val = _col.number_input(f"{_r['label']} — flag beyond ±%", min_value=0.0,
+                                            max_value=1000.0, value=float(cur), step=0.5,
+                                            key=f"rule_{_r['key']}")
+                    _new.append({**_r, "abs_gt": val})
+                if _new != _rules:
+                    save_rules(_new)
+                    st.rerun()
+                st.caption("Checked against the latest prices every time the page loads.")
+            else:
+                st.caption("Limits set by your advisor: " + " · ".join(
+                    f"{r['label']} beyond ±{r['abs_gt']:g}%" for r in _rules) + ".")
 
-        if len(pwin) < 2:
-            st.caption(f"No **{y_title}** recorded in this window yet.")
-        else:
-            # Intraday-resolution data (minutes/hours apart) gets the gaps-compressed
-            # axis; daily-resolution data (~1 day apart, weekends aside) doesn't need it.
-            _pcompress = pwin["t"].diff().dt.total_seconds().median() < 20 * 3600
-
-            _pf, _pl, ppct = charts.window_change(pwin, "t", series_col)
-            pmcol, _ = st.columns([0.4, 0.6])
-            pmcol.metric(y_title, mask_or(FORMATTERS[_fmtname](_pl)),
-                         delta=(None if hide_amounts or ppct is None else f"{ppct:+.2f}% over {_shown_rng}"))
-
-            _ptips = [alt.Tooltip("t:T", title="When", format="%b %d, %Y  %H:%M")]
-            if not hide_amounts:
-                _ptips.append(alt.Tooltip(f"{series_col}:Q", title=y_title, format=TOOLTIP_FORMAT[_fmtname]))
-            st.altair_chart(
-                charts.line(
-                    pwin, x="t", y=series_col, y_title=y_title, y_format=AXIS_FORMAT[_fmtname],
-                    mask=hide_amounts, compress_gaps=bool(_pcompress),
-                    line_color=(SERIES_DARK if st.context.theme.type == "dark" else SERIES_LIGHT)[0],
-                    tooltip=_ptips),
-                width="stretch",
-            )
-            st.caption(
-                f"{len(pwin)} points · reconstructed from current holdings × each bar's close. "
-                + (f"Sync {len(_missing)} more ticker(s) to extend the line: {', '.join(_missing)}."
-                   if _missing else "")
-            )
-
-    st.divider()
-
-    # ---- allocation ----------------------------------------------------- #
-    alloc = allocate(positions, cash_by_account, CLASS_SPLITS)
-    # What the bars group by: asset class (what's held - targets and drift use
-    # this) or the broker's own asset type. One color per group across the page.
-    _by_type = st.session_state.get("alloc_group") == "Broker type"
-    _group = "by_asset_type" if _by_type else "by_asset_class"
-    _asset_slots = _slot_map({r["label"] for r in alloc[_group]},
-                             ASSET_SLOT if _by_type else CLASS_SLOT)
-
-    al1, al2 = st.columns([0.75, 0.25])
-    al1.subheader("Allocation")
-    if CAN_MANAGE:
-        with al2.popover("Targets", width="stretch"):
-            st.caption("Set a target % of portfolio for stocks, bonds, cash or other - leave "
-                       "at 0 for no target.")
-            _saved_targets = load_alloc_targets()
-            _new_targets = {}
-            for _lbl in asset_classes.CLASSES:
-                _new_targets[_lbl] = st.number_input(
-                    _lbl, min_value=0.0, max_value=100.0, step=1.0,
-                    value=float(_saved_targets.get(_lbl, 0.0)), key=f"target_{_lbl}")
-            _new_thresh = st.number_input(
-                "Flag drift beyond ± this many percentage points", min_value=0.5, max_value=50.0,
-                step=0.5, value=load_drift_threshold(), key="drift_threshold_input")
-            if {k: v for k, v in _new_targets.items() if v} != _saved_targets:
-                save_alloc_targets(_new_targets)
-            if _new_thresh != load_drift_threshold():
-                save_drift_threshold(_new_thresh)
-    if flags.on("plain_summary") and not hide_amounts:
-        # the mix in plain words: fixed templates, no AI (allocation.py)
-        _plain = summary_words(alloc, positions)
-        if _plain:
-            st.markdown(_plain)
-    st.segmented_control("Group by", ["Asset class", "Broker type"], default="Asset class",
-                         key="alloc_group", label_visibility="collapsed",
-                         help="Asset class is what holdings hold - a bond ETF counts as bonds. "
-                              "Broker type is how the statement labels them.")
-
-    _title = "By broker type" if _by_type else "By asset class"
-    if len(alloc["by_account"]) > 1:
-        a1, a2 = st.columns(2, gap="large")
-        a1.html(_alloc_bar(alloc[_group], _title, _asset_slots))
-        a2.html(_account_mix(alloc["by_account"], positions, cash_by_account, _asset_slots,
-                             _group))
-    else:
-        st.html(_alloc_bar(alloc[_group], _title, _asset_slots))
-    _render_classification(positions)
-
-    if alloc["concentration"]:
-        lines = "  \n".join(
-            f"- **{r['symbol']}** ({r['account']}) — {fmt_money(r['value'])}, "
-            + (MASK if hide_amounts else f"**{r['pct']:.1f}%**") + " of portfolio"
-            for r in alloc["concentration"]
-        )
-        st.warning(f"Positions over {CONCENTRATION_PCT:.0f}% of portfolio value:  \n{lines}")
-    else:
-        st.caption(f"No single position exceeds {CONCENTRATION_PCT:.0f}% of portfolio value.")
-    learn_more("diversification")
-    what_this_means("Asset class", "Asset allocation", "Concentration", "Diversification",
-                    "Drift", "Band", "Rebalancing", key="gloss_home")
-
-    _targets = load_alloc_targets()
-    if _targets:
-        _thresh = load_drift_threshold()
-        _pct_by_label = {r["label"]: r["pct"] for r in alloc["by_asset_class"]}
-        _drift = []
-        for _lbl, _target in _targets.items():
-            _actual = _pct_by_label.get(_lbl, 0.0) or 0.0
-            _delta = _actual - _target
-            if abs(_delta) > _thresh:
-                _drift.append((_lbl, _actual, _target, _delta))
-        _drift.sort(key=lambda r: abs(r[3]), reverse=True)
-        if _drift:
-            lines = "  \n".join(
-                f"- {'▲' if d > 0 else '▼'} **{lbl}** — "
-                + (MASK if hide_amounts else f"{actual:.1f}% vs {target:.1f}% target ({d:+.1f} pts)")
-                for lbl, actual, target, d in _drift
-            )
-            st.warning(f"Drifted beyond ±{_thresh:g} pts from target:  \n{lines}")
-            _dep = deposit_line(alloc["by_asset_class"], _targets)   # views/next_deposit.py
-            if _dep:
-                with st.container(horizontal=True, vertical_alignment="center"):
-                    st.caption(f":material/savings: {_dep}", width="stretch")
-                    st.button("Where it could go", key="dash_deposit", type="tertiary",
-                              on_click=_open_deposit_tab)
-        else:
-            st.caption(f"Every targeted asset class is within ±{_thresh:g} pts of target.")
-        learn_more("rebalancing")
-
-    st.divider()
-
-    # ---- Your news: a few headlines on what's held or watched -------------- #
-    if flags.on("news_feed"):
-        render_news_card(NEWS_ROWS)           # views/news_feed.py
         st.divider()
 
-    # ---- accounts: side-by-side comparison -------------------------------- #
-    ac1, ac2, ac3 = st.columns([0.5, 0.25, 0.25])
-    ac1.subheader("Accounts")
-    # the broker's own names, recovered from the display names in use
-    _to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
-    _broker_accts = sorted({p["broker_account"] for p in positions}
-                           | {_to_broker.get(a, a) for a in cash_by_account})
-    if CAN_MANAGE:
-        with ac2.popover("Rename", width="stretch"):
-            with st.form("rename_accounts", border=False):
-                st.caption("Give an account a name you'll recognize. Leave blank to use the "
-                           "broker's name.")
-                _typed = {a: st.text_input(a, value=ACCOUNT_LABELS.get(a, ""), placeholder=a,
-                                           max_chars=accounts.MAX_LEN, key=f"acct_name_{a}")
-                          for a in _broker_accts}
-                if st.form_submit_button("Save names", type="primary"):
-                    _proposed = {a: n.strip() for a, n in _typed.items() if n.strip()}
-                    _bad = next((a for a in _broker_accts
-                                 if accounts.clash(a, _proposed.get(a, a), _broker_accts, _proposed)), None)
-                    if _bad:
-                        st.error(f"Two accounts can't share the name "
-                                 f"“{accounts.display(_bad, _proposed)}”.")
-                    else:
-                        _c = connect(DB)
-                        try:
-                            for a in _broker_accts:
-                                if _proposed.get(a) != ACCOUNT_LABELS.get(a):
-                                    accounts.set_label(_c, USER_ID, a, _proposed.get(a))
-                        finally:
-                            _c.close()
-                        st.rerun()
+        # ---- allocation ----------------------------------------------------- #
+        alloc = allocate(positions, cash_by_account, CLASS_SPLITS)
+        # What the bars group by: asset class (what's held - targets and drift use
+        # this) or the broker's own asset type. One color per group across the page.
+        _by_type = st.session_state.get("alloc_group") == "Broker type"
+        _group = "by_asset_type" if _by_type else "by_asset_class"
+        _asset_slots = _slot_map({r["label"] for r in alloc[_group]},
+                                 ASSET_SLOT if _by_type else CLASS_SLOT)
 
-    _acct_stats = {}
-    for _p, _ctx in zip(positions, contexts):
-        _a = _p["account"]
-        _s = _acct_stats.setdefault(_a, {"mv": 0.0, "cost": 0.0, "gain": 0.0, "day_change": 0.0, "n": 0})
-        _mv = M.eff_mv(_ctx)
-        if _mv is not None:
-            _s["mv"] += _mv
-            _s["n"] += 1
-            _cost = _p["cost_basis"]
-            if _cost is not None:
-                _s["cost"] += _cost
-                _s["gain"] += _mv - _cost
-            _dchg = M.value("day_change_usd", _ctx)
-            if _dchg is not None:
-                _s["day_change"] += _dchg
+        al1, al2 = st.columns([0.75, 0.25])
+        al1.subheader("Allocation")
+        if CAN_MANAGE:
+            with al2.popover("Targets", width="stretch"):
+                st.caption("Set a target % of portfolio for stocks, bonds, cash or other - leave "
+                           "at 0 for no target.")
+                _saved_targets = load_alloc_targets()
+                _new_targets = {}
+                for _lbl in asset_classes.CLASSES:
+                    _new_targets[_lbl] = st.number_input(
+                        _lbl, min_value=0.0, max_value=100.0, step=1.0,
+                        value=float(_saved_targets.get(_lbl, 0.0)), key=f"target_{_lbl}")
+                _new_thresh = st.number_input(
+                    "Flag drift beyond ± this many percentage points", min_value=0.5, max_value=50.0,
+                    step=0.5, value=load_drift_threshold(), key="drift_threshold_input")
+                if {k: v for k, v in _new_targets.items() if v} != _saved_targets:
+                    save_alloc_targets(_new_targets)
+                if _new_thresh != load_drift_threshold():
+                    save_drift_threshold(_new_thresh)
+        if flags.on("plain_summary") and not hide_amounts:
+            # the mix in plain words: fixed templates, no AI (allocation.py)
+            _plain = summary_words(alloc, positions)
+            if _plain:
+                st.markdown(_plain)
+        st.segmented_control("Group by", ["Asset class", "Broker type"], default="Asset class",
+                             key="alloc_group", label_visibility="collapsed",
+                             help="Asset class is what holdings hold - a bond ETF counts as bonds. "
+                                  "Broker type is how the statement labels them.")
 
-    _all_accounts = sorted(set(list(_acct_stats) + list(cash_by_account)))
-    _acct_rows = []
-    for _a in _all_accounts:
-        _s = _acct_stats.get(_a, {"mv": 0.0, "cost": 0.0, "gain": 0.0, "day_change": 0.0, "n": 0})
-        _csh = cash_by_account.get(_a, 0.0) or 0.0
-        _total = _s["mv"] + _csh
-        _acct_rows.append({
-            "account": _a, "total": _total, "holdings": _s["mv"], "cash": _csh,
-            "gain_usd": _s["gain"], "gain_pct": (_s["gain"] / _s["cost"] * 100) if _s["cost"] else None,
-            "day_change": _s["day_change"], "n_positions": _s["n"],
-            "pct_of_portfolio": (_total / portfolio_value * 100) if portfolio_value else None,
-        })
-    _acct_rows.sort(key=lambda r: r["total"], reverse=True)
+        _title = "By broker type" if _by_type else "By asset class"
+        if len(alloc["by_account"]) > 1:
+            a1, a2 = st.columns(2, gap="large")
+            a1.html(_alloc_bar(alloc[_group], _title, _asset_slots))
+            a2.html(_account_mix(alloc["by_account"], positions, cash_by_account, _asset_slots,
+                                 _group))
+        else:
+            st.html(_alloc_bar(alloc[_group], _title, _asset_slots))
+        _render_classification(positions)
 
-    if CAN_IMPORT and len(_broker_accts) > 1:
-        # Updating one account never removes another (an import replaces only
-        # the accounts in it), so taking one out is done here, on purpose.
-        with ac3.popover("Remove", width="stretch"):
-            _worth = {_to_broker.get(r["account"], r["account"]): r["total"] for r in _acct_rows}
-            st.caption("Take an account out of your holdings - one you closed or moved. Your "
-                       "other accounts stay as they are, and its past stays in your history.")
-            _rm = st.selectbox("Account to remove", _broker_accts, key="acct_rm_pick",
-                               format_func=lambda a: accounts.display(a, ACCOUNT_LABELS))
-            _ok = st.checkbox(f"Yes, remove {accounts.display(_rm, ACCOUNT_LABELS)} "
-                              f"({fmt_money(_worth.get(_rm, 0.0))})".replace("$", r"\$"),
-                              key=f"acct_rm_ok_{_rm}")   # asked again for another account
-            st.button("Remove this account", key="acct_rm_btn", type="primary",
-                      disabled=not _ok, on_click=_remove_account, args=(_rm,))
+        if alloc["concentration"]:
+            lines = "  \n".join(
+                f"- **{r['symbol']}** ({r['account']}) — {fmt_money(r['value'])}, "
+                + (MASK if hide_amounts else f"**{r['pct']:.1f}%**") + " of portfolio"
+                for r in alloc["concentration"]
+            )
+            st.warning(f"Positions over {CONCENTRATION_PCT:.0f}% of portfolio value:  \n{lines}")
+        else:
+            st.caption(f"No single position exceeds {CONCENTRATION_PCT:.0f}% of portfolio value.")
+        learn_more("diversification")
+        what_this_means("Asset class", "Asset allocation", "Concentration", "Diversification",
+                        "Drift", "Band", "Rebalancing", key="gloss_home")
 
-    if len(_acct_rows) < 2:
-        st.caption("Only one account in this portfolio — nothing to compare yet.")
-    else:
-        _adf_raw = pd.DataFrame(_acct_rows)
-        _adf = pd.DataFrame([{
-            "Account": r["account"], "Total Value": fmt_money(r["total"]),
-            "% of Portfolio": fmt_pct_level(r["pct_of_portfolio"]), "Holdings": fmt_money(r["holdings"]),
-            "Cash": fmt_money(r["cash"]), "Gain/Loss": fmt_money(r["gain_usd"]),
-            "Gain/Loss %": fmt_pct(r["gain_pct"]), "Today": fmt_money(r["day_change"]),
-            "Positions": r["n_positions"],
-        } for r in _acct_rows])
-        _gain_raw = [r["gain_usd"] for r in _acct_rows]
-        _today_raw = [r["day_change"] for r in _acct_rows]
-        _acct_styler = (
-            _adf.style
-            .apply(lambda col: [color_sign(v) for v in _gain_raw], subset=["Gain/Loss"])
-            .apply(lambda col: [color_sign(v) for v in _today_raw], subset=["Today"])
-        )
-        st.dataframe(_acct_styler, width="stretch", hide_index=True)
-        st.download_button(
-            "Download CSV", export.csv_bytes(_adf_raw),
-            file_name="accounts.csv", mime="text/csv", key="accounts_dl",
-            disabled=hide_amounts, help=(
-                "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
-                if hide_amounts else None),
-        )
-    learn_more("account_types")
+        _targets = load_alloc_targets()
+        if _targets:
+            _thresh = load_drift_threshold()
+            _pct_by_label = {r["label"]: r["pct"] for r in alloc["by_asset_class"]}
+            _drift = []
+            for _lbl, _target in _targets.items():
+                _actual = _pct_by_label.get(_lbl, 0.0) or 0.0
+                _delta = _actual - _target
+                if abs(_delta) > _thresh:
+                    _drift.append((_lbl, _actual, _target, _delta))
+            _drift.sort(key=lambda r: abs(r[3]), reverse=True)
+            if _drift:
+                lines = "  \n".join(
+                    f"- {'▲' if d > 0 else '▼'} **{lbl}** — "
+                    + (MASK if hide_amounts else f"{actual:.1f}% vs {target:.1f}% target ({d:+.1f} pts)")
+                    for lbl, actual, target, d in _drift
+                )
+                st.warning(f"Drifted beyond ±{_thresh:g} pts from target:  \n{lines}")
+                _dep = deposit_line(alloc["by_asset_class"], _targets)   # views/next_deposit.py
+                if _dep:
+                    with st.container(horizontal=True, vertical_alignment="center"):
+                        st.caption(f":material/savings: {_dep}", width="stretch")
+                        st.button("Where it could go", key="dash_deposit", type="tertiary",
+                                  on_click=_open_deposit_tab)
+            else:
+                st.caption(f"Every targeted asset class is within ±{_thresh:g} pts of target.")
+            learn_more("rebalancing")
+
+        st.divider()
+
+        ac1, ac2, ac3 = st.columns([0.5, 0.25, 0.25])
+        ac1.subheader("Accounts")
+        # the broker's own names, recovered from the display names in use
+        _to_broker = {v: k for k, v in ACCOUNT_LABELS.items()}
+        _broker_accts = sorted({p["broker_account"] for p in positions}
+                               | {_to_broker.get(a, a) for a in cash_by_account})
+        if CAN_MANAGE:
+            with ac2.popover("Rename", width="stretch"):
+                with st.form("rename_accounts", border=False):
+                    st.caption("Give an account a name you'll recognize. Leave blank to use the "
+                               "broker's name.")
+                    _typed = {a: st.text_input(a, value=ACCOUNT_LABELS.get(a, ""), placeholder=a,
+                                               max_chars=accounts.MAX_LEN, key=f"acct_name_{a}")
+                              for a in _broker_accts}
+                    if st.form_submit_button("Save names", type="primary"):
+                        _proposed = {a: n.strip() for a, n in _typed.items() if n.strip()}
+                        _bad = next((a for a in _broker_accts
+                                     if accounts.clash(a, _proposed.get(a, a), _broker_accts, _proposed)), None)
+                        if _bad:
+                            st.error(f"Two accounts can't share the name "
+                                     f"“{accounts.display(_bad, _proposed)}”.")
+                        else:
+                            _c = connect(DB)
+                            try:
+                                for a in _broker_accts:
+                                    if _proposed.get(a) != ACCOUNT_LABELS.get(a):
+                                        accounts.set_label(_c, USER_ID, a, _proposed.get(a))
+                            finally:
+                                _c.close()
+                            st.rerun()
+
+        _acct_stats = {}
+        for _p, _ctx in zip(positions, contexts):
+            _a = _p["account"]
+            _s = _acct_stats.setdefault(_a, {"mv": 0.0, "cost": 0.0, "gain": 0.0, "day_change": 0.0, "n": 0})
+            _mv = M.eff_mv(_ctx)
+            if _mv is not None:
+                _s["mv"] += _mv
+                _s["n"] += 1
+                _cost = _p["cost_basis"]
+                if _cost is not None:
+                    _s["cost"] += _cost
+                    _s["gain"] += _mv - _cost
+                _dchg = M.value("day_change_usd", _ctx)
+                if _dchg is not None:
+                    _s["day_change"] += _dchg
+
+        _all_accounts = sorted(set(list(_acct_stats) + list(cash_by_account)))
+        _acct_rows = []
+        for _a in _all_accounts:
+            _s = _acct_stats.get(_a, {"mv": 0.0, "cost": 0.0, "gain": 0.0, "day_change": 0.0, "n": 0})
+            _csh = cash_by_account.get(_a, 0.0) or 0.0
+            _total = _s["mv"] + _csh
+            _acct_rows.append({
+                "account": _a, "total": _total, "holdings": _s["mv"], "cash": _csh,
+                "gain_usd": _s["gain"], "gain_pct": (_s["gain"] / _s["cost"] * 100) if _s["cost"] else None,
+                "day_change": _s["day_change"], "n_positions": _s["n"],
+                "pct_of_portfolio": (_total / portfolio_value * 100) if portfolio_value else None,
+            })
+        _acct_rows.sort(key=lambda r: r["total"], reverse=True)
+
+        if CAN_IMPORT and len(_broker_accts) > 1:
+            # Updating one account never removes another (an import replaces only
+            # the accounts in it), so taking one out is done here, on purpose.
+            with ac3.popover("Remove", width="stretch"):
+                _worth = {_to_broker.get(r["account"], r["account"]): r["total"] for r in _acct_rows}
+                st.caption("Take an account out of your holdings - one you closed or moved. Your "
+                           "other accounts stay as they are, and its past stays in your history.")
+                _rm = st.selectbox("Account to remove", _broker_accts, key="acct_rm_pick",
+                                   format_func=lambda a: accounts.display(a, ACCOUNT_LABELS))
+                _ok = st.checkbox(f"Yes, remove {accounts.display(_rm, ACCOUNT_LABELS)} "
+                                  f"({fmt_money(_worth.get(_rm, 0.0))})".replace("$", r"\$"),
+                                  key=f"acct_rm_ok_{_rm}")   # asked again for another account
+                st.button("Remove this account", key="acct_rm_btn", type="primary",
+                          disabled=not _ok, on_click=_remove_account, args=(_rm,))
+
+        if len(_acct_rows) < 2:
+            st.caption("Only one account in this portfolio — nothing to compare yet.")
+        else:
+            _adf_raw = pd.DataFrame(_acct_rows)
+            _adf = pd.DataFrame([{
+                "Account": r["account"], "Total Value": fmt_money(r["total"]),
+                "% of Portfolio": fmt_pct_level(r["pct_of_portfolio"]), "Holdings": fmt_money(r["holdings"]),
+                "Cash": fmt_money(r["cash"]), "Gain/Loss": fmt_money(r["gain_usd"]),
+                "Gain/Loss %": fmt_pct(r["gain_pct"]), "Today": fmt_money(r["day_change"]),
+                "Positions": r["n_positions"],
+            } for r in _acct_rows])
+            _gain_raw = [r["gain_usd"] for r in _acct_rows]
+            _today_raw = [r["day_change"] for r in _acct_rows]
+            _acct_styler = (
+                _adf.style
+                .apply(lambda col: [color_sign(v) for v in _gain_raw], subset=["Gain/Loss"])
+                .apply(lambda col: [color_sign(v) for v in _today_raw], subset=["Today"])
+            )
+            st.dataframe(_acct_styler, width="stretch", hide_index=True)
+            st.download_button(
+                "Download CSV", export.csv_bytes(_adf_raw),
+                file_name="accounts.csv", mime="text/csv", key="accounts_dl",
+                disabled=hide_amounts, help=(
+                    "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
+                    if hide_amounts else None),
+            )
+        learn_more("account_types")
+
+        st.divider()
+
+        # ---- holdings: the full table (configurable columns) ------------ #
+        with st.expander(home_tasks.FULL_TABLE, icon=":material/table_rows:"):
+            # ---- holdings (configurable columns) -------------------------------- #
+            if "col_keys" not in st.session_state:
+                st.session_state["col_keys"] = load_columns()
+
+            h1, h2 = st.columns([0.75, 0.25])
+            h1.subheader("Holdings")
+            with h2.popover("Columns", width="stretch"):
+                labels = st.multiselect(
+                    "Columns — add or remove as many as you want",
+                    [m.label for m in M.AVAILABLE],
+                    default=[M.BY_KEY[k].label for k in st.session_state["col_keys"] if k in M.BY_KEY],
+                    key="col_labels",
+                )
+                new_keys = [M.BY_LABEL[lbl].key for lbl in labels]
+                if new_keys and new_keys != st.session_state["col_keys"]:
+                    st.session_state["col_keys"] = new_keys
+                    save_columns(new_keys)
+                # any Yahoo history at all (what's already read shows it without asking)
+                if not (_covered or bar_stats or perf.has_bars(DB)):
+                    st.caption("The **Yahoo history** columns (MA, Volume, 52-wk, Beta, P/E, Sector) "
+                               "stay blank until you tap sync history (:material/history:) up top.")
+
+            # A tappable strip of ticker symbols — the Robinhood-style "click the name"
+            # entry point into the detail view below. Deliberately separate from the
+            # data grid's own row/cell interactions (Streamlit's dataframe treats a plain
+            # cell click as spreadsheet-style cell focus, not row selection — only its
+            # checkbox actually selects a row, which isn't the one-tap feel we want here).
+            # The search box keeps this usable as the holdings list grows past a couple
+            # dozen tickers, where a flat pill strip alone starts taking real scrolling.
+            # Only one of the Holdings / Watchlist pill strips can be "the" open ticker
+            # at a time — picking one clears the other via on_change (see _pick_holdings
+            # / _pick_watchlist below), so there's a single unambiguous selection.
+            st.caption("Tap a ticker for its chart and full details:")
+            _desc_by_sym = {p["symbol"]: (p.get("description") or "") for p in positions}
+            _symbols_held = sorted(_desc_by_sym)
+            _search = st.text_input("Search tickers", key="ticker_search",
+                                    placeholder="Filter by symbol or name…", label_visibility="collapsed")
+            if _search.strip():
+                _q = _search.strip().upper()
+                _pill_options = [s for s in _symbols_held if _q in s.upper() or _q in _desc_by_sym[s].upper()]
+            else:
+                _pill_options = _symbols_held
+            # Never let a search term hide the ticker you already have open.
+            _cur_pill = st.session_state.get("holdings_pill")
+            if _cur_pill and _cur_pill not in _pill_options:
+                _pill_options = sorted(_pill_options + [_cur_pill])
 
 
-    st.divider()
+            if not _pill_options:
+                st.caption("No ticker matches your search.")
+            else:
+                st.pills("Tickers", _pill_options, key="holdings_pill", label_visibility="collapsed",
+                        on_change=_pick_holdings)
 
-    # ---- holdings (configurable columns) -------------------------------- #
-    if "col_keys" not in st.session_state:
-        st.session_state["col_keys"] = load_columns()
+            chosen = [M.BY_KEY[k] for k in st.session_state["col_keys"] if k in M.BY_KEY] \
+                or [M.BY_KEY[k] for k in M.DEFAULT_KEYS]
+            # the total-return columns only when some holding has dividends to add:
+            # otherwise the price change alone, without empty columns beside it
+            chosen = [m for m in chosen if m.key not in M.SHOWN_WHEN_KNOWN
+                      or any(M.value(m.key, ctx) is not None for ctx in contexts)]
 
-    h1, h2 = st.columns([0.75, 0.25])
-    h1.subheader("Holdings")
-    with h2.popover("Columns", width="stretch"):
-        labels = st.multiselect(
-            "Columns — add or remove as many as you want",
-            [m.label for m in M.AVAILABLE],
-            default=[M.BY_KEY[k].label for k in st.session_state["col_keys"] if k in M.BY_KEY],
-            key="col_labels",
-        )
-        new_keys = [M.BY_LABEL[lbl].key for lbl in labels]
-        if new_keys and new_keys != st.session_state["col_keys"]:
-            st.session_state["col_keys"] = new_keys
-            save_columns(new_keys)
-        # any Yahoo history at all (what's already read shows it without asking)
-        if not (_covered or bar_stats or perf.has_bars(DB)):
-            st.caption("The **Yahoo history** columns (MA, Volume, 52-wk, Beta, P/E, Sector) "
-                       "stay blank until you tap sync history (:material/history:) up top.")
+            records = [{m.label: M.value(m.key, ctx) for m in chosen} for ctx in contexts]
 
-    # A tappable strip of ticker symbols — the Robinhood-style "click the name"
-    # entry point into the detail view below. Deliberately separate from the
-    # data grid's own row/cell interactions (Streamlit's dataframe treats a plain
-    # cell click as spreadsheet-style cell focus, not row selection — only its
-    # checkbox actually selects a row, which isn't the one-tap feel we want here).
-    # The search box keeps this usable as the holdings list grows past a couple
-    # dozen tickers, where a flat pill strip alone starts taking real scrolling.
-    # Only one of the Holdings / Watchlist pill strips can be "the" open ticker
-    # at a time — picking one clears the other via on_change (see _pick_holdings
-    # / _pick_watchlist below), so there's a single unambiguous selection.
-    st.caption("Tap a ticker for its chart and full details:")
-    _desc_by_sym = {p["symbol"]: (p.get("description") or "") for p in positions}
-    _symbols_held = sorted(_desc_by_sym)
-    _search = st.text_input("Search tickers", key="ticker_search",
-                            placeholder="Filter by symbol or name…", label_visibility="collapsed")
-    if _search.strip():
-        _q = _search.strip().upper()
-        _pill_options = [s for s in _symbols_held if _q in s.upper() or _q in _desc_by_sym[s].upper()]
-    else:
-        _pill_options = _symbols_held
-    # Never let a search term hide the ticker you already have open.
-    _cur_pill = st.session_state.get("holdings_pill")
-    if _cur_pill and _cur_pill not in _pill_options:
-        _pill_options = sorted(_pill_options + [_cur_pill])
-
-
-    if not _pill_options:
-        st.caption("No ticker matches your search.")
-    else:
-        st.pills("Tickers", _pill_options, key="holdings_pill", label_visibility="collapsed",
-                on_change=_pick_holdings)
-
-    chosen = [M.BY_KEY[k] for k in st.session_state["col_keys"] if k in M.BY_KEY] \
-        or [M.BY_KEY[k] for k in M.DEFAULT_KEYS]
-    # the total-return columns only when some holding has dividends to add:
-    # otherwise the price change alone, without empty columns beside it
-    chosen = [m for m in chosen if m.key not in M.SHOWN_WHEN_KNOWN
-              or any(M.value(m.key, ctx) is not None for ctx in contexts)]
-
-    records = [{m.label: M.value(m.key, ctx) for m in chosen} for ctx in contexts]
-
-    df = pd.DataFrame(records, columns=[m.label for m in chosen])
-    fmt_map = {m.label: FORMATTERS[m.fmt] for m in chosen if m.fmt in FORMATTERS}
-    color_cols = [m.label for m in chosen if m.color_sign]
-    # The table draws an empty cell as a grey "None", whatever the format says:
-    # a column with blanks (a holding entered without its cost) is shown as its
-    # formatted text instead (still right-aligned, like numbers), "—" for the blanks.
-    shown, as_text = df.copy(), {}
-    for col in df.columns:
-        if df[col].isna().any():
-            fmt = fmt_map.pop(col, None)
-            shown[col] = [fmt(v) if fmt else ("—" if _blank(v) else str(v)) for v in df[col]]
-            if fmt:
-                as_text[col] = st.column_config.TextColumn(alignment="right")
-    # "Price as of" in words ("3:45 pm ET", "Oct 3 close" - price_report.as_of);
-    # the CSV download keeps the stored time
-    _asof_col = M.BY_KEY["price_at"].label
-    if _asof_col in shown.columns:
-        _asofs = [price_report.as_of(M.value("price_at", ctx), price_report.kind(
-            ctx["pos"]["symbol"], ctx["pos"].get("asset_type"),
-            (ctx.get("info") or {}).get("quote_type"))) for ctx in contexts]
-        shown[_asof_col] = [a["text"] if a else "—" for a in _asofs]
-    styler = shown.style.format(fmt_map, na_rep="—")
-    if color_cols:   # colored by the numbers, not the text shown
-        styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)
-    st.dataframe(styler, width="stretch", hide_index=True, column_config=as_text or None)
-    st.download_button(
-        "Download CSV", export.csv_bytes(df),
-        file_name="holdings.csv", mime="text/csv", key="holdings_dl",
-        disabled=hide_amounts, help=(
-            "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
-            if hide_amounts else None),
-    )
-    st.caption("Green = gain, red = loss. Price / Market Value / Gain-Loss use the live price where "
-               "available, otherwise the CSV's figures. Edit the column set with **Columns**."
-               + (" Unrealized G/L is the price change; **Total return** adds the dividends "
-                  "each holding paid (blank where none are known)."
-                  if any(m.key in M.SHOWN_WHEN_KNOWN for m in chosen) else ""))
-
-    st.divider()
+            df = pd.DataFrame(records, columns=[m.label for m in chosen])
+            fmt_map = {m.label: FORMATTERS[m.fmt] for m in chosen if m.fmt in FORMATTERS}
+            color_cols = [m.label for m in chosen if m.color_sign]
+            # The table draws an empty cell as a grey "None", whatever the format says:
+            # a column with blanks (a holding entered without its cost) is shown as its
+            # formatted text instead (still right-aligned, like numbers), "—" for the blanks.
+            shown, as_text = df.copy(), {}
+            for col in df.columns:
+                if df[col].isna().any():
+                    fmt = fmt_map.pop(col, None)
+                    shown[col] = [fmt(v) if fmt else ("—" if _blank(v) else str(v)) for v in df[col]]
+                    if fmt:
+                        as_text[col] = st.column_config.TextColumn(alignment="right")
+            # "Price as of" in words ("3:45 pm ET", "Oct 3 close" - price_report.as_of);
+            # the CSV download keeps the stored time
+            _asof_col = M.BY_KEY["price_at"].label
+            if _asof_col in shown.columns:
+                _asofs = [price_report.as_of(M.value("price_at", ctx), price_report.kind(
+                    ctx["pos"]["symbol"], ctx["pos"].get("asset_type"),
+                    (ctx.get("info") or {}).get("quote_type"))) for ctx in contexts]
+                shown[_asof_col] = [a["text"] if a else "—" for a in _asofs]
+            styler = shown.style.format(fmt_map, na_rep="—")
+            if color_cols:   # colored by the numbers, not the text shown
+                styler = styler.apply(lambda s: [color_sign(v) for v in df[s.name]], subset=color_cols)
+            st.dataframe(styler, width="stretch", hide_index=True, column_config=as_text or None)
+            st.download_button(
+                "Download CSV", export.csv_bytes(df),
+                file_name="holdings.csv", mime="text/csv", key="holdings_dl",
+                disabled=hide_amounts, help=(
+                    "Disabled while amounts are hidden — turn off Hide amounts to export real figures."
+                    if hide_amounts else None),
+            )
+            st.caption("Green = gain, red = loss. Price / Market Value / Gain-Loss use the live price where "
+                       "available, otherwise the CSV's figures. Edit the column set with **Columns**."
+                       + (" Unrealized G/L is the price change; **Total return** adds the dividends "
+                          "each holding paid (blank where none are known)."
+                          if any(m.key in M.SHOWN_WHEN_KNOWN for m in chosen) else ""))

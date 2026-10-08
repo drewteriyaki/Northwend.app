@@ -93,8 +93,10 @@
     while (next && next.getBoundingClientRect().height === 0) next = next.nextElementSibling;
     const card = next && (next.querySelector(':scope > [data-testid="stVerticalBlock"]')
       || next.querySelector('[data-testid="stExpander"]'));
-    const overlaps = card && getComputedStyle(card.matches('[data-testid="stExpander"]')
-      ? card.querySelector("details") || card : card).borderTopStyle !== "none";
+    // (Home in three parts: its chart and This month are cards, so it overlaps)
+    const parts = next && next.querySelector(":scope > .st-key-pt_home_layout");
+    const overlaps = Boolean(parts) || (card && getComputedStyle(card.matches('[data-testid="stExpander"]')
+      ? card.querySelector("details") || card : card).borderTopStyle !== "none");
     const set = (k, v) => { if (box.style.getPropertyValue(k) !== v) box.style.setProperty(k, v); };
     // no card: the band's own foot holds the hills (room below the words)
     set("--pt-band-pad", overlaps ? "0px" : "3rem");

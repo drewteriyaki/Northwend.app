@@ -109,17 +109,22 @@ def cash_card_line():
     return lead + " Worth a look at what it earns."
 
 
-def render_money_checks():
-    """Home's "Your money, checked" card: one line each for Fee check, Fund
-    overlap and Cash check, whichever apply, each opening its window.
-    Nothing when none apply."""
-    rows = [(label, line, button, key, opener)
+def money_check_rows():
+    """The money checks that apply: (label, line, button, key, opener)."""
+    return [(label, line, button, key, opener)
             for label, line, button, key, opener in (
                 ("Fee check", fee_card_line(), "Check fees", "fees_open", open_fee_window),
                 ("Fund overlap", overlap_card_line(), "See overlap", "overlap_open",
                  open_overlap_window),
                 ("Cash check", cash_card_line(), "Check cash", "cash_open", open_cash_window))
             if line]
+
+
+def render_money_checks(rows=None):
+    """Home's "Your money, checked" card: one line each for Fee check, Fund
+    overlap and Cash check, whichever apply (money_check_rows, or `rows`
+    already worked out), each opening its window. Nothing when none apply."""
+    rows = money_check_rows() if rows is None else rows
     if not rows:
         return
     with st.container(border=True, key="pt_checks", gap="small"):

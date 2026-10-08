@@ -46,7 +46,14 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   the menu, settings, formatting helpers, the header, live prices, loading holdings.
   Each page's code is in `views/` and runs inside it via `_view("name")` at the
   point it's listed (same names, no imports needed - read the header of any view):
-  `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
+  `dashboard_page` (Home in three parts: the navy band, then keyed containers
+  `pt_home_layout` = `pt_home_main` - the chart, a compact holdings list, the rest
+  below, the full table in an expander - and `pt_home_side` "This month": the walk,
+  route, weekly, season, mix, drill, money checks, kit, news cards; one column
+  under 900px, This month first and a sideways row of cards on a phone. Cards
+  without their own done/put-away state get Done / Not now via `home_tasks.py`:
+  keys + month/week id in the login's own prefs, nothing written by an advisor in
+  a client's account), `ticker_detail` (one ticker, from Dashboard/Watchlist),
   `watchlist`, `activity`, `income`, `plan`, `get_started` (and `first_steps`, the
   new investor's slideshow shown in its place), `assistant` (Ask Northwend),
   `profile`, `account` (the login's own account: name, email, password, data),

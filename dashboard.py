@@ -631,6 +631,72 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 :root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
 :root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
   background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
+/* Home in three parts (views/dashboard_page.py): the menu, the middle (the
+   chart, the holdings list, the rest below) and This month on the right,
+   about 19rem. Up to 900px wide: one column with This month first; on a
+   phone its cards are one row that scrolls sideways inside itself. The
+   parts' own wrappers are what sit in the row, so the widths go on them. */
+.st-key-pt_home_layout { align-items: flex-start; flex-wrap: nowrap !important; }
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_main) {
+  flex: 1 1 0 !important; min-width: 0; width: auto !important; }
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_side) {
+  flex: 0 0 19rem !important; width: 19rem !important; min-width: 0; }
+.st-key-pt_home_side { padding: 1.1rem 1rem; }
+.st-key-pt_home_chart, .st-key-pt_home_list, .st-key-pt_home_side,
+.st-key-pt_home_main [data-testid="stExpander"] details {
+  background: #ffffff; border-color: transparent !important; border-radius: 16px;
+  box-shadow: 0 12px 28px -6px #132a3e40; }
+:root[data-pt-theme="dark"] .st-key-pt_home_chart,
+:root[data-pt-theme="dark"] .st-key-pt_home_list,
+:root[data-pt-theme="dark"] .st-key-pt_home_side,
+:root[data-pt-theme="dark"] .st-key-pt_home_main [data-testid="stExpander"] details {
+  background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
+.pt-month-title { font-family: Newsreader, Georgia, serif; font-size: 1.4rem;
+  font-weight: 500; line-height: 1.2; }
+.pt-month-card-title { font-weight: 600; margin-bottom: .2rem; }
+/* each card in This month: a hairline edge; a card drawn inside a Done /
+   Not now wrapper (pt_task_*) gives its edge to the wrapper */
+.st-key-pt_month_cards [data-testid="stVerticalBlock"][class*="st-key-pt_"]:not([class*="st-key-pt_tfoot_"]) {
+  border-radius: 12px; }
+.st-key-pt_month_cards [class*="st-key-pt_task_"] { border: 1px solid var(--pt-line);
+  padding: .8rem .9rem .3rem; gap: .25rem; }
+.st-key-pt_month_cards [class*="st-key-pt_task_"] > [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"] {
+  border: 0 !important; padding: 0 !important; background: transparent !important;
+  box-shadow: none !important; }
+.st-key-pt_month_cards .st-key-pt_walk { background: var(--pt-compass-soft);
+  border-color: var(--pt-compass) !important; }
+[class*="st-key-pt_tfoot_"] button { min-height: 2rem; padding: 0 .4rem; }
+/* the holdings list: share, value, today's move, in tidy columns */
+[class*="st-key-pt_hl_"] { border-top: 1px solid var(--pt-line); padding-top: .1rem;
+  flex-wrap: nowrap !important; }
+[class*="st-key-pt_hl_"] > [data-testid="stElementContainer"]:last-child { flex: 1 1 auto;
+  min-width: 0; width: auto !important; }
+[class*="st-key-pt_hl_"] button { min-width: 4.5rem; min-height: 2.1rem;
+  justify-content: flex-start; padding: 0 .25rem; }
+.pt-hl-row { display: flex; justify-content: flex-end; gap: 1rem; font-size: .9rem;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pt-hl-share { min-width: 2.5rem; text-align: right; color: var(--pt-ink-muted); }
+.pt-hl-val { min-width: 6.5rem; text-align: right; }
+.pt-hl-day { min-width: 5rem; text-align: right; }
+@media (max-width: 900px) {
+  .st-key-pt_home_layout { flex-direction: column !important; align-items: stretch; }
+  [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_main),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_side) {
+    flex: 0 0 auto !important; width: 100% !important; }
+  [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_side) { order: -1; }
+}
+@media (max-width: 640px) {
+  .st-key-pt_home_side { padding: .9rem .75rem; }
+  .st-key-pt_month_cards { flex-direction: row !important; flex-wrap: nowrap !important;
+    align-items: flex-start; overflow-x: auto; scroll-snap-type: x proximity;
+    padding-bottom: .4rem; }
+  .st-key-pt_month_cards > * { flex: 0 0 min(16.5rem, 78vw) !important;
+    width: min(16.5rem, 78vw) !important; scroll-snap-align: start;
+    max-height: 22rem; overflow-y: auto; }
+  .pt-hl-row { gap: .6rem; font-size: .85rem; }
+  .pt-hl-val { min-width: 0; }
+  .pt-hl-share, .pt-hl-day { min-width: 0; }
+}
 .pt-hero-label { font-size: .85rem; opacity: .7; }
 .pt-hero-value { font-size: 2.6rem; font-weight: 700; line-height: 1.15;
   font-variant-numeric: tabular-nums; }
