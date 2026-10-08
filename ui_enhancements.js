@@ -72,10 +72,10 @@
   // dashboard.py draws the deep blue band (_band_css) on the main area only
   // while it carries data-pt-band, set here when a band container is on the
   // page - Home's tall one (key "pt_home_band": data-pt-band="home") or the
-  // slimmer one of the pages that opt in (key "pt_page_band", Plan and Money:
-  // "slim") - never on sign-in or any other page - with where that container
-  // starts and ends, so whatever sits above it (the staging note, a one-time
-  // agree box) stays off the navy.
+  // slimmer one of the pages that opt in (key "pt_page_band": Plan, Money,
+  // Learn, Life and Ask Northwend, "slim") - never on sign-in or any other
+  // page - with where that container starts and ends, so whatever sits above
+  // it (the staging note, a one-time agree box) stays off the navy.
   const syncBand = () => {
     const box = q('[data-testid="stMainBlockContainer"]');
     if (!box) return;
@@ -97,8 +97,8 @@
     while (next && next.getBoundingClientRect().height === 0) next = next.nextElementSibling;
     const card = next && (next.querySelector(':scope > [data-testid="stVerticalBlock"]')
       || next.querySelector('[data-testid="stExpander"]'));
-    // (Home in three parts, and Plan's and Money's two: their parts are cards,
-    // so it overlaps)
+    // (Home in three parts, and the slim band pages' two: their parts are
+    // cards, so it overlaps)
     const parts = next && next.querySelector(":scope > .st-key-pt_home_layout, :scope > .st-key-pt_page_layout");
     const overlaps = Boolean(parts) || (card && getComputedStyle(card.matches('[data-testid="stExpander"]')
       ? card.querySelector("details") || card : card).borderTopStyle !== "none");

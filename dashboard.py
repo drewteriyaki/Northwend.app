@@ -607,8 +607,9 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .st-key-pt_menu [data-testid="stSelectbox"] { width: 9.5rem !important; }
   .st-key-viewing_select [role="group"]::before { content: none; }
 }
-/* Plan and Money in two parts (pt_page_layout: views/plan.py, _money_parts):
-   the middle and a right-hand panel of about 19rem, white cards on the
+/* The slim band pages in two parts (pt_page_layout: views/plan.py, _money_parts,
+   views/get_started.py, life.py, assistant.py): the middle (pt_page_main)
+   and a right-hand panel (pt_page_side) of about 19rem, white cards on the
    band's paler page. Up to 900px one column, the panel after the middle */
 .st-key-pt_page_layout { align-items: flex-start; flex-wrap: nowrap !important; }
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_main) {
@@ -667,6 +668,47 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-life-small { font-size: .75rem; font-weight: 600; color: var(--pt-ink-muted); }
 .pt-life-title { font-size: 1.1rem; font-weight: 600; margin-top: .15rem; }
 .pt-status { font-size: .8rem; opacity: .75; margin-top: -.6rem; }
+/* Learn, Life and Ask Northwend in the same two parts (views/get_started.py,
+   life.py, assistant.py: pt_page_layout, pt_page_main and, on Learn and Ask,
+   pt_page_side; Life is the middle alone). Their cards are white too */
+.st-key-pt_gs_steps, .st-key-pt_gs_direction_line,
+.st-key-pt_gs_common_points_line, .st-key-pt_page_main [class*="st-key-pt_slide_"],
+.st-key-pt_page_main [class*="st-key-pt_life_"], .st-key-pt_ir, .st-key-pt_next_assistant,
+.st-key-chat_suggest_box, .st-key-pt_page_main [data-testid="stExpander"] details,
+.st-key-pt_page_main [data-testid="stChatMessage"] {
+  background: #ffffff; border-color: transparent !important; border-radius: 16px;
+  box-shadow: 0 12px 28px -6px #132a3e40; }
+:root[data-pt-theme="dark"] :is(.st-key-pt_gs_steps,
+  .st-key-pt_gs_direction_line, .st-key-pt_gs_common_points_line,
+  .st-key-pt_page_main [class*="st-key-pt_slide_"], .st-key-pt_page_main [class*="st-key-pt_life_"],
+  .st-key-pt_ir, .st-key-pt_next_assistant, .st-key-chat_suggest_box,
+  .st-key-pt_page_main [data-testid="stExpander"] details,
+  .st-key-pt_page_main [data-testid="stChatMessage"]) {
+  background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
+/* a window or a card's own expander inside a card keeps the plain look */
+.st-key-pt_page_main [data-testid="stVerticalBlock"][class*="st-key-pt_"]:not(.st-key-pt_page_main):not(.st-key-pt_tf_grid) [data-testid="stExpander"] details {
+  background: transparent; border-color: var(--pt-line) !important; border-radius: 8px;
+  box-shadow: none; }
+/* Life's changes (views/trail_forks.py): a grid of cards, an open one the whole row */
+.st-key-pt_tf_grid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .75rem !important; align-items: start; }
+.st-key-pt_tf_grid > * { width: auto !important; min-width: 0; }
+.st-key-pt_tf_grid > :has(details[open]) { grid-column: 1 / -1; }
+/* Ask Northwend: your own questions in a soft blue bubble on the right */
+.st-key-pt_page_main [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+  background: var(--pt-compass-soft); box-shadow: none; margin-left: auto; max-width: 85%; }
+:root[data-pt-theme="dark"] .st-key-pt_page_main [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+  background: var(--pt-compass-soft); box-shadow: none; }
+.st-key-pt_page_main [class*="st-key-quick_"] button { border-radius: 9999px; }
+.st-key-pt_page_main [data-testid="stChatInput"] > div { border-radius: 12px; }
+.pt-ask-sees { margin: 0 0 .5rem; font-size: .9rem; color: var(--pt-ink-muted); }
+.pt-ask-sees:last-child { margin-bottom: 0; }
+@media (max-width: 900px) {
+  .st-key-pt_tf_grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .st-key-pt_tf_grid { grid-template-columns: minmax(0, 1fr); }
+}
 /* Home's band (_band_css; key pt_home_band, _page_header): the eyebrow,
    title, value, today's change and the status line in white on the navy,
    up and down in the dark theme's colors, signs and arrows kept. Tall enough
@@ -679,12 +721,16 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .st-key-pt_home_band .st-key-pt_hide button { color: #ffffff !important; }
 .st-key-pt_home_band [data-testid="stCaptionContainer"] a { color: var(--pt-link) !important; }
 .st-key-pt_home_band .pt-hero-label, .st-key-pt_home_band .pt-hero-sub { opacity: .85; }
-/* the slim band (key pt_page_band: Plan and Money, _band_kind): the title,
-   the status line and Money's tabs in white on the navy */
-.st-key-pt_page_band { min-height: 5.5rem; color: #ffffff; --pt-link: #a9cdf7; }
-.st-key-pt_page_band h1, .st-key-pt_page_band [data-testid="stCaptionContainer"],
+/* the slim band (key pt_page_band: Plan, Money, Learn, Life and Ask
+   Northwend, _band_kind): Learn's eyebrow, the title, the line under it
+   (_slim_band_line), the status line and Money's tabs in white on the navy */
+.st-key-pt_page_band { min-height: 5.5rem; color: #ffffff; --pt-up: #4ade80;
+  --pt-down: #f87171; --pt-link: #a9cdf7; }
+.st-key-pt_page_band h1, .st-key-pt_page_band .pt-eyebrow,
+.st-key-pt_page_band [data-testid="stCaptionContainer"],
 .st-key-pt_page_band .st-key-pt_hide button,
 .st-key-pt_page_band .st-key-pt_money_tabs button { color: #ffffff !important; }
+.st-key-pt_page_band [data-testid="stCaptionContainer"] { opacity: .88; max-width: 46rem; }
 .st-key-pt_page_band [data-testid="stCaptionContainer"] a { color: var(--pt-link) !important; }
 .st-key-pt_page_band .st-key-pt_money_tabs { border-bottom-color: #ffffff33; }
 .st-key-pt_page_band .st-key-pt_money_tabs button[kind="primary"] {
@@ -694,13 +740,13 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
    instead of an edge */
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details,
-[data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_page_layout),
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
   background: #ffffff; border-color: transparent !important; border-radius: 16px;
   box-shadow: 0 12px 28px -6px #132a3e40; }
 :root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_route_reached),
 :root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_home_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details,
-:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"],
+:root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:not(.st-key-pt_page_layout),
 :root[data-pt-theme="dark"] [data-testid="stLayoutWrapper"]:has(> .st-key-pt_page_band) ~ [data-testid="stElementContainer"] [data-testid="stExpander"] details {
   background: #15212d; box-shadow: 0 12px 28px -6px #00000099; }
 /* Home in three parts (views/dashboard_page.py): the menu, the middle (the
@@ -938,7 +984,7 @@ def _band_svgs(theme):
 
 
 # Where the band is drawn: only on the main area of a page that opts in
-# (_band_kind: Home's tall one, the slim one on Plan and Money), and only once
+# (_band_kind: Home's tall one, the slim one on Plan, Money, Learn, Life and Ask), and only once
 # ui_enhancements.js has found the band's own container there (key
 # pt_home_band or pt_page_band, made by _page_header) and marked the main area
 # with data-pt-band ("home" / "slim") and where the band starts and ends
@@ -982,7 +1028,7 @@ def _band_css() -> str:
             f"background-position: right -.75rem top calc({start} + 3.25rem), "
             f"0 calc({end} - 9rem), 0 {top}; background-size: 130px 100px, 100% 9rem, "
             f"100% calc({end} - {top} - 5rem); }} }}\n"
-            # the slim band (Plan, Money: key pt_page_band, data-pt-band="slim"):
+            # the slim band (Plan, Money, Learn, Life, Ask: key pt_page_band, data-pt-band="slim"):
             # the same layers, its hills 5.5rem (the navy reaches 3rem into
             # them, where its cards start) and a smaller star beside the title
             ".st-key-pt_page_band { padding-bottom: var(--pt-band-pad, 0px); }\n"
@@ -994,6 +1040,12 @@ def _band_css() -> str:
             f"background-position: right 2.75rem top calc({start} - .75rem), "
             f"0 calc({end} - 5.5rem), 0 {top}; background-size: 104px 80px, 100% 5.5rem, "
             f"100% calc({end} - {top} - 3rem); }} }}\n"
+            # (Learn's eyebrow runs the width of a phone: its star goes down
+            # beside the title, which has no hide-amounts eye there)
+            f'@media (max-width: 640px) {{ {_BAND_ON}[data-pt-band="slim"]'
+            f":has(.st-key-pt_page_band .pt-eyebrow) {{ "
+            f"background-position: right .25rem top calc({start} + .6rem), "
+            f"0 calc({end} - 5.5rem), 0 {top}; }} }}\n"
             "</style>")
 
 
@@ -3457,18 +3509,30 @@ def _money_tabs():
 _HOME_HERO = None   # Home's place for the value on its band (_page_header)
 _PAGE_MAIN = None   # a Money page's main card (_money_parts), else None
 _PAGE_SIDE = None   # a Money page's right-hand panel (_money_parts), else None
-BAND_PAGES = ("Plan",)   # the slim band's pages, besides Money's (_band_kind)
+# the slim band's pages, besides Money's (_band_kind): Plan, Learn, Life and
+# Ask Northwend. On Life and Ask a line goes under the title (_slim_band_line)
+BAND_PAGES = ("Plan", "Get started", "Life", "AI Assistant")
 
 
 def _band_kind():
     """Which deep blue band the page opts into (_band_css): Home's tall one
-    ("home", key pt_home_band), the slimmer one with just the title ("slim",
-    key pt_page_band) on Plan and Money, or none. Sign-in, the agree box and
-    windows never have one - they are drawn before or apart from the page."""
+    ("home", key pt_home_band), the slimmer one with the title ("slim", key
+    pt_page_band) on Plan, Money, Learn, Life and Ask Northwend, or none.
+    Sign-in, the agree box and windows never have one - they are drawn
+    before or apart from the page."""
     if PAGE == "Dashboard":
         return "home"
     if PAGE in BAND_PAGES or PAGE in MONEY_PAGES:
         return "slim"
+    return None
+
+
+def _slim_band_line():
+    """The line under the slim band's title, or None."""
+    if PAGE == "Life":
+        return LIFE_INTRO   # views/life.py
+    if PAGE == "AI Assistant":
+        return ASSIST_LINE if USER_ID == LOGIN_ID else ASSIST_LINE_ADVISOR   # views/assistant.py
     return None
 
 
@@ -3534,8 +3598,9 @@ def _page_header(title, *, data=True):
     band = _band_kind()
     # Home's deep blue band (_band_css): the title, the value and today's
     # change (written into _HOME_HERO by views/dashboard_page.py) and the
-    # status line sit on it; the cards after it overlap its foot. Plan and
-    # Money have the slimmer one: the title, the status line and Money's tabs
+    # status line sit on it; the cards after it overlap its foot. Plan, Money,
+    # Learn, Life and Ask have the slimmer one: the title, the status line,
+    # Money's tabs and on Life and Ask a line under the title (_slim_band_line)
     with (st.container(key="pt_home_band" if band == "home" else "pt_page_band")
           if band else contextlib.nullcontext()):
         # (an advisor's client's Home is their advisor's next step, not an expedition)
@@ -3551,6 +3616,8 @@ def _page_header(title, *, data=True):
                           key="pt_hide", type="tertiary", on_click=_toggle_hide,
                           help="Show amounts" if _hidden() else "Hide amounts - mask every "
                                                                  "dollar and percent with " + MASK)
+        if band == "slim" and _slim_band_line():
+            st.caption(_slim_band_line())
         _HOME_HERO = st.container() if home and data else None
         if data:
             _live_status()

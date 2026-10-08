@@ -64,16 +64,19 @@ def _render_life_sections():
 
 
 def _render_life():
-    if flags.on("together"):   # a Doing it together link just opened: answered first
-        render_together_invite()
-    st.caption(LIFE_INTRO)
-    cards = _life_cards_shown()
-    if cards:
-        cols = st.columns(len(cards))
-        for col, (key, small, title, line, go, anchor) in zip(cols, cards):
-            with col, st.container(border=True, height="stretch", key=f"pt_life_{key}"):
-                st.html(f"<div class='pt-life-small'>{html.escape(small)}</div>"
-                        f"<div class='pt-life-title'>{html.escape(title)}</div>")
-                st.caption(line)
-                st.markdown(f"[{go}](#{anchor})")
-    _render_life_sections()
+    # Style C (dashboard.py's pt_page_layout): the intro is on the
+    # slim band under the title (_slim_band_line), then one column of white
+    # cards - no right-hand panel on Life
+    with st.container(key="pt_page_layout"), st.container(key="pt_page_main"):
+        if flags.on("together"):   # a Doing it together link just opened: answered first
+            render_together_invite()
+        cards = _life_cards_shown()
+        if cards:
+            cols = st.columns(len(cards))
+            for col, (key, small, title, line, go, anchor) in zip(cols, cards):
+                with col, st.container(border=True, height="stretch", key=f"pt_life_{key}"):
+                    st.html(f"<div class='pt-life-small'>{html.escape(small)}</div>"
+                            f"<div class='pt-life-title'>{html.escape(title)}</div>")
+                    st.caption(line)
+                    st.markdown(f"[{go}](#{anchor})")
+        _render_life_sections()

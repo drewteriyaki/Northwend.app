@@ -19,6 +19,7 @@ import unittest.mock
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "tests"))
+from tests import offline as offline_net  # noqa: E402
 
 import advisor  # noqa: E402
 import ai_gateway  # noqa: E402
@@ -54,7 +55,7 @@ def _figures_ok(test, text):
 class LibraryTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def test_within_the_size_budget(self):
         text = ai_library.block_text()
@@ -111,7 +112,7 @@ RULE = ai_policy.CLIENT_RULE[1].split("{advisor}")[1][:60]   # the rule's own wo
 class ClientModeTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def _client_card(self, label="Dana Ruiz, Ruiz Wealth"):
         return _card([_ctx("VTI", 6000.0, name="Total Stock")], client_mode=True,
@@ -243,7 +244,7 @@ def _refuse(*a, **k):
 class ToolTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def test_every_tool_is_listed_once_in_a_fixed_order(self):
         self.assertEqual(set(ai_tools.NAMES), set(GOOD_INPUTS))
@@ -385,7 +386,7 @@ class _ReadStream(_Stream):
 class RetryTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def _ask(self, turns, history=None, **kw):
         client = _Client(turns=turns)

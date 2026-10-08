@@ -1236,12 +1236,42 @@ def _gs_stage(first_of):
         _gs_go(first_of[stage])
 
 
-def _render_get_started(has_holdings, value):
-    import advisor
+def _learn_side_shown():
+    """Learn's right-hand panel has something to show: the four seasons
+    (their own account, flag seasons) or the kit (an investor's own)."""
+    return (flags.on("seasons") and _ss_own()) or _kit_shown()
 
+
+def _render_learn_side(value):
+    """Learn's right-hand panel (Style C): This season, then Milestones (the kit)."""
+    if flags.on("seasons") and _ss_own():
+        st.html("<div class='pt-month-title'>This season</div>")
+        render_seasons_learn()   # the Four Seasons, any time (views/seasons.py)
+    if _kit_shown():
+        st.html("<div class='pt-month-title'>Milestones</div>")
+        render_kit_card(value)   # views/kit.py (read once per run with the check below)
+
+
+def _render_get_started(has_holdings, value):
+    # Style C (dashboard.py's pt_page_layout styles): the route in the
+    # middle, This season and Milestones on the right - under it up to 900px
     if first_steps_active(has_holdings):   # a new investor: the slideshow (first_steps.py)
-        render_first_steps(has_holdings)
+        with st.container(key="pt_page_layout"), st.container(key="pt_page_main"):
+            render_first_steps(has_holdings)
         return
+    side_on = _learn_side_shown()
+    with st.container(horizontal=True, gap="medium", key="pt_page_layout"):
+        main = st.container(key="pt_page_main")
+        side = st.container(key="pt_page_side") if side_on else None
+    with main:
+        _render_learn_route(has_holdings, value)
+    if side is not None:
+        with side:
+            _render_learn_side(value)
+
+
+def _render_learn_route(has_holdings, value):
+    import advisor
 
     st.session_state["gs_has_holdings"] = has_holdings
     state = _route_state(has_holdings)
@@ -1282,36 +1312,39 @@ def _render_get_started(has_holdings, value):
     # ---- the two stages, and how far along this one is ---------------------- #
     first_of = {s: next((k for k in ks if not done[k]), ks[0]) for s, ks in by_stage.items()}
     st.session_state["gs_stage"] = stage   # always the open one's
-    st.segmented_control(
+    # (Style C: the stages, the progress, the trail and the waypoints are one
+    # card, "Your steps", over the open waypoint's card)
+    steps_card = st.container(border=True, key="pt_gs_steps")
+    steps_card.segmented_control(
         "Stage", [route.LEARN, route.INVEST], key="gs_stage", label_visibility="collapsed",
         on_change=_gs_stage, args=(first_of,), required=True,
         format_func=lambda s: (("✓ " if all(done[k] for k in by_stage[s]) else "")
                                + route.STAGE_NAMES[s]
                                + (" (optional)" if optional[s] else "")))
-    st.html(_progress_html(stage, stage_keys, titles, done, at, optional[stage]))
+    steps_card.html(_progress_html(stage, stage_keys, titles, done, at, optional[stage]))
     if all(done[k] for k in mine):
-        st.success("Every step of your route is complete. Home keeps track of your goal from "
-                   "here, and these pages are here whenever you'd like a refresher.",
-                   icon=":material/flag:")
+        steps_card.success("Every step of your route is complete. Home keeps track of your "
+                           "goal from here, and these pages are here whenever you'd like a "
+                           "refresher.", icon=":material/flag:")
     elif managed and stage == route.LEARN:
-        st.caption(":material/info: Learn is here whenever you'd like it - short reads on the "
-                   "basics. Your plan is made with your advisor: see Plan and "
-                   f"{_label('Advisor notes')}.")
+        steps_card.caption(":material/info: Learn is here whenever you'd like it - short reads "
+                           "on the basics. Your plan is made with your advisor: see Plan and "
+                           f"{_label('Advisor notes')}.")
     elif optional[stage]:
-        st.caption(":material/info: Learn is optional for you - the basics are here whenever "
-                   "you'd like them. Your route starts at Start investing.")
+        steps_card.caption(":material/info: Learn is optional for you - the basics are here "
+                           "whenever you'd like them. Your route starts at Start investing.")
 
     # ---- their route drawn as a trail, then this stage's waypoints to tap ---- #
     waypoints = state["waypoints"]
     n_done = sum(d for _, _, d in waypoints)
-    st.html(route.trail_html(route.dots(waypoints, False),
-                             f"{n_done} of {len(waypoints)} waypoints reached")
-            + _where_html(state))
+    steps_card.html(route.trail_html(route.dots(waypoints, False),
+                                     f"{n_done} of {len(waypoints)} waypoints reached")
+                    + _where_html(state))
     st.session_state["gs_pick"] = at   # always the open one
-    st.pills("Waypoints", stage_keys, key="gs_pick", label_visibility="collapsed",
-             on_change=_gs_pick,
-             format_func=lambda k: ("✓ " if done[k] else f"{stage_keys.index(k) + 1}. ")
-             + titles[k])
+    steps_card.pills("Waypoints", stage_keys, key="gs_pick", label_visibility="collapsed",
+                     on_change=_gs_pick,
+                     format_func=lambda k: ("✓ " if done[k] else f"{stage_keys.index(k) + 1}. ")
+                     + titles[k])
 
     # ---- the open waypoint: why, the step, then Complete this step -------- #
     with st.container(border=True, key=f"pt_slide_gs_{at}"):
@@ -1368,7 +1401,8 @@ def _render_get_started(has_holdings, value):
     # (and never on Your first investments: named example funds there stay
     # general, away from their direction - LEGAL_GATES B14)
     if kind and not missing and not managed and at != "first":
-        with st.container(border=True, horizontal=True, vertical_alignment="center"):
+        with st.container(border=True, horizontal=True, vertical_alignment="center",
+                          key="pt_gs_direction_line"):
             st.html(f"<span class='pt-route-label'>Your direction</span><br>"
                     f"<b>{html.escape(kind['name'])}</b> - {html.escape(kind['line'])}",
                     width="stretch")
@@ -1377,8 +1411,7 @@ def _render_get_started(has_holdings, value):
                 _direction_window(kind["key"])
     elif not TAILORED_MIX and not managed and not CLIENT_MODE and at not in ("mix", "first"):
         _common_points_line("gs_common_points")   # gate L3 off: the same for everyone
-    if flags.on("seasons"):
-        render_seasons_learn()   # the Four Seasons, any time (views/seasons.py)
+    # (the Four Seasons are on the right: _render_learn_side)
     st.caption("Learn explains and shows examples; it never tells you what to buy.")
     if not managed and all(done[k] for k in by_stage[route.LEARN]):
         _guide_line("gs_guide")   # Learn finished: a quiet "Find a guide" (ADR 0005)

@@ -139,8 +139,10 @@ def render_trail_forks():
     msg = st.session_state.pop("tf_msg", None)
     if msg:
         st.caption(f":material/check: {msg}")
-    for f in trail_forks.FORKS:
-        _tf_fork(f, saved)
+    # the forks as a grid of cards (an open one takes the whole row: CSS)
+    with st.container(key="pt_tf_grid"):
+        for f in trail_forks.FORKS:
+            _tf_fork(f, saved)
     if trail_forks.mine(saved):
         st.button("Clear my marks and ticks", key="tf_clear", type="tertiary", on_click=_tf_clear)
     st.caption(trail_forks.NOT_ADVICE)

@@ -94,7 +94,7 @@ class RegisterTests(unittest.TestCase):
 class GlossaryTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def test_only_a_term_is_sent(self):
         for raw, term in (("Sharpe ratio", "Sharpe ratio"), ("What is a REIT?", "REIT"),
@@ -160,7 +160,7 @@ class GlossaryTests(unittest.TestCase):
 class DraftTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def test_what_goes_in(self):
         ask = advisor_drafts.request_text(

@@ -156,12 +156,15 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   the main area marked `data-pt-band` by ui_enhancements.js, which it sets only while
   a band container is on the page (never sign-in, the agree box, other pages or windows):
   Home's tall `pt_home_band`, or the slim `pt_page_band` on the pages that opt in
-  (`_band_kind`: `BAND_PAGES` = Plan, plus Money's pages). Under the slim band, Plan and
-  Money are `pt_page_layout` = `pt_page_main` + `pt_page_side` (~19rem; one column under
+  (`_band_kind`: `BAND_PAGES` = Plan, Learn, Life, Ask, plus Money's pages; on Life and
+  Ask a line under the title, `_slim_band_line`). Under the slim band every one of them is
+  `pt_page_layout` = `pt_page_main` + `pt_page_side` (~19rem; one column under
   900px): Plan's goal card `pt_plan_goal`, its tab groups in `pt_plan_tabs`, "Your mix" /
   next deposit / stress test on the right (each opens its tab: `_open_plan_tab`); Money's
   views draw `with _page_main():` into one card `pt_money_card`, Accounts (and on Income
-  "Income ahead") on the right, from what's already loaded.
+  "Income ahead") on the right, from what's already loaded; Learn's side is This season
+  and Milestones, Ask's "What it sees" (kept true to `context_card.ContextCard` - a test
+  pins its fields); Life is the middle alone, Trail Forks a grid (`pt_tf_grid`).
 - Website (northwend.app, Cloudflare Pages): `website/` - templates and assets,
   `build.py` writes `website/public/` (committed, served as is). Edit the
   templates, then run `python website/build.py`; a test fails if `public/` is

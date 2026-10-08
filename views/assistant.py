@@ -17,6 +17,33 @@ ASSIST_DISCLAIMER = (f"Educational information only - not financial advice. {GUI
                      "not a licensed financial advisor, and can be wrong; it won't recommend "
                      "what to buy or sell. Any projection is hypothetical. Do your own research "
                      "or talk to a licensed professional before making any investment decision.")
+# Style C: the line under the title on the slim band (dashboard._slim_band_line)
+ASSIST_LINE = ("Explains how investing works in plain words. It sees your mix as percentages "
+               "only, and it never tells you what to buy or sell.")
+ASSIST_LINE_ADVISOR = ("Explains how investing works in plain words. It sees this account's mix "
+                       "as percentages only, and it never says what to buy or sell.")
+# "What it sees", on the right: only what the conversation's ContextCard can
+# hold (context_card.py) - the profile's answers, percentages, holdings by
+# name and percent, counts, the route stage; the notes only in the person's
+# own account; never an amount, a share count, an account's name or number,
+# a name or an email
+ASSIST_SEES_TITLE = "What it sees"
+ASSIST_SEES = ("Your answers to the profile questions, like your goal, timeline and comfort "
+               "with ups and downs. Your mix, your target mix and its drift band, as "
+               "percentages. Your largest holdings by name and percent, how many accounts and "
+               "holdings you have, and which stage of your steps you're in.")
+ASSIST_SEES_ADVISOR = ("This person's answers to the profile questions, their mix, target mix "
+                       "and drift band as percentages, their largest holdings by name and "
+                       "percent, how many accounts and holdings they have, and which stage of "
+                       "their steps they're in. Not their notes: those stay in their own "
+                       "conversations.")
+ASSIST_SEES_NOTES = (f"{GUIDE} also keeps short notes for next time. You can read and delete "
+                     "them on your Account page.")
+ASSIST_SEES_ADVISOR_NAME = "Your advisor's name and firm, as they show it to you."
+ASSIST_SEES_NEVER = ("Never dollar amounts, share counts, account names or numbers, the notes "
+                     "you type in your profile, your name or your email.")
+ASSIST_SEES_NEVER_ADVISOR = ("Never dollar amounts, share counts, account names or numbers, "
+                             "the notes typed in the profile, names or emails.")
 
 
 def _assist_profile():
@@ -151,9 +178,29 @@ def _chat_skip_suggestion():
     st.session_state.pop("chat_suggest", None)
 
 
-def _render_assistant(contexts, cash_by_account):
-    import advisor
+def _ask_sees_lines():
+    """"What it sees", true to the card this conversation is sent
+    (_chat_card): the notes only where they're kept (_chat_keeps_notes), the
+    advisor's label only in client mode (_chat_client_mode)."""
+    if USER_ID != LOGIN_ID:   # an advisor (or admin) in someone else's account
+        return [ASSIST_SEES_ADVISOR, ASSIST_SEES_NEVER_ADVISOR]
+    lines = [ASSIST_SEES]
+    if _chat_keeps_notes():
+        lines.append(ASSIST_SEES_NOTES)
+    if _chat_client_mode():
+        lines.append(ASSIST_SEES_ADVISOR_NAME)
+    return lines + [ASSIST_SEES_NEVER]
 
+
+def _render_ask_sees():
+    """Ask Northwend's right-hand panel (Style C)."""
+    st.html(f"<div class='pt-month-title'>{ASSIST_SEES_TITLE}</div>")
+    with st.container(border=True, key="pt_ask_sees"):
+        st.html("".join(f"<p class='pt-ask-sees'>{html.escape(t, quote=False)}</p>"
+                        for t in _ask_sees_lines()))
+
+
+def _render_assistant(contexts, cash_by_account):
     if st.session_state.pop("profile_toast", False):
         st.toast("Saved to the profile.")
     api_key = _anthropic_key()
@@ -161,6 +208,21 @@ def _render_assistant(contexts, cash_by_account):
         # the set-up detail (no ANTHROPIC_API_KEY) is on Admin > System
         st.info(f"Ask {GUIDE} isn't available on this site right now.")
         return
+    # Style C (dashboard.py's pt_page_layout styles): the chat in the middle,
+    # "What it sees" on the right - under the chat up to 900px wide
+    with st.container(horizontal=True, gap="medium", key="pt_page_layout"):
+        main = st.container(key="pt_page_main")
+        side = st.container(key="pt_page_side")
+    with side:
+        _render_ask_sees()
+    with main:
+        _assistant_chat(api_key, contexts, cash_by_account)
+
+
+def _assistant_chat(api_key, contexts, cash_by_account):
+    """The chat itself: the profile, the hello and suggested questions, the
+    conversation, the box, and the allowance lines."""
+    import advisor
 
     profile, memory = _assist_profile()
     if (st.session_state.get("chat_card") or {}).get("for", USER_ID) != USER_ID:

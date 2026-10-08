@@ -288,12 +288,15 @@ class MenuTests(unittest.TestCase):
     def test_the_blue_band_is_only_on_pages_that_opt_in(self):
         # The deep blue band (dashboard._band_css) is drawn only on the main
         # area ui_enhancements.js marks while a band container is there:
-        # Home's tall one, the slim one on Plan and Money's pages - never on
-        # sign-in, the agree box or any other page
+        # Home's tall one, the one slim one on Plan, Money's pages, Learn,
+        # Life and Ask Northwend - never on sign-in, the agree box or any
+        # other page
         bands = ("pt_home_band", "pt_page_band")
         want = {"home": "pt_home_band", "plan": "pt_page_band", "income": "pt_page_band",
                 "activity": "pt_page_band", "watchlist": "pt_page_band",
-                "life": None, "about": None, "account": None, "learn": None}
+                "learn": "pt_page_band", "life": "pt_page_band",
+                "ask-northwend": "pt_page_band",
+                "about": None, "account": None}
         for page, band in want.items():
             at = self._run(self.alice, "alice", page)
             keys = self._block_keys(at)
@@ -323,6 +326,7 @@ class MenuTests(unittest.TestCase):
         self.assertIn('.st-key-pt_home_band', js)
         self.assertIn('.st-key-pt_page_band', js)
         self.assertIn('removeAttribute("data-pt-band")', js)
+        self.assertNotIn("pt_slim", js + src)   # one slim band, not two
 
     def test_life_is_an_investors_page(self):
         at = self._run(self.alice, "alice", "home")

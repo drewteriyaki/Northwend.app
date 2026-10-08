@@ -171,7 +171,7 @@ class ScrubTests(unittest.TestCase):
 class GatewayTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def test_registered_on_the_cheap_tier_out_of_the_chat_allowance(self):
         spec = ai_gateway.HELPERS["grader"]
@@ -213,7 +213,7 @@ class GatewayTests(unittest.TestCase):
 class VerdictTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
 
     def test_the_eval_checker_catches_every_bad_reply_and_passes_every_good_one(self):
         self.assertGreaterEqual(len(grader.CASES), 8)
@@ -330,7 +330,7 @@ class KeptTests(unittest.TestCase):
 class AllowanceTests(unittest.TestCase):
 
     def setUp(self):
-        ai_spend.use_db(None)
+        offline_net.no_ai_sink()   # an earlier app run's database is gone
         self.dir = tempfile.mkdtemp(prefix="pt_teach_")
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.db = os.path.join(self.dir, "t.db")

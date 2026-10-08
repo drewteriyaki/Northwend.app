@@ -63,7 +63,7 @@ class WordingTests(unittest.TestCase):
 
     def test_the_phone_and_wide_rules(self):
         src = _source("dashboard.py")
-        css = src[src.index("/* Plan and Money in two parts"):src.index("/* Life's cards")]
+        css = src[src.index("/* The slim band pages in two parts"):src.index("/* Life's cards")]
         self.assertIn("flex: 0 0 19rem", css)
         narrow = css[css.index("@media (max-width: 900px)"):css.index("@media (max-width: 640px)")]
         self.assertIn("flex-direction: column", narrow)

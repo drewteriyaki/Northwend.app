@@ -318,8 +318,7 @@ class _FakeClient:
 def _no_ai_sink():
     """No database for the AI gateway's checks and counts here (an app run
     earlier in the process may have left its own, since deleted)."""
-    import ai_spend
-    ai_spend.use_db(None)
+    offline_net.no_ai_sink()
 
 
 class AIGuardrailTests(unittest.TestCase):

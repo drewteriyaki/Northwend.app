@@ -59,8 +59,8 @@ def _no_ai_sink():
     """An app run (AppTest) earlier in the process leaves ai_spend pointed at
     its own scratch database, long deleted; the AI gateway checks and counts
     there, so a test that calls it without a database of its own clears it."""
-    import ai_spend
-    ai_spend.use_db(None)
+    from tests import offline as offline_net   # also repoints stale copies of ai_spend
+    offline_net.no_ai_sink()
 
 
 class TempDBMixin:
