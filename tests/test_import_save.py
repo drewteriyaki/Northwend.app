@@ -705,12 +705,14 @@ class AppSaveTests(_AppBase):
         finally:
             c.close()
         self.assertNotIn("value_rebase", at.session_state)
-        table = at.dataframe[-1].value
-        table = getattr(table, "data", table)
-        self.assertIn("Cost Basis", table.columns)
-        costs = list(table["Cost Basis"])
-        self.assertIn("—", costs)                     # AAPL, entered without a cost
-        self.assertFalse(any(v is None or (isinstance(v, float) and math.isnan(v)) for v in costs))
+        # Home's holdings table (the one with a Ticker column): a holding entered
+        # without a cost shows a dash for its gain/loss - never None or NaN
+        table = next(t for t in (getattr(d.value, "data", d.value) for d in at.dataframe)
+                     if "Ticker" in t.columns)
+        self.assertIn("Gain/loss", table.columns)
+        gains = list(table["Gain/loss"])
+        self.assertIn("—", gains)                     # AAPL, entered without a cost
+        self.assertFalse(any(v is None or (isinstance(v, float) and math.isnan(v)) for v in gains))
 
 
 class MultiBrokerAppTests(_AppBase):

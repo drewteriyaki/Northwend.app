@@ -197,6 +197,7 @@ class EnvelopeAppTests(tfn.AppTests):
 
     def test_the_storm_note_remembers_the_envelope(self):
         with self._run(self.vic, "vic") as at:
+            at.button(key="storm_more").click().run()   # the note's window holds the drill
             text = self._text(at)
             self.assertIn("Your storm drill", text)
             self.assertIn(se.STORM_LINE, text)
@@ -206,6 +207,7 @@ class EnvelopeAppTests(tfn.AppTests):
                     self.assertNotIn(word, label.lower(), label)
         for uid, name in ((self.uma, "uma"), (self.wes, "wes")):   # none, or older words
             with self._run(uid, name) as at:
+                at.button(key="storm_more").click().run()
                 text = self._text(at)
                 self.assertIn("Your storm drill", text, name)
                 self.assertNotIn(se.STORM_LINE, text, name)
