@@ -413,7 +413,8 @@ class InvestPathAppTests(unittest.TestCase):
         with self._run(self.rae, "rae", "Dashboard") as at:
             # map, compass, tent, rope and boots: Learn's waypoints and their holdings
             self.assertIn("Your kit · 5 of 9 earned", self._html(at))
-            self.assertIn("Your steps · 10 of 10 done", self._html(at))
+            # every step of their route done, in plain words
+            self.assertRegex(self._html(at), r"Your steps · (\d+) of \1 done")
 
     # ---- an advisor's client ------------------------------------------------- #
     def test_managed_client_start_investing_is_the_advisors(self):

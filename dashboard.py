@@ -2409,8 +2409,8 @@ def _side_route_go(key):
 
 def _render_side_route():
     """At the foot of the menu, above Add holdings: how far along the route
-    (route.py) - "Start investing · step 3 of 4", a slim bar of that stage's
-    waypoints reached, and the next one as a link to it on Learn. Only for an
+    (route.py) - "Start investing · step 3 of 4", a slim bar of the steps of
+    that stage done so far, and the next one as a link to it on Learn. Only for an
     investor's own route (never client mode or an advisor), and only while a
     waypoint is still open. Drawn into its place once Learn's code has run
     (_route_state, views/get_started.py)."""
