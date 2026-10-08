@@ -342,8 +342,8 @@ def _manual_fill(found, acct):
                           + f" for **{shown}**"
                           + (f", in place of the {replaced} it had" if replaced else "")
                           + " - check them below, then look up prices. Your other accounts "
-                            "stay as they are. Type is set to Other; Yahoo works out what "
-                            "each one holds.")
+                            "stay as they are, and what kind of investment each one is gets "
+                            "filled in when the prices are looked up.")
 
 
 # the screenshots tab while reading them with the AI is off (flags.py)
@@ -502,8 +502,10 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
     _md(f"Total **{fmt_money(p['total'])}**"
         + (" (pretend)" if pct_mode else " across all your accounts" if p["kept"] else "")
         + " · " + ("in the accounts updated, " if p["kept"] else "")
-        + f"{len(d['new'])} new, {n_changed} changed, {len(d['closed'])} removed since "
-        + (_fmt_date(p["base_date"]) if p["base_date"] else "nothing yet") + "."
+        # the first save has nothing to compare with: just how many there are
+        + (f"{len(d['new'])} new, {n_changed} changed, {len(d['closed'])} removed since "
+           f"{_fmt_date(p['base_date'])}." if p["base_date"]
+           else f"{len(d['new'])} holding{'s' if len(d['new']) != 1 else ''}, your first save.")
         + (" Not recorded as buys or sells, as the file is older than your holdings."
            if p["older"] and (n_changed or d["closed"]) else ""))
     st.caption(NOT_KEPT)

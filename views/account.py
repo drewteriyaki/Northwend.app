@@ -434,13 +434,13 @@ def _render_account():
     st.subheader("Email", anchor=False)
     if me["email"] and not me["email_verified_at"]:
         with st.container(horizontal=True, vertical_alignment="center"):
-            st.caption(f"{me['email']} isn't confirmed yet - open the link we sent, or get a "
+            st.caption(f"{_md_name(me['email'])} isn't confirmed yet - open the link we sent, or get a "
                        "new one.", width="stretch")
             st.button("Send it again", key="acct_resend", on_click=_resend_confirmation)
     if pending:
         with st.container(horizontal=True, vertical_alignment="center"):
             st.caption(f":material/mail: Waiting for you to open the link we sent to "
-                       f"**{pending}**.", width="stretch")
+                       f"**{_md_name(pending)}**.", width="stretch")
             st.button("Cancel", key="acct_cancel_email", on_click=_acct_cancel_email)
     login_is_email = bool(me["email"]) and me["username"].lower() == me["email"].lower()
     with st.expander("Change email" if me["email"] else "Add an email"):

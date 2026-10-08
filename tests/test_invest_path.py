@@ -181,6 +181,22 @@ class BrokerageListTests(unittest.TestCase):
 class MilestoneTests(unittest.TestCase):
     """The kit still lines up with the route's waypoints."""
 
+    def test_shown_words_are_plain(self):
+        """What people read - a milestone's title, the line above Learn's and
+        Home's title, the step counts - says it plainly: no camps, ridges,
+        trails or summits (the regions stay as keys for the kit only)."""
+        place = re.compile(r"\b(camp|ridge|trail|trailhead|summit|storm|foothills|range|"
+                           r"expedition|waypoints?|field notes)\b", re.I)
+        for k in gear.KEYS:
+            self.assertNotRegex(gear.BY_KEY[k][2], place, k)
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for name in ("dashboard.py", "views/get_started.py", "views/dashboard_page.py",
+                     "views/start_home.py", "views/kit.py"):
+            with open(os.path.join(root, name), encoding="utf-8") as fh:
+                src = fh.read()
+            self.assertNotIn("waypoints reached", src, name)
+            self.assertNotIn("your expedition", src, name)
+
     def test_gear_regions_are_on_the_route(self):
         regions = {k: n for n, ks in route.REGIONS for k in ks}
         names = {n for n, _ in route.REGIONS}
@@ -397,7 +413,7 @@ class InvestPathAppTests(unittest.TestCase):
         with self._run(self.rae, "rae", "Dashboard") as at:
             # map, compass, tent, rope and boots: Learn's waypoints and their holdings
             self.assertIn("Your kit · 5 of 9 earned", self._html(at))
-            self.assertIn("On the trail · your expedition", self._html(at))
+            self.assertIn("Your steps · 10 of 10 done", self._html(at))
 
     # ---- an advisor's client ------------------------------------------------- #
     def test_managed_client_start_investing_is_the_advisors(self):

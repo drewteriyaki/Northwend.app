@@ -206,7 +206,11 @@ def _render_assistant(contexts, cash_by_account):
     api_key = _anthropic_key()
     if not api_key:
         # the set-up detail (no ANTHROPIC_API_KEY) is on Admin > System
-        st.info(f"Ask {GUIDE} isn't available on this site right now.")
+        st.info(f"Ask {GUIDE} isn't available on this site right now. In the meantime, "
+                "Learn has short reads on the basics, and the rest of the app works as usual.")
+        if "Get started" in PAGES:
+            st.button(f"Go to {_label('Get started')}", key="ask_off_learn", type="tertiary",
+                      icon=":material/school:", on_click=_go, args=("Get started",))
         return
     # Style C (dashboard.py's pt_page_layout styles): the chat in the middle,
     # "What it sees" on the right - under the chat up to 900px wide

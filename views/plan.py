@@ -290,7 +290,7 @@ def _render_plan_form(plan, today, value=None):
                                  value=float(plan.get("target_amount") or 0.0))
         when = c2.date_input("by (date)", value=when_default,
                              min_value=min(when_default, plans.add_months(today, 1)),
-                             max_value=date(today.year + 80, 12, 31))
+                             max_value=date(today.year + 80, 12, 31), format="MM/DD/YYYY")
         if not plan.get("target_date"):
             _suggestion_line(f"by {_fmt_month(tip['goal_date'].isoformat())} - "
                              f"{_years_text(tip['goal_years'])} from now, {_goal_why(tip)}",
@@ -545,7 +545,7 @@ def _render_money_out(plan, value, today):
                                      value=float(cur.get("amount") or 0.0))
             c3, c4 = st.columns(2)
             on = c3.date_input("When", value=on_default, min_value=min(on_default, today),
-                               max_value=date(today.year + 80, 12, 31))
+                               max_value=date(today.year + 80, 12, 31), format="MM/DD/YYYY")
             times = c4.number_input("Every year for (years)", min_value=1, max_value=plans.MAX_TIMES,
                                     step=1, value=int(cur.get("times") or 1),
                                     help="1 is a one-off. Tuition each fall for 4 years: 4.")
@@ -581,11 +581,11 @@ def _render_money_out(plan, value, today):
                                      format="%.0f", value=float(w["amount"]) if w else 0.0)
             start = c2.date_input("Starting", value=start_default,
                                   min_value=min(start_default, today),
-                                  max_value=date(today.year + 80, 12, 31))
+                                  max_value=date(today.year + 80, 12, 31), format="MM/DD/YYYY")
             c3, c4 = st.columns(2)
             end = c3.date_input("Until (optional)", value=end_default,
                                 min_value=min(start_default, today),
-                                max_value=date(today.year + 90, 12, 31))
+                                max_value=date(today.year + 90, 12, 31), format="MM/DD/YYYY")
             rise = c4.number_input(
                 "Rising each year by (%)", min_value=0.0, max_value=15.0, step=0.5,
                 format="%.1f",
@@ -629,7 +629,7 @@ def _render_contributions(plan, today):
                 c1, c2, c3 = st.columns([1, 1, 1])
                 kind = c1.segmented_control("Type", ["Added", "Took out"], default="Added")
                 amount = c2.number_input("Amount ($)", min_value=0.0, step=50.0, format="%.2f")
-                on = c3.date_input("Date", value=today, max_value=today)
+                on = c3.date_input("Date", value=today, max_value=today, format="MM/DD/YYYY")
                 note = st.text_input("Note (optional)", max_chars=100)
                 if st.form_submit_button("Save", type="primary"):
                     if amount <= 0:

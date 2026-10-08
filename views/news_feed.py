@@ -23,7 +23,8 @@ NEWS_HOW = (f"Up to {news_feed.PER_TICKER} stories for each of your holdings and
             "several sources reported is shown once. Company press releases are left out. "
             "Checked about once an hour.")
 NEWS_NONE = (f"No headlines about what you hold or watch from the last "
-             f"{news_feed.RECENT_DAYS} days.")
+             f"{news_feed.RECENT_DAYS} days. Just added something? Its headlines can take "
+             "up to an hour to appear.")
 
 
 def _nf_md(text):

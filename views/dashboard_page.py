@@ -146,7 +146,7 @@ def _render_route():
             n_done = sum(1 for _, _, d in waypoints if d)
             # the route as a trail through the expedition's regions (route.py)
             head += route.trail_html(route.dots(waypoints, reached),
-                                     f"{n_done} of {len(waypoints)} waypoints reached, then "
+                                     f"{n_done} of {len(waypoints)} steps done, then "
                                      "your goal")
             head += _where_html(state)   # "You're in Start investing · step 2 of 4 · ..."
         st.html(head)
@@ -508,9 +508,11 @@ if PAGE == "Dashboard":
     _since_html = ""
     _last_open = st.session_state["last_open_snapshot"]
     # Only when it's the same statement - a new import's jump is new holdings
-    # data, not the market moving.
+    # data, not the market moving. Nothing changed (the market closed, or a
+    # visit a minute ago): no "$0.00 (+0.00%)" line.
     if (_last_open and _last_open.get("portfolio_value")
-            and _last_open.get("snapshot_date") == snapshot):
+            and _last_open.get("snapshot_date") == snapshot
+            and abs(portfolio_value - _last_open["portfolio_value"]) >= 0.01):
         _prev_val = _last_open["portfolio_value"]
         _since_delta = portfolio_value - _prev_val
         _since_pct = (_since_delta / _prev_val * 100) if _prev_val else None
@@ -584,7 +586,8 @@ if PAGE == "Dashboard":
             finally:
                 _hist_conn.close()
             if _shown_rng != prng and len(_hist) >= 2:
-                st.caption(f"No {prng} data yet - showing {_shown_rng}. Intraday history loads each evening.")
+                st.caption(f"No {prng} chart yet - showing {_shown_rng}. Prices through the day "
+                           "are added each evening.")
             if len(_hist) < 2:
                 st.caption("Your performance chart fills in once price history for your holdings has "
                            "loaded - it updates on its own every trading day.")
@@ -619,9 +622,10 @@ if PAGE == "Dashboard":
                         width="stretch",
                     )
                     st.caption(
-                        f"{len(pwin)} points · reconstructed from current holdings × each bar's close. "
-                        + (f"Sync {len(_missing)} more ticker(s) to extend the line: {', '.join(_missing)}."
-                           if _missing else "")
+                        "Worked out from what you hold now and each day's closing prices. "
+                        + (f"Past prices for {', '.join(_missing)} aren't here yet, so "
+                           f"{'they are' if len(_missing) != 1 else 'it is'} left out of the "
+                           "line for now." if _missing else "")
                     )
 
         if flags.on("progress_split"):
@@ -658,7 +662,8 @@ if PAGE == "Dashboard":
         _rules = load_rules()
         _fired = alerts.evaluate(contexts, _rules)
         _alert_label = (f":red[:material/notifications_active:] **{len(_fired)} "
-                        f"alert{'s' if len(_fired) != 1 else ''}** · positions past your limits"
+                        f"alert{'s' if len(_fired) != 1 else ''}** · holdings past the alert "
+                        "limits (open to see or change them)"
                         if _fired else ":material/notifications: No alerts")
         with st.expander(_alert_label):
             for _a in _fired:

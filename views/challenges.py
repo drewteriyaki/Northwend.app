@@ -63,6 +63,7 @@ def _ch_month_name(month):
 def _ch_go(key):
     """Home's button: Learn's practice money, with this challenge open."""
     st.session_state["ch_pick"] = key
+    st.session_state["ch_picked"] = True
     starter_funds.open_practice(st.session_state)
 
 
@@ -198,10 +199,15 @@ def render_challenges():
     if not ready:
         st.caption(challenges.NONE_READY)
     keys = list(challenges.KEYS)
-    if st.session_state.get("ch_pick") not in keys:
+    # until they choose one themselves, the pick follows this month's: once
+    # past prices are loaded it moves off a challenge that isn't ready yet
+    if (st.session_state.get("ch_pick") not in keys
+            or not st.session_state.get("ch_picked") and month_key
+            and st.session_state["ch_pick"] != month_key):
         st.session_state["ch_pick"] = month_key or keys[0]
     key = st.selectbox(
         challenges.OTHERS, keys, key="ch_pick",
+        on_change=lambda: st.session_state.update(ch_picked=True),
         format_func=lambda k: challenges.BY_KEY[k]["title"]
         + ("" if k in ready else f" ({challenges.NOT_READY_TAG})"))
     ch = challenges.BY_KEY[key]

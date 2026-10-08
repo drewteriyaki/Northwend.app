@@ -95,8 +95,8 @@ ENDS = "Ends {day}"
 NEXT = "Next month: \"{title}\""
 NOT_READY = ("Not ready yet: this one needs past prices from {first} to {last}, and they "
              "aren't all here yet.")
-NONE_READY = ("The practice challenges need past prices that aren't here yet. Practice money "
-              "on Learn can load ten years of them.")
+NONE_READY = ("The practice challenges use past prices that aren't loaded yet. The \"Load "
+              "price history\" button in practice money on Learn brings in ten years of them.")
 MIX_LINE = ("The practice mix is two kinds of funds: {stocks} and {bonds}. One widely held "
             "fund stands in for each kind's real past prices, dividends included.")
 FOOTER = ("Practice money only: nothing here is bought or sold for you, and none of it is a "

@@ -317,7 +317,7 @@ def render_first_steps(has_holdings):
                 st.markdown(f"### Welcome to {APP_NAME}")
                 st.markdown(f"{APP_NAME} is your guide from first step to goal. A few quick "
                             "questions - every answer a tap - and it shows common starting "
-                            "points and a route to follow, one waypoint at a time.")
+                            "points and a route to follow, one step at a time.")
                 st.markdown(":material/lock: **Private by design.** We never ask for your "
                             "brokerage login, and you can use percentages or an example "
                             "portfolio instead of real numbers.  \n"

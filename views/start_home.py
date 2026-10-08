@@ -106,7 +106,7 @@ def _render_start_home():
                         if need and gp["status"] == "starting" else "") + "</div>")
         n_done = sum(1 for _, _, d in waypoints if d)
         head += route.trail_html(route.dots(waypoints, False),
-                                 f"{n_done} of {len(waypoints)} waypoints reached, then your goal")
+                                 f"{n_done} of {len(waypoints)} steps done, then your goal")
         head += _where_html(state)   # "You're in Learn · step 3 of 6 · ..." (get_started.py)
         st.html(head)
         with st.container(horizontal=True, vertical_alignment="center"):

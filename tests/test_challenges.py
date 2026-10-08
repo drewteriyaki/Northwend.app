@@ -385,10 +385,15 @@ class AppTests(unittest.TestCase):
             c2.close()
         # not ready: marked, and it can't be started
         with self._app(self.bea, "bea", page="Get started", gs_at="practice", fs_hide=True,
-                       ch_pick="y2008") as at:
+                       ch_pick="y2008", ch_picked=True) as at:
             text = self._text(at)
             self.assertIn("Not ready yet", text)
             self.assertNotIn("ch_start_y2008", [b.key for b in at.button])
+        # not chosen by them: the pick moves to this month's ready one
+        with self._app(self.bea, "bea", page="Get started", gs_at="practice", fs_hide=True,
+                       ch_pick="y2008") as at:
+            self.assertNotEqual(at.selectbox(key="ch_pick").value, "y2008")
+            self.assertNotIn("Not ready yet", self._text(at))
 
     def test_never_for_an_advisors_client_or_an_advisor_in_her_account(self):
         before = self._prefs(self.dana)

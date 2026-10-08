@@ -1253,6 +1253,7 @@ def _invite_setup(token: str) -> bool:
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Create my login", type="primary",
                                               width="stretch")
+        note = st.empty()   # what's wrong, right under the button
         st.caption(disclosures.SUMMARY)
         st.button("Hide about and disclosures" if st.session_state.get("show_about")
                   else "About and disclosures", key="invite_about", type="tertiary",
@@ -1263,7 +1264,7 @@ def _invite_setup(token: str) -> bool:
     if not submitted:
         return False
     if pw != again:
-        mid.error("The two passwords don't match.")
+        note.error("The two passwords don't match.")
         return False
     conn = connect(DB)
     try:
@@ -1282,7 +1283,7 @@ def _invite_setup(token: str) -> bool:
     finally:
         conn.close()
     if not result["ok"]:
-        mid.error(result["error"])
+        note.error(result["error"])
         return False
     st.session_state.clear()  # whoever was signed in on this browser before
     st.session_state["user_id"] = result["user_id"]
@@ -1364,6 +1365,9 @@ def _signup() -> bool:
                                    value=True, key="signup_remember",
                                    help="Leave this off on a shared or public computer.")
             submitted = st.form_submit_button("Create account", type="primary", width="stretch")
+        # what's wrong shows right under the button, not below the links (or the
+        # whole About text, when it's open) where a phone would never show it
+        note = st.empty()
         st.caption("We'll email you a link to confirm your address - it unlocks the AI guide "
                    "and lets you reset your password if you ever forget it.")
         with st.container(horizontal=True):
@@ -1378,10 +1382,10 @@ def _signup() -> bool:
     if not submitted:
         return False
     if pw != again:
-        mid.error("The two passwords don't match.")
+        note.error("The two passwords don't match.")
         return False
     if role == "advisor" and auth.advisor_request_error(firm, licence):
-        mid.error(auth.advisor_request_error(firm, licence))
+        note.error(auth.advisor_request_error(firm, licence))
         return False
     conn = connect(DB)
     try:
@@ -1401,7 +1405,7 @@ def _signup() -> bool:
     finally:
         conn.close()
     if not result["ok"]:
-        mid.error(result["error"])
+        note.error(result["error"])
         return False
     if role == "advisor":  # a failure is logged by mailer; `advisor-requests` lists it anyway
         mailer.advisor_request(result["username"], firm.strip(), licence.strip(),
@@ -2670,16 +2674,23 @@ if _email_flash:
 if _waiting_email and st.session_state.get("email_brief"):
     with st.container(horizontal=True, vertical_alignment="center", gap="small",
                       key="pt_email_brief"):
-        st.caption(f":material/mail: We've sent a link to {_waiting_email} - confirm any time."
+        # (_md_name: shown as typed - an underscore isn't italics, no mailto link)
+        st.caption(f":material/mail: We've sent a link to {_md_name(_waiting_email)} - confirm "
+                   "any time."
                    + (" Advisor tools appear once we've checked your details."
                       if st.session_state.get("email_brief") == "advisor" else ""),
                    width="content")
         st.button("Send it again", key="email_resend", type="tertiary",
                   on_click=_resend_confirmation)
+        # a new advisor's first look: the example book is otherwise only in the name menu
+        if (st.session_state.get("email_brief") == "advisor" and "Advisor preview" in PAGES
+                and PAGE != "Advisor preview"):
+            st.button("See the advisor example", key="email_brief_preview", type="tertiary",
+                      icon=":material/preview:", on_click=_go, args=("Advisor preview",))
 elif _waiting_email:
     with st.container(border=True, horizontal=True, vertical_alignment="center"):
         st.markdown(f":material/mail: **Confirm your email** - open the link we sent to "
-                    f"{_waiting_email}. It unlocks Ask {GUIDE} and the other AI features, and "
+                    f"{_md_name(_waiting_email)}. It unlocks Ask {GUIDE} and the other AI features, and "
                     "lets you reset your password if you forget it.", width="stretch")
         st.button("Send it again", key="email_resend", on_click=_resend_confirmation)
 
@@ -3524,7 +3535,8 @@ def _live_status():
         prices = "No live prices yet"
     if n_live < len(positions):
         prices += f" ({n_live} of {len(positions)} priced)"
-    _what = {manual_entry.SOURCE: "Entered by hand", manual_entry.PCT_SOURCE: "Percentages",
+    # (typed or pasted - both are saved as entered by the person)
+    _what = {manual_entry.SOURCE: "Entered by you",manual_entry.PCT_SOURCE: "Percentages",
              SAMPLE_SOURCE: "Example portfolio"}.get(SNAPSHOT_SOURCE, "Statement")
     st.html(f"<div class='pt-status'>{prices}"
             # the watchlist before anything is brought in: no holdings to date
@@ -3533,15 +3545,12 @@ def _live_status():
 
 
 def _expedition_eyebrow():
-    """The map plate above an investor's Home and Get started title: where
-    they are on the route (route.region) - "Learner's ridge · your expedition"."""
-    state = _route_state(HAS_HOLDINGS)
-    waypoints = state["waypoints"]   # their route (views/get_started.py)
-    here, _next = route.region(waypoints)
-    if PAGE == "Get started":
-        n = sum(d for _, _, d in waypoints)
-        return f"{here} · {n} of {len(waypoints)} waypoints reached"
-    return f"{here} · your expedition"
+    """The line above an investor's Home and Get started title: how far along
+    their steps they are, in plain words - "Your steps · 3 of 10 done" (no
+    place names from the route's map: plain words for a first-time investor)."""
+    waypoints = _route_state(HAS_HOLDINGS)["waypoints"]   # their route (views/get_started.py)
+    n = sum(d for _, _, d in waypoints)
+    return f"Your steps · {n} of {len(waypoints)} done"
 
 
 def _money_tabs():

@@ -1097,20 +1097,17 @@ def _on_the_route():
 
 
 def _where_html(state):
-    """"You're in Learn · step 3 of 6 · The foothills": the stage and step of
-    their first waypoint not complete, and its region (route.REGIONS) - on
-    Learn and on Home's route card."""
+    """"You're in Learn · step 3 of 6 · then Start investing": the stage and
+    step of their first waypoint not complete - on Learn and on Home's route
+    card. Plain words only: no place names from the route's map."""
     waypoints = state["waypoints"]
     here = next((k for k, _, d in waypoints if not d), None)
-    region, _nxt = route.region(waypoints)
     if here is None:
-        return (f"<div class='pt-region'>Every step of your route is complete · "
-                f"<b>{html.escape(region)}</b></div>")
+        return "<div class='pt-region'>Every step of your route is complete.</div>"
     then = (f" · then {route.STAGE_NAMES[route.INVEST]}"
             if route.stage_of(here) == route.LEARN else "")
     return (f"<div class='pt-region'>You're in "
-            f"<b>{html.escape(route.stage_words(here, state['managed']))}</b> · "
-            f"{html.escape(region)}{then}</div>")
+            f"<b>{html.escape(route.stage_words(here, state['managed']))}</b>{then}</div>")
 
 
 def _ask_type(name):
@@ -1143,7 +1140,7 @@ def _render_direction(kind, mix):
         st.markdown(f":material/info: {kind['watch']}")
         st.caption("A common rule of thumb for learning, worked out from your timeline and "
                    "comfort answers - not a recommendation to buy anything. Change your "
-                   "answers in waypoint 1 any time.")
+                   "answers in the first step, About you, any time.")
         st.button(f":material/forum: Ask {GUIDE} about this", key="type_ask",
                   type="tertiary", on_click=_ask_type, args=(kind["name"],))
 
@@ -1338,8 +1335,9 @@ def _render_learn_route(has_holdings, value):
     waypoints = state["waypoints"]
     n_done = sum(d for _, _, d in waypoints)
     steps_card.html(route.trail_html(route.dots(waypoints, False),
-                                     f"{n_done} of {len(waypoints)} waypoints reached")
-                    + _where_html(state))
+                                     f"{n_done} of {len(waypoints)} steps done")
+                    # (all done: the note above already says so, once is enough)
+                    + ("" if all(done[k] for k in mine) else _where_html(state)))
     st.session_state["gs_pick"] = at   # always the open one
     steps_card.pills("Waypoints", stage_keys, key="gs_pick", label_visibility="collapsed",
                      on_change=_gs_pick,

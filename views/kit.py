@@ -128,13 +128,12 @@ def _next_html(k, lead="Next to earn"):
 @st.dialog("Milestone reached", width="small", on_dismiss=_milestone_done)
 def _milestone_window(keys, have):
     for k in keys:
-        _key, name, title, _step, region, _paths = gear.BY_KEY[k]
+        # (the route's region names stay out of it: plain words only)
+        _key, name, title, _step, _region, _paths = gear.BY_KEY[k]
         what = gear.FOR[k][0].lower() + gear.FOR[k][1:]
         st.html("<div class='pt-milestone'>"
                 f"<div class='pt-milestone-badge'>{gear.icon_html(k, True, 44)}</div>"
-                + (f"<div class='pt-eyebrow' style='margin:0'>{html.escape(region)}</div>"
-                   if region else "")
-                + f"<div class='pt-milestone-title'>{html.escape(title)}</div>"
+                f"<div class='pt-milestone-title'>{html.escape(title)}</div>"
                 f"<div>You've earned the <b>{html.escape(name.lower())}</b> for your kit - "
                 f"{html.escape(what)}</div>"
                 f"<div class='pt-gear-why'>{html.escape(gear.WHY[k])}</div>"
