@@ -4,8 +4,8 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # Trail Forks (ROADMAP R8, trail_forks.py), behind flag trail_forks
-# (flags.FEATURES - this whole file is skipped while it's off): on the Account
-# page, under Lost & Found (views/account.py calls render_trail_forks). A
+# (flags.FEATURES - this whole file is skipped while it's off): on the Life
+# page, above the Inheritance Rehearsal (views/life.py calls render_trail_forks). A
 # route per life event - a new job, a layoff, a new baby, an inheritance, a
 # divorce, the death of a parent: what changes, what to gather, what to ask
 # and whom, what not to rush - with official links only. Each fork ends
@@ -107,8 +107,8 @@ def _tf_fork(f, saved):
             st.caption(f"Your advisor, {_md_name(_advisor_display_name())}, is someone else "
                        "you could ask - only if you choose to tell them. Nothing here is "
                        "shared with them"
-                       + (" unless you tick this one in Bring to my advisor, on this page."
-                          if flags.on("advisor_pack") else "."))
+                       + (" unless you tick this one in Bring to my advisor, on your "
+                          "Account page." if flags.on("advisor_pack") else "."))
         st.markdown(f"**{trail_forks.NOT_RUSH}**  \n"
                     + "\n".join(f"- {_tf_md(c)}" for c in f["not_rush"]))
         st.markdown("  \n".join(f"[{t}]({u})" for t, u in f["links"]))
@@ -129,7 +129,7 @@ def _tf_fork(f, saved):
 
 
 def render_trail_forks():
-    """The Account page's Trail Forks section (the login's own only)."""
+    """The Life page's Trail Forks section (the login's own only)."""
     if not _tf_own():
         return
     saved = _read_prefs().get(trail_forks.PREF)

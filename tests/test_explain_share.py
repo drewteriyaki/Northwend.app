@@ -445,7 +445,8 @@ class AppTests(unittest.TestCase):
             c.close()
 
     @contextlib.contextmanager
-    def _app(self, uid=None, name=None, *, flag="explain_share", share=None, **state):
+    def _app(self, uid=None, name=None, *, flag="explain_share", share=None, page="Life",
+             **state):
         import yfinance
         from streamlit.testing.v1 import AppTest
 
@@ -453,7 +454,7 @@ class AppTests(unittest.TestCase):
             raise RuntimeError("offline in tests")
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
         if uid is not None:
-            for k, v in {"user_id": uid, "username": name, "page": "Account",
+            for k, v in {"user_id": uid, "username": name, "page": page,
                          "auto_backfilled": True, **state}.items():
                 at.session_state[k] = v
         if share is not None:
@@ -533,15 +534,15 @@ class AppTests(unittest.TestCase):
 
     def test_never_for_an_advisor_on_a_client_a_client_or_an_admin(self):
         for uid, name, state in (
-                (self.carol, "carol", {"two_step_ok": self.carol_ok,
-                                       "active_user_id": self.dana}),
+                (self.carol, "carol", {"two_step_ok": self.carol_ok,   # (no Life page)
+                                       "active_user_id": self.dana, "page": "Account"}),
                 (self.dana, "dana", {}),
                 (self.root, "root", {"two_step_ok": self.root_ok})):
             with self.subTest(name), self._app(uid, name, **state) as at:
                 self.assertNotIn(xs.OWNER_TITLE, _tree_text(at))
                 self.assertNotIn("xs_make", self._keys(at))
         # an advisor in their own account has it, as a person
-        with self._app(self.carol, "carol", two_step_ok=self.carol_ok) as at:
+        with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok) as at:
             self.assertIn("xs_make", self._keys(at))
 
     def test_off_no_section_and_existing_links_stop(self):

@@ -1,9 +1,12 @@
-"""The menu: a bar along the top, everything on it at once - no More.
-Investors get Home, Plan, Learn, Ask Northwend and Money (+ Your advisor for
-a managed client); Money is one page with a tab each for Income, Activity
-and Watchlist; Account, About, Admin and Log out are in the name menu.
-Advisors get Clients, Viewing, Portfolio, Plan, Notes, Money and Ask. Runs
-dashboard.py with streamlit's AppTest on a scratch database in a temp dir.
+"""The menu: a column down the left side on a laptop (a bar along the top
+and the tab bar along the bottom on a phone), everything on it at once - no
+More. Investors get Home, Plan, Money, Life, Learn and Ask Northwend (+ Your
+advisor for a managed client); Money is one page with a tab each for Income,
+Activity and Watchlist, listed under Money while it's open; Account, What's
+new, About, Admin and Log out are in the name menu at the foot, under the
+route's progress. Advisors get Your clients, Viewing, Portfolio, Plan,
+Advisor notes, Money and Ask Northwend - no Life. Runs dashboard.py with
+streamlit's AppTest on a scratch database in a temp dir.
 
     python -m unittest tests.test_menu        (from the repo root)
 """
@@ -23,9 +26,12 @@ import portfolio  # noqa: E402
 import sample_data  # noqa: E402
 import two_step  # noqa: E402
 
-INVESTOR = ["nav_Dashboard", "nav_Plan", "nav_Get started", "nav_AI Assistant", "nav_Money"]
-INVESTOR_LABELS = ["Home", "Plan", "Learn", "Ask Northwend", "Money"]
-PHONE = ["tab_Dashboard", "tab_Plan", "tab_Get started", "tab_AI Assistant", "tab_Money"]
+INVESTOR = ["nav_Dashboard", "nav_Plan", "nav_Money", "nav_Life", "nav_Get started",
+            "nav_AI Assistant"]
+INVESTOR_LABELS = ["Home", "Plan", "Money", "Life", "Learn", "Ask Northwend"]
+PHONE = ["tab_Dashboard", "tab_Plan", "tab_Money", "tab_Life", "tab_Get started",
+         "tab_AI Assistant"]
+PHONE_LABELS = ["Home", "Plan", "Money", "Life", "Learn", "Ask"]
 MONEY_TABS = ["money_Income", "money_Activity", "money_Watchlist"]
 
 
@@ -100,11 +106,15 @@ class MenuTests(unittest.TestCase):
         at = self._run(self.alice, "alice", "plan")
         self.assertEqual(self._keys(at, "nav_"), INVESTOR)
         self.assertEqual([at.button(key=k).label for k in INVESTOR], INVESTOR_LABELS)
-        # the phone tab bar: exactly the same five
+        # the phone tab bar: exactly the same six
         self.assertEqual(self._keys(at, "tab_"), PHONE)
+        self.assertEqual([at.button(key=k).label.split(" ", 1)[1] for k in PHONE],
+                         PHONE_LABELS)
         self.assertEqual(self._current(at, "nav_"), ["nav_Plan"])
         self.assertEqual(self._current(at, "tab_"), ["tab_Plan"])
-        # nothing hidden behind a More, and no sidebar at all
+        # nothing hidden behind a More, and no Streamlit sidebar: the menu
+        # column is the app's own (pinned by the styles), one set of buttons
+        # for a laptop and a phone
         labels = [b.label for b in at.button] + [p.proto.popover.label
                                                   for p in at.get("popover")]
         self.assertFalse([x for x in labels if "More" in x], labels)
@@ -154,6 +164,10 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(self._current(at, "money_"), ["money_Income"])
         self.assertEqual(self._current(at, "nav_"), ["nav_Money"])
         self.assertEqual(self._current(at, "tab_"), ["tab_Money"])
+        # the menu lists Money's tabs under it while it's open
+        self.assertEqual(self._keys(at, "navsub_"),
+                         ["navsub_Income", "navsub_Activity", "navsub_Watchlist"])
+        self.assertEqual(self._current(at, "navsub_"), ["navsub_Income"])
         for tab, slug in (("Activity", "activity"), ("Watchlist", "watchlist")):
             at.button(key=f"money_{tab}").click()
             at.run()
@@ -161,11 +175,13 @@ class MenuTests(unittest.TestCase):
             self.assertEqual(at.session_state["page"], tab)
             self.assertEqual(at.query_params["page"], slug)
             self.assertEqual(self._current(at, "money_"), [f"money_{tab}"])
+            self.assertEqual(self._current(at, "navsub_"), [f"navsub_{tab}"])
             self.assertEqual(self._current(at, "nav_"), ["nav_Money"])
         # Money goes back to the tab last open
         at.button(key="nav_Dashboard").click()
         at.run()
         self.assertEqual(self._keys(at, "money_"), [])
+        self.assertEqual(self._keys(at, "navsub_"), [])
         at.button(key="nav_Money").click()
         at.run()
         self.assertEqual(at.session_state["page"], "Watchlist")
@@ -211,7 +227,10 @@ class MenuTests(unittest.TestCase):
                          ["nav_Clients", "nav_Dashboard", "nav_Plan", "nav_Advisor notes",
                           "nav_Money", "nav_AI Assistant"])
         labels = [at.button(key=k).label for k in self._keys(at, "nav_")]
-        self.assertEqual(labels, ["Clients", "Portfolio", "Plan", "Notes", "Money", "Ask"])
+        self.assertEqual(labels, ["Your clients", "Portfolio", "Plan", "Advisor notes", "Money",
+                                  "Ask Northwend"])
+        # no Life for an advisor: their own records stay on Account
+        self.assertNotIn("tab_Life", self._keys(at, "tab_"))
         self.assertEqual(at.selectbox(key="viewing_select").value, self.dave)
         # the client's own Get started and login are in the viewing bar
         self.assertEqual(at.button(key="viewing_start").label, "Get started")
@@ -244,9 +263,53 @@ class MenuTests(unittest.TestCase):
         for sel in (".st-key-pt_add", ".st-key-pt_me", 'aria-current", "page"',
                     '"navigation"', ".st-key-pt_money_tabs"):
             self.assertIn(sel, js)
-        # the sidebar's handle and its click-away are gone with the sidebar
+        self.assertIn('.st-key-pt_menu [class*="st-key-nav"] button', js)
+        # Streamlit's own sidebar isn't used: its handle and click-away stay gone
         self.assertNotIn("stSidebar", js)
         self.assertNotIn("pt-sb-handle", js)
+
+    def test_life_is_an_investors_page(self):
+        at = self._run(self.alice, "alice", "home")
+        at.button(key="nav_Life").click()
+        at.run()
+        self.assertFalse(at.exception, [e.value for e in at.exception])
+        self.assertEqual(at.session_state["page"], "Life")
+        self.assertEqual(at.query_params["page"], "life")
+        self.assertEqual(at.title[0].value, "Life")
+        self.assertEqual(self._current(at, "nav_"), ["nav_Life"])
+        self.assertEqual(self._current(at, "tab_"), ["tab_Life"])
+        # a link to it opens it
+        at = self._run(self.alice, "alice", "life")
+        self.assertEqual(at.session_state["page"], "Life")
+        # a managed client has it too, before Your advisor
+        at = self._run(self.dave, "dave", "life")
+        self.assertEqual(at.session_state["page"], "Life")
+        self.assertEqual(self._keys(at, "nav_"), [*INVESTOR, "nav_Advisor notes"])
+
+    def test_no_life_for_an_advisor(self):
+        for state in ({}, {"active_user_id": self.dave}):
+            at = self._run(self.carol, "carol", "life", two_step_ok=self.carol_ok, **state)
+            self.assertNotEqual(at.session_state["page"], "Life")
+            self.assertNotIn("nav_Life", self._keys(at, "nav_"))
+            self.assertNotIn("tab_Life", self._keys(at, "tab_"))
+
+    def test_route_progress_at_the_foot_of_the_menu(self):
+        # bob is new: Learn is his route, and the menu says how far along
+        at = self._run(self.bob, "bob", "about")
+        words = " ".join(str(h.proto.body) for h in at.get("html"))
+        self.assertIn("Learn · step 1 of 6", words)
+        nxt = at.button(key="side_route_next")
+        self.assertEqual(nxt.label, "Next: About you")
+        nxt.click()
+        at.run()
+        self.assertEqual(at.session_state["page"], "Get started")
+        self.assertEqual(at.session_state["gs_at"], "profile")
+        # never for an advisor, or in a client's account
+        at = self._run(self.carol, "carol", "about", two_step_ok=self.carol_ok,
+                       active_user_id=self.dave)
+        self.assertNotIn("side_route_next", self._keys(at, "side_"))
+        at = self._run(self.dave, "dave", "about")
+        self.assertNotIn("side_route_next", self._keys(at, "side_"))
 
 
 if __name__ == "__main__":

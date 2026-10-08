@@ -151,7 +151,7 @@ the AI Assistant, and each is checked off automatically where the app can tell
 ## Advisors and their clients
 
 An advisor (`manage_users.py make-advisor`) manages client accounts
-(`advisor_clients`) from the top bar's **Viewing** switcher (`advising.py`).
+(`advisor_clients`) from the menu's **Viewing** switcher (`advising.py`).
 
 - **Clients page:** one card per client, sorted by what needs a look - goal
   behind or past its date, no goal, a review due (90 days after the last one)
@@ -294,7 +294,7 @@ database keeps working after an update.
   password (`manage_users.py` or an advisor's **Client login**) signs it out
   everywhere. Leave the box unchecked on a shared computer.
 - **Advisor mode:** an account marked as an advisor (`manage_users.py
-  make-advisor`) gets a "Viewing" dropdown in the top bar to switch
+  make-advisor`) gets a "Viewing" dropdown in the menu to switch
   between its own portfolio and its clients' (`advisor_clients` table),
   with full access to each, plus an "Add client" form on Your clients. Whose data is
   shown is re-checked against the database on every page load

@@ -44,6 +44,11 @@ ENTRIES = [
                   "lists for your holdings, and public dates like market holidays. It only "
                   "describes - \"Not now\" puts that week's card away.", "flag": "weekly"},
      ]},
+    {"date": "2026-10-07", "title": "The menu on the left, and a Life page",
+     "items": [
+         "The menu moved to the left side on bigger screens, and a new Life page brings "
+         "together your account map, Lost & Found, life changes and sharing your plan.",
+     ]},
     {"date": "2026-10-07", "title": "Northwend in your browser tab",
      "items": [
          "Your browser tab now says Northwend, with its flag icon, from the moment the "

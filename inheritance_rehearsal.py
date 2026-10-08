@@ -4,7 +4,7 @@ tap-through story - finding out what accounts exist, who to call first,
 what papers are often asked for, beneficiaries and the estate, an inherited
 IRA as a thing to ask about, what not to rush, Social Security and the final
 tax return, and taking care of yourself. The page is
-views/inheritance_rehearsal.py, on the Account page just under Trail Forks,
+views/inheritance_rehearsal.py, on the Life page just under Trail Forks,
 behind flag `inheritance_rehearsal`.
 
 Education, never advice (docs/PRINCIPLES.md 2; LEGAL_GATES.md section 6,
@@ -62,7 +62,7 @@ END_TITLE = "The end of the practice run"
 END = ("That's the end of the practice run. Real life is usually messier than this, and "
        "that's normal - nobody gets all of it right, and nobody does it all at once. If "
        "you'd like, here are two things you can do next, when you're ready.")
-# where the story ends: the person's own account map (always on Account) and,
+# where the story ends: the person's own account map (always on Life) and,
 # where its flag is on, Trail Forks' route for the death of a parent
 END_LINKS = {
     "account_map": ("Make your own account map",

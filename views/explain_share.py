@@ -14,7 +14,7 @@
 #   per-address limit before the link is looked up. The token is never
 #   printed, logged or kept in session state (only its hash, to count a visit
 #   once).
-# - render_explain_share(): the owner's section on the Account page
+# - render_explain_share(): the owner's section on the Life page (an advisor's: Account)
 #   (views/account.py checks on("explain_share")): make a link (7 or 30 days,
 #   first name off unless ticked), see it once, see the working ones, turn
 #   any or all off. Only the login's own account: never while an advisor is
@@ -123,7 +123,7 @@ def _share_page() -> bool:
     return False
 
 
-# ---- the owner's section on Account ------------------------------------------- #
+# ---- the owner's section on Life ---------------------------------------------- #
 def _xs_own() -> bool:
     """Only the login's own account, and only one that may share (also in a
     callback, a run later). explain_share.create checks again in the database."""
@@ -195,7 +195,7 @@ def _xs_link_line(row) -> str:
 
 
 def render_explain_share():
-    """The Account page's "Explain it to someone" (the login's own only)."""
+    """The Life page's "Explain it to someone" (the login's own only)."""
     if not _xs_own():
         return
     conn = connect(DB)
@@ -223,7 +223,8 @@ def render_explain_share():
             st.checkbox(f"Show my first name ({name})", key="xs_name", value=False)
         else:
             st.checkbox("Show my first name", key="xs_name", value=False, disabled=True,
-                        help="Add the name you'd like to be called, above, to show it.")
+                        help="Add the name you'd like to be called on your Account page "
+                             "to show it.")
         st.selectbox("The link works for", xs.DAYS_CHOICES, index=0, key="xs_days",
                      format_func=lambda d: f"{d} days")
         with st.expander("What they'll see"):

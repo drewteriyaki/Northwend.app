@@ -4,7 +4,7 @@
 # this defines is visible there afterwards. See _view() in dashboard.py.
 #
 # Account map (ROADMAP 10, account_map.py): the "if something happens to me"
-# binder, on the Account page - the login's own account (LOGIN_ID) always,
+# binder, on the Life page (an advisor's own: Account) - the login's own account (LOGIN_ID) always,
 # so an advisor looking at a client's account never sees the client's map.
 # Each account brought in, what the person fills in for it, accounts added
 # by hand, notes for family, a PDF only they download, and a short guide to
@@ -145,13 +145,13 @@ def _amap_value(a):
 
 
 def render_account_map():
-    """The Account page's Account map section."""
+    """The Life page's Account map section (an advisor's: on Account)."""
     c = connect(DB)
     try:
         m = account_map.load(c, LOGIN_ID, accounts.labels(c, LOGIN_ID))
     finally:
         c.close()
-    st.subheader("Account map", anchor=False)
+    st.subheader("Account map", anchor="account-map")
     st.caption("An \"if something happens to me\" list for the people you trust: each "
                "account, who to call, whether a beneficiary is named and where the paperwork "
                "is. Private to you - never shown to an advisor, never emailed. Download it as "
@@ -256,7 +256,7 @@ def _amap_nudge_off():
 def _amap_nudge_go():
     _amap_nudge_off()   # shown once: going to make one puts the line away too
     st.session_state["amap_open"] = True
-    _go("Account")
+    _go("Life" if "Life" in PAGES else "Account")
 
 
 def render_account_map_nudge():

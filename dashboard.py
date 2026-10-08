@@ -369,11 +369,16 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
     transition-duration: .01ms !important; } }
 [data-testid="stStatusWidget"], [data-testid="stAppDeployButton"], .stAppDeployButton {
   display: none !important; }
-/* room for the top bar (pinned, 3.75rem) above the page */
-[data-testid="stMainBlockContainer"] { padding-top: 5.75rem; }
-/* the pinned bars, and a script with nothing to show (ui_enhancements.js,
+/* room for the menu: pinned down the left side on a laptop (13.5rem wide),
+   along the top on a phone (below) */
+[data-testid="stMainBlockContainer"] { padding-top: 3.5rem; }
+@media (min-width: 641px) {
+  [data-testid="stMain"]:has(.st-key-pt_menu) { margin-left: 13.5rem;
+    width: calc(100% - 13.5rem); } }
+/* the pinned menus, and a script with nothing to show (ui_enhancements.js,
    the sign-in cookie), take no room in the page's own column */
-[data-testid="stLayoutWrapper"]:has(> .st-key-pt_topbar),
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_menu),
+[data-testid="stLayoutWrapper"]:has(> .st-key-pt_menu_foot),
 [data-testid="stLayoutWrapper"]:has(> .st-key-pt_tabbar) { display: contents; }
 [data-testid="stElementContainer"]:has(> [data-testid="stHtml"] > script:only-child) {
   display: none; }
@@ -414,48 +419,65 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   [class*="st-key-pt_me_row_"] [data-testid="stNumberInputStepDown"],
   [class*="st-key-pt_me_row_"] [data-testid="stNumberInputStepUp"] { display: none !important; }
 }
-/* the top bar (_render_top_bar): pinned along the top of the window, on the
-   page's own background (--pt-bg, kept in step with light/dark by
-   ui_enhancements.js). Streamlit's header strip stays above it, see-through,
-   so its three-dot menu sits at the bar's right end. */
+/* the menu (_render_menu): on a laptop a column pinned down the left side
+   of the window, on the page's own background (--pt-bg, kept in step with
+   light/dark by ui_enhancements.js) - the brand, every item, then at its
+   foot the route's progress, + Add holdings and the name menu. Streamlit's
+   header strip stays above the page, see-through, so its three-dot menu
+   sits at the top right. On a phone (below) it slims to a bar along the top. */
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stHeader"], [data-testid="stHeader"] * { pointer-events: none; }
 [data-testid="stHeader"] [data-testid="stMainMenu"],
 [data-testid="stHeader"] [data-testid="stMainMenu"] * { pointer-events: auto; }
-.st-key-pt_topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 999980;
-  height: 3.75rem; box-sizing: border-box; padding: 0 3.5rem 0 1rem;
-  flex-wrap: nowrap !important; gap: .25rem !important;
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
-  background: var(--pt-bg, #f5f7f9); border-bottom: 1px solid var(--pt-line); }
-.st-key-pt_topbar > div { flex: none; width: auto; }
-/* lined up with the page's own column once it has its wide margins */
-@media (min-width: 864px) { .st-key-pt_topbar { padding: 0 5rem; } }
-.st-key-pt_topbar [data-testid="stPopoverButton"] > div { gap: .3rem; }
-.pt-brand { display: flex; align-items: center; gap: .35rem; margin-right: 1rem;
+.st-key-pt_menu { position: fixed; top: 0; bottom: 0; left: 0; z-index: 999980;
+  width: 13.5rem; box-sizing: border-box; padding: 1.25rem .75rem 1rem;
+  flex-direction: column !important; flex-wrap: nowrap !important;
+  align-items: stretch !important; gap: .2rem !important;
+  overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
+  background: var(--pt-bg, #f5f7f9); border-right: 1px solid var(--pt-line); }
+.st-key-pt_menu > div, .st-key-pt_menu_foot > div { flex: none; width: 100% !important; }
+.pt-brand { display: flex; align-items: center; gap: .35rem; margin: 0 .5rem 1.1rem;
   white-space: nowrap; font-family: Newsreader, Georgia, serif; font-size: 1.35rem;
   font-weight: 500; line-height: 1; }
 .pt-brand-mark { font-family: "Material Symbols Rounded"; font-size: 1.5rem; font-weight: 400;
   color: var(--pt-compass); font-feature-settings: "liga"; }
-/* + Add holdings and the name menu keep to the right end */
-.st-key-pt_topbar > .st-key-pt_add,
-.st-key-pt_topbar > :not(.st-key-pt_add) + .st-key-pt_me { margin-left: auto; }
-/* their words in full (Streamlit would cut a menu button's words short) */
-.st-key-pt_topbar [data-testid="stPopoverButton"] [data-testid="stMarkdownContainer"],
-.st-key-pt_client_login [data-testid="stMarkdownContainer"] { min-width: max-content; }
-/* the client's own Get started, in the viewing bar: marked as the tabs are */
-.st-key-viewing_start button[kind="primary"] { background: var(--pt-compass-soft) !important;
-  color: var(--pt-link) !important; border-color: var(--pt-compass) !important; }
-/* the tabs: plain words; the page showing reads in the link blue on a soft
-   compass tint, bold (and aria-current, ui_enhancements.js) */
-.st-key-pt_topbar [class*="st-key-nav_"] button { min-height: 2.25rem; padding: .3rem .75rem;
-  border: 0; border-radius: .5rem; font-weight: 500; }
-.st-key-pt_topbar [class*="st-key-nav_"] button:hover { background: var(--pt-sunken); }
-.st-key-pt_topbar [class*="st-key-nav_"] button[kind="primary"],
+/* the items: plain words, left-aligned, the full width of the column; the
+   page showing reads in the link blue on a soft compass tint, bold (and
+   aria-current, ui_enhancements.js); Money's tabs listed under it, indented */
+.st-key-pt_menu [class*="st-key-nav"] .stButton,
+.st-key-pt_menu [class*="st-key-nav"] button { width: 100%; }
+.st-key-pt_menu [class*="st-key-nav"] button { min-height: 2.5rem; padding: .45rem .75rem;
+  justify-content: flex-start; border: 0; border-radius: .5rem; font-weight: 500; }
+.st-key-pt_menu [class*="st-key-nav"] button > div { justify-content: flex-start; text-align: left; }
+.st-key-pt_menu [class*="st-key-navsub_"] button { min-height: 2.1rem; padding-left: 1.75rem; }
+.st-key-pt_menu [class*="st-key-nav"] button:hover { background: var(--pt-sunken); }
+.st-key-pt_menu [class*="st-key-nav"] button[kind="primary"],
 .st-key-pt_tabbar button[kind="primary"] {
   background: var(--pt-compass-soft) !important; color: var(--pt-link) !important;
   border-color: transparent !important; }
-.st-key-pt_topbar [class*="st-key-nav_"] button[kind="primary"] p,
+.st-key-pt_menu [class*="st-key-nav"] button[kind="primary"] p,
 .st-key-pt_tabbar button[kind="primary"] p { font-weight: 600; }
+/* the foot: the route's progress, + Add holdings and the name menu, at the
+   bottom of the column */
+.st-key-pt_menu_foot { flex: none !important; margin-top: auto; padding-top: 1rem;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important; align-items: stretch !important; gap: .35rem !important; }
+.pt-side-route { font-size: .82rem; color: var(--pt-ink-muted); padding: 0 .5rem; }
+.pt-side-bar { height: 6px; border-radius: 3px; background: var(--pt-sunken); overflow: hidden;
+  margin: .4rem 0 .1rem; }
+.pt-side-bar span { display: block; height: 100%; background: var(--pt-compass); }
+.st-key-side_route_next button { min-height: 0; padding: .1rem .5rem .5rem; text-align: left; }
+.st-key-side_route_next button p { font-size: .82rem; color: var(--pt-link); }
+.st-key-pt_menu_foot [data-testid="stPopover"],
+.st-key-pt_menu_foot [data-testid="stPopoverButton"] { width: 100%; }
+.st-key-pt_menu_foot [data-testid="stPopoverButton"] { justify-content: flex-start; }
+.st-key-pt_menu [data-testid="stPopoverButton"] > div { gap: .3rem; }
+/* their words in full (Streamlit would cut a menu button's words short) */
+.st-key-pt_add [data-testid="stPopoverButton"] [data-testid="stMarkdownContainer"],
+.st-key-pt_client_login [data-testid="stMarkdownContainer"] { min-width: max-content; }
+/* the client's own Get started, in the viewing bar: marked as the items are */
+.st-key-viewing_start button[kind="primary"] { background: var(--pt-compass-soft) !important;
+  color: var(--pt-link) !important; border-color: var(--pt-compass) !important; }
 /* an advisor's Viewing: says what it is, the account's name after it */
 .st-key-viewing_select [role="group"] { background: transparent; }
 .st-key-viewing_select [role="group"]::before { content: "Viewing"; align-self: center;
@@ -463,7 +485,7 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .st-key-viewing_select [role="combobox"] { background: transparent; padding-left: .4rem;
   font-weight: 600; }
 /* inside + Add holdings and the name menu: a list of rows, left-aligned and
-   close together; the page showing marked as in the bar */
+   close together; the page showing marked as in the menu */
 [data-testid="stPopoverBody"]:has(.st-key-menu_logout) [data-testid="stVerticalBlock"],
 [data-testid="stPopoverBody"]:has(.st-key-add_manual) [data-testid="stVerticalBlock"] {
   gap: .3rem; }
@@ -484,9 +506,7 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .st-key-pt_client_login [data-testid="stPopoverButton"][aria-expanded="true"] {
   color: var(--pt-link); }
 /* the name menu: a long name or email shortens with "..." */
-.st-key-pt_me button { max-width: 15rem; }
-.st-key-pt_topbar .st-key-pt_me button [data-testid="stMarkdownContainer"] {
-  width: max-content; min-width: 0; max-width: 10rem; flex-shrink: 0; overflow: hidden; }
+.st-key-pt_me button [data-testid="stMarkdownContainer"] { min-width: 0; overflow: hidden; }
 .st-key-pt_me button p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Money's tabs (Income, Activity, Watchlist; _money_tabs): words on a
    hairline, the one showing underlined in the compass blue */
@@ -499,33 +519,8 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .st-key-pt_money_tabs button[kind="primary"] { color: var(--pt-link) !important;
   border-bottom-color: var(--pt-compass) !important; }
 .st-key-pt_money_tabs button[kind="primary"] p { font-weight: 600; }
-/* a narrower window: the brand's name steps aside first (sooner for an
-   advisor, whose bar holds more), then the two menus' words; past that the
-   bar scrolls sideways rather than cut anything off */
-@media (min-width: 641px) and (max-width: 1000px) {
-  .pt-brand-name { display: none; }
-  .pt-brand { margin-right: .25rem; }
-}
-@media (min-width: 641px) and (max-width: 1250px) {
-  .pt-brand-compact .pt-brand-name { display: none; }
-  .pt-brand-compact { margin-right: .25rem; }
-}
-@media (min-width: 641px) and (max-width: 1100px) {
-  .st-key-pt_topbar:has(.pt-brand-compact) .st-key-pt_add button [data-testid="stMarkdownContainer"],
-  .st-key-pt_topbar:has(.pt-brand-compact) .st-key-pt_me button [data-testid="stMarkdownContainer"] {
-    display: none; }
-}
-@media (min-width: 641px) and (max-width: 760px) {
-  .st-key-pt_topbar:has(.pt-brand-compact) [class*="st-key-nav_"] button { padding: .3rem .4rem; }
-}
-@media (min-width: 641px) and (max-width: 900px) {
-  .st-key-pt_topbar .st-key-pt_add button [data-testid="stMarkdownContainer"],
-  .st-key-pt_topbar .st-key-pt_me button [data-testid="stMarkdownContainer"] { display: none; }
-  .st-key-pt_topbar [class*="st-key-nav_"] button { padding: .3rem .5rem; }
-  .st-key-pt_topbar [data-testid="stSelectbox"] { width: 9.5rem !important; }
-}
 /* phone tab bar (_render_tab_bar): pinned to the bottom on narrow screens,
-   hidden on wider ones where the top bar holds the tabs. */
+   hidden on wider ones where the menu column holds the items. */
 .st-key-pt_tabbar { display: none !important; }
 /* the sign-up form's hidden field (_signup): people never see it, bots fill it in */
 .st-key-signup_website { display: none !important; }
@@ -545,17 +540,30 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
   .st-key-pt_tabbar button p span[role="img"] {
     display: block !important; font-size: 1.4rem; line-height: 1.2; margin: 0 auto;
   }
-  /* the top bar slims to the brand, + and the name's icon: the tabs are
-     along the bottom */
-  .st-key-pt_topbar { height: 3.25rem; padding: 0 3rem 0 1rem; }
-  .st-key-pt_topbar [class*="st-key-nav_"] { display: none !important; }
+  /* the menu slims to a bar along the top - the brand, + and the name's
+     icon: the items are along the bottom */
+  .st-key-pt_menu { bottom: auto; right: 0; width: auto; height: 3.25rem;
+    padding: 0 3rem 0 1rem; flex-direction: row !important; align-items: center !important;
+    gap: .25rem !important; overflow: hidden; border-right: 0;
+    border-bottom: 1px solid var(--pt-line); }
+  .st-key-pt_menu > div, .st-key-pt_menu_foot > div { width: auto !important; }
+  .pt-brand { margin: 0 .5rem 0 0; }
+  .st-key-pt_menu [class*="st-key-nav"],
+  .st-key-pt_menu_foot > :not(.st-key-pt_add):not(.st-key-pt_me) { display: none !important; }
+  .st-key-pt_menu_foot { width: auto !important; margin: 0 0 0 auto; padding-top: 0;
+    flex-direction: row !important; align-items: center !important; }
+  .st-key-pt_menu_foot [data-testid="stPopover"],
+  .st-key-pt_menu_foot [data-testid="stPopoverButton"] { width: auto; }
   .st-key-pt_add button [data-testid="stMarkdownContainer"],
   .st-key-pt_me button [data-testid="stMarkdownContainer"] { display: none; }
   .st-key-pt_add button, .st-key-pt_me button { min-width: 2.75rem; padding: .3rem .55rem; }
   .pt-brand-compact .pt-brand-name { display: none; }
-  .st-key-pt_topbar [data-testid="stSelectbox"] { width: 9.5rem !important; }
+  .st-key-pt_menu [data-testid="stSelectbox"] { width: 9.5rem !important; }
   .st-key-viewing_select [role="group"]::before { content: none; }
 }
+/* Life's cards (views/life.py): a small heading over the title */
+.pt-life-small { font-size: .75rem; font-weight: 600; color: var(--pt-ink-muted); }
+.pt-life-title { font-size: 1.1rem; font-weight: 600; margin-top: .15rem; }
 .pt-status { font-size: .8rem; opacity: .75; margin-top: -.6rem; }
 .pt-hero-label { font-size: .85rem; opacity: .7; }
 .pt-hero-value { font-size: 2.6rem; font-weight: 700; line-height: 1.15;
@@ -1456,7 +1464,7 @@ else:
     _learn_last = HAS_REAL_HOLDINGS or IS_MANAGED_CLIENT
     PAGES = [*([] if _learn_last else ["Get started"]),
              "Dashboard", "Plan", *(["Advisor notes"] if IS_MANAGED_CLIENT else []),
-             "Watchlist", "Activity", "Income", "News", "AI Assistant",
+             "Watchlist", "Activity", "Income", "News", "AI Assistant", "Life",
              *(["Get started"] if _learn_last else []), "Account", "What's new", "About"]
 if IS_ADMIN:
     PAGES.append("Admin")
@@ -1472,18 +1480,23 @@ if not IS_ADVISOR and not CLIENT_MODE:
 # a page whose feature is off (flags.FEATURES) isn't one this account can open
 PAGES = [p for p in PAGES if flags.page_on(p)]
 
-# The menu: a bar along the top (the phone tab bar below shows the same tabs),
-# everything on it at once - nothing hidden behind a "More". Investors get
-# Home, Plan, Learn, Ask Northwend and Money (+ Your advisor for a managed
-# client); advisors Clients, Portfolio, Plan, Notes (in a client's account),
-# Money and Ask. Money is one page with a tab each for Income, Activity and
-# Watchlist (MONEY_PAGES): those stay pages of their own inside (their
-# ?page= names, _go("Income") and the views' `if PAGE == ...`), the menu
-# just groups them. Account, About, Admin and Log out are in the name menu
-# at the right (ACCOUNT_MENU). PAGES stays every page this account can open
-# (the address, ?page=, checks against it). Always in this order, before
-# holdings and after (where they land is PAGES[0]): a tab never moves under
-# someone's thumb.
+# The menu: a column down the left side on a laptop (the menu column; on a
+# phone the tab bar along the bottom shows the same items, and the column
+# slims to a bar along the top with the name and the two menus), everything
+# on it at once - nothing hidden behind a "More". Investors get Home, Plan,
+# Money, Life, Learn and Ask Northwend (+ Your advisor for a managed client);
+# advisors Your clients, Portfolio, Plan, Advisor notes (in a client's
+# account), Money and Ask Northwend. Money is one page with a tab each for
+# Income, Activity and Watchlist (MONEY_PAGES): those stay pages of their own
+# inside (their ?page= names, _go("Income") and the views' `if PAGE == ...`),
+# the menu just groups them, and lists them under Money while it's open. Life
+# (views/life.py) gathers the paperwork side: the account map, Lost & Found,
+# Trail Forks, the Inheritance Rehearsal and Explain it to someone - only an
+# individual's (an advisor keeps their own on Account). Account, What's new,
+# About, Admin and Log out are in the name menu at the bottom (ACCOUNT_MENU).
+# PAGES stays every page this account can open (the address, ?page=, checks
+# against it). Always in this order, before holdings and after (where they
+# land is PAGES[0]): an item never moves under someone's thumb.
 MONEY = "Money"
 # (+ News, Your news, while its flag news_feed is on: views/news_feed.py)
 MONEY_PAGES = ("Income", "Activity", "Watchlist", *(("News",) if "News" in PAGES else ()))
@@ -1491,20 +1504,16 @@ if IS_ADVISOR:
     NAV = ["Clients", "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
            MONEY, "AI Assistant"]
 else:
-    NAV = ["Dashboard", "Plan", "Get started", "AI Assistant", MONEY,
+    NAV = ["Dashboard", "Plan", MONEY, "Life", "Get started", "AI Assistant",
            *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
-NAV = [p for p in NAV if flags.page_on(p)]
+NAV = [p for p in NAV if p == MONEY or p in PAGES]
 # (Advisor preview is reached from the name menu's "advisor access requested" note)
 ACCOUNT_MENU = [p for p in ("Account", "Find a guide", "What's new", "About", "Admin")
                 if p in PAGES]
-# the top bar's words where they're shorter than the page's own name (an
-# advisor's bar holds more); the button's tooltip gives the full name
-NAV_SHORT = ({"Clients": "Clients", "Advisor notes": "Notes", "AI Assistant": "Ask"}
-             if IS_ADVISOR else {})
 
 
 def _nav_label(item):
-    return NAV_SHORT.get(item, item if item == MONEY else _label(item))
+    return item if item == MONEY else _label(item)
 
 
 def _slug(page):
@@ -1819,7 +1828,7 @@ def _change_password():
 
 
 def _open_holdings_dialog(kind):
-    """Add holdings (the top bar's menu, and the pages' own buttons): the bar
+    """Add holdings (the menu's, and the pages' own buttons): the menu
     is drawn before this account's holdings are loaded, so it leaves a note
     and the dialog opens just after they are (see open_dialog below load())."""
     if kind == "manual":
@@ -1864,9 +1873,9 @@ def _nav_current(item):
     return PAGE in MONEY_PAGES if item == MONEY else PAGE == item
 
 
-# The brand at the left of the top bar: the flag (Streamlit's own icon font,
-# like the app's other icons), then the name; an advisor's phone shows the
-# flag alone, to make room for Viewing.
+# The brand at the top of the menu: the flag (Streamlit's own icon font, like
+# the app's other icons), then the name; an advisor's phone shows the flag
+# alone, to make room for Viewing.
 _BRAND = (f"<div class='pt-brand{' pt-brand-compact' if IS_ADVISOR else ''}'>"
           "<span class='pt-brand-mark' aria-hidden='true' translate='no'>flag</span>"
           f"<span class='pt-brand-name'>{html.escape(APP_NAME)}</span></div>")
@@ -1893,7 +1902,7 @@ def _render_viewing_pick():
     accounts_ = {LOGIN_ID: f"My portfolio ({st.session_state['username']})", **dict(CLIENTS)}
     st.session_state["viewing_select"] = USER_ID
     st.selectbox("Viewing", list(accounts_), format_func=accounts_.get, key="viewing_select",
-                 on_change=_on_viewing_change, label_visibility="collapsed", width=210)
+                 on_change=_on_viewing_change, label_visibility="collapsed", width="stretch")
 
 
 def _render_add_menu():
@@ -1916,8 +1925,8 @@ def _render_add_menu():
 
 
 def _render_name_menu():
-    """The name at the right: who's signed in, Account, About, Admin, the
-    light / dark switch and Log out."""
+    """The name at the foot of the menu (on a phone, top right): who's signed
+    in, Account, What's new, About, Admin, the light / dark switch and Log out."""
     with st.popover(MY_NAME, icon=":material/account_circle:", type="tertiary", key="pt_me"):
         if IS_ADVISOR or IS_ADMIN:
             st.html(" ".join(f"<span class='pt-chip pt-role'>{r}</span>"
@@ -1952,33 +1961,73 @@ def _render_name_menu():
                   width="stretch", type="tertiary")
 
 
-def _render_top_bar():
-    """The menu along the top: the brand, every tab, + Add holdings and the
-    name menu. Pinned to the top of the window (the styles); on a phone the
-    tabs step aside for the tab bar at the bottom (_render_tab_bar), and the
-    two menus show as icons."""
+def _side_route_go(key):
+    """The menu's "Next: ..." line: that waypoint open on Learn."""
+    st.session_state["gs_at"] = key
+    st.session_state.pop("gs_goal_part", None)   # Set a goal opens at its first open part
+    _go("Get started")
+
+
+def _render_side_route():
+    """At the foot of the menu, above Add holdings: how far along the route
+    (route.py) - "Start investing · step 3 of 4", a slim bar of that stage's
+    waypoints reached, and the next one as a link to it on Learn. Only for an
+    investor's own route (never client mode or an advisor), and only while a
+    waypoint is still open. Drawn into its place once Learn's code has run
+    (_route_state, views/get_started.py)."""
+    if IS_ADVISOR or CLIENT_MODE or "Get started" not in PAGES:
+        return
+    state = _route_state(HAS_HOLDINGS)
+    here = next((k for k, _, d in state["waypoints"] if not d), None)
+    if here is None:
+        return
+    keys = route.stage_keys(route.stage_of(here), state["managed"])
+    reached = sum(1 for k in keys if state["done"].get(k))
+    with _SIDE_ROUTE.container(key="pt_side_route"):
+        st.html(f"<div class='pt-side-route'>"
+                f"<div>{html.escape(route.stage_words(here, state['managed']))}</div>"
+                f"<div class='pt-side-bar' role='img' aria-label='{reached} of {len(keys)} "
+                f"steps reached'><span style='width:{round(100 * reached / len(keys))}%'>"
+                f"</span></div></div>")
+        st.button(f"Next: {dict(GET_STARTED_STEPS)[here]}", key="side_route_next",
+                  type="tertiary", on_click=_side_route_go, args=(here,))
+
+
+def _render_menu():
+    """The menu: the brand, every item, the route's progress, + Add holdings
+    and the name menu. On a laptop a column pinned down the left side (the
+    styles), with Money's tabs listed under it while one is open; on a phone a
+    slim bar along the top with the brand and the two menus as icons - the
+    items are in the tab bar along the bottom (_render_tab_bar)."""
+    global _SIDE_ROUTE
     with st.container(horizontal=True, vertical_alignment="center", gap="small",
-                      key="pt_topbar"):
+                      key="pt_menu"):
         st.html(_BRAND, width="content")
         for item in NAV:
             if IS_ADVISOR and item == "Dashboard":
                 _render_viewing_pick()   # Clients, then whose account, then its pages
             st.button(_nav_label(item), key=f"nav_{item}", on_click=_go,
                       args=(_nav_target(item),),
-                      type="primary" if _nav_current(item) else "tertiary",
-                      help=_label(item) if item in NAV_SHORT else None)
-        if CAN_IMPORT:
-            _render_add_menu()
-        _render_name_menu()
+                      type="primary" if _nav_current(item) else "tertiary")
+            if item == MONEY and _nav_current(MONEY):
+                for p in MONEY_PAGES:
+                    st.button(_label(p), key=f"navsub_{p}", on_click=_go, args=(p,),
+                              type="primary" if PAGE == p else "tertiary")
+        with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                          key="pt_menu_foot"):
+            _SIDE_ROUTE = st.empty()   # filled by _render_side_route, further down
+            if CAN_IMPORT:
+                _render_add_menu()
+            _render_name_menu()
 
 
-# Phones: the same tabs along the bottom (the styles show it only on narrow
+# Phones: the same items along the bottom (the styles show it only on narrow
 # screens), each with its icon above a short label.
 TAB_ICONS = {"Get started": (":material/school:", "Learn"),
              "Dashboard": ((":material/pie_chart:", "Portfolio") if IS_ADVISOR
                            else (":material/home:", "Home")),
              "Plan": (":material/flag:", "Plan"), "AI Assistant": (":material/explore:", "Ask"),
-             MONEY: (":material/payments:", "Money"),
+             MONEY: (":material/payments:", "Money"), "Life": (":material/folder_open:", "Life"),
              "Advisor notes": ((":material/sticky_note_2:", "Notes") if IS_ADVISOR
                                else (":material/support_agent:", "Advisor")),
              "Clients": (":material/groups:", "Clients")}
@@ -2043,7 +2092,7 @@ def _render_client_login():
         st.button("Set login password", on_click=_set_client_password, width="stretch")
 
 
-_render_top_bar()
+_render_menu()
 _render_tab_bar()  # phones only (see the styles); fixed to the bottom
 # the menus' click-away and the theme switch, names for icon buttons, the
 # current tab marked for screen readers, pull to refresh (see the file)
@@ -2430,7 +2479,7 @@ _view("factsheet_decoder")
 # Home: Year in review, private, and a version to share (recap.py)
 _view("year_review")
 
-# Account page: the account map, and its line on Home (account_map.py)
+# Life page: the account map, and its line on Home (account_map.py)
 _view("account_map")
 
 # just under it: Lost & Found, flag lost_found (lost_found.py)
@@ -2448,6 +2497,8 @@ _view("client_book")
 # and under that: the Inheritance Rehearsal, flag inheritance_rehearsal
 # (inheritance_rehearsal.py)
 _view("inheritance_rehearsal")
+# the Life page that draws them (an advisor's own are on Account)
+_view("life")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
 _view("seasons")
 # weekly summaries: "Your week" and "The week ahead", a card on Home, flag weekly (weekly.py)
@@ -2793,15 +2844,21 @@ def _profile():
     """This account's investor profile (advisor.get_profile), read once per
     run - Home's route card and kit, Get started, the first steps and the map
     plate above the title all use it. Saving it (the profile form, then
-    st.rerun; a first steps button's callback) starts a new run."""
+    st.rerun; a first steps button's callback) starts a new run. The guide's
+    notes share its row, so they're kept too (Ask Northwend's _assist_profile)."""
     if "profile" not in _RUN:
         import advisor
         conn = connect(DB)
         try:
-            _RUN["profile"] = advisor.get_profile(conn, USER_ID)
+            _RUN["profile"], _RUN["memory"] = advisor.get_profile_and_memory(conn, USER_ID)
         finally:
             conn.close()
     return dict(_RUN["profile"])
+
+
+# the route's progress at the foot of the menu (drawn above, filled in here,
+# once Learn's _route_state and what it reads are defined)
+_render_side_route()
 
 
 def load_alloc_targets():
@@ -3048,7 +3105,7 @@ def _page_header(title, *, data=True):
     """The page's title with the hide-amounts toggle and, on `data` pages
     (this account's portfolio), a status line that keeps prices current by
     itself (_live_status) - there's no Refresh button. Adding or updating
-    holdings is the top bar's + Add holdings. An investor's Home and
+    holdings is the menu's + Add holdings. An investor's Home and
     Get started carry the map plate above the title (_expedition_eyebrow).
     Income, Activity and Watchlist are the Money page's tabs: their title is
     Money, with the tabs under it (_money_tabs)."""
@@ -3200,9 +3257,10 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))
 
-# Add holdings (the top bar) or a page's own button was pressed (_open_holdings_dialog)
+# Add holdings (the menu) or a page's own button was pressed (_open_holdings_dialog)
 _open = st.session_state.pop("open_dialog", None)
-if PAGE in ("Clients", "Admin", "Account", "About", "What's new", "Advisor preview") and not _open:
+if PAGE in ("Clients", "Admin", "Account", "Life", "About", "What's new",
+            "Advisor preview") and not _open:
     # these pages are about the login, its clients or the app - not the viewed
     # account's holdings, so they aren't read (a Holdings window needs them)
     snapshot, positions, cash_by_account, quotes, watch_tickers = None, [], {}, {}, []
@@ -3256,6 +3314,11 @@ if PAGE == "Account":
     # the login's own account, whichever account is being viewed
     _page_header("Account", data=False)
     _render_account()
+    st.stop()
+if PAGE == "Life":
+    # the login's own records and life changes, whichever account is viewed
+    _page_header("Life", data=False)
+    _render_life()
     st.stop()
 if PAGE == "What's new":
     _page_header("What's new", data=False)

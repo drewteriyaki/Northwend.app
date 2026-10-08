@@ -1,10 +1,10 @@
 // Small touch/desktop conveniences dashboard.py injects once per page load
 // (st.html with unsafe_allow_javascript, so this runs in the app's own page):
-//   - the top bar's and the phone tab bar's background follows the light /
+//   - the menu's and the phone tab bar's background follows the light /
 //     dark theme
-//   - the top bar's menus (+ Add holdings, the name menu) close after a
-//     choice, and the page showing is marked for screen readers
-//     (aria-current="page" on its tab; the bars are navigation landmarks)
+//   - the menu's two small menus (+ Add holdings, the name menu) close after
+//     a choice, and the page showing is marked for screen readers
+//     (aria-current="page" on its item; the menus are navigation landmarks)
 //   - pull down from the top of the page on a touch screen to refresh prices
 //     (it presses a button keyed "pt_refresh" when the page has one; prices
 //     now update on their own, so the dashboard doesn't show one)
@@ -50,7 +50,7 @@
   document.head.appendChild(style);
 
   // ---- the bars' background ----------------------------------------------
-  // The top bar and the phone tab bar (dashboard.py, keys "pt_topbar" and
+  // The menu and the phone tab bar (dashboard.py, keys "pt_menu" and
   // "pt_tabbar") need a solid background that follows light/dark; the theme
   // can change without the page rerunning, so keep --pt-bg equal to the
   // page's own background.
@@ -78,7 +78,7 @@
     [/^st-key-me_cdel_/, () => "Remove this cash line"],
     [/^st-key-pt_hide$/, (m, btn) =>
       btn.textContent.includes("visibility_off") ? "Show amounts" : "Hide amounts"],
-    // the name at the top right (on a phone just its icon) opens a menu
+    // the name at the foot of the menu (on a phone just its icon) opens a menu
     [/^st-key-pt_me$/, (m, btn) => `Menu for ${wordsOf(btn)}`],
     // "Your investing profile (2/5)": the count said in words
     [/^st-key-assist_profile_open$/, (m, btn) =>
@@ -142,13 +142,13 @@
   setInterval(labelIconButtons, 1000);
 
   // ---- the menu: where you are, and its two small menus ------------------
-  // The tabs are Streamlit buttons; the one for the page showing is drawn as
+  // The items are Streamlit buttons; the one for the page showing is drawn as
   // "primary" (dashboard.py). Say so to screen readers too - aria-current -
-  // and make each bar a navigation landmark.
-  const CURRENT = ['.st-key-pt_topbar [class*="st-key-nav_"] button',
+  // and make each menu a navigation landmark.
+  const CURRENT = ['.st-key-pt_menu [class*="st-key-nav"] button',
                    '.st-key-pt_tabbar button', '.st-key-pt_money_tabs button',
                    '[class*="st-key-menu_"] button', '.st-key-viewing_start button'].join(", ");
-  const LANDMARKS = [[".st-key-pt_topbar", "Main menu"], [".st-key-pt_tabbar", "Main menu"],
+  const LANDMARKS = [[".st-key-pt_menu", "Main menu"], [".st-key-pt_tabbar", "Main menu"],
                      [".st-key-pt_money_tabs", "Money"]];
   const markCurrent = () => {
     for (const [sel, name] of LANDMARKS) {
@@ -173,7 +173,7 @@
   }).observe(document.body, { subtree: true, childList: true, attributes: true,
                               attributeFilter: ["kind"] });
 
-  // The top bar's menus (+ Add holdings, key "pt_add", and the name menu,
+  // The menu's two small menus (+ Add holdings, key "pt_add", and the name menu,
   // "pt_me") are popovers, which stay open after a choice - close them, the
   // same way their own button would. (The theme button closes its menu
   // itself, below: Streamlit's own menu is opening just then.)

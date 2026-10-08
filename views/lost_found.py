@@ -4,8 +4,9 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # Lost & Found (ROADMAP R9, lost_found.py), behind flag lost_found
-# (flags.FEATURES - this whole file is skipped while it's off): on the Account
-# page, just under the account map (views/account.py calls render_lost_found).
+# (flags.FEATURES - this whole file is skipped while it's off): on the Life
+# page, just under the account map (views/life.py calls render_lost_found; an
+# advisor's own is on Account, views/account.py).
 # Where to look for money someone already owns - old workplace plans, state
 # unclaimed property, an old HSA, FSA or IRA, savings bonds - with official
 # links only; the employer match opens the Free money check
@@ -117,7 +118,7 @@ def _lf_checklist():
 
 
 def render_lost_found():
-    """The Account page's Lost & Found section (the login's own only)."""
+    """The Life page's Lost & Found section (the login's own only)."""
     if not _lf_own():
         return
     st.subheader("Lost & Found", anchor="lost-and-found")

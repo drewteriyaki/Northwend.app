@@ -3302,16 +3302,20 @@ class PhoneAndDarkStyleTests(unittest.TestCase):
         self.assertIn("opacity: 1", rule.group(1))
         self.assertIn("color-mix(in srgb, currentColor 70%, transparent)", rule.group(1))
 
-    def test_top_bar_is_pinned_and_slims_on_a_phone(self):
-        # the menu is a bar along the top (there's no sidebar): pinned, on the
-        # page's own background, the page starting below it; on a phone its
-        # tabs give way to the tab bar along the bottom
-        self.assertRegex(self.flat, r"\.st-key-pt_topbar \{ position: fixed; top: 0;[^}]*"
+    def test_menu_is_a_column_on_a_laptop_and_slims_on_a_phone(self):
+        # the menu is the app's own column down the left side (not Streamlit's
+        # sidebar): pinned, on the page's own background, the page beside it;
+        # on a phone it slims to a bar along the top and its items give way to
+        # the tab bar along the bottom
+        self.assertRegex(self.flat, r"\.st-key-pt_menu \{ position: fixed; top: 0; bottom: 0; "
+                                    r"left: 0;[^}]*width: 13\.5rem;[^}]*"
                                     r"background: var\(--pt-bg")
-        self.assertRegex(self.flat, r'\[data-testid="stMainBlockContainer"\] \{ padding-top: 5\.75rem')
+        self.assertRegex(self.flat, r'\[data-testid="stMain"\]:has\(\.st-key-pt_menu\) '
+                                    r'\{ margin-left: 13\.5rem;')
         phone = self._phone_blocks()
-        self.assertIn('.st-key-pt_topbar [class*="st-key-nav_"] { display: none !important; }',
-                      phone)
+        self.assertIn('.st-key-pt_menu [class*="st-key-nav"],', phone)
+        self.assertRegex(phone, r"\.st-key-pt_menu \{ bottom: auto; right: 0; width: auto; "
+                                r"height: 3\.25rem;")
         self.assertRegex(phone, r"\.st-key-pt_tabbar \{ display: flex !important; position: fixed")
 
     def test_tabs_wrap_on_a_phone_only(self):

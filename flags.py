@@ -123,14 +123,14 @@ FEATURES = {
     # links only), an old 401(k)'s common choices side by side with questions
     # to ask - never which one - and the person's own "places I've looked"
     # list in their settings. Education (LEGAL_GATES.md section 6): no gate.
-    # Under the account map on Account (views/account.py checks on("lost_found")),
+    # Under the account map on Life (views/life.py checks on("lost_found")),
     # the login's own only - never while an advisor is in a client's account.
     "lost_found": {"gates": (), "view": "lost_found"},
     # Trail Forks (ROADMAP R8, trail_forks.py): a route per life event (a new
     # job, a layoff, a new baby, an inheritance, a divorce, the death of a
     # parent) - what changes, what to gather, what to ask and whom, what not
     # to rush - each ending in the Walk. Education (LEGAL_GATES.md section 6):
-    # no gate. Under Lost & Found on Account (views/account.py checks
+    # no gate. At the top of Life (views/life.py checks
     # on("trail_forks")); the person's forks and ticks in their own settings,
     # never drawn while an advisor is in a client's account.
     "trail_forks": {"gates": (), "view": "trail_forks"},
@@ -139,7 +139,7 @@ FEATURES = {
     # parent's accounts - a short tap-through story, never graded, official
     # links only, no rules, deadlines or figures stated. Education
     # (LEGAL_GATES.md section 6): no gate; L3 looks at the estate and tax
-    # wording as with R8. Under Trail Forks on Account (views/account.py checks
+    # wording as with R8. Under Trail Forks on Life (views/life.py checks
     # on("inheritance_rehearsal")); the steps walked through and the day
     # finished in the person's own settings, never drawn while an advisor is
     # in a client's account, never sent to the AI.

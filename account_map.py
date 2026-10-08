@@ -3,7 +3,7 @@ account the person has brought in (its name, kind, last 3 digits only, a
 rough value and when it was last updated), any others they add by hand,
 and what they fill in for each - who to call, a beneficiary named or not,
 where the paperwork is - plus notes for family. Pure logic, no Streamlit;
-the page is views/account_map.py (on the Account page).
+the page is views/account_map.py (on the Life page; an advisor's own on Account).
 
 Private: only the person sees it and downloads its PDF. It is never
 emailed, never shown to an advisor (it lives on the login's own Account

@@ -6,7 +6,7 @@
 # The Inheritance Rehearsal (ROADMAP "Someday" -> built; inheritance_rehearsal.py),
 # behind flag inheritance_rehearsal (flags.FEATURES - this whole file is skipped
 # while it's off, so views/account.py checks on("inheritance_rehearsal")). On
-# the Account page just under Trail Forks, beside the account map and Lost &
+# the Life page just under Trail Forks, beside the account map and Lost &
 # Found: a practice run at looking after a made-up parent's accounts, one step
 # at a time - a situation, two or three taps (things to find out or ask, never
 # graded), then what people often find. Ends at the person's own account map
@@ -115,7 +115,7 @@ def _ir_end():
 
 
 def render_inheritance_rehearsal():
-    """The Account page's Inheritance Rehearsal (the login's own only)."""
+    """The Life page's Inheritance Rehearsal (the login's own only)."""
     if not _ir_own():
         return
     saved = _read_prefs().get(ir.PREF)

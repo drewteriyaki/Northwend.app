@@ -225,8 +225,8 @@ class BeginnerPathTests(unittest.TestCase):
             # lands on Learn, and the menu keeps one order before and after holdings
             self.assertEqual(at.session_state["page"], "Get started")
             tabs = [b.key for b in at.button if (b.key or "").startswith("tab_")]
-            self.assertEqual(tabs, ["tab_Dashboard", "tab_Plan", "tab_Get started",
-                                    "tab_AI Assistant", "tab_Money"])
+            self.assertEqual(tabs, ["tab_Dashboard", "tab_Plan", "tab_Money", "tab_Life",
+                                    "tab_Get started", "tab_AI Assistant"])
 
     # ---- first steps ---------------------------------------------------------- #
     def test_goal_typed_in_first_steps_is_kept(self):

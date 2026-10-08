@@ -4,7 +4,7 @@ route says what changes, what to gather, what to ask (and whom: HR, the plan
 administrator, a tax preparer, an attorney, the estate's executor) and what
 not to rush, and ends pointing into the Walk (the monthly walk, checkin.py,
 when flag `walk` is on; the Plan page otherwise). The page is
-views/trail_forks.py, on the Account page under Lost & Found, behind flag
+views/trail_forks.py, at the top of the Life page, behind flag
 `trail_forks`.
 
 Education, never advice (docs/PRINCIPLES.md 2; ROADMAP's risk note for R8):
@@ -77,7 +77,7 @@ PLAN_END = ("When things settle down, open your Plan to check your goal and your
             "You don't have to change your investments on the same day your life changes.")
 PLAN_BUTTON = "Open your Plan"
 
-# a fork's pointer to another part of the Account page
+# a fork's pointer to another part of the Life page
 SEE_ALSO = {
     "lost_found": ("Lost & Found, on this page, lays out an old 401(k)'s common choices side "
                    "by side, with questions to ask."),

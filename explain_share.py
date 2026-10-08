@@ -2,7 +2,7 @@
 partner or an adult child the person's plan in plain words - without a
 single figure - so they can understand it and, if they like, start
 Northwend's Learn route themselves. Behind flag `explain_share`; the owner's
-part is on the Account page and the page the link opens is drawn before
+part is on the Life page and the page the link opens is drawn before
 sign-in (views/explain_share.py), like the unsubscribe and reset links.
 
 What the page shows, read from current data each time it's opened (page()):

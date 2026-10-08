@@ -281,8 +281,8 @@ fund or ticker, an account name or number, a brokerage, your email or your
 login, and it shows the plan as it is when the link is opened. Only you can make
 one, for your own account (not while an advisor manages it, and never an
 advisor or the person running Northwend on your behalf); you choose 7 or 30
-days, you can have up to 3 at a time, and you can turn any of them off on the
-Account page at any time. A link that has ended or been turned off shows only
+days, you can have up to 3 at a time, and you can turn any of them off where
+you made them, at any time. A link that has ended or been turned off shows only
 that it's no longer active - nothing about whose it was. Opening one signs no
 one in. If an advisor starts managing your account, your links stop working,
 and an advisor never sees them. [LAWYER: wording; flag `explain_share`.]

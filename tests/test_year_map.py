@@ -512,17 +512,17 @@ class AppTests(unittest.TestCase):
         finally:
             self._set_hidden(self.ivy, False)
 
-    def test_homes_account_map_line_goes_to_the_account_page(self):
+    def test_homes_account_map_line_goes_to_the_life_page(self):
         with self._run(self.ivy, "ivy") as at:
             self.assertIn("You have 2 accounts", self._text(at))
             at.button(key="amap_nudge_go").click().run()
-            self.assertEqual(at.session_state["page"], "Account")
+            self.assertEqual(at.session_state["page"], "Life")
             self.assertIn("Account map", self._text(at))
         with self._run(self.ivy, "ivy") as at:   # once: put away by going
             self.assertNotIn("You have 2 accounts", self._text(at))
 
     def test_the_client_sees_their_map_and_their_advisor_never_does(self):
-        with self._run(self.kit, "kit@example.com", page="Account") as at:
+        with self._run(self.kit, "kit@example.com", page="Life") as at:
             text = self._text(at)
             self.assertIn("Account map", text)
             self.assertEqual(at.text_area(key="amap_family").value, "Kit's private family note")
@@ -542,7 +542,7 @@ class AppTests(unittest.TestCase):
             self.assertNotIn("Your year so far", " ".join(b.label for b in at.button))
 
     def test_saving_an_account_on_the_page(self):
-        with self._run(self.ivy, "ivy", page="Account") as at:
+        with self._run(self.ivy, "ivy", page="Life") as at:
             at.text_input(key="amap_a1_contact").input("Roth help line")
             at.text_input(key="amap_a1_phone").input("800-555-0199")
             at.button(key="FormSubmitter:amap_a1_form-Save").click().run()

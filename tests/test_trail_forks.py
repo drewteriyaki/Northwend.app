@@ -292,14 +292,14 @@ class AppTests(unittest.TestCase):
         shutil.rmtree(cls.dir, ignore_errors=True)
 
     @contextlib.contextmanager
-    def _app(self, uid, name, flag="trail_forks", **state):
+    def _app(self, uid, name, flag="trail_forks", page="Life", **state):
         import yfinance
         from streamlit.testing.v1 import AppTest
 
         def offline(*a, **k):
             raise RuntimeError("offline in tests")
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
-        for k, v in {"user_id": uid, "username": name, "page": "Account",
+        for k, v in {"user_id": uid, "username": name, "page": page,
                      "auto_backfilled": True, **state}.items():
             at.session_state[k] = v
         env = {k: v for k, v in os.environ.items()
@@ -437,7 +437,7 @@ class AppTests(unittest.TestCase):
         finally:
             c.close()
         before = self._prefs(self.dana)
-        with self._app(self.carol, "carol", two_step_ok=self.carol_ok,
+        with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok,
                        active_user_id=self.dana) as at:
             text = self._text(at)
             self.assertNotIn("Trail Forks", text)
@@ -445,7 +445,7 @@ class AppTests(unittest.TestCase):
             self.assertFalse(self._tf_boxes(at))
         self.assertEqual(self._prefs(self.dana), before)
         # in her own account she has it, as an individual would
-        with self._app(self.carol, "carol", two_step_ok=self.carol_ok) as at:
+        with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok) as at:
             self.assertIn("Trail Forks", self._text(at))
 
 

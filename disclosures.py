@@ -200,19 +200,20 @@ Each statement about data here must stay true to the code:
   Render. Cloudflare Pages serves the website (website/).
 - No third-party analytics: .streamlit/config.toml gatherUsageStats = false;
   the only counting is feature_counts.py (above), inside the database.
-- Account map (account_map.py, the Account page): the login's own, never shown
-  to an advisor, never emailed or sent to the AI; its PDF only downloaded.
+- Account map (account_map.py, the Life page; an advisor's own on Account):
+  the login's own, never shown to an advisor, never emailed or sent to the
+  AI; its PDF only downloaded.
   Year in review (recap.py): read from data already kept; the share version
   has no dollar figures.
 - Lost & Found (lost_found.py, views/lost_found.py, flag lost_found): under the
-  account map on Account; education with official links only. Its checklist is
+  account map on Life; education with official links only. Its checklist is
   kept in the login's own settings (prefs lost_found: each place's status -
   still looking / found something / nothing there - and the day of the last
   change; never an amount, account number or name); never drawn while an
   advisor is in a client's account, not in an advisor's client record, never
   sent to the AI. In the person's own export (settings).
 - Trail Forks (trail_forks.py, views/trail_forks.py, flag trail_forks): under
-  Lost & Found on Account; education about life events with official links
+  the top of Life; education about life events with official links
   only. Kept in the login's own settings (prefs trail_forks): which forks the
   person marked as theirs and which fixed steps they ticked - keys only, no
   typed text, no dates, amounts or names; never drawn while an advisor is in a
@@ -220,7 +221,7 @@ Each statement about data here must stay true to the code:
   In the person's own export (settings).
 - The Inheritance Rehearsal (inheritance_rehearsal.py,
   views/inheritance_rehearsal.py, flag inheritance_rehearsal): under Trail
-  Forks on Account; a practice run with a made-up family, official links only.
+  Forks on Life; a practice run with a made-up family, official links only.
   Kept in the login's own settings (prefs inheritance_rehearsal): which steps
   were walked through and the day it was finished - not what was tapped, no
   typed text; never drawn while an advisor is in a client's account, not in an
@@ -242,7 +243,7 @@ Each statement about data here must stay true to the code:
   text); never written while an advisor is in a client's account, never sent
   to the AI. In the person's own export (settings).
 - Explain it to someone (explain_share.py, views/explain_share.py, flag
-  explain_share): share links made on Account by the login's own account only
+  explain_share): share links made on Life by the login's own account only
   (never an advisor in a client's account, an advisor's client or an admin -
   explain_share.eligible). Table share_links: the token's SHA-256, never the
   token (shown once); expires after 7 or 30 days (DAYS_CHOICES); turning it
@@ -574,8 +575,8 @@ and it leaves your view when they untick it or the relationship ends.
   range of years), where you are on the route, your target mix and how far it
   may drift - and your first name only if you tick it. Never an amount, a
   holding or fund, an account name or number, or your email. A link works for
-  the 7 or 30 days you choose, you can turn it off at any time on the Account
-  page, and only you can make one, for your own account (not while an advisor
+  the 7 or 30 days you choose, you can turn it off at any time where you made
+  it, and only you can make one, for your own account (not while an advisor
   manages it). Northwend keeps only a scrambled version of the link and, for
   you, how many times it was opened - nothing about who opened it. To look
   after accounts, the person who runs Northwend can see

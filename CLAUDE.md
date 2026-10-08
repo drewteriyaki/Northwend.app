@@ -43,13 +43,15 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 
 ## Where things live
 - `dashboard.py` (~1.7k lines) - the app's one Streamlit script: styles, sign-in,
-  top bar, settings, formatting helpers, the header, live prices, loading holdings.
+  the menu, settings, formatting helpers, the header, live prices, loading holdings.
   Each page's code is in `views/` and runs inside it via `_view("name")` at the
   point it's listed (same names, no imports needed - read the header of any view):
   `dashboard_page`, `ticker_detail` (one ticker, from Dashboard/Watchlist),
   `watchlist`, `activity`, `income`, `plan`, `get_started` (and `first_steps`, the
   new investor's slideshow shown in its place), `assistant` (Ask Northwend),
   `profile`, `account` (the login's own account: name, email, password, data),
+  `life` (Life: the account map, Lost & Found, Trail Forks, the Inheritance Rehearsal,
+  Explain it to someone - an individual's page; an advisor keeps their own on Account),
   `clients` (advisor side, weekly summary), `holdings_input` (paste,
   by hand, screenshots, CSV, the save step). Open just the view you need.
   Internal page "AI Assistant" is shown as "Ask Northwend" (`PAGE_LABELS`, `GUIDE = APP_NAME`).
@@ -174,13 +176,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   a new scheduled job needs its own "Tell the admin it failed" step, a test checks).
 - Recaps and records: `recap.py` + `views/year_review.py` (Year in review, a window from
   Home; the share version never has dollars), `account_map.py` + `views/account_map.py`
-  (the "if something happens to me" map on Account - only the login's own, never an
+  (the "if something happens to me" map on Life - only the login's own, never an
   advisor's view or the AI), `lost_found.py` + `views/lost_found.py` (Lost & Found, R9, flag
   `lost_found`: under the account map, where to look for old 401(k)s and unclaimed money -
   official links only (`OFFICIAL_SITES`), an old 401(k)'s choices side by side, never which;
   the "places I've looked" list in the login's own prefs; never in a client's account),
-  `trail_forks.py` + `views/trail_forks.py` (Trail Forks, R8, flag `trail_forks`: under Lost
-  & Found, a route per life event - what changes, gather, ask whom, not rush - ending in the
+  `trail_forks.py` + `views/trail_forks.py` (Trail Forks, R8, flag `trail_forks`: at the
+  top of Life, a route per life event - what changes, gather, ask whom, not rush - ending in the
   Walk; divorce/inheritance/death only "what to ask"; forks and ticks as keys in the login's
   own prefs; never in a client's account),
   `inheritance_rehearsal.py` + `views/inheritance_rehearsal.py` (the Inheritance Rehearsal,
@@ -322,16 +324,24 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `<style>` block or `ui_enhancements.js`: Streamlit drops the whole block
   (a test checks). Colors go through the `--pt-up` / `--pt-down` / `--pt-warn` variables.
 - `dashboard.py` runs top to bottom, views included at their `_view(...)` line: a
-  function used while the page is being drawn (sign-in, the top bar) must be
+  function used while the page is being drawn (sign-in, the menu) must be
   defined above that point. Button callbacks run later, so they can sit anywhere.
   A new view file needs its `_view("name")` line (a test checks they match).
-- The menu is `NAV` (the top bar `pt_topbar` and the phone bar `pt_tabbar`, no
-  sidebar, nothing behind a "More") plus `ACCOUNT_MENU` (the name menu `pt_me`:
-  Account, About, Admin, Log out). Money is one tab grouping `MONEY_PAGES` (Income,
-  Activity, Watchlist, and News while `news_feed` is on - still pages of their own). `PAGES` is every page the
-  account can open. A new page goes in `NAV`, under Money or in the name menu -
-  keep the bar short. A label change (`PAGE_LABELS`; investors see
-  Get started as "Learn") changes its `?page=` slug: add the old one to `OLD_SLUGS`.
+- The menu is `NAV`, drawn once (`_render_menu`, container `pt_menu`): on a laptop a
+  column pinned down the left side by the styles (the app's own - not Streamlit's
+  `st.sidebar`, which stays unused), on a phone (<= 640px) a slim bar along the top
+  with the brand and the two menus, the items moving to the bottom tab bar
+  `pt_tabbar`. Nothing behind a "More". Investors: Home, Plan, Money, Life, Learn,
+  Ask Northwend (+ Your advisor); advisors: Your clients, Viewing, Portfolio, Plan,
+  Advisor notes, Money, Ask Northwend - no Life. At the column's foot (`pt_menu_foot`):
+  the route's progress (`_render_side_route`, filled in once `_route_state` exists),
+  + Add holdings and `ACCOUNT_MENU` (the name menu `pt_me`: Account, What's new,
+  About, Admin, Log out). Money is one item grouping `MONEY_PAGES` (Income,
+  Activity, Watchlist, and News while `news_feed` is on - still pages of their own, listed under Money while it's
+  open, keys `navsub_*`). `PAGES` is every page the account can open. A new page
+  goes in `NAV`, under Money or in the name menu - keep the menu short. A label
+  change (`PAGE_LABELS`; investors see Get started as "Learn") changes its
+  `?page=` slug: add the old one to `OLD_SLUGS`.
 - An advisor's client (or an advisor in a client's account) is `CLIENT_MODE`:
   no example funds, no beginner trail or practice money; Home's next step is
   the advisor's (`route.advisor_step`).

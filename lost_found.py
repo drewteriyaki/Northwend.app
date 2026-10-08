@@ -4,7 +4,7 @@ unclaimed property, an old HSA, FSA or IRA, savings bonds, and the employer
 match at their current job (which links to the Free money check,
 employer_match.py, rather than repeating it). The front half of the account
 map (ROADMAP item 10); the page is views/lost_found.py, under the account map
-on the Account page, behind flag `lost_found`.
+on the Life page, behind flag `lost_found`.
 
 Education, never advice (docs/PRINCIPLES.md 2): for an old 401(k) found, the
 common choices are explained side by side in no particular order, with the

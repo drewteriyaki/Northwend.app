@@ -6,9 +6,13 @@
 # The Account page: the signed-in person's own account - what's on it, their
 # name, email (changed only through a link to the new address), password,
 # other signed-in devices, two-step sign-in (set up with views/two_step.py's
-# steps), a copy of their data, leaving themselves out of feature counts
-# (feature_counts.py), and deleting it. Always the
-# login's own account (LOGIN_ID), even while an advisor is viewing a client.
+# steps), how pages look, email choices, what Ask Northwend remembers, who
+# has looked and the sharing record, a copy of their data, leaving themselves
+# out of feature counts (feature_counts.py), and deleting it. The account map,
+# Lost & Found, Trail Forks, the Inheritance Rehearsal and Explain it to
+# someone are on the Life page (views/life.py) - an advisor's own stay here,
+# since an advisor has no Life page. Always the login's own account
+# (LOGIN_ID), even while an advisor is viewing a client.
 # ruff: noqa: F821
 
 import access_log
@@ -496,20 +500,17 @@ def _render_account():
                       disabled=not st.session_state.get("confirm_delete_holdings"),
                       on_click=_delete_my_holdings)
 
-    # ---- the account map: private to this login (views/account_map.py) ----- #
-    render_account_map()
-    # ---- Lost & Found: finding old accounts (views/lost_found.py) ----------- #
-    if flags.on("lost_found"):
-        render_lost_found()
-    # ---- Trail Forks: life events (views/trail_forks.py) -------------------- #
-    if flags.on("trail_forks"):
-        render_trail_forks()
-    # ---- the Inheritance Rehearsal: a practice run (views/inheritance_rehearsal.py)
-    if flags.on("inheritance_rehearsal"):
-        render_inheritance_rehearsal()
-    # ---- Explain it to someone: a figure-free share link (views/explain_share.py) #
-    if flags.on("explain_share"):
-        render_explain_share()
+    # ---- the account map, Lost & Found, Trail Forks, the Inheritance Rehearsal
+    # and Explain it to someone are on the Life page (views/life.py); an
+    # advisor, who has no Life page, keeps their own here
+    if "Life" in PAGES:
+        with st.container(horizontal=True, vertical_alignment="center", key="pt_acct_life"):
+            st.caption(":material/folder_open: Your account map, Lost & Found, life changes "
+                       "and sharing your plan are on the **Life** page.", width="stretch")
+            st.button("Open Life", key="acct_open_life", type="tertiary", on_click=_go,
+                      args=("Life",))
+    else:
+        _render_life_sections()
     # ---- Bring to my advisor: a client's own choices (views/advisor_pack.py) - #
     if flags.on("advisor_pack"):
         render_advisor_pack()

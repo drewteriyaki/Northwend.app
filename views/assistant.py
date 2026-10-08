@@ -21,6 +21,8 @@ ASSIST_DISCLAIMER = (f"Educational information only - not financial advice. {GUI
 
 def _assist_profile():
     import advisor
+    if "memory" in _RUN:   # read already this run (dashboard's _profile: the same row)
+        return _profile(), _RUN["memory"]
     c = connect(DB)
     try:
         return advisor.get_profile_and_memory(c, USER_ID)
