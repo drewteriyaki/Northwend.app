@@ -282,6 +282,16 @@ Each statement about data here must stay true to the code:
   Counted in totals only (feature_counts.drill_returns: people who rehearsed a
   first drill and how many a third - never a choice). In the person's own
   export (settings).
+- This month's practice challenge (challenges.py, views/challenges.py, flag
+  challenges): pretend money on real past prices already kept (daily_bars,
+  nothing fetched for it), on Home and under Learn's practice money. Kept in
+  the login's own settings (prefs challenges: per challenge the key, the rule
+  picked as a key, the step reached, the answers as choice keys and the day
+  finished - never an amount, never free text). Scored only on following the
+  rule picked; no leaderboard, nothing compared between people. Never drawn
+  for an advisor's client or while an advisor is in a client's account, not in
+  an advisor's client record, never sent to the AI. In the person's own export
+  (settings).
 - This month's world (month_world.py, views/month_world.py, flag
   month_world): the owner's hand-written, reviewed note of last month's past
   facts, inside the drill card; the person's largest asset class or two pick
@@ -485,8 +495,8 @@ suitability. A client you add can see their own portfolio, plan and your notes
 to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
 their account map, their Lost & Found list, their Trail Forks, their Inheritance
-Rehearsal, their preparedness drills, the seasonal notes they've opened or put
-away, the Learn topics they've explained back and the rule of thumb they picked on
+Rehearsal, their preparedness drills, their practice challenges, the seasonal
+notes they've opened or put away, the Learn topics they've explained back and the rule of thumb they picked on
 Pay yourself.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
@@ -513,7 +523,10 @@ and it leaves your view when they untick it or the relationship ends.
   wrong (the ticker, the reason you picked, the price you saw and its time -
   kept until you delete your account; admins see only counts, never who); the
   preparedness drills you've rehearsed (which ones, what you tapped and in which
-  week - nothing you type); which months' notes on this month's world you've
+  week - nothing you type); the practice challenges you've tried (which one,
+  the rule you picked, how far you got, which offered choice you picked each
+  month and the day you finished - pretend money, nothing you type, never an
+  amount); which months' notes on this month's world you've
   opened (the month only); whether you've turned on the Trail Conditions email
   (when you turned it on, and the week it was last sent); the rule of thumb you
   picked on Pay yourself (which rule - never an amount); what you choose to bring
@@ -559,8 +572,8 @@ and it leaves your view when they untick it or the relationship ends.
   what you choose to paste, upload, type in or photograph.
 - **Who can see it:** you, and - if your account is managed by an advisor -
   that advisor. Your notes to future you, monthly walks, account map, Lost &
-  Found list, Trail Forks, Inheritance Rehearsal, drills, seasonal notes, the
-  Learn topics you've explained back and the rule of thumb you picked on Pay
+  Found list, Trail Forks, Inheritance Rehearsal, drills, practice challenges,
+  seasonal notes, the Learn topics you've explained back and the rule of thumb you picked on Pay
   yourself stay yours alone. Where Bring to my advisor is
   offered, you can tick some of them to show your advisor; unticking takes them
   out of their view at once. Where introductions are offered, an advisor you

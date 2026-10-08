@@ -190,6 +190,16 @@ FEATURES = {
     # once reviewed_by / reviewed_on are set. The login's own only, never the AI.
     # The Trail Conditions email checks on("month_world") for its fixed line.
     "month_world": {"gates": (), "view": "month_world"},
+    # This month's practice challenge (challenges.py, views/challenges.py):
+    # practice money on real past prices already in daily_bars, a month at a
+    # time, scored only on following the rule the person picked - never on
+    # what the money made, no leaderboard. A card in Home's This month column
+    # and the full challenge under Learn's practice money. Education with
+    # pretend money and kinds of funds (no gate, like the practice portfolio).
+    # The person's own only: never for an advisor's client or an advisor in a
+    # client's account. views/dashboard_page.py, views/start_home.py and
+    # views/get_started.py check on("challenges").
+    "challenges": {"gates": (), "view": "challenges"},
     # Trail Conditions (ROADMAP "The weekly rhythm", Phase C; trail_conditions.py):
     # an opt-in Monday email, off by default (Account > Trail Conditions, the
     # login's own switch; views/account.py checks on("trail_conditions")).

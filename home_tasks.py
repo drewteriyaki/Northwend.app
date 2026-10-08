@@ -2,7 +2,8 @@
 put away (views/dashboard_page.py).
 
 Each suggestion on Home's right-hand column (the route's next step, the mix
-against its target, the money checks, the drill, the kit, the news) can be
+against its target, the money checks, the drill, the practice challenge, the kit, the
+news) can be
 marked Done or put away with Not now. Both last until the period ends - the
 month for most, the week for the drill and the news - and then it comes back.
 What's kept, in the login's own settings (prefs key PREF), is only the
@@ -26,6 +27,7 @@ TASKS = {
     "mix": (MONTH, True),
     "checks": (MONTH, True),
     "drill": (WEEK, False),
+    "challenge": (MONTH, False),
     "kit": (MONTH, False),
     "news": (WEEK, False),
 }
@@ -40,7 +42,8 @@ BRING_BACK = "Bring them back"
 
 # what a put-away suggestion is called in the line above
 NAMES = {"route": "your next step", "mix": "your mix", "checks": "money checks",
-         "drill": "this week's drill", "kit": "your kit", "news": "news"}
+         "drill": "this week's drill", "challenge": "the practice challenge",
+         "kit": "your kit", "news": "news"}
 
 # the mix card (fixed words; percentages only)
 MIX_TITLE = "Your mix"

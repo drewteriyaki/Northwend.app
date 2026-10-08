@@ -288,6 +288,8 @@ def _render_this_month(alloc):
         if INVESTOR_VIEW:
             if flags.on("drills") and _drill_shown():
                 _month_task("drill", render_drill_card)   # this week's drill (views/drills.py)
+            if flags.on("challenges") and _ch_shown() and _ch_month_key():
+                _month_task("challenge", render_challenge_card)   # views/challenges.py
             # fee check, fund overlap and cash check in one card (views/cash_check.py)
             _checks = money_check_rows()
             if _checks:

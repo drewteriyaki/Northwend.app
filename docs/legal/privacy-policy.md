@@ -83,6 +83,10 @@ account, contact us and we will delete it.
 - Where preparedness drills are offered, the ones you've rehearsed: which
   situations, which of the offered choices you tapped, the week and how many
   times - nothing you type, and never an amount. Only you see what you tapped.
+- Where the practice challenge is offered, the challenges you've tried: which
+  one, the rule you picked, how far you got, which of the offered choices you
+  picked each month and the day you finished - nothing you type, and never an
+  amount. It uses pretend money only, and only you see it.
 - Where this month's world is offered, which months' notes you've opened - the
   month only. The note is the same for everyone; your mix only picks which of
   its lines you see, and it isn't sent to the AI.
@@ -208,7 +212,7 @@ It is shared only as needed to run the service, with:
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
 list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills,
-the seasonal notes you've opened or put away, the topics you've explained back
+your practice challenges, the seasonal notes you've opened or put away, the topics you've explained back
 on Learn and the rule of thumb you picked on Pay yourself,
 which only you see - unless you choose to bring some of them to your advisor
 (below). The account map is never emailed, and its PDF is only downloaded by

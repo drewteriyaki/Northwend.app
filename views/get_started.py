@@ -742,6 +742,7 @@ def _step_practice(mix, plan, profile, value):
             # nothing new came back (the price source unreachable, or busy):
             # say so after the rerun instead of leaving the button as it was
             st.session_state["gs_prices_failed"] = got <= before
+            st.session_state.pop("ch_points", None)   # the challenges read them again
             st.rerun()
         if not first:
             return
@@ -1340,6 +1341,8 @@ def _render_get_started(has_holdings, value):
             _step_mix(mix, profile, plan)
         elif at == "practice":
             _step_practice(mix, plan, profile, value)
+            if flags.on("challenges"):
+                render_challenges()   # this month's practice challenge (views/challenges.py)
         elif at == "brokerage":
             _step_brokerage()
         elif at == "account":

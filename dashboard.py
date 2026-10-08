@@ -2664,6 +2664,8 @@ _view("checkin")
 _view("drills")
 # ...and inside its card, this month's world, flag month_world (month_world.py)
 _view("month_world")
+# Home and Learn: this month's practice challenge, flag challenges (challenges.py)
+_view("challenges")
 
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)
 _view("fees")

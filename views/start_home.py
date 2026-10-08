@@ -158,6 +158,8 @@ def _render_start_home():
     render_kit_card(None)      # milestones and gear: learning counts too (views/kit.py)
     if flags.on("drills"):
         render_drill_card()    # this week's drill - no mix needed (views/drills.py)
+    if flags.on("challenges"):
+        render_challenge_card()   # this month's practice challenge (views/challenges.py)
     check_milestones(None)
 
 

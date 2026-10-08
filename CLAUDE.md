@@ -222,6 +222,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Home under Your kit, one drill a week, taps are things to weigh - never trades, never
   graded; the readiness map; prefs `drills` keys only; the whistle in `gear.py`; never
   in a client's account, the client record or the AI; wording test in `tests/test_drills.py`).
+  `challenges.py` + `views/challenges.py` (This month's practice challenge, flag `challenges`:
+  a card in Home's This month and the full one under Learn's practice money; pretend money on
+  the practice stand-ins' prices already in `daily_bars` - nothing fetched, a challenge whose
+  months aren't there is "not ready yet"; the person picks a rule (% stocks, 5-point band),
+  scored only on following it, no leaderboard; prefs `challenges` keys, step, answer keys and
+  day only; never CLIENT_MODE or an advisor in a client's account; pure module, kinds not tickers).
   `month_world.py` + `views/month_world.py` (This month's world, flag `month_world`: one
   line in the drill card; `NOTES` are the owner's hand-written, L3-reviewed notes - ships
   empty; shown in its month and the next, only with `reviewed_on`, only while

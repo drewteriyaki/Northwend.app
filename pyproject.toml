@@ -74,6 +74,7 @@ py-modules = [
     "price_report",   # when a price is from, and "Price look wrong?" (PLAN G8)
     "sealed_envelope",   # the Sealed Envelope: the storm drill answer as a PDF
     "drills",   # preparedness drills, one a week (ROADMAP R12)
+    "challenges",   # this month's practice challenge (practice money, past prices)
     "month_world",   # this month's world, for your mix: the owner's monthly notes (ROADMAP Phase C)
     "trail_conditions",   # Trail Conditions, the opt-in Monday email (ROADMAP Phase C)
     "pay_yourself",   # Pay yourself: savings as a monthly paycheck (ROADMAP R11)
