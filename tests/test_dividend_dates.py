@@ -390,10 +390,18 @@ class JobTests(_DB):
 # --------------------------------------------------------------------------- #
 # in the app
 # --------------------------------------------------------------------------- #
+def _repo_modules():
+    """The repo's own modules as loaded now (dashboard.py's codefresh may
+    reload them; restored afterwards, as tests/test_weekly.py does)."""
+    return {n: m for n, m in sys.modules.items()
+            if os.path.dirname(os.path.abspath(getattr(m, "__file__", None) or "")) == REPO}
+
+
 class AppTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.modules = _repo_modules()
         cls.dir = tempfile.mkdtemp(prefix="pt_divdates_app_")
         cls.db = os.path.join(cls.dir, "app.db")
         portfolio._SCHEMA_READY.discard(os.path.abspath(cls.db))
@@ -420,6 +428,7 @@ class AppTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        sys.modules.update(cls.modules)   # the app's code reload doesn't outlive these tests
         shutil.rmtree(cls.dir, ignore_errors=True)
 
     @classmethod
@@ -517,6 +526,8 @@ c.close()
     def _panel(self, env):
         from streamlit.testing.v1 import AppTest
         import admin
+        mods = _repo_modules()
+        self.addCleanup(sys.modules.update, mods)
         uid = auth.create_user(self.conn, f"boss{len(env)}", "pw-boss-123")
         admin.set_admin(self.conn, f"boss{len(env)}", True)
         keep = {k: v for k, v in os.environ.items()

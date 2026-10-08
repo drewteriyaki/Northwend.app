@@ -414,7 +414,7 @@ def templates() -> list[str]:
             MOVERS_NONE, GOAL_LINE.format(name="Retirement", start="41%", end="42%"),
             NEWS_LEAD, NEWS_NOTE, WEEK_FOOT, AHEAD_TITLE, AHEAD_WHY,
             AHEAD_SPAN.format(start="Mon, Oct 5", end="Sun, Oct 11"),
-            PAY_ITEM.format(ticker="VTI"), EX_ITEM.format(ticker="SCHD"),
+            PAY_ITEM.format(ticker="VTI"), EX_ITEM.format(ticker="VTI"),
             EARN_ITEM.format(ticker="AAPL"), BROKER_FILE.format(date="Fri, Oct 2"),
             *dividend_dates.SOURCE_WORDS.values(), HOLDING_SOURCE, AHEAD_NONE,
             CAL_LEAD, CAL_NOTE.format(checked=CALENDAR_CHECKED), AHEAD_FOOT,
