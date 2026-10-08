@@ -127,7 +127,8 @@ pasted text and screenshots are not kept. Clients can also use an example or
   Inheritance Rehearsal (the practice run's steps they've walked through), their
   preparedness drills (what they tapped), the seasonal notes they've opened or
   put away, the Learn topics they've explained back
-  (whether each held), the rule of thumb they picked on Pay
+  (whether each held), the days they did today's minute, the rule of thumb they
+  picked on Pay
   yourself (you can look at the same picture with a rule you pick; yours isn't
   saved) and
   their share links. A client whose account you manage can't make share links,

@@ -654,6 +654,24 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-month-title { font-family: Newsreader, Georgia, serif; font-size: 1.4rem;
   font-weight: 500; line-height: 1.2; }
 .pt-month-card-title { font-weight: 600; margin-bottom: .2rem; }
+/* Today's minute: a deep blue top with the count and the week's marks */
+.st-key-pt_minute { gap: .45rem; }
+.pt-mm-head { background: #132a3e; color: #ffffff; border-radius: 12px;
+  padding: .7rem .8rem .6rem; display: flex; flex-direction: column; gap: .45rem; }
+.pt-mm-top { display: flex; justify-content: space-between; align-items: center;
+  gap: .5rem; flex-wrap: wrap; }
+.pt-mm-title { font-family: Newsreader, Georgia, serif; font-size: 1.2rem; font-weight: 500; }
+.pt-mm-count { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem;
+  font-weight: 600; color: #f2bd57; }
+.pt-mm-marks { display: flex; gap: 5px; }
+.pt-mm-mark { flex: 1; height: 6px; border-radius: 3px; background: #2c4660; }
+.pt-mm-mark.pt-mm-done { background: #f0b23c; }
+.pt-mm-mark.pt-mm-open { background: #4d6a86; }
+.pt-mm-mark.pt-mm-today { background: #3987e5; }
+.pt-mm-week { font-size: .75rem; color: #c9d6e2; }
+.pt-mm-kind { font-size: .78rem; font-weight: 600; color: var(--pt-link); }
+.pt-mm-next { font-size: .8rem; color: var(--pt-ink-muted); text-align: center; }
+.st-key-pt_mm_note { background: var(--pt-sunken); border-color: transparent !important; }
 /* each card in This month: a hairline edge; a card drawn inside a Done /
    Not now wrapper (pt_task_*) gives its edge to the wrapper */
 .st-key-pt_month_cards [data-testid="stVerticalBlock"][class*="st-key-pt_"]:not([class*="st-key-pt_tfoot_"]) {
@@ -2724,6 +2742,10 @@ _view("weekly")
 # Teach It Back (flag teach_back): "Explain it back in your own words" in
 # Learn's basics window - defined here, drawn by views/get_started.py
 _view("teach_back")
+# Today's minute (flag money_minute): one small card a day at the top of Home's
+# This month column - defined here, drawn by views/dashboard_page.py and
+# views/start_home.py (money_minute.py)
+_view("money_minute")
 
 # a new investor's first steps, one screen at a time (Get started shows it)
 _view("first_steps")

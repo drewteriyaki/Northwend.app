@@ -40,9 +40,10 @@ def _tb_later(text):
     return text if text.endswith(teach_back.COME_BACK) else f"{text} {teach_back.COME_BACK}"
 
 
-def _tb_send(key):
+def _tb_send(key, after=None):
     """Check my explanation: scrub, ask the grader, keep held / not yet and
-    the day. The words stay in the box (session state) only."""
+    the day. The words stay in the box (session state) only. `after(key)`
+    runs once a verdict is in (Today's minute counts its day)."""
     if not _tb_shown() or key not in teach_back.CONCEPTS:
         return
     text = (st.session_state.get(f"tb_text_{key}") or "").strip()
@@ -73,6 +74,8 @@ def _tb_send(key):
     if teach_back.record(p, key, result["verdict"] == teach_back.HOLDS, datetime.now().date()):
         _write_prefs(p)
     st.session_state[_tb_result_key(key)] = result
+    if after is not None:
+        after(key)
 
 
 def _tb_again(key):
@@ -81,12 +84,15 @@ def _tb_again(key):
     st.session_state[f"tb_text_{key}"] = ""
 
 
-def render_teach_back(key):
-    """The box under one basics topic (Learn's basics window)."""
+def render_teach_back(key, after=None, compact=False):
+    """The box under one basics topic (Learn's basics window). `compact`:
+    inside a card that has its own title (Today's minute, views/money_minute.py),
+    with `after(key)` run once a verdict is in."""
     if not _tb_shown() or key not in teach_back.CONCEPTS:
         return
-    st.divider()
-    st.markdown(f"**:material/record_voice_over: {teach_back.BOX_LABEL}**")
+    if not compact:
+        st.divider()
+        st.markdown(f"**:material/record_voice_over: {teach_back.BOX_LABEL}**")
     if teach_back.state(_read_prefs()).get(key, {}).get("held"):
         st.caption(teach_back.HELD_BEFORE)
     res = st.session_state.get(_tb_result_key(key)) or {}
@@ -108,5 +114,5 @@ def render_teach_back(key):
     if res.get("note"):
         st.info(res["note"], icon=":material/schedule:")
     st.button(teach_back.SEND_LABEL, key=f"tb_send_{key}", icon=":material/fact_check:",
-              on_click=_tb_send, args=(key,))
+              on_click=_tb_send, args=(key, after))
     st.caption(teach_back.ABOUT)

@@ -271,6 +271,9 @@ def _render_this_month(alloc):
     """Home's right-hand column (a row of cards across on a phone)."""
     today = home_tasks.today()
     st.html(f"<div class='pt-month-title'>{home_tasks.TITLE}</div>")
+    if INVESTOR_VIEW and flags.on("money_minute") and _minute_shown():
+        # today's minute, above the row of cards: first on a phone (views/money_minute.py)
+        _month_task("minute", render_minute_card)
     with st.container(key="pt_month_cards", gap="small"):
         render_weather()                      # a storm note while well below the high (T4)
         if INVESTOR_VIEW:

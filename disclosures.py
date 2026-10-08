@@ -344,6 +344,15 @@ Each statement about data here must stay true to the code:
   gateway keeps token counts only). The login's own: never drawn while an
   advisor is in a client's account, not in an advisor's client record. In the
   person's own export (settings).
+- Today's minute (money_minute.py, views/money_minute.py, flag money_minute):
+  one small card a day on Home from a fixed library, the same for everyone
+  (a drill's situation, a quick question, a myth or fact; once a week a Teach
+  It Back topic, which sends and keeps only what Teach It Back always does).
+  Kept in the login's own settings (prefs money_minute: the days a card was
+  answered, as ISO dates, and the ids of the cards answered - never what was
+  tapped, never free text). Never drawn or written while an advisor is in a
+  client's account, not in an advisor's client record, never sent to the AI;
+  no reminders. In the person's own export (settings).
 - The Client-Owned Book (client_book.py, views/client_book.py, flag
   client_owned_book and gate L2 - off, so none of this shows until the
   lawyer's L2 review): no new table. A client signed in as themselves may
@@ -496,7 +505,7 @@ to them (not ones you mark private); you can see everything in their account
 except what's theirs alone: their notes to future you, their monthly walks,
 their account map, their Lost & Found list, their Trail Forks, their Inheritance
 Rehearsal, their preparedness drills, their practice challenges, the seasonal
-notes they've opened or put away, the Learn topics they've explained back and the rule of thumb they picked on
+notes they've opened or put away, the Learn topics they've explained back, the days they did today's minute and the rule of thumb they picked on
 Pay yourself.
 Where Bring to my advisor is offered, a client can choose to show you some of
 those: you then see only what they tick, dated and marked as shared by them,
@@ -533,7 +542,8 @@ and it leaves your view when they untick it or the relationship ends.
   to your advisor (which items and the day you shared each - nothing you type);
   and the Learn topics you've
   explained back with Teach It Back (whether each held and the day - never your
-  words). If you created your
+  words); and for today's minute, the days you did one and which cards you've
+  answered (never what you tapped). If you created your
   account yourself, or added an email on the Account page, also
   your email address - used only to sign in and to send you account emails
   (confirming the address, resetting your password; for advisors, an optional
@@ -573,7 +583,7 @@ and it leaves your view when they untick it or the relationship ends.
 - **Who can see it:** you, and - if your account is managed by an advisor -
   that advisor. Your notes to future you, monthly walks, account map, Lost &
   Found list, Trail Forks, Inheritance Rehearsal, drills, practice challenges,
-  seasonal notes, the Learn topics you've explained back and the rule of thumb you picked on Pay
+  seasonal notes, the Learn topics you've explained back, your days of today's minute and the rule of thumb you picked on Pay
   yourself stay yours alone. Where Bring to my advisor is
   offered, you can tick some of them to show your advisor; unticking takes them
   out of their view at once. Where introductions are offered, an advisor you

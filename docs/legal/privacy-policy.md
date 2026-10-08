@@ -101,6 +101,8 @@ account, contact us and we will delete it.
 - Where Teach It Back is offered, for each topic in Learn's basics you explain
   back in your own words: whether your explanation held, and the day - never
   your words. Only you see it.
+- Where today's minute is offered, the days you did one and which cards you've
+  answered - never what you tapped. Only you see it.
 - Your investing-profile answers (goals, timeline, comfort with risk, age range,
   emergency savings, debt, employer match and similar).
 - Short notes the AI guide saves between conversations, listed on your Account
@@ -213,7 +215,7 @@ Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
 list, your Trail Forks, your Inheritance Rehearsal, your preparedness drills,
 your practice challenges, the seasonal notes you've opened or put away, the topics you've explained back
-on Learn and the rule of thumb you picked on Pay yourself,
+on Learn, your days of today's minute and the rule of thumb you picked on Pay yourself,
 which only you see - unless you choose to bring some of them to your advisor
 (below). The account map is never emailed, and its PDF is only downloaded by
 you. You see your own portfolio, plan and the notes your advisor shares with

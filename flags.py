@@ -290,6 +290,18 @@ FEATURES = {
     # The person's own only - never while an advisor is in a client's account.
     # views/get_started.py checks on("teach_back").
     "teach_back": {"gates": (), "view": "teach_back"},
+    # Today's minute (money_minute.py, views/money_minute.py): one small card a
+    # day at the top of Home's This month column (first on a phone) and on Home
+    # before anything is invested - a drill's situation (drills.py's words, tap
+    # what you'd weigh, never graded), a quick question with its answer
+    # explained, a myth or fact, and once a week Teach It Back (its own AI
+    # check and allowance, only while `teach_back` is on). A fixed library, the
+    # same for everyone, official links only; no tickers, forecasts or trades.
+    # A count of days of learning that only grows. Kept: the days answered and
+    # the card ids, keys only. Education (LEGAL_GATES.md section 6): no gate.
+    # The person's own only - never while an advisor is in a client's account.
+    # views/dashboard_page.py and views/start_home.py check on("money_minute").
+    "money_minute": {"gates": (), "view": "money_minute"},
     # The glossary's AI fallback (AI_PLAN section 9 row 5; glossary_ai.py): a
     # "Look up another word" box under Learn's A-Z glossary. A word the
     # glossary has shows its own text; any other goes to the AI as the term

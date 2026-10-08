@@ -110,6 +110,16 @@ class PageQueryTests(unittest.TestCase):
         self.assertLessEqual(queries, HOME_QUERIES)
         self.assertLessEqual(connections, HOME_CONNECTIONS)
 
+    def test_home_with_todays_minute_adds_no_queries(self):
+        # Today's minute (flag money_minute) reads only the settings already
+        # read for the page; it writes only when a card is answered
+        plain = self._count(self.alice, "alice", "Dashboard")
+        with unittest.mock.patch.dict(os.environ, {"NORTHWEND_FLAGS": "money_minute"}):
+            queries, connections = self._count(self.alice, "alice", "Dashboard")
+        self.assertLessEqual(queries, plain[0])
+        self.assertLessEqual(connections, plain[1])
+        self.assertLessEqual(queries, HOME_QUERIES)
+
     def test_the_login_row_is_read_once_a_run(self):
         # the two-step gate's read, handed on to the password check, the email
         # notice and Ask Northwend's allowance (views/two_step.py _gate_read)

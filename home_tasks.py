@@ -1,11 +1,11 @@
 """Home's "This month" column: which suggestions the person marked done or
 put away (views/dashboard_page.py).
 
-Each suggestion on Home's right-hand column (the route's next step, the mix
-against its target, the money checks, the drill, the practice challenge, the kit, the
-news) can be
-marked Done or put away with Not now. Both last until the period ends - the
-month for most, the week for the drill and the news - and then it comes back.
+Each suggestion on Home's right-hand column (today's minute, the route's next
+step, the mix against its target, the money checks, the drill, the practice
+challenge, the kit, the news) can be marked Done or put away with Not now. Both
+last until the period ends - the month for most, the week for the drill and the
+news, the day for today's minute - and then it comes back.
 What's kept, in the login's own settings (prefs key PREF), is only the
 suggestion's key, the period's id and "done" or "away": never a figure, a
 ticker or any words. Cards that already keep their own state (the monthly
@@ -19,10 +19,11 @@ from datetime import date, datetime
 
 PREF = "home_tasks"
 DONE, AWAY = "done", "away"
-MONTH, WEEK = "month", "week"
+MONTH, WEEK, DAY = "month", "week", "day"
 
 # key: (period kind, Done offered too). The words on the buttons are fixed.
 TASKS = {
+    "minute": (DAY, False),
     "route": (MONTH, True),
     "mix": (MONTH, True),
     "checks": (MONTH, True),
@@ -41,7 +42,7 @@ PUT_AWAY_LINE = "Put away for now: {names}. They come back next time."
 BRING_BACK = "Bring them back"
 
 # what a put-away suggestion is called in the line above
-NAMES = {"route": "your next step", "mix": "your mix", "checks": "money checks",
+NAMES = {"minute": "today's minute", "route": "your next step", "mix": "your mix", "checks": "money checks",
          "drill": "this week's drill", "challenge": "the practice challenge",
          "kit": "your kit", "news": "news"}
 
@@ -67,7 +68,10 @@ def today() -> date:
 
 
 def period_id(kind: str, d: date) -> str:
-    """'2026-10' for a month, '2026-W41' for an ISO week."""
+    """'2026-10' for a month, '2026-W41' for an ISO week, '2026-10-07' for a
+    day."""
+    if kind == DAY:
+        return d.isoformat()
     if kind == WEEK:
         y, w, _ = d.isocalendar()
         return f"{y}-W{w:02d}"

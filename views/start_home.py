@@ -155,6 +155,8 @@ def _render_start_home():
                 st.button(":material/upload_file: Upload a CSV", key="start_import",
                           on_click=_open_holdings_dialog, args=("import",))
 
+    if flags.on("money_minute"):
+        render_minute_card(where="start")   # today's minute (views/money_minute.py)
     render_kit_card(None)      # milestones and gear: learning counts too (views/kit.py)
     if flags.on("drills"):
         render_drill_card()    # this week's drill - no mix needed (views/drills.py)
@@ -224,6 +226,8 @@ def _render_client_home(preview=False):
         st.button(f"Open {_label('Get started')}", key="client_learn", type="tertiary",
                   on_click=_start_go, args=(("learn", "basics"),))
     if not preview:
+        if flags.on("money_minute"):
+            render_minute_card(where="start")   # today's minute (views/money_minute.py)
         render_kit_card(None)      # learning and habits only (views/kit.py)
         if flags.on("drills"):
             render_drill_card()    # this week's drill (views/drills.py)

@@ -36,6 +36,15 @@ ENTRIES = [
                   "practice money, and earlier challenges can be tried again.",
           "flag": "challenges"},
      ]},
+    {"date": "2026-10-07", "title": "Today's minute",
+     "items": [
+         {"text": "Home has a small card each day that takes about a minute: a \"what would "
+                  "you do?\" situation, a quick question about how investing works, or a myth "
+                  "or fact - and once a week, a topic from Learn to explain back in your own "
+                  "words. It counts the days you've learned something, and a missed day "
+                  "never takes anything away. What you tap isn't saved, only that you did "
+                  "one that day.", "flag": "money_minute"},
+     ]},
     {"date": "2026-10-07", "title": "Home in three parts",
      "items": [
          "Home is laid out in three parts on bigger screens: your chart and holdings in the "
