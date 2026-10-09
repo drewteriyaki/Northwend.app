@@ -46,13 +46,13 @@ PAGES = {
     # output file: (template, title, description, path on the site)
     "index.html": ("home.html", "Northwend · A calm guide for people new to investing",
                    "A free guide for people new to investing: learn the basics, practice with "
-                   "pretend money, and follow what you own at any brokerage - no brokerage "
-                   "login, nothing to sell you.",
+                   "pretend money, and follow what you own at any brokerage, without a "
+                   "brokerage login.",
                    "/"),
     "new-to-investing.html": ("new-to-investing.html", "New to investing? Start here · Northwend",
                               "Never invested before? Learn the basics in short steps, try it "
                               "with practice money, then open an account and make a first "
-                              "investment - with a guide that never sells you anything.",
+                              "investment, at your own pace.",
                               "/new-to-investing"),
     "advisors.html": ("advisors.html", "For financial advisors · Northwend",
                       "Bring your clients along: setup links, one view of every client, "

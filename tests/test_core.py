@@ -4841,7 +4841,7 @@ class WebsiteTests(unittest.TestCase):
         self.assertIn('<body class="page-home">', home)        # the deep blue band (E2)
         self.assertIn('class="hero-band"', home)
         self.assertIn('class="band-hills"', home)
-        self.assertIn(f'href="{self.site.SIGNUP_URL}">Start free</a>', home)
+        self.assertIn(f'href="{self.site.SIGNUP_URL}">Get started</a>', home)
         self.assertIn("18 or older", home)
         # the drawings of the app are labelled as made-up figures
         self.assertGreaterEqual(home.count("Sample figures"), 2)
