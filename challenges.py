@@ -50,10 +50,10 @@ CHOICES = (REBALANCE, DEPOSITS, SELL, NOTHING)
 # months it runs after that; every: months between checks; initial and
 # monthly: pretend dollars.
 CHALLENGES = (
-    {"key": "y2008", "title": "Ride out 2008 with your plan", "start": "2007-07",
+    {"key": "y2018", "title": "The two drops of 2018", "start": "2017-10",
      "months": 24, "every": 1, "initial": 10000, "monthly": 100,
-     "about": "A pretend $10,000 in mid-2007, plus $100 a month, through two years of real "
-              "past prices, one month at a time."},
+     "about": "A pretend $10,000 in late 2017, plus $100 a month, through two years that held "
+              "two sharp drops in 2018, one month at a time."},
     {"key": "y2020", "title": "The sudden drop of 2020", "start": "2019-07",
      "months": 24, "every": 1, "initial": 10000, "monthly": 100,
      "about": "A pretend $10,000 in mid-2019, plus $100 a month, through two years that held "
@@ -350,13 +350,13 @@ def templates() -> list[str]:
     out = [EYEBROW.format(month="October"), CHART_LABEL, PICK_TITLE, PICK_HELP,
            RULE_LINE.format(pct=70, every="monthly"), RULE_BAND.format(band=BAND, pct=70),
            QUESTION.format(now=58), STEP_LINE.format(unit_cap="Month", at=14, total=24,
-                                                     when="March 2009"),
+                                                     when="March 2019"),
            SAID_MOVE.format(pts=12, pct=70), SAID_STAY.format(band=BAND, pct=70),
            YOU_FOLLOWED, YOU_DIDNT, SCORED_TITLE, SCORED,
            FOLLOWED.format(n=12, m=13, unit="months"), NOT_STARTED,
            FINISHED.format(day="Oct 7, 2026"), ENDS.format(day="Oct 31"),
            NEXT.format(title=CHALLENGES[-1]["title"]),
-           NOT_READY.format(first="Jul 2007", last="Jul 2009"), NONE_READY,
+           NOT_READY.format(first="Oct 2017", last="Oct 2019"), NONE_READY,
            mix_line(),
            FOOTER, CARD_OPEN, CARD_GO_ON, AGAIN, START, OTHERS, SECTION, NOT_READY_TAG]
     out += [RULE_WORDS.format(pct=v) for v in RULES.values()]

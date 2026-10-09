@@ -148,7 +148,7 @@ class DataTests(unittest.TestCase):
     def test_unavailable_when_a_month_is_missing(self):
         pts = ch.monthly_points(_prices())
         self.assertEqual(ch.available_keys(pts), ["y2020", "y2022", "first100"])
-        self.assertFalse(ch.available(ch.BY_KEY["y2008"], pts))   # 2007 isn't there
+        self.assertFalse(ch.available(ch.BY_KEY["y2018"], pts))   # 2017 isn't there
         gap = _prices()
         gap[ch.BONDS] = [r for r in gap[ch.BONDS] if not r[0].startswith("2020-03")]
         self.assertNotIn("y2020", ch.available_keys(ch.monthly_points(gap)))
@@ -385,14 +385,14 @@ class AppTests(unittest.TestCase):
             c2.close()
         # not ready: marked, and it can't be started
         with self._app(self.bea, "bea", page="Get started", gs_at="practice", fs_hide=True,
-                       ch_pick="y2008", ch_picked=True) as at:
+                       ch_pick="y2018", ch_picked=True) as at:
             text = self._text(at)
             self.assertIn("Not ready yet", text)
-            self.assertNotIn("ch_start_y2008", [b.key for b in at.button])
+            self.assertNotIn("ch_start_y2018", [b.key for b in at.button])
         # not chosen by them: the pick moves to this month's ready one
         with self._app(self.bea, "bea", page="Get started", gs_at="practice", fs_hide=True,
-                       ch_pick="y2008") as at:
-            self.assertNotEqual(at.selectbox(key="ch_pick").value, "y2008")
+                       ch_pick="y2018") as at:
+            self.assertNotEqual(at.selectbox(key="ch_pick").value, "y2018")
             self.assertNotIn("Not ready yet", self._text(at))
 
     def test_never_for_an_advisors_client_or_an_advisor_in_her_account(self):
