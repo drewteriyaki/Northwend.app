@@ -66,11 +66,14 @@ class LimitTests(unittest.TestCase):
     def test_the_limits_are_generous_named_and_all_there(self):
         self.assertEqual(set(rate_limits.LIMITS), {rate_limits.UPLOAD, rate_limits.SAVE,
                                                    rate_limits.EXPORT, rate_limits.INVITE,
-                                                   rate_limits.NUDGE, rate_limits.FEEDBACK})
+                                                   rate_limits.NUDGE, rate_limits.FEEDBACK,
+                                                   rate_limits.NEW_LINK})
         self.assertEqual(set(rate_limits.LABELS), set(rate_limits.LIMITS))
         for action, (per_hour, per_day) in rate_limits.LIMITS.items():
-            if action == rate_limits.FEEDBACK:
-                # each one is an email to the team: a handful, then wait (feedback.py)
+            if action in (rate_limits.FEEDBACK, rate_limits.NEW_LINK):
+                # each feedback is an email to the team (feedback.py); a new
+                # invite link is needed now and then (invite_links.py): a
+                # handful, then wait
                 self.assertEqual((per_hour, per_day), (5, 20))
                 continue
             self.assertGreaterEqual(per_hour, 20, action)    # nobody really gets near
@@ -152,6 +155,8 @@ class LimitTests(unittest.TestCase):
         for name in ("views/profile.py", "views/reports.py", "views/proposals.py"):
             self.assertEqual(src(name).count("_limit_ok(rate_limits.EXPORT)"), 1, name)
         self.assertIn("_limit_ok(rate_limits.EXPORT)", src("dashboard.py"))   # my data ZIP
+        self.assertEqual(src("views/invite_friend.py").count("_limit_ok(rate_limits.NEW_LINK)"),
+                         1)   # Invite someone's "Make a new link"
 
 
 class _App(unittest.TestCase):

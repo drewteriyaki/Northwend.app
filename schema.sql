@@ -873,3 +873,16 @@ CREATE TABLE IF NOT EXISTS together_pairs (
     UNIQUE (user_id, partner_id)
 );
 CREATE INDEX IF NOT EXISTS idx_together_pairs_partner ON together_pairs (partner_id);
+-- Invite someone (invite_links.py, views/invite_friend.py): each login's own
+-- link to share with friends (?invite=<code>). The code isn't a secret - it
+-- only says a friend sent it - so it's kept as is, to be looked up on arrival.
+-- joined is a count of accounts made through this person's links, nothing
+-- more: which account came through which link is never kept. "Make a new
+-- link" replaces the code and keeps the count. Deleted with the account
+-- (admin.ACCOUNT_TABLES); in the person's own export.
+CREATE TABLE IF NOT EXISTS invite_links (
+    user_id     INTEGER PRIMARY KEY,             -- the login whose link it is
+    code        TEXT    NOT NULL UNIQUE,         -- 10 characters, invite_codes.ALPHABET
+    created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    joined      INTEGER NOT NULL DEFAULT 0       -- accounts made through it - a count only
+);

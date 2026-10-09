@@ -133,6 +133,10 @@ account, contact us and we will delete it.
   link you made that hasn't been answered yet (only a scrambled version of it);
   and, like the other records of sharing, the words each of you agreed to and
   when.
+- Your "Invite someone" link, once you open it: its code, when you made it and
+  how many people made an account through your links - a count only. We don't
+  keep which account came through which link, so neither you nor we can see
+  who joined.
 
 You don't have to use real numbers: an example portfolio and a "percentages only"
 mode work without any.
@@ -292,6 +296,18 @@ seeing anything. You can pair up with up to 3 people. It isn't offered to
 advisors, to the person running Northwend, or while an advisor manages your
 account.
 
+**Invite someone.** While sign-up is open, the menu under your name has a link
+of your own to share with friends, however you like. Northwend doesn't email
+anyone or ask for anyone's address. Someone who opens your link sees the usual
+sign-up page with one line, "A friend invited you to Northwend" - never your
+name or email - and signs up exactly as anyone else does. We keep your link's
+code and how many accounts were made through your links, and you see that
+number; we don't keep which account came through which link, so no one can
+see who joined. There are no rewards for inviting. You can make a new link at
+any time (the old one then opens the plain sign-up), and your link is deleted
+with your account - the accounts made through it stay theirs. It isn't
+offered while an advisor is working in a client's account.
+
 **Who has looked at your account.** Each time an advisor opens a page in a
 client's account, Northwend records who, which page and when - never what was on
 the page or any figure - and the client sees the list on their Account page ("Who
@@ -414,6 +430,7 @@ you delete it.
 | How often share links were opened from one internet address (a hash of the address, never the address or the link) | 1 day |
 | Doing it together invitation links (stored only as hashes), where offered | 7 days, or until used or cancelled; then deleted |
 | Doing it together pairings (who, since when, the last nudge), where offered | Until either of you stops sharing or deletes your account; the records of both yeses and of the end are kept like the other records of sharing, below |
+| Your Invite someone link (its code, when you made it, how many joined - never who) | Until you make a new one or delete your account |
 | Unsubscribe links in reminder emails | 1 year |
 | Minute-by-minute prices (no personal data) | 1 week, then one closing price a day |
 | Daily prices and fund details (no personal data) | Kept |
@@ -434,8 +451,9 @@ you delete it.
   advisor, or us.
 - **Download:** the Account page's "Export everything" downloads everything held for
   your account as spreadsheet (CSV) files, including the sharing and "who has
-  looked" records, any introductions you sent or received, and the share links
-  you made (not the links themselves). Passwords, sign-in tokens, internet
+  looked" records, any introductions you sent or received, the share links
+  you made (not the links themselves) and your Invite someone link with its
+  count. Passwords, sign-in tokens, internet
   address hashes, advisors' private notes and other accounts' data aren't included.
 - **Delete holdings:** the Account page deletes all your holdings, cash, activity
   and value history (your goals, answers, notes and settings stay).

@@ -412,6 +412,18 @@ Each statement about data here must stay true to the code:
   a week per person per partner, inside rate_limits (invite, nudge). Never
   sent to the AI, never in an advisor's client record; in the person's own
   export without the hash or the partner's id.
+- Invite someone (invite_links.py, views/invite_friend.py): the name menu's
+  window, every login on their own account while sign-up is open (gate L0
+  on) - never an advisor in a client's account. Table invite_links: one row
+  per login - the code (10 characters, kept as is: it opens only the usual
+  sign-up), when it was made and joined, a count of accounts made through
+  it. Nothing records which account came through which link; the sign-up
+  page says only "A friend invited you" - never the inviter's name or email.
+  Northwend sends nothing to the friend and collects no addresses. "Make a
+  new link" replaces the code, keeps the count (rate_limits new_link). Admin
+  sees one total (invite_links.total_joined), never names. Deleted with the
+  account (the accounts made through it stay); in the person's own export;
+  never sent to the AI, never in an advisor's client record.
 Change this text when any of those change.
 
 Plain text, no "$" (Streamlit would read a pair of them as math).
@@ -659,7 +671,10 @@ and it leaves your view when they untick it or the relationship ends.
   month's walk is done and wins earned - and your first name if you've given
   one, never an amount, a holding, a goal or an account; either of you can
   stop at any time, and only someone who has said yes on their own account
-  sees anything. To look
+  sees anything. Invite someone gives you a link of your own to share;
+  someone who opens it sees only "A friend invited you" - never your name or
+  email - and Northwend keeps only your link and how many people joined with
+  it, never who. To look
   after accounts, the person who runs Northwend can see
   login details (your email or username, your role, when the account was made
   and last signed in) - not your holdings, plan or answers. If an account has

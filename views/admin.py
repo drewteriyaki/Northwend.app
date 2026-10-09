@@ -24,6 +24,7 @@ import feature_counts
 import flags
 import hosting
 import invite_codes
+import invite_links
 import licence_check
 import price_report
 import rate_limits
@@ -332,6 +333,10 @@ def _render_invite_codes(c):
         else:
             st.caption("Sign-up is open (gate L0 is on), so no code is asked for. Codes made "
                        "here start working if L0 is turned off.")
+        # people's own Invite someone links (invite_links.py): a total, never who
+        st.markdown(f"Accounts made from invite links: **{invite_links.total_joined(c)}**")
+        st.caption("From people's own Invite someone links, while sign-up is open - a count "
+                   "only. Which account came through which link is never kept.")
         with st.container(horizontal=True, vertical_alignment="bottom"):
             st.number_input("How many", min_value=1, max_value=invite_codes.MAX_AT_ONCE,
                             value=1, step=1, key="admin_codes_n")

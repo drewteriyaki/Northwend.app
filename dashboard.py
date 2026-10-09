@@ -44,6 +44,7 @@ import fund_holdings
 import hosting
 import income
 import invite_codes
+import invite_links
 import learn
 import live_prices
 import mailer
@@ -1326,6 +1327,9 @@ def _signup() -> bool:
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
         _logo_title(APP_NAME)
+        if st.session_state.get("friend_code"):
+            # came through someone's Invite someone link - never who (invite_links.py)
+            st.info(invite_links.ARRIVED, icon=":material/waving_hand:")
         st.subheader("Create your account", anchor=False)
         st.caption(f"Free while {APP_NAME} is in beta. Your email is just your login: it's never "
                    "shown to anyone or sent to the AI, and you never connect a brokerage. We don't sell "
@@ -1393,6 +1397,7 @@ def _signup() -> bool:
         result = auth.sign_up(conn, email, pw, agreed=agreed, adult=adult,
                               us_resident=us_resident, invite_code=code,
                               needs_code=need_code,
+                              friend_code=st.session_state.get("friend_code"),
                               terms_version=disclosures.LAST_UPDATED,
                               ip=_visitor_ip(),
                               seconds_open=time.time() - st.session_state["signup_opened"],
@@ -1600,6 +1605,27 @@ def _take_email_change_link():
                                               else " Sign in to continue.")
 
 
+def _take_friend_link(code):
+    """?invite=<code> from someone's Invite someone link (invite_links.py).
+    Signed in: ignored. Otherwise Create account opens as usual - with "A
+    friend invited you" only while the code is someone's current link (an
+    old or mistyped one: the plain page, no error). Never says who sent it.
+    The address loses it, so a reload or a shared screen doesn't carry it."""
+    del st.query_params["invite"]
+    if st.session_state.get("user_id"):
+        return
+    conn = connect(DB)
+    try:
+        ok = invite_links.valid(conn, code)
+    finally:
+        conn.close()
+    if ok:
+        st.session_state["friend_code"] = invite_links.normalize(code)
+    else:
+        st.session_state.pop("friend_code", None)
+    st.session_state["show_signup"] = True
+
+
 def _login() -> bool:
     """Per-account login. Accounts are made by an admin (manage_users.py),
     an advisor for a client, or by people themselves on the Create account
@@ -1624,7 +1650,9 @@ def _login() -> bool:
             and _decoder_public_wanted()):
         return _decoder_public_page()
     invite = st.query_params.get("invite")
-    if invite:  # a client's setup link (auth.create_invite)
+    if invite and invite_links.looks_like(str(invite)):
+        _take_friend_link(str(invite))   # someone's Invite someone link
+    elif invite:  # a client's setup link (auth.create_invite)
         return _invite_setup(str(invite))
     reset = st.query_params.get("reset")
     if reset:  # a reset-your-password link (auth.request_password_reset)
@@ -1930,6 +1958,11 @@ NAV = [p for p in NAV if p == MONEY or p in PAGES]
 # (Advisor preview is reached from the name menu's "advisor access requested" note)
 ACCOUNT_MENU = [p for p in ("Account", "Find a guide", "What's new", "About", "Admin")
                 if p in PAGES]
+# Invite someone (a window, views/invite_friend.py): every login on their own
+# account - investors, advisors, admins - while sign-up is open (gate L0 on:
+# with it off, Create account asks for an admin's code, so a link would lead
+# nowhere); never while an advisor is in a client's account
+INVITE_SHOWN = not ON_CLIENT and not auth.invite_only()
 
 
 def _nav_label(item):
@@ -2332,7 +2365,8 @@ ACCOUNT_ICONS = {"Account": ":material/person:", "About": ":material/info:",
                  "What's new": ":material/campaign:", "Find a guide": ":material/signpost:",
                  "Admin": ":material/admin_panel_settings:",
                  "Advisor preview": ":material/preview:",
-                 "Send feedback": ":material/feedback:"}
+                 "Send feedback": ":material/feedback:",
+                 "Invite someone": ":material/person_add:"}
 
 
 def _whats_new_unseen():
@@ -2403,6 +2437,11 @@ def _render_name_menu():
             dot = " •" if p == "What's new" and _whats_new_unseen() else ""
             st.button(f"{ACCOUNT_ICONS[p]} {_label(p)}{dot}", key=f"menu_{p}", on_click=_go, args=(p,),
                       width="stretch", type="primary" if PAGE == p else "tertiary")
+        # Invite someone: the login's own link to share, while sign-up is open -
+        # never while an advisor is in a client's account (views/invite_friend.py)
+        if INVITE_SHOWN:
+            st.button(f"{ACCOUNT_ICONS['Invite someone']} Invite someone", key="menu_invite",
+                      on_click=_invite_open, width="stretch", type="tertiary")
         # the open beta's Send feedback window, for everyone signed in - always
         # the login's own, even in a client's account (views/feedback.py)
         st.button(f"{ACCOUNT_ICONS['Send feedback']} Send feedback", key="menu_feedback",
@@ -2552,6 +2591,8 @@ def _render_client_login():
 
 # Send feedback (the name menu, the About page): its window (views/feedback.py)
 _view("feedback")
+# Invite someone (the name menu): the login's own link (views/invite_friend.py)
+_view("invite_friend")
 _render_menu()
 _render_tab_bar()  # phones only (see the styles); fixed to the bottom
 # the menus' click-away and the theme switch, names for icon buttons, the
@@ -3854,6 +3895,7 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
     st.stop()
 
 render_feedback()   # the Send feedback window, while it's open (views/feedback.py)
+render_invite()     # the Invite someone window, while it's open (views/invite_friend.py)
 
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))

@@ -84,6 +84,9 @@ OWN = [
     # invitations not yet answered, without their hash
     ("doing_it_together", "together_pairs", "user_id", ""),
     ("together_invitations", "together_invites", "user_id", ""),
+    # Invite someone (invite_links.py): your link's code, when it was made and
+    # how many people joined with it (a count - never who)
+    ("your_invite_link", "invite_links", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -143,6 +146,8 @@ Open them in any spreadsheet. Dates are UTC.
   person in Doing it together and when you last sent them a nudge, and the
   invitations you made that haven't been answered (the links themselves are
   never kept); the words you agreed to are in sharing_with_an_advisor.csv
+- your_invite_link.csv: your Invite someone link's code, when you made it and
+  how many people joined with your links (a count - never who)
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

@@ -47,6 +47,7 @@ import consent  # noqa: E402
 import export  # noqa: E402
 import future_notes  # noqa: E402
 import intros  # noqa: E402
+import invite_links  # noqa: E402
 import licence_check  # noqa: E402
 import perf  # noqa: E402
 import plans  # noqa: E402
@@ -162,6 +163,9 @@ MATRIX = {
                          "together.room", "together.find_invite", "export.collect"),
     "together_pairs": ("together.partners", "together.for_partner", "together.stop",
                        "together.nudge", "together.history", "export.collect"),
+    # Invite someone (invite_links.py): the login's own link and its count
+    "invite_links": ("invite_links.code_for", "invite_links.new_code", "invite_links.joined",
+                     "invite_links.valid", "export.collect"),
 }
 # every table the matrix must cover
 ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
@@ -169,7 +173,8 @@ ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
                                     advisor_agreement, advisor_pack, ai_usage, auth, client_book, consent,
                                     directory,
-                                    explain_share, export, future_notes, intros, licence_check, perf, plans,
+                                    explain_share, export, future_notes, intros, invite_links,
+                                    licence_check, perf, plans,
                                     portfolio, prefs, price_report, proposals, reports, together,
                                     txn_import,
                                     two_step, watchlist)}
@@ -275,6 +280,10 @@ class IsolationMatrix(unittest.TestCase):
         # a share link (explain_share.py): only its hash is kept
         cls.tokens[f"{side}.share"] = explain_share.create(c, uid, by=uid, show_name=True)
         ids[f"{side}.share"] = explain_share.active(c, uid)[0]["id"]
+        # Invite someone (invite_links.py): their link, one person joined through it
+        ids[f"{side}.invite_code"] = invite_links.code_for(c, uid)
+        invite_links.count_join(c, ids[f"{side}.invite_code"])
+        c.commit()
         # Doing it together (together.py): paired with a friend, and one
         # invitation not answered yet
         pal = auth.create_user(c, f"{investor}.pal", PW)
@@ -811,6 +820,20 @@ class IsolationMatrix(unittest.TestCase):
         token = together.invite(c, a, by=a)
         self.assertTrue(together.cancel_invite(c, a, together.open_invites(c, a)[0]["id"]))
         self.assertIsNone(together.find_invite(c, together.token_hash(token)))
+
+    def check_invite_links(self):
+        c, a = self.c, self.alice
+        mine, theirs = self.ids["A.invite_code"], self.ids["B.invite_code"]
+        self.assertEqual(invite_links.code_for(c, a), mine)
+        self.assertNotEqual(mine, theirs)
+        self.assertEqual(invite_links.joined(c, a), 1)
+        self.clean(export.collect(c, a).get("your_invite_link"))
+        # a new link replaces A's own, never B's
+        new = invite_links.new_code(c, a)
+        self.assertNotIn(new, (mine, theirs))
+        self.assertFalse(invite_links.valid(c, mine))
+        self.assertTrue(invite_links.valid(c, theirs))
+        self.assertEqual(invite_links.joined(c, a), 1)
 
     def check_together_pairs(self):
         c, a, pal = self.c, self.alice, self.ids["A.pal"]

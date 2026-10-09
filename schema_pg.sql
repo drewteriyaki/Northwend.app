@@ -738,3 +738,10 @@ CREATE TABLE IF NOT EXISTS together_pairs (
     UNIQUE (user_id, partner_id)
 );
 CREATE INDEX IF NOT EXISTS idx_together_pairs_partner ON together_pairs (partner_id);
+-- Invite someone - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS invite_links (
+    user_id     INTEGER PRIMARY KEY,
+    code        TEXT    NOT NULL UNIQUE,
+    created_at  TEXT    NOT NULL,
+    joined      INTEGER NOT NULL DEFAULT 0
+);

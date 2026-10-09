@@ -329,6 +329,13 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   signed-in login, no flag): emailed to `mailer._admin_to()` with the words, kind, page name,
   copy, version and a hashed reference (`feedback.reference`); the login's email only as
   Reply-To when ticked; nothing stored but `rate_limits.FEEDBACK` (5 an hour, 20 a day).
+- Invite someone: `invite_links.py` + `views/invite_friend.py` (the name menu's window, every
+  login on their own account while gate L0 is on - never an advisor in a client's account; no
+  flag): one 10-character code per login in `invite_links` (kept as is, not secret),
+  `?invite=<code>` opens the usual sign-up with "A friend invited you" (never who; an
+  advisor's long setup token on `?invite=` still goes to the setup page); `joined` is a count
+  only - which account came through which link is never kept; Admin shows one total;
+  "Make a new link" replaces the code (`rate_limits.NEW_LINK`). No emails, no rewards.
 - `export.py`: Export everything (Your data); a new table with account data goes
   in `export.OWN` or the test's left-out list.
 - Hosting move (PLAN step 4): `docs/CLOUDFLARE.md` (headers, proxy, obfuscation off),

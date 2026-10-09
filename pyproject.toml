@@ -51,7 +51,7 @@ py-modules = [
     "consent", "access_log",
     "csv_import", "dashboard", "disclosures", "dividend_dates", "error_alerts", "export", "feature_counts", "feedback", "fees",
     "friendly_errors", "fund_holdings", "future_notes", "gear", "glossary", "home_tasks", "hosting", "income",
-    "invite_codes", "learn", "live_prices",
+    "invite_codes", "invite_links", "learn", "live_prices",
     "mailer", "manage_users", "manual_entry", "meeting", "metrics", "news", "news_feed", "overview",
     "paste_parse", "perf", "pgcompat", "plans", "portfolio", "prefs", "proposals",
     "reports", "route", "sample_data", "screenshot_read", "settings", "starter_funds", "storms",

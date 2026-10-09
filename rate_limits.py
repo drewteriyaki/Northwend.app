@@ -29,6 +29,7 @@ EXPORT = "export"   # a ZIP of your data or a client's record, a plan, report or
 INVITE = "invite"   # a Doing it together invitation link made (together.py)
 NUDGE = "nudge"     # a Doing it together nudge email sent (together.py)
 FEEDBACK = "feedback"   # a Send feedback message emailed to the team (feedback.py)
+NEW_LINK = "new_link"   # Invite someone's "Make a new link" (invite_links.py)
 
 # (per hour, per day) for each action, per login. Change them here only.
 LIMITS = {
@@ -42,6 +43,8 @@ LIMITS = {
     # each one is an email to the owner: a person with a lot to say sends a
     # handful, a script stops here (the only thing feedback writes - feedback.py)
     FEEDBACK: (5, 20),
+    # a person needs a new link now and then; a script making codes stops here
+    NEW_LINK: (5, 20),
 }
 LABELS = {
     UPLOAD: "Files read (CSV, activity, screenshots, client lists)",
@@ -50,6 +53,7 @@ LABELS = {
     INVITE: "Doing it together invitations made",
     NUDGE: "Doing it together nudges sent",
     FEEDBACK: "Feedback messages sent",
+    NEW_LINK: "New invite links made (Invite someone)",
 }
 PURPOSE_PREFIX = "limit_"   # email_sends.purpose: limit_upload, limit_save, limit_export...
 CALM = "You've done a lot of that in a short time - please try again in a little while."

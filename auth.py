@@ -622,7 +622,8 @@ def invite_only() -> bool:
 def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
             us_resident: bool = False, terms_version: str, ip: str | None = None,
             seconds_open: float = 0, honeypot: str = "", invite_code: str | None = None,
-            needs_code: bool | None = None, now: datetime | None = None) -> dict:
+            needs_code: bool | None = None, friend_code: str | None = None,
+            now: datetime | None = None) -> dict:
     """Create an account from the sign-up form: the email (lower-cased) is
     both the login and the address, not yet confirmed. `agreed` / `adult` /
     `us_resident` are the form's three checkboxes; `terms_version` is the
@@ -630,9 +631,12 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
     confirmations). `seconds_open` is how long the form was on screen and
     `honeypot` the hidden field. `needs_code` (default invite_only(): gate
     L0 off) asks for `invite_code`, one the admin made (invite_codes.py),
-    used up with the account. Returns {"ok", "error", "user_id",
-    "username"}."""
+    used up with the account. `friend_code` is the Invite someone link they
+    came through, if any (invite_links.py): its count goes up by one with
+    the account - nothing records which account it was. Returns {"ok",
+    "error", "user_id", "username"}."""
     import invite_codes
+    import invite_links
     def fail(msg):
         return {"ok": False, "error": msg, "user_id": None, "username": None}
 
@@ -690,6 +694,8 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
                  (email, terms_version, stamp, stamp, stamp, user_id))
     if needs_code:
         invite_codes.record_user(conn, invite_code, user_id, stamp)
+    if friend_code:
+        invite_links.count_join(conn, friend_code)   # committed with the signups row
     _note_signup(conn, key, stamp, ok=True)
     return {"ok": True, "error": None, "user_id": user_id, "username": email}
 

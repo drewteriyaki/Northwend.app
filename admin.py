@@ -55,6 +55,9 @@ ACCOUNT_TABLES = {
     # with either account
     "together_invites": ("user_id",),
     "together_pairs": ("user_id", "partner_id"),
+    # Invite someone (invite_links.py): the login's own link and its count -
+    # the accounts made through it stay
+    "invite_links": ("user_id",),
 }
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)

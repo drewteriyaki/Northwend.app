@@ -26,6 +26,15 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-09", "title": "Invite someone",
+     "items": [
+         "\"Invite someone\" in the menu under your name gives you a link of your own to share "
+         "with a friend, and a short message you can send with it. Northwend doesn't email "
+         "anyone - you share it however you like.",
+         "Someone who opens your link sees the usual sign-up with a line saying a friend "
+         "invited them - never your name or email. You'll see how many people joined with "
+         "your link, never who.",
+     ]},
     {"date": "2026-10-09", "title": "Life for advisors",
      "items": [
          "Advisors: your own account map, Lost & Found and life-change guides are now on "
