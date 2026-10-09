@@ -49,9 +49,13 @@ def _invite_window():
     finally:
         c.close()
     link = invite_links.link(_app_address(), code)
+    # the boxes' copy buttons always showing - a phone has no hover to bring them up
+    st.html("<style>.st-key-pt_invite [data-testid='stCode'] > div:has("
+            "[data-testid='stElementToolbarButton']) { visibility: visible !important; "
+            "opacity: 1 !important; }</style>")
     with st.container(key="pt_invite"):
         st.markdown(invite_links.INTRO)
-        st.caption("Your link - the copy button is at the right of the box")
+        st.caption("Your link - the button in its corner copies it")
         st.code(link, language=None, wrap_lines=True)
         st.caption("A message you could send with it")
         st.code(invite_links.message(link), language=None, wrap_lines=True)
@@ -61,7 +65,10 @@ def _invite_window():
         st.caption(invite_links.joined_words(joined))
         note = st.session_state.pop("inv_note", None)
         if note:
-            (st.success if note[0] == "success" else st.info)(note[1], icon=":material/info:")
+            if note[0] == "success":
+                st.success(note[1], icon=":material/check_circle:")
+            else:
+                st.info(note[1], icon=":material/info:")
         with st.container(horizontal=True):
             st.button("Make a new link", key="inv_new", type="tertiary",
                       icon=":material/refresh:", on_click=_invite_new_link,
