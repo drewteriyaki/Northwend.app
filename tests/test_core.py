@@ -4836,6 +4836,47 @@ class WebsiteTests(unittest.TestCase):
         with open(os.path.join(self.PUBLIC, "robots.txt"), encoding="utf-8") as fh:
             self.assertIn("Sitemap: https://northwend.app/sitemap.xml", fh.read())
 
+    def test_home_has_the_new_look_and_a_start_free_button(self):
+        home = self.pages["index.html"]
+        self.assertIn('<body class="page-home">', home)        # the deep blue band (E2)
+        self.assertIn('class="hero-band"', home)
+        self.assertIn('class="band-hills"', home)
+        self.assertIn(f'href="{self.site.SIGNUP_URL}">Start free</a>', home)
+        self.assertIn("18 or older", home)
+        # the drawings of the app are labelled as made-up figures
+        self.assertGreaterEqual(home.count("Sample figures"), 2)
+        self.assertIn("made-up figures", home)
+        for name, page in self.pages.items():
+            # the logo, star over paper hills, in the header and the footer
+            self.assertEqual(page.count('class="logo-star"'), 2, name)
+            if name != "index.html":
+                self.assertIn('<body class="page">', page, name)
+
+    def test_pages_name_only_features_that_are_live(self):
+        # a feature that's off on the live app is never described on the site
+        # (What's new already leaves its items out; About, Terms and Privacy
+        # describe every feature's data, on or not)
+        written = {"index.html", "new-to-investing.html", "advisors.html",
+                   "decode-401k.html", "404.html", "status.html"}
+        off_names = {"together": "Doing it together", "directory": "Find a guide",
+                     "intros": "introduction", "teach_back": "Teach It Back",
+                     "trail_conditions": "Trail Conditions", "drills": "drill a week",
+                     "pay_yourself": "Pay yourself"}
+        for flag, words in off_names.items():
+            if flag in self.site.LIVE_FLAGS:
+                continue
+            for name in written & set(self.pages):
+                self.assertFalse(words.lower() in self.pages[name].lower(), f"{name}: {flag}")
+        home = self.pages["index.html"]
+        for flag, words in {"money_minute": "Today's minute", "wins": "Your wins",
+                            "challenges": "practice challenge", "weekly": "Scout",
+                            "progress_split": "What you did vs what the market did",
+                            "news_feed": "News on what you own"}.items():
+            if flag in self.site.LIVE_FLAGS:
+                self.assertIn(words, home, flag)
+            else:
+                self.assertNotIn(words, home, flag)
+
     def test_says_we_dont_sell_investments(self):
         # P1: the positioning is on the home page and the About page (from disclosures)
         self.assertIn("We don't sell investments", self.pages["index.html"])

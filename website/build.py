@@ -44,9 +44,10 @@ CHECK = ('<svg class="check" width="20" height="20" viewBox="0 0 24 24" fill="no
 
 PAGES = {
     # output file: (template, title, description, path on the site)
-    "index.html": ("home.html", "Northwend · Your guide from first step to goal",
-                   "Follow your investments from any brokerage, set a goal, and get there one "
-                   "waypoint at a time with a guide who explains everything in plain language.",
+    "index.html": ("home.html", "Northwend · A calm guide for people new to investing",
+                   "A free guide for people new to investing: learn the basics, practise with "
+                   "pretend money, and follow what you own at any brokerage - no brokerage "
+                   "login, nothing to sell you.",
                    "/"),
     "new-to-investing.html": ("new-to-investing.html", "New to investing? Start here · Northwend",
                               "Never invested before? Learn the basics in short steps, try it "
@@ -81,7 +82,7 @@ PAGES = {
                     "notices.",
                     "/status"),
     "404.html": ("404.html", "Page not found · Northwend",
-                 "This page isn't on the map.", "/404"),
+                 "We can't find this page.", "/404"),
 }
 
 # written and tested, but not on the site yet: a page waiting for its route
@@ -422,6 +423,8 @@ def render(include_held: bool = False) -> dict[str, str]:
         if name in LEGAL:
             values["LEGAL"] = legal_html(legal_text(name))
         page = _fill(base, {**common, "TITLE": html.escape(title), "NAV": nav_links(path),
+                            # Home has the deep blue band across its top (styles.css)
+                            "BODY_CLASS": "page-home" if name == "index.html" else "page",
                             "DESCRIPTION": html.escape(description),
                             "CANONICAL": SITE_URL + path,
                             "CONTENT": _fill(content, values)})
