@@ -3,11 +3,11 @@ account the person has brought in (its name, kind, last 3 digits only, a
 rough value and when it was last updated), any others they add by hand,
 and what they fill in for each - who to call, a beneficiary named or not,
 where the paperwork is - plus notes for family. Pure logic, no Streamlit;
-the page is views/account_map.py (on the Life page; an advisor's own on Account).
+the page is views/account_map.py (on the Life page; an advisor's on their own portfolio).
 
 Private: only the person sees it and downloads its PDF. It is never
-emailed, never shown to an advisor (it lives on the login's own Account
-page, which an advisor viewing a client never sees as the client's), and
+emailed, never shown to an advisor (it lives on the login's own Life page,
+which an advisor has only on their own portfolio, never in a client's), and
 never sent to the AI. It is in Export everything (export.OWN) and is
 deleted with the account (admin.ACCOUNT_TABLES).
 

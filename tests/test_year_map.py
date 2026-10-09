@@ -526,14 +526,22 @@ class AppTests(unittest.TestCase):
             text = self._text(at)
             self.assertIn("Account map", text)
             self.assertEqual(at.text_area(key="amap_family").value, "Kit's private family note")
-        with self._run(self.adv, "jo", page="Account", active_user_id=self.kit,
-                       two_step_ok=self.adv_ok) as at:
-            text = self._text(at)
-            self.assertNotIn("Kit's private family note", text)
-            self.assertNotIn("Kit's sister", text)
-            self.assertNotIn("Kit's private family note",
-                             " ".join(str(t.value) for t in at.text_area))
-            self.assertNotIn("Kit's sister", " ".join(str(t.value) for t in at.text_input))
+        for page in ("Account", "Life"):   # (no Life in a client's account: her portfolio)
+            with self._run(self.adv, "jo", page=page, active_user_id=self.kit,
+                           two_step_ok=self.adv_ok) as at:
+                text = self._text(at)
+                self.assertNotIn("Kit's private family note", text)
+                self.assertNotIn("Kit's sister", text)
+                self.assertNotIn("Kit's private family note",
+                                 " ".join(str(t.value) for t in at.text_area))
+                self.assertNotIn("Kit's sister", " ".join(str(t.value) for t in at.text_input))
+                self.assertNotIn("amap_family", [t.key for t in at.text_area])
+        # on their own portfolio the advisor has their own map on Life - never Kit's
+        with self._run(self.adv, "jo", page="Life", two_step_ok=self.adv_ok) as at:
+            self.assertEqual(at.session_state["page"], "Life")
+            self.assertIn("Account map", self._text(at))
+            self.assertNotEqual(at.text_area(key="amap_family").value,
+                                "Kit's private family note")
         # nor on the client's Home, opened by the advisor
         with self._run(self.adv, "jo", page="Dashboard", active_user_id=self.kit,
                        two_step_ok=self.adv_ok) as at:

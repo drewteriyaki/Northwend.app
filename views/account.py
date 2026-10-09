@@ -10,8 +10,8 @@
 # has looked and the sharing record, a copy of their data, leaving themselves
 # out of feature counts (feature_counts.py), and deleting it. The account map,
 # Lost & Found, Trail Forks, the Inheritance Rehearsal and Explain it to
-# someone are on the Life page (views/life.py) - an advisor's own stay here,
-# since an advisor has no Life page. Always the login's own account
+# someone are on the Life page (views/life.py) - for everyone, an advisor's
+# too (Life is in their menu on their own portfolio). Always the login's own account
 # (LOGIN_ID), even while an advisor is viewing a client.
 # ruff: noqa: F821
 
@@ -25,6 +25,14 @@ import two_step
 
 def _acct_msg(kind, text):
     st.session_state["acct_msg"] = (kind, text)
+
+
+def _acct_open_life():
+    """Open Life: the login's own, so an advisor in a client's account goes
+    back to their own portfolio first (Life is only there)."""
+    if USER_ID != LOGIN_ID and IS_ADVISOR:
+        _switch_to(LOGIN_ID)
+    _go("Life")
 
 
 def _acct_save_name():
@@ -502,16 +510,13 @@ def _render_account():
                       on_click=_delete_my_holdings)
 
     # ---- the account map, Lost & Found, Trail Forks, the Inheritance Rehearsal
-    # and Explain it to someone are on the Life page (views/life.py); an
-    # advisor, who has no Life page, keeps their own here
-    if "Life" in PAGES:
-        with st.container(horizontal=True, vertical_alignment="center", key="pt_acct_life"):
-            st.caption(":material/folder_open: Your account map, Lost & Found, life changes "
-                       "and sharing your plan are on the **Life** page.", width="stretch")
-            st.button("Open Life", key="acct_open_life", type="tertiary", on_click=_go,
-                      args=("Life",))
-    else:
-        _render_life_sections()
+    # and Explain it to someone are on the Life page (views/life.py), for
+    # everyone: a line pointing there. An advisor in a client's account has no
+    # Life (it's only their own): the button takes them back to their portfolio
+    with st.container(horizontal=True, vertical_alignment="center", key="pt_acct_life"):
+        st.caption(":material/folder_open: Your account map, Lost & Found, life changes "
+                   "and sharing your plan are on the **Life** page.", width="stretch")
+        st.button("Open Life", key="acct_open_life", type="tertiary", on_click=_acct_open_life)
     # ---- Bring to my advisor: a client's own choices (views/advisor_pack.py) - #
     if flags.on("advisor_pack"):
         render_advisor_pack()

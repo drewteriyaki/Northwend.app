@@ -145,7 +145,7 @@ def _amap_value(a):
 
 
 def render_account_map():
-    """The Life page's Account map section (an advisor's: on Account)."""
+    """The Life page's Account map section (the login's own)."""
     c = connect(DB)
     try:
         m = account_map.load(c, LOGIN_ID, accounts.labels(c, LOGIN_ID))
@@ -256,7 +256,7 @@ def _amap_nudge_off():
 def _amap_nudge_go():
     _amap_nudge_off()   # shown once: going to make one puts the line away too
     st.session_state["amap_open"] = True
-    _go("Life" if "Life" in PAGES else "Account")
+    _go("Life")
 
 
 def render_account_map_nudge():

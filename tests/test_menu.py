@@ -5,7 +5,8 @@ advisor for a managed client); Money is one page with a tab each for Income,
 Activity and Watchlist, listed under Money while it's open; Account, What's
 new, About, Admin and Log out are in the name menu at the foot, under the
 route's progress. Advisors get Your clients, Viewing, Portfolio, Plan,
-Advisor notes, Money and Ask Northwend - no Life. Runs dashboard.py with
+Advisor notes, Money and Ask Northwend - and Life only on their own
+portfolio, never in a client's account. Runs dashboard.py with
 streamlit's AppTest on a scratch database in a temp dir.
 
     python -m unittest tests.test_menu        (from the repo root)
@@ -230,7 +231,7 @@ class MenuTests(unittest.TestCase):
         labels = [at.button(key=k).label for k in self._keys(at, "nav_")]
         self.assertEqual(labels, ["Your clients", "Portfolio", "Plan", "Advisor notes", "Money",
                                   "Ask Northwend"])
-        # no Life for an advisor: their own records stay on Account
+        # no Life in a client's account: Life is only the advisor's own
         self.assertNotIn("tab_Life", self._keys(at, "tab_"))
         self.assertEqual(at.selectbox(key="viewing_select").value, self.dave)
         # the client's own Get started and login are in the viewing bar
@@ -243,7 +244,12 @@ class MenuTests(unittest.TestCase):
         # her own portfolio: no Notes, no client tools; Add client is on Your clients
         at = self._run(self.carol, "carol", None, two_step_ok=self.carol_ok)
         self.assertEqual(at.session_state["page"], "Clients")
-        self.assertNotIn("nav_Advisor notes", self._keys(at, "nav_"))
+        self.assertEqual(self._keys(at, "nav_"),
+                         ["nav_Clients", "nav_Dashboard", "nav_Plan", "nav_Money", "nav_Life",
+                          "nav_AI Assistant"])
+        self.assertEqual(self._keys(at, "tab_"),
+                         ["tab_Clients", "tab_Dashboard", "tab_Plan", "tab_Money", "tab_Life",
+                          "tab_AI Assistant"])
         self.assertEqual(self._keys(at, "viewing_"), [])
         self.assertIn("add_client", self._keys(at, "add_"))
         at.text_input(key="new_client_name").input("Erin Park")
@@ -351,12 +357,25 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(at.session_state["page"], "Life")
         self.assertEqual(self._keys(at, "nav_"), [*INVESTOR, "nav_Advisor notes"])
 
-    def test_no_life_for_an_advisor(self):
-        for state in ({}, {"active_user_id": self.dave}):
-            at = self._run(self.carol, "carol", "life", two_step_ok=self.carol_ok, **state)
-            self.assertNotEqual(at.session_state["page"], "Life")
-            self.assertNotIn("nav_Life", self._keys(at, "nav_"))
-            self.assertNotIn("tab_Life", self._keys(at, "tab_"))
+    def test_life_for_an_advisor_only_on_their_own_portfolio(self):
+        # My portfolio: Life is in the menu and the tab bar, and ?page=life opens it
+        at = self._run(self.carol, "carol", "life", two_step_ok=self.carol_ok)
+        self.assertEqual(at.session_state["page"], "Life")
+        self.assertEqual(self._current(at, "nav_"), ["nav_Life"])
+        self.assertEqual(self._current(at, "tab_"), ["tab_Life"])
+        # in a client's account: no Life item, and ?page=life opens the client's portfolio
+        at = self._run(self.carol, "carol", "life", two_step_ok=self.carol_ok,
+                       active_user_id=self.dave)
+        self.assertEqual(at.session_state["page"], "Dashboard")
+        self.assertNotIn("nav_Life", self._keys(at, "nav_"))
+        self.assertNotIn("tab_Life", self._keys(at, "tab_"))
+        # on Life, switching to a client: their portfolio, not Life
+        at = self._run(self.carol, "carol", "life", two_step_ok=self.carol_ok)
+        at.selectbox(key="viewing_select").select(self.dave)
+        at.run()
+        self.assertFalse(at.exception, [e.value for e in at.exception])
+        self.assertEqual(at.session_state["page"], "Dashboard")
+        self.assertNotIn("nav_Life", self._keys(at, "nav_"))
 
     def test_route_progress_at_the_foot_of_the_menu(self):
         # bob is new: Learn is his route, and the menu says how far along

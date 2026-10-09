@@ -10,8 +10,8 @@
 # rules: each draws only the login's own (LOGIN_ID), never while an advisor
 # is in a client's account (views/account_map.py, lost_found.py,
 # trail_forks.py, inheritance_rehearsal.py, explain_share.py decide). Life is
-# an individual's page (PAGES, NAV): an advisor keeps their own copies of
-# these on Account (views/account.py, _render_life_sections).
+# in everyone's menu (PAGES, NAV) - an advisor's only while they're on their
+# own portfolio, never in a client's account; Account just points here.
 # ruff: noqa: F821
 
 LIFE_INTRO = ("The paperwork side of money: where things are, what to do when life changes, "

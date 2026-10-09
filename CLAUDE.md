@@ -58,7 +58,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   new investor's slideshow shown in its place), `assistant` (Ask Northwend),
   `profile`, `account` (the login's own account: name, email, password, data),
   `life` (Life: the account map, Lost & Found, Trail Forks, the Inheritance Rehearsal,
-  Explain it to someone - an individual's page; an advisor keeps their own on Account),
+  Explain it to someone - always the login's own; an advisor has Life only on their own
+  portfolio, never in a client's account; Account just links to it),
   `clients` (advisor side, weekly summary), `holdings_input` (paste,
   by hand, screenshots, CSV, the save step). Open just the view you need.
   Internal page "AI Assistant" is shown as "Ask Northwend" (`PAGE_LABELS`, `GUIDE = APP_NAME`).
@@ -376,7 +377,8 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   with the brand and the two menus, the items moving to the bottom tab bar
   `pt_tabbar`. Nothing behind a "More". Investors: Home, Plan, Money, Life, Learn,
   Ask Northwend (+ Your advisor); advisors: Your clients, Viewing, Portfolio, Plan,
-  Advisor notes, Money, Ask Northwend - no Life. At the column's foot (`pt_menu_foot`):
+  Advisor notes, Money, Life (only on their own portfolio, never in a client's
+  account), Ask Northwend. At the column's foot (`pt_menu_foot`):
   the route's progress (`_render_side_route`, filled in once `_route_state` exists),
   + Add holdings and `ACCOUNT_MENU` (the name menu `pt_me`: Account, What's new,
   About, Admin, Log out). Money is one item grouping `MONEY_PAGES` (Income,

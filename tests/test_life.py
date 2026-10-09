@@ -2,8 +2,9 @@
 cards for the account map, Lost & Found and Explain it to someone, then
 Trail Forks, the Inheritance Rehearsal and those three sections. Each keeps
 its own flag and its own rules (the login's own only); Account keeps only
-account things and points to Life. Life is an individual's page: an advisor
-has none, and keeps their own copies of these on Account.
+account things and points to Life, for everyone. An advisor has Life too,
+with only their own, while they're on their own portfolio - never in a
+client's account, where there's no Life and Account has none of these.
 
     python -m unittest tests.test_life        (from the repo root)
 """
@@ -137,20 +138,45 @@ class LifeTests(unittest.TestCase):
             self.assertEqual(self._cards(at), {"account_map", "lost_found"})
             self.assertNotIn(xs.OWNER_TITLE, self._subheaders(at))
 
-    def test_an_advisor_has_no_life_and_keeps_their_own_on_account(self):
+    def test_an_advisor_on_their_own_portfolio_has_life_with_their_own(self):
         with self._app(self.carol, "carol", "Life", two_step_ok=self.carol_ok) as at:
-            self.assertNotEqual(at.session_state["page"], "Life")
-        with self._app(self.carol, "carol", "Account", two_step_ok=self.carol_ok) as at:
+            self.assertEqual(at.session_state["page"], "Life")
             heads = self._subheaders(at)
             for title in SECTIONS:
                 self.assertIn(title, heads)
-            self.assertNotIn("acct_open_life", [b.key for b in at.button])
-        # in a client's account: only the advisor's own account map, never the client's
+            self.assertEqual(self._cards(at), {"account_map", "lost_found", "explain_share"})
+            self.assertIn("nav_Life", [b.key for b in at.button])
+        # Account: none of them, just the line to Life
+        with self._app(self.carol, "carol", "Account", two_step_ok=self.carol_ok) as at:
+            heads = self._subheaders(at)
+            for title in SECTIONS:
+                self.assertNotIn(title, heads)
+            at.button(key="acct_open_life").click().run()
+            self.assertEqual(at.session_state["page"], "Life")
+
+    def test_an_advisor_in_a_clients_account_has_no_life(self):
+        # Life asked for: the client's portfolio instead, and no Life item
+        with self._app(self.carol, "carol", "Life", two_step_ok=self.carol_ok,
+                       active_user_id=self.dana) as at:
+            self.assertEqual(at.session_state["page"], "Dashboard")
+            keys = [b.key for b in at.button]
+            self.assertNotIn("nav_Life", keys)
+            self.assertNotIn("tab_Life", keys)
+            for title in SECTIONS:
+                self.assertNotIn(title, self._subheaders(at))
+        # Account: none of these - not the advisor's, never the client's
         with self._app(self.carol, "carol", "Account", two_step_ok=self.carol_ok,
                        active_user_id=self.dana) as at:
             heads = self._subheaders(at)
-            for title in SECTIONS[1:]:
+            for title in SECTIONS:
                 self.assertNotIn(title, heads)
+            for key in ("xs_make", "lf_clear", "tf_clear", "amap_clear"):
+                self.assertNotIn(key, [b.key for b in at.button])
+            # Open Life takes them back to their own portfolio, on Life
+            at.button(key="acct_open_life").click().run()
+            self.assertEqual(at.session_state["page"], "Life")
+            self.assertEqual(at.session_state["active_user_id"], self.carol)
+            self.assertIn("Account map", self._subheaders(at))
 
 
 if __name__ == "__main__":

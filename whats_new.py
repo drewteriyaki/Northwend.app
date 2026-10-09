@@ -26,6 +26,14 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-09", "title": "Life for advisors",
+     "items": [
+         "Advisors: your own account map, Lost & Found and life-change guides are now on "
+         "Life, next to your portfolio, instead of Account. Life is in the menu while you're "
+         "viewing your own portfolio, and never shows anything of a client's.",
+         "Account now keeps just your account: your name, email, password, sign-in, "
+         "settings and data, with a link to Life.",
+     ]},
     {"date": "2026-10-09", "title": "Clearer pages for people just starting",
      "items": [
          "Your steps on Learn now count only the steps you've done, and Home no longer says "

@@ -354,16 +354,20 @@ class AppTests(unittest.TestCase):
         finally:
             c.close()
         before = self._prefs(self.dana)
-        with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok,
-                       active_user_id=self.dana) as at:
-            text = self._text(at)
-            self.assertNotIn("Lost & Found", text)
-            self.assertNotIn("Places I've looked", text)
-            self.assertFalse([s for s in at.selectbox if str(s.key).startswith("lf_")])
+        for page in ("Account", "Life"):   # (no Life in a client's account: her portfolio)
+            with self._app(self.carol, "carol", page=page, two_step_ok=self.carol_ok,
+                           active_user_id=self.dana) as at:
+                text = self._text(at)
+                self.assertNotIn("Lost & Found", [str(h.value) for h in at.subheader])
+                self.assertNotIn(lf.INTRO, text)
+                self.assertNotIn("Places I've looked", text)
+                self.assertFalse([s for s in at.selectbox if str(s.key).startswith("lf_")])
         self.assertEqual(self._prefs(self.dana), before)
-        # in her own account she has it, as an individual would
+        # on her own portfolio she has it on Life, as an individual would - not on Account
+        with self._app(self.carol, "carol", page="Life", two_step_ok=self.carol_ok) as at:
+            self.assertIn("Lost & Found", [str(h.value) for h in at.subheader])
         with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok) as at:
-            self.assertIn("Lost & Found", self._text(at))
+            self.assertNotIn("Lost & Found", [str(h.value) for h in at.subheader])
 
 
 if __name__ == "__main__":

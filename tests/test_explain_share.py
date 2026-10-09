@@ -534,16 +534,20 @@ class AppTests(unittest.TestCase):
 
     def test_never_for_an_advisor_on_a_client_a_client_or_an_admin(self):
         for uid, name, state in (
-                (self.carol, "carol", {"two_step_ok": self.carol_ok,   # (no Life page)
+                (self.carol, "carol", {"two_step_ok": self.carol_ok,
                                        "active_user_id": self.dana, "page": "Account"}),
+                (self.carol, "carol", {"two_step_ok": self.carol_ok,   # (no Life here)
+                                       "active_user_id": self.dana, "page": "Life"}),
                 (self.dana, "dana", {}),
                 (self.root, "root", {"two_step_ok": self.root_ok})):
             with self.subTest(name), self._app(uid, name, **state) as at:
                 self.assertNotIn(xs.OWNER_TITLE, _tree_text(at))
                 self.assertNotIn("xs_make", self._keys(at))
-        # an advisor in their own account has it, as a person
-        with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok) as at:
+        # an advisor on their own portfolio has it on Life, as a person - not on Account
+        with self._app(self.carol, "carol", page="Life", two_step_ok=self.carol_ok) as at:
             self.assertIn("xs_make", self._keys(at))
+        with self._app(self.carol, "carol", page="Account", two_step_ok=self.carol_ok) as at:
+            self.assertNotIn("xs_make", self._keys(at))
 
     def test_off_no_section_and_existing_links_stop(self):
         token = self._make(self.zelda)

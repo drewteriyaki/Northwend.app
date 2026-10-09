@@ -1869,6 +1869,9 @@ if IS_ADVISOR:
     PAGES = ["Clients", *([] if HAS_HOLDINGS else _start),
              "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
              "Watchlist", "Activity", "Income", "News", "AI Assistant",
+             # Life: the advisor's own records and life changes - only while
+             # they're on their own portfolio, never in a client's account
+             *([] if ON_CLIENT else ["Life"]),
              *(_start if HAS_HOLDINGS else []), "Account", "What's new", "About"]
 else:
     # an advisor's client lands on Home (their advisor's next step), never
@@ -1902,13 +1905,14 @@ PAGES = [p for p in PAGES if flags.page_on(p)]
 # on it at once - nothing hidden behind a "More". Investors get Home, Plan,
 # Money, Life, Learn and Ask Northwend (+ Your advisor for a managed client);
 # advisors Your clients, Portfolio, Plan, Advisor notes (in a client's
-# account), Money and Ask Northwend. Money is one page with a tab each for
+# account), Money, Life (on their own portfolio) and Ask Northwend. Money is one page with a tab each for
 # Income, Activity and Watchlist (MONEY_PAGES): those stay pages of their own
 # inside (their ?page= names, _go("Income") and the views' `if PAGE == ...`),
 # the menu just groups them, and lists them under Money while it's open. Life
 # (views/life.py) gathers the paperwork side: the account map, Lost & Found,
-# Trail Forks, the Inheritance Rehearsal and Explain it to someone - only an
-# individual's (an advisor keeps their own on Account). Account, What's new,
+# Trail Forks, the Inheritance Rehearsal and Explain it to someone - always the
+# login's own: an advisor has it only on their own portfolio ("My portfolio"),
+# never while in a client's account. Account, What's new,
 # About, Admin and Log out are in the name menu at the bottom (ACCOUNT_MENU).
 # PAGES stays every page this account can open (the address, ?page=, checks
 # against it). Always in this order, before holdings and after (where they
@@ -1918,7 +1922,7 @@ MONEY = "Money"
 MONEY_PAGES = ("Income", "Activity", "Watchlist", *(("News",) if "News" in PAGES else ()))
 if IS_ADVISOR:
     NAV = ["Clients", "Dashboard", "Plan", *(["Advisor notes"] if ON_CLIENT else []),
-           MONEY, "AI Assistant"]
+           MONEY, "Life", "AI Assistant"]
 else:
     NAV = ["Dashboard", "Plan", MONEY, "Life", "Get started", "AI Assistant",
            *(["Advisor notes"] if IS_MANAGED_CLIENT else [])]
@@ -1965,6 +1969,8 @@ if "page" not in st.session_state:
     _wanted = str(st.query_params.get("page", "")).lower()
     st.session_state["page"] = {_slug(p): p for p in PAGES}.get(
         _wanted, OLD_SLUGS.get(_wanted) if OLD_SLUGS.get(_wanted) in PAGES else PAGES[0])
+    if _wanted == "life" and ON_CLIENT:   # (just below: the client's portfolio)
+        st.session_state["page"] = "Life"
     if st.session_state["page"] == TICKER_PAGE:   # ?page=ticker&t=VTI
         _t = str(st.query_params.get("t", "")).strip().upper()
         if TICKER_RE.fullmatch(_t):
@@ -1977,6 +1983,10 @@ for _old_key, _old_from in (("holdings_pill", "Dashboard"), ("watchlist_pill", "
         _open_ticker(_old_sym, _old_from)
 if st.session_state.get("page") == TICKER_PAGE and not st.session_state.get("ticker_sym"):
     st.session_state["page"] = st.session_state.get("ticker_from") or PAGES[0]
+# an advisor on Life who switches to a client (or opens ?page=life with
+# ?client=): Life is only their own, so the client's portfolio opens instead
+if ON_CLIENT and st.session_state.get("page") == "Life":
+    st.session_state["page"] = "Dashboard"
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 
@@ -2964,7 +2974,7 @@ _view("client_book")
 _view("inheritance_rehearsal")
 # Doing it together, flag together (together.py): a section on Life
 _view("together")
-# the Life page that draws them (an advisor's own are on Account)
+# the Life page that draws them (an advisor's too, on their own portfolio)
 _view("life")
 # the Four Seasons: a card on Home in season, a line on Learn, flag seasons (seasons.py)
 _view("seasons")

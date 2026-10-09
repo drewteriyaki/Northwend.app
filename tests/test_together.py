@@ -640,7 +640,11 @@ class AppTests(unittest.TestCase):
         for uid, name, state in (
                 (self.carol, "carol", {"two_step_ok": self.carol_ok,
                                        "active_user_id": self.dana, "page": "Account"}),
+                (self.carol, "carol", {"two_step_ok": self.carol_ok,
+                                       "active_user_id": self.dana, "page": "Life"}),
                 (self.carol, "carol", {"two_step_ok": self.carol_ok, "page": "Account"}),
+                # an advisor's own Life (their own portfolio) has no Doing it together
+                (self.carol, "carol", {"two_step_ok": self.carol_ok, "page": "Life"}),
                 (self.dana, "dana", {}),
                 (self.root, "root", {"two_step_ok": self.root_ok})):
             with self.subTest(name), self._app(uid, name, **state) as at:

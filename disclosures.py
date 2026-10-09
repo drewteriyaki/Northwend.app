@@ -201,7 +201,7 @@ Each statement about data here must stay true to the code:
   Render. Cloudflare Pages serves the website (website/).
 - No third-party analytics: .streamlit/config.toml gatherUsageStats = false;
   the only counting is feature_counts.py (above), inside the database.
-- Account map (account_map.py, the Life page; an advisor's own on Account):
+- Account map (account_map.py, the Life page - an advisor's on their own portfolio):
   the login's own, never shown to an advisor, never emailed or sent to the
   AI; its PDF only downloaded.
   Year in review (recap.py): read from data already kept; the share version
