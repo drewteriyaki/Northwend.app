@@ -45,7 +45,7 @@ CHECK = ('<svg class="check" width="20" height="20" viewBox="0 0 24 24" fill="no
 PAGES = {
     # output file: (template, title, description, path on the site)
     "index.html": ("home.html", "Northwend · A calm guide for people new to investing",
-                   "A free guide for people new to investing: learn the basics, practise with "
+                   "A free guide for people new to investing: learn the basics, practice with "
                    "pretend money, and follow what you own at any brokerage - no brokerage "
                    "login, nothing to sell you.",
                    "/"),
