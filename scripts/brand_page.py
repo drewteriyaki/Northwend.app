@@ -23,7 +23,7 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAME = "Northwend"
-DESCRIPTION = "Northwend: see your investments in one calm place."
+DESCRIPTION = "Northwend: see your investments in one place."
 ICON_SOURCE = os.path.join(REPO, "static", "logo.svg")   # the logo, star over paper hills
 ICON_NAME = "northwend-icon.svg"   # copied next to Streamlit's own favicon.png
 

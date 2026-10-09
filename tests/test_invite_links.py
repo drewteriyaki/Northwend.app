@@ -122,7 +122,7 @@ class LinkTests(unittest.TestCase):
                      "unlock"):
             self.assertIsNone(re.search(rf"{word}", text.lower()), word)
         self.assertNotIn("!", text)
-        self.assertEqual(invite_links.INTRO, "Know someone who'd like a calm place to start? "
+        self.assertEqual(invite_links.INTRO, "Know someone who'd like a place to start? "
                                              "Share your link.")
         self.assertIn("never sells you anything", invite_links.message("x"))
         # the in-app privacy text says what's kept

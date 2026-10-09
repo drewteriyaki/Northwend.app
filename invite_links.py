@@ -37,7 +37,7 @@ PARAM = "invite"   # the link's ?invite=<code> (shared with advisors' setup link
 
 # the window's words (calm: no rewards, no counts to chase)
 TITLE = "Invite someone"
-INTRO = "Know someone who'd like a calm place to start? Share your link."
+INTRO = "Know someone who'd like a place to start? Share your link."
 PRIVATE = ("Northwend doesn't email anyone or ask for their address - you share the link "
            "however you like. It doesn't show them your name or email, and it only tells you "
            "how many people joined with it, never who.")

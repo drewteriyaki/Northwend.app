@@ -415,7 +415,7 @@ ENTRIES = [
                   "kind of fund each one is and what it charges. It's beside the Free money "
                   "check on Plan.", "flag": "decoder_401k"},
      ]},
-    {"date": "2026-10-06", "title": "Clearer, calmer, and the same for everyone",
+    {"date": "2026-10-06", "title": "Clearer, and the same for everyone",
      "items": [
          "Learn and Plan now show common starting points for different timelines - the same "
          "for everyone - and your target mix is always yours to choose.",
