@@ -349,9 +349,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 - Packaging: `pyproject.toml` (`pip install -e .`) and `cli.py` (the `northwend*`
   commands). Its `dependencies` match requirements.txt and `py-modules` lists every
   top-level module - a new module goes there too (a test checks).
-- Jobs: `.github/workflows/scheduled-sync.yml` (prices every 15 min in market
-  hours, history nightly, advisors' Monday email via `weekly_email.py`, news hourly via
-  `news_feed.py`), `tests.yml`.
+- Jobs: Render cron jobs in `render.yaml` (`northwend-prices` every 15 min in market
+  hours, `northwend-news` hourly via `news_feed.py`; GitHub dropped most of their runs),
+  `.github/workflows/scheduled-sync.yml` (history nightly, dividend dates, tidy,
+  advisors' Monday email via `weekly_email.py`, the reminders), `tests.yml`.
 
 ## Gotchas
 - New columns on old tables: add them to the back-fill list in

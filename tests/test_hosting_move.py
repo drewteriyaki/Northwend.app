@@ -144,6 +144,33 @@ class RenderBlueprintTests(unittest.TestCase):
         accepted = {o.value for o in config.ShowErrorDetailsConfigOptions}
         self.assertIn(render_env()["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"][1], accepted)
 
+    def test_the_cron_jobs(self):
+        # the price refresh and Your news run on Render's clock: the same scripts
+        # and times as the workflow had, each telling the admin when it fails
+        text = _read("render.yaml")
+        crons = {}
+        for block in text.split("\n  - type: cron\n")[1:]:
+            name = re.search(r"(?m)^\s+name:\s*(\S+)", block).group(1)
+            crons[name] = block.split("\n  - type:", 1)[0]
+        self.assertEqual(sorted(crons), ["northwend-news", "northwend-prices"])
+        want = {"northwend-prices": ('"*/15 13-20 * * 1-5"', "python update_prices.py",
+                                     "Refresh live prices"),
+                "northwend-news": ('"7 11-23 * * *"', "python news_feed.py", "Your news")}
+        for name, (schedule, script, job) in want.items():
+            block = crons[name]
+            self.assertIn(f"schedule: {schedule}", block, name)
+            self.assertIn("branch: main", block, name)
+            self.assertIn(f'{script} --db "$PORTFOLIO_DB"', block, name)
+            self.assertIn(f'|| {{ python error_alerts.py job "{job}" --db "$PORTFOLIO_DB"; '
+                          "exit 1; }", block, name)
+            self.assertNotIn("--delay", block)   # update_prices.DELAY: Finnhub's minute limit
+            for key in ("PORTFOLIO_DB", "FINNHUB_API_KEY", "RESEND_API_KEY", "ALERT_EMAIL"):
+                self.assertRegex(block, rf"key: {key}\s*(#[^\n]*)?\n\s+sync: false", (name, key))
+            self.assertRegex(block, r"key: MAIL_DRY_RUN\s*(#[^\n]*)?\n\s+value: \"0\"", name)
+            self.assertRegex(block, r"key: NORTHWEND_ENV\s*(#[^\n]*)?\n\s+value: production", name)
+        # the news job fetches only while the live flags list news_feed
+        self.assertRegex(crons["northwend-news"], r"key: NORTHWEND_FLAGS\s*\n\s+sync: false")
+
     def test_the_health_check_is_streamlits_own(self):
         text = _read("render.yaml")
         self.assertRegex(text, r"(?m)^\s+healthCheckPath: /_stcore/health\s*$")

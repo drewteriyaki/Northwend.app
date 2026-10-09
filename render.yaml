@@ -12,7 +12,10 @@
 #   a sync never changes it. Copy them from the live app's Streamlit Secrets.
 # Every setting's meaning is in .env.example (a test checks that every one
 # the hosted app needs is listed here).
-# The scheduled price and history jobs stay on GitHub Actions.
+# Two cron jobs at the end run the price refresh and Your news on time
+# (GitHub's schedule dropped most of their runs). The nightly history, the
+# dividend dates, the tidy and the emails stay on GitHub Actions
+# (.github/workflows/scheduled-sync.yml).
 services:
   - type: web
     name: northwend
@@ -95,4 +98,77 @@ services:
       - key: NORTHWEND_AI_CEILING_USD   # the monthly AI ceiling in dollars; 0 rests AI
         sync: false
       - key: AI_ZDR                # 0 until Anthropic confirms zero data retention in writing
+        sync: false
+
+  # ---- Scheduled jobs (Render cron, times in UTC) -------------------------
+  # The same scripts the GitHub workflow runs, on Render's clock. A failed run
+  # emails the admin (error_alerts.py, at most once an hour per job) and then
+  # still fails, so Render's own run list shows it red.
+  # PORTFOLIO_DB here is the jobs' connection string (the northwend_jobs role
+  # once docs/DB_ROLES.md is done; until then the same one as the app).
+
+  # Live prices for every account's tickers - every 15 minutes in market
+  # hours (13:00-20:45 UTC covers 9:30am-4:15pm ET with DST slop), weekdays.
+  - type: cron
+    name: northwend-prices
+    runtime: python
+    plan: starter
+    region: ohio
+    branch: main
+    schedule: "*/15 13-20 * * 1-5"
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      python update_prices.py --db "$PORTFOLIO_DB" --all-users
+      || { python error_alerts.py job "Refresh live prices" --db "$PORTFOLIO_DB"; exit 1; }
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.7"
+      - key: NORTHWEND_ENV       # hosted: fails closed without Postgres
+        value: production
+      - key: MAIL_DRY_RUN        # the failure email really goes
+        value: "0"
+      - key: NORTHWEND_SKIP_SCHEMA_SETUP
+        value: "0"
+      - key: PORTFOLIO_DB
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: RESEND_API_KEY      # only for the failure email
+        sync: false
+      - key: ALERT_EMAIL
+        sync: false
+
+  # Your news (news_feed.py): headlines for held and watched tickers, hourly
+  # at :07 from 11:07 to 23:07 UTC, every day - clear of the price job's
+  # quarter hours. Fetches nothing unless NORTHWEND_FLAGS lists news_feed:
+  # copy the live app's value.
+  - type: cron
+    name: northwend-news
+    runtime: python
+    plan: starter
+    region: ohio
+    branch: main
+    schedule: "7 11-23 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      python news_feed.py --db "$PORTFOLIO_DB"
+      || { python error_alerts.py job "Your news" --db "$PORTFOLIO_DB"; exit 1; }
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.7"
+      - key: NORTHWEND_ENV
+        value: production
+      - key: MAIL_DRY_RUN
+        value: "0"
+      - key: NORTHWEND_SKIP_SCHEMA_SETUP
+        value: "0"
+      - key: PORTFOLIO_DB
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: NORTHWEND_FLAGS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ALERT_EMAIL
         sync: false

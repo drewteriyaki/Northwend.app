@@ -41,9 +41,9 @@ Contents:
 | The live app, after step 4 | Render (`render.yaml`), at go.northwend.app, deploying `main`, behind Cloudflare's proxy (`docs/CLOUDFLARE.md`). The move: [Move to Render](#move-to-render). |
 | Database roles | One owner role for `northwend-migrate`, one for the app, one for the jobs, once `docs/DB_ROLES.md` is done. |
 | The databases | Neon. One project or branch for live, one for staging. |
-| Scheduled jobs | GitHub Actions, `.github/workflows/scheduled-sync.yml` (prices, history, the Monday email, walk reminders, Trail Conditions). |
+| Scheduled jobs | Render cron jobs in `render.yaml`: `northwend-prices` (every 15 minutes in market hours) and `northwend-news` (hourly). GitHub Actions, `.github/workflows/scheduled-sync.yml`: history, dividend dates, the tidy, the Monday email, walk reminders, Trail Conditions. |
 | The app's settings | Streamlit: the app's menu > Settings > Secrets. Render: the service's Environment. |
-| The jobs' settings | GitHub: the repo's Settings > Secrets and variables > Actions. |
+| The jobs' settings | GitHub: the repo's Settings > Secrets and variables > Actions. Render's cron jobs: each job's Environment. |
 | Every setting's name and meaning | `.env.example` in the repo. |
 | What the copy is running | Admin > System: version (commit), database, email, keys set or not, gates and flags. |
 
@@ -55,6 +55,9 @@ Restarting the app:
   service's Events until it says live.
 - **GitHub jobs:** nothing to restart. The next run uses the new secret. To
   run one now: Actions > Scheduled sync > Run workflow.
+- **Render cron jobs:** nothing to restart either. To run one now: the job's
+  page > Trigger Run. Its run list shows each run and its log; a failed run
+  also emails the admin.
 
 ---
 
