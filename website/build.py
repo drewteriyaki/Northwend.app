@@ -235,7 +235,8 @@ LIVE_FLAGS = frozenset({
     "walk", "walk_log", "ledger", "storm_drill", "decoder_401k", "decoder_public",
     "lost_found", "seasons", "trail_forks", "explain_share", "price_report",
     "sealed_envelope", "plain_summary", "glossary", "inheritance_rehearsal",
-    "decoder_factsheet", "news_feed", "weekly",
+    "decoder_factsheet", "news_feed", "weekly", "progress_split", "wins", "money_minute",
+    "challenges",
 })
 
 
