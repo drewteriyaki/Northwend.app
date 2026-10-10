@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 
+import billing
 from asset_classes import CLASSES
 
 NOTE_KINDS = ("Review", "Note", "Next step")
@@ -33,6 +34,16 @@ def advisor_of(conn, client_id: int) -> int | None:
     row = conn.execute("SELECT advisor_id FROM advisor_clients WHERE client_id = ? "
                        "ORDER BY advisor_id LIMIT 1", (client_id,)).fetchone()
     return row["advisor_id"] if row else None
+
+
+def advisor_tools_paused(conn, client_id: int, *, now: datetime | None = None) -> bool:
+    """Whether this client's advisor (advisor_of) isn't using the advisor tools
+    right now: billing on and their seat past its grace or paused
+    (billing.tools_paused - its rule, read only). False with no advisor or
+    billing off. The client's Home then shows billing.CLIENT_PAUSED_LINE in
+    place of the advisor's next step (the agreement's section 6)."""
+    advisor = advisor_of(conn, client_id)
+    return bool(advisor) and billing.tools_paused(conn, advisor, now=now)
 
 
 def waiting_for_client(conn, client_id: int) -> dict:

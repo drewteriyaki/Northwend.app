@@ -105,6 +105,12 @@ CLOSED_LINE = ("Your seat isn't active, so adding clients and sending proposals,
 NOT_REACHED = ("Stripe couldn't be reached just now. Nothing was charged - try again in a "
                "minute.")
 NOT_SET_UP = "Seats can't be bought here yet."
+# what an advisor's client sees (their own login) while the advisor's seat is
+# past its grace (tools_paused) - the agreement's section 6: plain words, no
+# figures, no reason, nothing about the advisor's seat or price
+CLIENT_PAUSED_LINE = ("Your advisor isn't using Northwend's advisor tools right now. Your "
+                      "account, your plan and everything in it stay yours, and you can keep "
+                      "using Northwend as usual.")
 MANUAL_RENEW = ("To renew or change it, write to support@northwend.app - we'll send a new "
                 "payment link.")
 
@@ -541,15 +547,38 @@ def state(conn, user_id: int, *, now: datetime | None = None) -> dict:
     now = _now(now)
     row = ensure(conn, user_id, now=now)
     live = is_live(row, now)
-    grace = _parse(row["grace_until"])
-    if not live:
-        grace = _manual_grace(row, grace)
+    grace = _grace(row, live)
     return {"billing": True, "open": live or bool(grace and now < grace), "live": live,
             "status": row["status"], "plan": row["plan"], "founding": bool(row["founding"]),
             "founding_no": row["founding_no"], "period_end": row["current_period_end"],
             "grace_until": _stamp(grace) if grace else None, "started": bool(row["started_at"]),
             "waiting": bool(row["checkout_session"]),
             "manual": row["manual_note"] if is_manual(row) else None}
+
+
+def _grace(row: dict, live: bool) -> datetime | None:
+    """When the seat's grace ends (a manual seat past its day: from that day)."""
+    grace = _parse(row["grace_until"])
+    return grace if live else _manual_grace(row, grace)
+
+
+def tools_paused(conn, user_id: int, *, now: datetime | None = None) -> bool:
+    """Whether this advisor's seat is past its grace or paused - the same rule
+    as state()'s "open", read only: nothing is written, and an advisor with no
+    seat row yet (never seen with billing on, so their grace hasn't started)
+    isn't paused. Always False while billing is off. For the agreement's
+    promise to their clients (section 6): their Home says, in one plain line,
+    that the advisor isn't using the advisor tools right now
+    (CLIENT_PAUSED_LINE) - never why, never a figure."""
+    if not on():
+        return False
+    row = seat(conn, user_id)
+    if not row:
+        return False
+    now = _now(now)
+    live = is_live(row, now)
+    grace = _grace(row, live)
+    return not (live or bool(grace and now < grace))
 
 
 def can_write(conn, user_id: int, *, now: datetime | None = None) -> bool:

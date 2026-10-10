@@ -205,23 +205,31 @@ def _render_client_home(preview=False):
     if preview:
         st.markdown(f"#### What {ACTIVE_NAME} sees on Home")
     with st.container(border=True, key="pt_route"):
-        head = "<div class='pt-route-label'>Your next step, with your advisor</div>"
+        head = ("<div class='pt-route-label'>"
+                + ("Your plan" if ADVISOR_PAUSED else "Your next step, with your advisor")
+                + "</div>")
         if has_goal:
             label, tone = PLAN_STATUS[gp["status"]]
             head += (f"<div class='pt-goal-top'><b>{html.escape(plan.get('goal_name') or plan['goal_type'] or 'Goal')}</b>"
                      f"<span class='pt-chip {tone}'>{label}</span></div>"
                      f"<div class='pt-goal-sub'>{fmt_money0(gp['target'])} by "
                      f"{_fmt_month(plan['target_date'])}</div>")
-        else:
+        elif not ADVISOR_PAUSED:
             head += ("<div class='pt-goal-sub'>Your advisor sets your goal with you - it shows "
                      "up here once they have.</div>")
         st.html(head)
-        with st.container(horizontal=True, vertical_alignment="center"):
-            st.markdown((f":material/flag: **Next: {title}**" + (f"  \n{line}" if line else ""))
-                        .replace("$", r"\$"), width="stretch")
-            st.button(button, key="route_go", type="primary", on_click=_start_go, args=(action,))
-            st.button(f"Ask {GUIDE}", key="route_ask", type="tertiary", on_click=_client_ask,
-                      args=(step["key"],))
+        if ADVISOR_PAUSED:
+            # their advisor isn't using the advisor tools (billing.tools_paused):
+            # one plain line instead of a step that waits on the advisor
+            st.markdown(f":material/info: {billing.CLIENT_PAUSED_LINE}")
+        else:
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown((f":material/flag: **Next: {title}**" + (f"  \n{line}" if line else ""))
+                            .replace("$", r"\$"), width="stretch")
+                st.button(button, key="route_go", type="primary", on_click=_start_go,
+                          args=(action,))
+                st.button(f"Ask {GUIDE}", key="route_ask", type="tertiary",
+                          on_click=_client_ask, args=(step["key"],))
     with st.container(horizontal=True, vertical_alignment="center", key="pt_client_learn"):
         st.markdown(":material/school: **Learn at your own pace.** Short reads on the basics - "
                     "funds, spreading your money out, fees, ups and downs - whenever you'd like "

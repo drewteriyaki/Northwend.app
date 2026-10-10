@@ -1883,6 +1883,9 @@ try:
                         "username": auth.get_username(_conn, MY_ADVISOR)} if MY_ADVISOR else {})
     # ...except imports, which the advisor can open up per client (Clients page)
     CLIENT_CAN_IMPORT = bool(MY_ADVISOR) and advising.client_can_import(_conn, LOGIN_ID)
+    # their advisor's seat past its grace (billing on): the agreement's promise
+    # (section 6) - one plain line in place of the advisor's next step
+    _ADVISOR_PAUSED = bool(MY_ADVISOR) and advising.advisor_tools_paused(_conn, LOGIN_ID)
 finally:
     _conn.close()
 USER_ID = _active
@@ -1890,6 +1893,12 @@ IS_MANAGED_CLIENT = MY_ADVISOR is not None
 CAN_MANAGE = not IS_MANAGED_CLIENT         # may edit this account's plan, limits, imports
 CAN_IMPORT = CAN_MANAGE or CLIENT_CAN_IMPORT  # may import statements into this account
 ON_CLIENT = IS_ADVISOR and USER_ID != LOGIN_ID   # an advisor working on a client's account
+# A client signed in as themselves whose advisor isn't using the advisor tools
+# (billing.tools_paused): Home and Your advisor show billing.CLIENT_PAUSED_LINE
+# instead of anything that has them wait for the advisor. Never an advisor -
+# in a client's account they see their own seat's line.
+ADVISOR_PAUSED = (_ADVISOR_PAUSED and IS_MANAGED_CLIENT and not IS_ADVISOR
+                  and USER_ID == LOGIN_ID)
 # Client mode: an advisor's client - and their advisor in their account, who
 # sees what they see. Their plan and recommendations are the advisor's, so
 # the beginner's example funds, example mix and practice money stay out of
@@ -4095,8 +4104,11 @@ if not positions and PAGE not in ("Watchlist", "News", TICKER_PAGE):
     elif not CAN_IMPORT:
         # a client whose advisor brings the statements in
         _page_header("Welcome", data=False)
-        st.info(f"Welcome, **{ACTIVE_NAME}**. Your advisor, {_advisor_display_name()}, "
-                "brings your statements in - your portfolio shows up here once they have.")
+        if ADVISOR_PAUSED:   # nothing to wait for while their advisor's tools are paused
+            st.info(billing.CLIENT_PAUSED_LINE)
+        else:
+            st.info(f"Welcome, **{ACTIVE_NAME}**. Your advisor, {_advisor_display_name()}, "
+                    "brings your statements in - your portfolio shows up here once they have.")
         with st.container(horizontal=True):
             st.button(f"Open {_label('Advisor notes')}", key="onboard_notes", type="primary",
                       on_click=_go, args=("Advisor notes",))

@@ -317,6 +317,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   refuses while a Stripe seat is live. Manual seats (paid outside the app: Payment Link,
   invoice): Admin > Advisor seats, `billing.set_manual`, logged `seat_manual`; no Subscribe
   on Your seat, the sync never asks Stripe and ends them after their paid-through day. Owner's steps: RUNBOOK "Billing: Stripe setup".
+  Their clients (agreement section 6, no email): `billing.tools_paused` (state's rule, read
+  only) via `advising.advisor_tools_paused` sets dashboard `ADVISOR_PAUSED` - a client signed in
+  as themselves sees `billing.CLIENT_PAUSED_LINE` in place of Home's advisor next step (and on
+  Your advisor); never the advisor in their account (tests/test_seat_lapse_clients.py).
 - Flags and settings: `flags.py` (`NORTHWEND_GATES` L0, L1a, L1b, L2, L3 - "L1" still means
   L1a + L1b - never L4; `NORTHWEND_FLAGS`;
   `FEATURES` - a view or page a feature owns is skipped by `_view`/`PAGES`, a feature inside

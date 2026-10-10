@@ -47,6 +47,8 @@ def _render_notes():
         conn.close()
     if IS_MANAGED_CLIENT:
         _render_advisor_card(MY_ADVISOR_CARD)
+        if ADVISOR_PAUSED:   # their advisor's seat past its grace (billing.tools_paused)
+            st.info(billing.CLIENT_PAUSED_LINE, icon=":material/info:")
 
     if ON_CLIENT:
         with st.expander("Add a note", expanded=not notes):

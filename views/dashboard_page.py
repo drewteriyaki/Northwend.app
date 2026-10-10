@@ -129,7 +129,8 @@ def _render_route():
         kind = None if CLIENT_MODE else _direction_kind(state["profile"], state["horizon"],
                                                          state["items"])
         head = ("<div class='pt-route-label'>"
-                + ("Your next step, with your advisor" if CLIENT_MODE else "Your route")
+                + ("Your plan" if ADVISOR_PAUSED else
+                   "Your next step, with your advisor" if CLIENT_MODE else "Your route")
                 + (f" · {html.escape(kind['name'])}" if kind else "") + "</div>")
         if has_goal:
             label, tone = PLAN_STATUS[gp["status"]]
@@ -150,6 +151,11 @@ def _render_route():
                                      "your goal")
             head += _where_html(state)   # "You're in Start investing · step 2 of 4 · ..."
         st.html(head)
+        if ADVISOR_PAUSED:
+            # their advisor isn't using the advisor tools (billing.tools_paused):
+            # one plain line instead of a step that waits on the advisor
+            st.markdown(f":material/info: {billing.CLIENT_PAUSED_LINE}")
+            return
         with st.container(horizontal=True, vertical_alignment="center"):
             # "$" escaped: a pair of them would be read as a math formula
             st.markdown((f":material/flag: **Next: {title}**" + (f"  \n{text}" if text else ""))
