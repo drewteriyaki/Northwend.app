@@ -683,6 +683,9 @@ def _render_add_client():
     their email; with an email, the setup link goes out in the same step.
     Before the first invite, the advisor's own name and firm (who it's from)."""
     _client_msg()
+    if not SEAT_OPEN:   # a paid seat that isn't active: one line instead (views/billing.py)
+        _render_seat_paused("add")
+        return
     with st.expander(":material/person_add: Add client", expanded=not CLIENTS):
         c1, c2 = st.columns(2)
         c1.text_input("Name or household", key="new_client_name", max_chars=auth.CLIENT_NAME_MAX,
@@ -741,6 +744,8 @@ def _add_clients_from_file():
     viewer = st.session_state["user_id"]
     invite = bool(st.session_state.get("bulk_invite", True))
     if not review:
+        return
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
         return
     if not _limit_ok(rate_limits.SAVE):   # many adds in a short time: nothing added
         st.session_state["bulk_msg"] = ("info", LIMIT_TEXT)
@@ -890,6 +895,8 @@ def _send_message():
     picked = st.session_state.get("msg_clients") or []
     body = st.session_state.get("msg_body") or ""
     st.session_state["msg_confirm"] = False
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     c = connect(DB)
     try:
         res = advising.message_clients(c, viewer, picked, body,
@@ -936,6 +943,9 @@ def _render_message_clients(rows):
         res = st.session_state.pop("msg_result", None)
         if res:
             getattr(st, res[0])(res[1])
+        if not SEAT_OPEN:   # a paid seat that isn't active (views/billing.py)
+            _render_seat_paused("message")
+            return
         names = {r["user_id"]: r["name"] for r in rows}
         if "msg_clients" not in st.session_state:
             st.session_state["msg_clients"] = list(names)

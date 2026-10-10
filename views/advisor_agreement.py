@@ -3,12 +3,12 @@
 # here (st, DB, USER_ID, PAGE, the helpers...) are dashboard.py's, and what this
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
-# The advisor agreement (advisor_agreement.py; master brief 4.1, gate L1; flag
+# The advisor agreement (advisor_agreement.py; master brief 4.1, gate L1a; flag
 # advisor_agreement): an approved advisor who hasn't accepted the current
 # version sees it on Your clients, in place of the book, once - a calm page,
 # like the two-step gate but only in front of the advisor tools. Until they
 # accept, auth.can_view opens no client's account; their own investor side
-# (Portfolio, Plan, Money, Account) works as usual. With gate L1 off it's
+# (Portfolio, Plan, Money, Account) works as usual. With gate L1a off it's
 # marked "Beta" (free beta seats, brief 4.5).
 #
 # Also the standing line in the app (standing_line.py; brief 4.4): _render_standing

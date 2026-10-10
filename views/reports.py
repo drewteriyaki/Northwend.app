@@ -54,6 +54,8 @@ def _rep_send(value):
     viewer, target = st.session_state["user_id"], st.session_state["active_user_id"]
     kind = st.session_state.get("rep_period") or reports.PERIODS[1]
     today = datetime.now().date()
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     c = connect(DB)
     try:
         if viewer == target or not auth.can_view(c, viewer, target):
@@ -83,6 +85,8 @@ def _rep_send_all(values):
     """Clients page: the same report to every client picked, each with their
     own figures; the message is shared."""
     viewer = st.session_state["user_id"]
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     kind = st.session_state.get("rep_all_period") or reports.PERIODS[0]
     picked = st.session_state.get("rep_all_clients") or []
     if not picked:
@@ -141,6 +145,9 @@ def _render_reports_bulk(rows):
         msg = st.session_state.pop("rep_all_msg", None)
         if msg:
             getattr(st, msg[0])(msg[1])
+        if not SEAT_OPEN:   # a paid seat that isn't active (views/billing.py)
+            _render_seat_paused("reports")
+            return
         kind = st.segmented_control("Period", reports.PERIODS, default=reports.PERIODS[0],
                                     key="rep_all_period") or reports.PERIODS[0]
         c = connect(DB)
@@ -235,8 +242,10 @@ def _render_report_advisor(value):
             "card": _draft_card(), "facts": advisor_drafts.report_facts(f, lb)})
         st.text_area("A message from you (optional)", key="rep_message",
                      placeholder="How things went, and what you'd like to talk about next time")
+        if not SEAT_OPEN:   # a paid seat that isn't active (views/billing.py)
+            _render_seat_paused("report")
         st.button(f"Send the {label} report to {ACTIVE_NAME}", key="rep_send", type="primary",
-                  on_click=_rep_send, args=(value,))
+                  on_click=_rep_send, args=(value,), disabled=not SEAT_OPEN)
         st.caption("They read it on their Advisor notes page. The email only tells them it's "
                    "there - the figures aren't sent by email - and goes only to a confirmed "
                    "email (once they've set up their login).")

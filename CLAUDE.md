@@ -140,7 +140,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `meeting.py` (meeting prep, `views/meeting.py`), `reports.py` (client
   progress reports, `views/reports.py`), `advisor_drafts.py` + `views/drafts.py`
   ("Draft with Northwend" into the editable box of a proposal, a message, a report;
-  flag `advisor_drafts` + L1, L2; text only - never imports mailer/proposals/advising), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
+  flag `advisor_drafts` + L1a; text only - never imports mailer/proposals/advising), `mailer.py` (Resend; `MAIL_DRY_RUN=1` logs instead of
   sending - use it for local runs), `manage_users.py`
   (admin account creation, AI limits), `ai_usage.py` (monthly AI allowances - any new
   AI feature checks `_ai_status`, counts with `_ai_record` only after a
@@ -305,7 +305,20 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   page_opened once per page change. The Account switch (`feature_counts_off`) is "Don't use my
   data to improve the app" once the flag is on: it deletes the id's events (`analytics.forget`),
   as account deletion does; 12 months (tidy.py); Admin "App use" shows groups of 20+ only.
-- Flags and settings: `flags.py` (`NORTHWEND_GATES` L0-L3, never L4; `NORTHWEND_FLAGS`;
+- Paid advisor seats: `billing.py` + `views/billing.py` (flag `billing` + gate L1a;
+  Stripe over plain HTTPS in `billing._stripe`, tests replace it). Your seat on Account:
+  hosted Checkout (one seat, quantity 1, client_reference_id = the login) and the customer
+  portal; no webhook - the checkout kept on the seat is read from Stripe on return
+  (`?billing=done` is only a hint) and nightly (`python billing.py --sync`, scheduled-sync.yml
+  `billing-sync`). Table `seats` (no card data); founding places numbered in app_state, never
+  reused, lost when a seat ends. Lapse: past `grace_until`, add/send buttons give way to
+  `_render_seat_paused` and every add/send callback calls `_seat_ok()`; reading and exports
+  never ask. Never per client or by usage (a test reads billing.py); `admin.delete_account`
+  refuses while a Stripe seat is live. Manual seats (paid outside the app: Payment Link,
+  invoice): Admin > Advisor seats, `billing.set_manual`, logged `seat_manual`; no Subscribe
+  on Your seat, the sync never asks Stripe and ends them after their paid-through day. Owner's steps: RUNBOOK "Billing: Stripe setup".
+- Flags and settings: `flags.py` (`NORTHWEND_GATES` L0, L1a, L1b, L2, L3 - "L1" still means
+  L1a + L1b - never L4; `NORTHWEND_FLAGS`;
   `FEATURES` - a view or page a feature owns is skipped by `_view`/`PAGES`, a feature inside
   a view checks `flags.on("name")`; a test checks every name is checked; everything is off
   unless set). `settings.py`: env/secrets reads go through `settings.get`; `settings.hosted()`
@@ -331,7 +344,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   whose sharing has no grant in their own words once, at sign-in) and `access_log.py` (each page an
   advisor opens in a client's account; the client sees it on Account). Consent and access
   rows are `admin.KEPT_AFTER_DELETE` (7 years, only their own `prune` deletes).
-- The advisor directory: `directory.py` + `views/directory.py` (flag `directory` + gate L2;
+- The advisor directory: `directory.py` + `views/directory.py` (flag `directory` + gates L1b, L2;
   table `advisor_profiles`). "Find a guide" in an individual's name menu (never client
   mode), the advisor's "Your directory listing" on Your clients. Alphabetical by name
   within B4's five filters - `directory.sort_key` is the only sort, never anything
@@ -340,7 +353,7 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   (`one_time_cost`, shown only - never a filter or sort), "How advisors are paid"
   (`directory.FEES_*`, official links only) and the quiet "Find a guide" line on Learn
   and Plan (`dashboard._guide_line`, `directory.guide_link_shown`: individuals only).
-- Introductions (PLAN 5.5-5.6): `intros.py` + `views/intros.py` (flag `intros` + gate L2,
+- Introductions (PLAN 5.5-5.6): `intros.py` + `views/intros.py` (flag `intros` + gates L1b, L2,
   inside Find a guide and Your clients; table `intro_requests`). The advisor sees only the
   name, message and figure-free outline sent (`intros.clean_outline`), only their own;
   full sharing only via `intros.share_account` (two steps, then `consent.grant(how="intro")`

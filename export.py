@@ -87,6 +87,9 @@ OWN = [
     # Invite someone (invite_links.py): your link's code, when it was made and
     # how many people joined with it (a count - never who)
     ("your_invite_link", "invite_links", "user_id", ""),
+    # an advisor's paid seat (billing.py): plan, status, founding place, dates
+    # and Stripe's ids for it - never card details (Northwend has none)
+    ("your_seat", "seats", "user_id", ""),
 ]
 # never exported, whatever table they turn up in
 SECRET_PARTS = {"password", "salt", "token", "hash", "ip", "secret"}   # whole parts of a column name
@@ -104,7 +107,9 @@ LEFT_OUT_COLUMNS = {"from_your_advisor_notes": {"history", "archived_at"},
                     # someone else's login
                     "brought_to_your_advisor": {"advisor_id"},
                     "doing_it_together": {"partner_id"},
-                    "together_invitations": {"token_hash"}}
+                    "together_invitations": {"token_hash"},
+                    # a checkout still being checked: Stripe's working id only
+                    "your_seat": {"checkout_session"}}
 
 README = """Everything Northwend holds for your account, exported {when} UTC.
 
@@ -151,6 +156,9 @@ Open them in any spreadsheet. Dates are UTC.
 - app_use.csv: the app-use events recorded for you, if any (when, which event,
   which page, and fixed words like the kind of device) - never an amount or
   anything you typed
+- your_seat.csv (advisors with a paid seat): the plan, its status, your
+  founding place if any, the dates, and Stripe's ids for it - Northwend never
+  has your card details
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's

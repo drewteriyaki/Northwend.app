@@ -58,6 +58,9 @@ ACCOUNT_TABLES = {
     # Invite someone (invite_links.py): the login's own link and its count -
     # the accounts made through it stay
     "invite_links": ("user_id",),
+    # a paid advisor seat (billing.py): Stripe's ids, plan, status, dates - no
+    # card data. delete_account refuses while it's live (still being charged)
+    "seats": ("user_id",),
 }
 # Not listed: analytics_events (analytics.py) has no account column on
 # purpose - its rows carry only the random id kept in the account's settings,
@@ -319,6 +322,15 @@ def delete_account(conn, user_id: int, *, by: int,
         return {"ok": False, "error": "Admin accounts can't be deleted here - remove admin "
                 "first (the command line, or NORTHWEND_ADMINS).", "username": row["username"],
                 "orphaned_clients": 0}
+    import billing
+    if billing.has_live_seat(conn, user_id):
+        # Stripe would go on charging for an account that's gone: the seat is
+        # ended first (Account > Your seat > Manage billing, or Stripe's
+        # dashboard), and the nightly check (billing.py --sync) sees it end
+        return {"ok": False, "error": "This account has a paid seat that's still active. "
+                "End it first (Account > Your seat > Manage billing, or in Stripe), then "
+                "delete the account once the seat shows as ended.",
+                "username": row["username"], "orphaned_clients": 0}
     orphaned = conn.execute("SELECT COUNT(*) AS n FROM advisor_clients WHERE advisor_id = ?",
                             (user_id,)).fetchone()["n"]
     links = conn.execute("SELECT advisor_id, client_id FROM advisor_clients WHERE "

@@ -436,6 +436,10 @@ def _render_account():
     st.caption("Shown in the app in place of your login" + (", and to your advisor"
                if advisor else "") + ". Never sent to the AI.")
 
+    # ---- an advisor's paid seat (views/billing.py; flag billing) ---------- #
+    if IS_ADVISOR and flags.on("billing"):
+        _render_your_seat()
+
     # ---- how pages look (ROADMAP S6; advisors always see everything) ---- #
     if not IS_ADVISOR:
         st.subheader("How pages look", anchor=False)

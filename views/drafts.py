@@ -4,7 +4,7 @@
 # defines is visible there afterwards. See _view() in dashboard.py.
 #
 # Advisor drafts (AI_PLAN section 9 row 11, advisor_drafts.py; flag
-# advisor_drafts, gates L1 and L2): "Draft with Northwend" beside the editable
+# advisor_drafts, gate L1a): "Draft with Northwend" beside the editable
 # box for a proposal's words (views/proposals.py), a message to clients
 # (views/clients.py) and a progress report's message (views/reports.py). The
 # draft only fills the box; sending is the advisor's own button, as before.
@@ -42,6 +42,8 @@ def _draft_write(kind, box_key, make_inputs):
     import anthropic
 
     msg_key = f"draft_msg_{kind}"
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     key = _anthropic_key()
     quota = _ai_status("draft")
     if not key:
@@ -73,7 +75,9 @@ def _render_draft_tools(kind, box_key, make_inputs, *, what="What to cover (opti
     """Above an editable box: the advisor's points for the draft and the
     Draft with Northwend button; once a draft is in the box, its label (the
     advisor's view only). Nothing while the feature is off."""
-    if not (flags.on("advisor_drafts") and IS_ADVISOR):
+    # (and not while a paid seat isn't active - views/billing.py: the AI
+    # helpers are part of the seat; the box below still works)
+    if not (flags.on("advisor_drafts") and IS_ADVISOR and SEAT_OPEN):
         return
     msg = st.session_state.pop(f"draft_msg_{kind}", None)
     if msg:

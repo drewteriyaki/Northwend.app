@@ -511,6 +511,75 @@ def _admin_two_step_rows(c):
     return [("Two-step key (NORTHWEND_TOTP_KEY)", key), ("Two-step keys stored", stored)]
 
 
+def _admin_stripe_row():
+    """STRIPE_SECRET_KEY set or not, and test or live by its prefix (never the
+    key), and whether both founding prices are set."""
+    import billing
+    key = billing.secret_key()
+    if not key:
+        return "not set - no checkout"
+    mode = "test mode" if "_test_" in key else "live mode" if "_live_" in key else "set"
+    prices = "both prices set" if billing.configured() else "a price id is missing"
+    return f"{mode}, {prices}; billing {'on' if billing.on() else 'off'}"
+
+
+def _render_seats(c, advisors=()):
+    """Paid advisor seats (billing.py): counts only - never who, never cards -
+    and setting one advisor's seat by hand."""
+    import billing
+    n = billing.counts(c)
+    st.subheader("Advisor seats", anchor=False)
+    st.markdown(f"- **Active:** {n['live']}\n"
+                f"- **Founding places used:** {n['founding_used']} of {n['founding_total']} "
+                f"({n['founding_kept']} still founding)\n"
+                f"- **Ended, past their grace days:** {n['lapsed']}\n"
+                f"- **Not started yet:** {n['not_started']}")
+    st.caption("From the seats table, as last checked with Stripe (on return from checkout "
+               "and every night). Counts only - card details never reach Northwend.")
+    if not advisors:
+        return
+    # paid outside the app (a Payment Link emailed, an invoice): set by hand,
+    # each change in the admin action log (billing.set_manual)
+    with st.expander("Set a seat by hand (paid outside the app)"):
+        names = {a["id"]: a["username"] for a in advisors}
+        st.selectbox("Advisor", list(names), format_func=names.get, key="admin_seat_who")
+        st.segmented_control("Seat", ["Active", "Ended"], default="Active",
+                             key="admin_seat_state")
+        c1, c2 = st.columns(2)
+        c1.date_input("Paid through (the last day paid for)", key="admin_seat_until",
+                      value=None)
+        c2.selectbox("Paid by", billing.MANUAL_NOTES, key="admin_seat_note")
+        st.checkbox("Founding seat (takes the next founding place, if it has none)",
+                    key="admin_seat_founding")
+        st.button("Save the seat", key="admin_seat_save", on_click=_admin_seat_manual)
+        st.caption("The advisor's Your seat then shows it with no Subscribe button. Stripe "
+                   "isn't asked about it; past its paid-through day it ends, with the same "
+                   "grace days. A seat paid through Stripe can't be set here.")
+
+
+def _admin_seat_manual():
+    """Set an advisor's seat by hand (billing.set_manual), logged."""
+    import billing
+    uid = st.session_state.get("admin_seat_who")
+    active = st.session_state.get("admin_seat_state", "Active") != "Ended"
+    until = st.session_state.get("admin_seat_until")
+    note = st.session_state.get("admin_seat_note") or "Other"
+    founding = bool(st.session_state.get("admin_seat_founding"))
+
+    def run(c):
+        try:
+            row = billing.set_manual(c, int(uid), active=active,
+                                     paid_through=until.isoformat() if until else None,
+                                     note=note, founding=founding)
+        except (ValueError, TypeError) as exc:
+            return ("error", str(exc))
+        detail = (f"active through {until.isoformat()}" if active else "ended") + f", {note}"
+        if row["founding"]:
+            detail += f", founding place {row['founding_no']}"
+        return ("success", "Seat saved.", int(uid), detail)
+    _admin_do(run, "seat_manual", uid)
+
+
 def _admin_signup_cap_row(c):
     """The daily sign-up cap (auth.signups_full) and today's count - a number
     only, never who."""
@@ -550,6 +619,8 @@ def _render_system(c):
         ("Dividend dates (Polygon key)", "set" if dividend_dates.api_key() else
          "not set - only Yahoo's and the brokerage file's dates show"),
         *_admin_two_step_rows(c),
+        # paid advisor seats (billing.py): set or not, and which mode - never the value
+        ("Stripe (paid seats)", _admin_stripe_row()),
         ("Last price update", _admin_when(last_price)),
         ("Newest daily price history", last_bar or "none"),
         ("Admins", "; ".join(admins)),
@@ -788,6 +859,14 @@ def _render_admin():
                      hide_index=True, width="stretch")
     else:
         st.caption("No AI use yet this month.")
+
+    # ---- paid advisor seats: counts only (billing.py) ---------------------- #
+    if flags.on("billing"):
+        c = connect(DB)
+        try:
+            _render_seats(c, advisors)
+        finally:
+            c.close()
 
     # ---- "Price look wrong?" notes: counts only (price_report.py) ---------- #
     if flags.on("price_report"):

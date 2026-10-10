@@ -55,7 +55,15 @@ Each statement about data here must stay true to the code:
   decision is emailed to them (admin.approve_advisor / decline_advisor).
   Each check (source, the CRD matched, the day) is kept in licence_checks
   (licence_check.py); the advisor agreement accepted - version, text hash,
-  gate L1 on or off, time - in advisor_agreements (advisor_agreement.py).
+  gate L1a on or off (column l1_on), time - in advisor_agreements
+  (advisor_agreement.py).
+- Paid advisor seats (billing.py, flag billing + gate L1a): table seats keeps,
+  per advisor, Stripe's customer and subscription ids, the plan (monthly or
+  yearly), the status, the founding place and dates - never card details,
+  which only Stripe sees (hosted checkout and customer portal). Stripe gets
+  the login's id as client_reference_id; nothing about clients is sent or
+  counted. founding_places keeps place numbers and days only, no ids.
+  Deleted with the account (admin.ACCOUNT_TABLES); in the advisor's export.
 - Advisors' emails to clients (setup link, report waiting, a message waiting)
   carry the advisor's name and firm in the From name (mailer.sender); the
   report, proposal and message emails also carry the standing line
@@ -84,7 +92,7 @@ Each statement about data here must stay true to the code:
   advisor.portfolio_summary (tickers, names, weights, type,
   sector, gain/loss %, yield, beta, P/E) and percentage facts - no dollars
   from the portfolio, no advisor note text.
-- Advisor drafts (advisor_drafts.py, flag advisor_drafts + gates L1, L2): the
+- Advisor drafts (advisor_drafts.py, flag advisor_drafts + gate L1a): the
   client's ContextCard in scope ADVISOR_FULL (the allowlisted profile answers,
   percentages, no notes) for a proposal or a report, plus the advisor's typed
   points and a proposal's title (amounts, long numbers and emails taken out

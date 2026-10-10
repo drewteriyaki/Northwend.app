@@ -1,5 +1,5 @@
 """Advisor drafts (docs/AI_PLAN.md section 9, row 11, and "Advisor drafts, the
-rules"; flag `advisor_drafts`, gates L1 and L2): "Draft with Northwend" writes
+rules"; flag `advisor_drafts`, gate L1a): "Draft with Northwend" writes
 a FIRST DRAFT into an editable box, for the advisor to edit and send under
 their own name. Three kinds (KINDS):
 

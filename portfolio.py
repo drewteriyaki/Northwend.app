@@ -189,7 +189,8 @@ SCHEMA_ADVISORY_LOCK_ID = 7215346
 # 12 = dividend_events and security_info's Yahoo dates (dividend_dates.py).
 # 13 = invite_links (Invite someone, invite_links.py).
 # 14 = analytics_events (how the app is used, analytics.py).
-SCHEMA_VERSION = 14
+# 15 = seats (paid advisor seats, billing.py).
+SCHEMA_VERSION = 15
 
 
 def _ensure_schema(conn) -> None:

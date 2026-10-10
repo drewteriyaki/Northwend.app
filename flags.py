@@ -3,9 +3,15 @@ docs/LEGAL_GATES.md section 1). Standard library only (Streamlit's secrets
 are read if Streamlit is there).
 
 Two settings, both off unless set:
-- NORTHWEND_GATES - the legal gates the owner's lawyer has signed off, for
-  example "L0,L3". Only L0-L3 exist. There is no L4 (in-house advice is
-  never in scope): a setting that names it is ignored, and a test checks it.
+- NORTHWEND_GATES - the legal gates that are open, for example "L0,L3".
+  Only L0, L1a, L1b, L2 and L3 exist (GATES). There is no L4 (in-house
+  advice is never in scope): a setting that names it is ignored, and a test
+  checks it. Gate L1 was split on October 9, 2026 (LEGAL_GATES.md): L1a is
+  the advisor workspace sold as a seat, with billing (opens on the owner's
+  say); L1b is anything that connects a person to an advisor (opens only
+  with L2). The old spelling "L1" still works and means both (OLD_NAMES),
+  so a copy whose setting says "L1" behaves exactly as it did before the
+  split. Names are read in any case ("l1a", "L1A").
 - NORTHWEND_FLAGS - the features turned on, for example "walk,screenshot_ai".
 
 Each is read from the environment first, then the app's Streamlit secrets
@@ -33,7 +39,10 @@ from __future__ import annotations
 
 import os
 
-GATES = ("L0", "L1", "L2", "L3")   # never an L4 (LEGAL_GATES.md: no flag, nothing built toward it)
+GATES = ("L0", "L1a", "L1b", "L2", "L3")   # never an L4 (LEGAL_GATES.md: no flag, nothing built toward it)
+# a name a setting may still use -> the gates it stands for. "L1" was one gate
+# until October 9, 2026; a setting that still says it keeps both halves on.
+OLD_NAMES = {"L1": ("L1a", "L1b")}
 GATES_SETTING = "NORTHWEND_GATES"
 FLAGS_SETTING = "NORTHWEND_FLAGS"
 
@@ -54,11 +63,13 @@ GATE_CHECKS = {
     # today's tailored example mix, pending the lawyer.
     "L3": "answers worked out from a person's own answers - off, common starting points "
           "the same for everyone, and Ask Northwend's about-my-situation answers stay general",
-    # PLAN step 5 item 1, master brief 4.1 and 4.5: advisor seats. Off, every
-    # seat is a free beta seat and the advisor agreement (advisor_agreement.py,
-    # its own flag below) is shown marked "Beta"; which state it was in is
-    # kept with each acceptance. No billing exists yet (step 6).
-    "L1": "advisor seats - off, free beta seats, and the advisor agreement is shown marked Beta",
+    # PLAN step 5 item 1, master brief 4.1 and 4.5, direction item 10: the
+    # advisor workspace sold as a seat. Off, every seat is a free beta seat,
+    # the advisor agreement (advisor_agreement.py, its own flag below) is shown
+    # marked "Beta" - which state it was in is kept with each acceptance - and
+    # nothing about billing shows (the `billing` feature needs this gate too).
+    "L1a": "advisor workspace seats and billing - off, free beta seats, no price or "
+           "checkout, and the advisor agreement is shown marked Beta",
 }
 
 # name -> {"gates": the gates it needs besides its flag, "view": the view it
@@ -223,16 +234,18 @@ FEATURES = {
     # The advisor agreement and attestation (PLAN step 5 item 1, master brief
     # 4.1; advisor_agreement.py, views/advisor_agreement.py): an approved
     # advisor accepts it before Your clients and clients' accounts open. Not
-    # behind L1: with L1 off the same text is shown marked "Beta" (free beta
-    # seats, brief 4.5) - L1 changes only that label (GATE_CHECKS).
+    # behind L1a: with L1a off the same text is shown marked "Beta" (free beta
+    # seats, brief 4.5) - L1a changes only that label (GATE_CHECKS).
     "advisor_agreement": {"gates": (), "view": None},
     # The advisor directory (PLAN step 5 items 3-4 and 11, master brief 3.3 and
     # 4.2, decision B4; directory.py): "Find a guide" in an individual's name
     # menu (never in client mode, never for an advisor), and "Your directory
     # listing" on Your clients (views/clients.py checks on("directory")).
     # Alphabetical within the person's filters, nothing ranked, nothing about
-    # browsing counted. Gate L2: its copy, filters and order are the lawyer's.
-    "directory": {"gates": ("L2",), "view": "directory", "page": "Find a guide"},
+    # browsing counted. Gate L2: its copy, filters and order are the lawyer's;
+    # and L1b, since it points a person toward advisors (direction item 3:
+    # anything that connects a person to an advisor waits for the opinion).
+    "directory": {"gates": ("L1b", "L2"), "view": "directory", "page": "Find a guide"},
     # Introductions and the two-step consent to full sharing (PLAN step 5 items
     # 5-6, master brief 4.3; intros.py, views/intros.py): "Request an
     # introduction" on Find a guide sends a message and a figure-free outline;
@@ -240,8 +253,10 @@ FEATURES = {
     # then share their full account in two steps. Drawn inside Find a guide and
     # Your clients, so it needs `directory` on too (views/directory.py and
     # views/clients.py check on("intros")). Gate L2: its copy and the consent
-    # text are the lawyer's. Off, the button says introductions open soon.
-    "intros": {"gates": ("L2",), "view": "intros"},
+    # text are the lawyer's; and L1b - an introduction is the plainest case of
+    # connecting a person to an advisor. Off, the button says introductions
+    # open soon.
+    "intros": {"gates": ("L1b", "L2"), "view": "intros"},
     # Bring to my advisor (ROADMAP Phase C2, advisor_pack.py, views/advisor_pack.py):
     # a client signed in as themselves ticks, on Account, what of their own
     # (the plan in plain words, a fork's name, the readiness map, the storm
@@ -276,6 +291,7 @@ FEATURES = {
     # page). The client's Stop sharing step says what each side keeps. Gate
     # L2: what an advisor must keep after an exit (books and records) and
     # whether "client-reported" is enough are the lawyer's (LEGAL_GATES.md).
+    # Not L1b: it only describes links that already exist - it connects no one.
     "client_owned_book": {"gates": ("L2",), "view": "client_book"},
     # The plain-words read of the mix on Home (PLAN step 7, docs/AI_PLAN.md
     # section 9 row 1; allocation.summary_words): one line under Allocation
@@ -326,11 +342,27 @@ FEATURES = {
     # editable box for a proposal's words (views/proposals.py), a message to
     # clients (views/clients.py) and a progress report's message
     # (views/reports.py). Text only - the advisor edits and sends with their
-    # own button, under their name, with the standing line. An Advisor tool
-    # (L1) whose words reach clients beside the standing line (L2): both
-    # gates, the stricter reading (LEGAL_GATES.md H4/H10/H11; ROADMAP Phase D
-    # "(L1/L2)"). Each place checks on("advisor_drafts").
-    "advisor_drafts": {"gates": ("L1", "L2"), "view": None},
+    # own button, under their name, with the standing line. Workspace
+    # software: gate L1a only (direction item 10, October 2026). Before the
+    # split it needed L1 and L2, "the stricter reading", because its words
+    # reach clients beside the standing line. But L2 is now the directory and
+    # introductions - connecting a person to an advisor - and drafts connect
+    # no one: they write text an advisor sends to their own existing clients,
+    # through the same Send buttons (messages, proposals, reports) that sit
+    # under L1a without L2. The AI's own rules (ai_policy, the retry, the
+    # "edit before sending" label) are unchanged. Each place checks
+    # on("advisor_drafts").
+    "advisor_drafts": {"gates": ("L1a",), "view": None},
+    # Paid advisor seats (direction item 10; billing.py, views/billing.py):
+    # "Your seat" on Account - founding place, price, Stripe's hosted checkout
+    # and customer portal, checked by pulling from Stripe (ADR 0004: no
+    # webhook) - and, while a seat isn't active past its grace days, one
+    # plain line in place of the advisor's add and send buttons (reading and
+    # exports always stay). Gate L1a: the workspace seat, no lawyer first
+    # (LEGAL_GATES.md). Off, every seat is a free beta seat, exactly as
+    # before. One flat fee a seat: nothing in billing.py counts clients.
+    # views/billing.py checks on("billing").
+    "billing": {"gates": ("L1a",), "view": None},
     # Your news (news_feed.py, views/news_feed.py): headlines from news sources
     # about the tickers the account holds or watches - a "News on what you own"
     # card on Home (views/dashboard_page.py checks on("news_feed")) and a News
@@ -432,9 +464,21 @@ def _names(setting: str) -> set[str]:
     return {x.strip() for x in str(raw).replace(",", " ").split() if x.strip()}
 
 
+def _canonical(name: str) -> tuple[str, ...]:
+    """The gates a name in the setting stands for, spelled as in GATES: a real
+    gate in any case ("l1a" -> L1a), an old name's parts ("L1" -> L1a, L1b),
+    or nothing (an unknown name, L4 and anything like it)."""
+    up = str(name).strip().upper()
+    for old, parts in OLD_NAMES.items():
+        if up == old.upper():
+            return parts
+    return tuple(g for g in GATES if g.upper() == up)
+
+
 def gates_on() -> set[str]:
-    """The gates set on - only real ones (GATES); anything else is ignored."""
-    return {g.upper() for g in _names(GATES_SETTING)} & set(GATES)
+    """The gates set on - only real ones (GATES); "L1" turns on both L1a and
+    L1b; anything else is ignored."""
+    return {g for name in _names(GATES_SETTING) for g in _canonical(name)}
 
 
 def flags_set() -> set[str]:
@@ -443,8 +487,11 @@ def flags_set() -> set[str]:
 
 
 def gate(name: str) -> bool:
-    """Whether a legal gate is on. Never true for anything outside GATES."""
-    return name.upper() in gates_on()
+    """Whether a legal gate is on. Never true for anything outside GATES; an
+    old name ("L1") is on only when every gate it stands for is."""
+    parts = _canonical(name)
+    have = gates_on()
+    return bool(parts) and all(g in have for g in parts)
 
 
 def on(name: str) -> bool:

@@ -63,6 +63,8 @@ def _prop_start_from(mixes):
 def _prop_save(share):
     mix = {cls: st.session_state.get(f"prop_mix_{cls}") or 0.0 for cls in asset_classes.CLASSES}
     tell = None
+    if share and not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     c = connect(DB)
     try:
         if not _prop_advisor_ok(c):
@@ -87,6 +89,8 @@ def _prop_save(share):
 
 def _prop_act(action, pid, mix=None):
     tell = None
+    if action == "share" and not _seat_ok():   # a paid seat that isn't active
+        return
     c = connect(DB)
     try:
         if not _prop_advisor_ok(c):
@@ -216,7 +220,8 @@ def _prop_card(p, cmp, *, as_advisor):
             elif as_advisor:
                 if p["status"] == "draft":
                     st.button("Share with client", key=f"prop_share_{p['id']}", type="primary",
-                              on_click=_prop_act, args=("share", p["id"]))
+                              on_click=_prop_act, args=("share", p["id"]),
+                              disabled=not SEAT_OPEN)
                 if p["status"] == "accepted":
                     st.button("Make this the target mix", key=f"prop_target_{p['id']}",
                               type="primary", on_click=_prop_act,
@@ -302,9 +307,11 @@ def _render_proposals_advisor(alloc_rows, value):
             what="Why you're proposing it, in a few words (for the draft)")
         st.text_area("Why - in words your client will read", key="prop_note",
                      placeholder="What changes, and why it fits their goal")
+        if not SEAT_OPEN:   # a paid seat that isn't active: drafts only (views/billing.py)
+            _render_seat_paused("proposal")
         with st.container(horizontal=True):
             st.button("Save and share", key="prop_save_share", type="primary",
-                      on_click=_prop_save, args=(True,))
+                      on_click=_prop_save, args=(True,), disabled=not SEAT_OPEN)
             st.button("Save as draft", key="prop_save_draft", on_click=_prop_save, args=(False,))
     for p in mine:
         _prop_card(p, _prop_compare(p, today_pct, value), as_advisor=True)

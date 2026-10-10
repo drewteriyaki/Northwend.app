@@ -44,6 +44,8 @@ ACTIONS = (
     "clear_cache",
     "test_email",
     "clear_errors",
+    "seat_manual",        # set an advisor's seat by hand (billing.set_manual): status,
+                          # paid-through day, how they paid, founding - never an amount
 )
 KEEP_DAYS = 365          # how long rows are kept (prune, the nightly tidy job)
 SHOWN = 100              # how many the Admin portal shows

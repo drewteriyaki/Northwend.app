@@ -106,6 +106,25 @@ services:
         sync: false
       - key: NORTHWEND_SECOND_WALK_TARGET   # optional: the second-walk target, a percent
         sync: false
+      # ---- Paid advisor seats (billing.py; RUNBOOK "Billing: Stripe setup") --
+      - key: STRIPE_SECRET_KEY     # the live restricted key (rk_live_...); never staging's
+        sync: false
+      - key: STRIPE_PRICE_MONTHLY  # founding seat, monthly (price_...)
+        sync: false
+      - key: STRIPE_PRICE_YEARLY   # founding seat, yearly (price_...)
+        sync: false
+      - key: STRIPE_PRICE_STANDARD_MONTHLY   # optional: after the founding places
+        sync: false
+      - key: STRIPE_PRICE_STANDARD_YEARLY    # optional: after the founding places
+        sync: false
+      - key: NORTHWEND_FOUNDING_SEATS        # empty means 20
+        sync: false
+      - key: NORTHWEND_SEAT_PRICES           # as shown, e.g. 79/790
+        sync: false
+      - key: NORTHWEND_STANDARD_SEAT_PRICES  # optional, as shown, e.g. 99/990
+        sync: false
+      - key: NORTHWEND_SEAT_GRACE_DAYS       # empty means 14
+        sync: false
 
   # ---- Scheduled jobs (Render cron, times in UTC) -------------------------
   # The same scripts the GitHub workflow runs, on Render's clock. A failed run

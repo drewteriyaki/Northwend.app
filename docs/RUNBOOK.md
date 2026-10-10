@@ -26,6 +26,7 @@ Contents:
 - [Move to Render](#move-to-render)
 - [Uptime check](#uptime-check)
 - [Launch week](#launch-week)
+- [Billing: Stripe setup](#billing-stripe-setup)
 - [Owner prerequisites](#owner-prerequisites)
 - [Before turning on a gate](#before-turning-on-a-gate)
 - [Monthly budget](#monthly-budget)
@@ -402,7 +403,8 @@ Two settings, both off unless set (`flags.py`):
 - `NORTHWEND_FLAGS`: the features turned on, for example `"walk,screenshot_ai"`.
   The names are in `flags.FEATURES`.
 - `NORTHWEND_GATES`: the legal gates turned on, for example `"L0"`. Only L0,
-  L1, L2 and L3 exist. There is no L4 and never will be.
+  L1a, L1b, L2 and L3 exist (`L1` still means both L1a and L1b). There is no
+  L4 and never will be.
 
 Where: the app's settings (live and staging each their own), Render's
 Environment after step 4, and the `NORTHWEND_FLAGS` GitHub secret (the walk
@@ -1147,6 +1149,84 @@ Prices: they keep their last value; nothing is lost.
 
 ---
 
+## Billing: Stripe setup
+
+Paid advisor seats (`billing.py`; flag `billing` + gate L1a). Northwend never
+sees a card: Stripe's hosted Checkout takes the payment and Stripe's customer
+portal handles cards, plan changes and cancelling. There is no webhook (ADR
+0004, billing by pull): the app checks a checkout with Stripe's API when the
+advisor comes back, and the `billing-sync` job in
+`.github/workflows/scheduled-sync.yml` runs `python billing.py --sync` every
+night at 06:20 UTC to pick up cancellations and failed payments.
+
+Do it all in **test mode** first (the Stripe dashboard's "Test mode" switch),
+with staging; then repeat in live mode for the live copy only.
+
+1. **Product.** Product catalog > Add product: "Northwend advisor seat".
+   Description: "The Northwend workspace for one advisor. One flat fee."
+2. **Two prices on it** (recurring, USD, flat rate - never per unit or
+   metered): the founding seat, $79 every month, and $790 every year. Copy
+   each price id (`price_...`). Later, for standard seats, add $99 a month
+   (and a yearly one) to the same product.
+3. **Customer portal.** Settings > Billing > Customer portal: allow updating
+   the payment method, viewing invoices, cancelling (at the end of the
+   period) and switching between the two founding prices. Don't allow
+   changing quantity. Add the Terms and Privacy links
+   (northwend.app/terms, /privacy).
+4. **A restricted key** (Developers > API keys > Create restricted key),
+   named "northwend-app", with only: Checkout Sessions - Write; Subscriptions -
+   Read; Customer portal - Write; Customers - Read. Everything else: None. It
+   starts `rk_test_` (test mode) or `rk_live_` (live mode). Never the
+   unrestricted `sk_` key.
+5. **Paste the settings** - test-mode values in staging, live-mode values on
+   live only:
+   - `STRIPE_SECRET_KEY` = the restricted key, in the app's settings (staging:
+     its Secrets; live: Render's Environment) **and** the GitHub Actions
+     secret `STRIPE_SECRET_KEY` (the nightly job; live's key).
+   - `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` = the two founding price ids.
+   - Optional now, later for standard seats: `STRIPE_PRICE_STANDARD_MONTHLY`,
+     `STRIPE_PRICE_STANDARD_YEARLY`, and `NORTHWEND_STANDARD_SEAT_PRICES`
+     (as shown, e.g. `99/990`).
+   - `NORTHWEND_FOUNDING_SEATS` (empty means 20), `NORTHWEND_SEAT_PRICES`
+     (as shown, empty means `79/790` - keep it matching the Stripe prices),
+     `NORTHWEND_SEAT_GRACE_DAYS` (empty means 14). If you change the first or
+     the last, set the same in GitHub's secrets of those names.
+6. **Turn it on (staging first):** add `billing` to `NORTHWEND_FLAGS` and
+   `L1a` to `NORTHWEND_GATES` (staging's `L1` already covers it). Admin >
+   System shows "Stripe (paid seats): test mode, both prices set; billing on".
+7. **Try the round** as a test advisor: Account > Your seat > Subscribe, pay
+   with Stripe's test card 4242 4242 4242 4242, come back and see "Active",
+   founding place 1. Then Manage billing > cancel; in Stripe's dashboard end
+   the subscription now; run the job (Actions > Scheduled sync > Run
+   workflow, or `python billing.py --sync --db <staging connection>`); see
+   the seat end, and after the grace days the plain "isn't active" line on
+   Your clients - with reading and Prepare all records still working.
+8. **Live:** steps 1-5 again in live mode, then the L1a checklist in
+   [Before turning on a gate](#before-turning-on-a-gate).
+
+How the founding places work: the first `NORTHWEND_FOUNDING_SEATS` advisors
+who ever start a paid seat get one (Admin > Advisor seats shows how many are
+used). Stripe keeps their price while the subscription continues; once it
+ends, the place is gone and a new seat is at the standard price (the founding
+price again until the owner sets standard price ids). Places are never
+handed out twice. Sales tax: Stripe isn't the seller of record - ask the
+accountant whether to turn on Stripe Tax before live (not built in yet).
+
+**Taking payment outside the app first** (before the in-app checkout, or
+instead of it for one advisor): send a Stripe Payment Link by hand, or an
+invoice. Once paid, Admin > Advisor seats > "Set a seat by hand": pick the
+advisor, Active, the last day paid for, how they paid, and Founding seat if it
+should take the next founding place. It's in the admin action log
+(`seat_manual`). Their Your seat shows it with no Subscribe button; the nightly
+job never asks Stripe about it and ends it after that day (the same grace
+days follow). Renewing: set it again with the new day. Needs only the
+`billing` flag and L1a - no Stripe key in the app.
+
+Rotating the key: make a new restricted key with the same rights, paste it
+in all places of step 5, run the job once, then delete the old key in Stripe.
+
+---
+
 ## Owner prerequisites
 
 Not code, but required before some gates (decision B8; not legal advice).
@@ -1158,7 +1238,7 @@ Fill in the blanks as each is done.
 | Technology errors-and-omissions insurance | Before L1 | ____ | Insurer, policy, renews: ____ |
 | Cyber insurance | Before L1 | ____ | Insurer, policy, renews: ____ |
 | Accountant consulted (entity, sales tax, how long to keep billing records) | Before L1 | ____ | ____ |
-| Billing provider approval (Paddle, B2) | Before L1 | ____ | ____ |
+| Billing provider approval (Stripe, per the direction update; was Paddle, B2) | Before L1a | ____ | ____ |
 | Securities attorney engaged | Before any gate | ____ | Name: ____ |
 
 **The attorney's sign-off, per gate.** One line each, dated. A gate is never
@@ -1167,7 +1247,8 @@ turned on before its line is filled in.
 | Gate | What they sign off | Signed by | Date | Notes |
 |---|---|---|---|---|
 | L0 Beta baseline | Terms, Privacy Policy, "educational, not advice", 18+ and US residency, deletion and export | ____ | ____ | ____ |
-| L1 Advisor seats and billing | Advisor agreement, billing copy, flat fee only, seat lapse | ____ | ____ | ____ |
+| L1a Advisor workspace seats and billing | No sign-off before it opens (owner's decision, October 9, 2026); the month-3 consultation reads the advisor software agreement first | ____ | ____ | ____ |
+| L1b Connecting a person to an advisor | With L2: the scoped opinion | ____ | ____ | ____ |
 | L2 Directory and intros | Directory copy, filters, ordering, two-step consent text, the "advice is the advisor's" line, state coverage | ____ | ____ | ____ |
 | L3 Conclusion policy | The example-mix rewrite and Ask Northwend's conclusion policy, with the eval set | ____ | ____ | ____ |
 | L4 In-house advice | Never in scope. No setting exists. | - | - | - |
@@ -1205,22 +1286,38 @@ before its name goes into the live `NORTHWEND_GATES`.
       sign-up only with the ceiling in place).
 - [ ] The business entity is formed (strongly recommended).
 
-### L1 Advisor seats and billing
-- [ ] The advisor agreement text is final (no longer marked "beta"): the
-      lawyer's wording in `advisor_agreement.TEXT`, `VERSION` bumped (every
-      advisor is asked again), and the `advisor_agreement` flag on (staging
-      first). Admin's accounts table shows who accepted which version.
+L1 was split on October 9, 2026 (`docs/DIRECTION_2026-10-09.md`; LEGAL_GATES.md).
+`NORTHWEND_GATES` takes `L1a` and `L1b`; a setting that still says `L1` means
+both, so a copy set before the split behaves as it did. Turning on only the
+workspace: replace `L1` with `L1a`.
+
+### L1a Advisor workspace seats and billing
+Opens on the owner's say, without a lawyer first (direction section 3; the
+one-hour attorney consultation is in month 3).
+- [ ] The advisor software agreement (`docs/legal/next/advisor-software-agreement.md`)
+      is the owner's approved text, and `advisor_agreement.TEXT` matches it,
+      `VERSION` bumped (every advisor is asked again), the `advisor_agreement`
+      flag on (staging first). With L1a on it's no longer marked "Beta".
+- [ ] The revised Terms of Use and Privacy Policy (`docs/legal/next/`, direction
+      item 9) are published first: today's say "no subscriptions". Date and
+      version changed; existing users told.
 - [ ] The billing copy is final: one flat price per seat, never per client.
-      The test that billing never reads client or intro counts passes.
-- [ ] Seat lapse works as decided (B5: 30 days of read and export).
-- [ ] Step 4 is done: money never runs on Streamlit Community Cloud.
-- [ ] The business entity is formed. E&O and cyber insurance are in place.
-- [ ] The billing provider has approved the account. Staging has
-      test-mode keys only; live keys are only in Render and GitHub.
-- [ ] The separate billing feature flag is ready, off until this gate is on.
+      `tests/test_billing.py` passes (billing never reads client or intro data).
+- [ ] [Billing: Stripe setup](#billing-stripe-setup) done in test mode on
+      staging, and the whole round tried there: subscribe, see it active,
+      cancel in the portal, run `python billing.py --sync`, see it end.
+- [ ] Live keys only in Render and the GitHub secret; staging only test mode.
+- [ ] The `billing` flag goes on in the same change as L1a (it needs both).
 - [ ] Every "free / paid by no one" line in LEGAL_GATES.md section 7 is
       reworded.
-- [ ] The reconciliation job has its own "Tell the admin it failed" step.
+- [ ] The nightly `billing-sync` job has its own "Tell the admin it failed"
+      step (built), and its first live run is green.
+
+### L1b Connecting a person to an advisor
+Only together with L2, only after the scoped legal opinion exists (direction
+section 7: "Keep L2 and L1b off until the owner says the opinion exists").
+- [ ] The opinion is dated in Owner prerequisites.
+- [ ] Every L2 box below is ticked; `directory` and `intros` need L1b and L2.
 
 ### L2 Directory and intro flow
 - [ ] The directory copy and its filters are signed off (B4). It's

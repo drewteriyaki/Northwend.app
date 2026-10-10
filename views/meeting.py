@@ -14,6 +14,8 @@ import meeting
 def _prep_draft(profile, summary, facts):
     import anthropic
 
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     key = _anthropic_key()
     quota = _ai_status("prep")
     if not key:
@@ -113,7 +115,7 @@ def _render_meeting_prep(value, alloc_rows, contexts, cash):
         with st.container(horizontal=True):
             st.button(f":material/auto_awesome: Draft with {GUIDE}", key="prep_draft",
                       on_click=_prep_draft, args=(profile, summary, facts),
-                      disabled=not quota["ok"],
+                      disabled=not (quota["ok"] and SEAT_OPEN),
                       help="Sends percentages and the facts above - never dollar amounts or "
                            "your notes. " + (ai_usage.left_text(quota, "prep") or ""))
         if quota.get("resting_why"):   # the month's AI use is high (ai_spend.py)

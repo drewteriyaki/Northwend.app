@@ -40,6 +40,7 @@ import advisor_agreement  # noqa: E402
 import advisor_pack  # noqa: E402
 import ai_usage  # noqa: E402
 import auth  # noqa: E402
+import billing  # noqa: E402
 import client_book  # noqa: E402
 import directory  # noqa: E402
 import explain_share  # noqa: E402
@@ -166,12 +167,17 @@ MATRIX = {
     # Invite someone (invite_links.py): the login's own link and its count
     "invite_links": ("invite_links.code_for", "invite_links.new_code", "invite_links.joined",
                      "invite_links.valid", "export.collect"),
+    # a paid advisor seat (billing.py): the advisor's own row only; Admin's
+    # counts carry no ids
+    "seats": ("billing.seat", "billing.ensure", "billing.state", "billing.can_write",
+              "billing.apply", "billing.has_live_seat", "billing.counts", "export.collect"),
 }
 # every table the matrix must cover
 ALL_TABLES = {**admin.ACCOUNT_TABLES, **admin.KEPT_AFTER_DELETE}
 
 _MODULES = {m.__name__: m for m in (access_log, account_map, accounts, advising, advisor,
-                                    advisor_agreement, advisor_pack, ai_usage, auth, client_book, consent,
+                                    advisor_agreement, advisor_pack, ai_usage, auth, billing,
+                                    client_book, consent,
                                     directory,
                                     explain_share, export, future_notes, intros, invite_links,
                                     licence_check, perf, plans,
@@ -307,6 +313,14 @@ class IsolationMatrix(unittest.TestCase):
         advisor_agreement.accept(c, a, ticked=True)
         licence_check.record(c, a, source="IAPD", crd=f"{tag} 7012345",
                              checked_on="2026-09-01")
+        # a paid seat (billing.py): A's ended (so the account can be deleted),
+        # B's live - Stripe's ids carry the side's tag
+        billing.apply(c, a, {"id": f"sub_{tag}", "customer": f"cus_{tag}", "status": "active",
+                             "items": {"data": [{"price": {"recurring": {"interval": "month"}},
+                                                 "current_period_end": 1793000000}]}})
+        if side == "A":
+            billing.apply(c, a, {"id": f"sub_{tag}", "status": "canceled",
+                                 "ended_at": 1790000000})
         cid = auth.create_client(c, a, client, name=f"{tag} client")
         ids[f"{side}.client"] = cid
         auth.create_invite(c, a, cid)
@@ -834,6 +848,22 @@ class IsolationMatrix(unittest.TestCase):
         self.assertFalse(invite_links.valid(c, mine))
         self.assertTrue(invite_links.valid(c, theirs))
         self.assertEqual(invite_links.joined(c, a), 1)
+
+    def check_seats(self):
+        c, carol = self.c, self.carol
+        self.assertEqual(self.clean(billing.seat(c, carol))["stripe_customer"], "cus_ALICE")
+        self.assertFalse(billing.has_live_seat(c, carol))
+        self.assertTrue(billing.has_live_seat(c, self.omar))   # B's is live; A only reads it
+        self.clean(export.collect(c, carol).get("your_seat"))
+        for value in self.clean(billing.counts(c)).values():
+            self.assertIsInstance(value, int)                 # counts, never ids
+        with unittest.mock.patch.object(billing, "on", return_value=True):
+            self.clean(billing.state(c, carol))
+            self.assertIsInstance(billing.can_write(c, carol), bool)
+            self.clean(billing.ensure(c, self.alice))        # a row of A's own, never B's
+        # A's subscription read again: only A's row changes
+        billing.apply(c, carol, {"id": "sub_ALICE", "customer": "cus_ALICE", "status": "active"})
+        self.assertTrue(billing.has_live_seat(c, carol))
 
     def check_together_pairs(self):
         c, a, pal = self.c, self.alice, self.ids["A.pal"]

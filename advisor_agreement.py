@@ -1,5 +1,5 @@
 """The advisor agreement and attestation (master brief 4.1; PLAN step 5 item 1;
-docs/LEGAL_GATES.md gate L1). The page is views/advisor_agreement.py.
+docs/LEGAL_GATES.md gate L1a - the workspace half of the old L1). The page is views/advisor_agreement.py.
 
 DRAFT. TEXT below is a first draft for the owner's securities lawyer, who
 supplies the real wording under gate L1 (LAWYER_NOTES lists what to look at).
@@ -12,10 +12,10 @@ auth.can_view lets an advisor into no client's account until they have
 works as usual meanwhile. When VERSION or the text changes, they are asked
 again.
 
-While gate L1 is off every seat is a free beta seat (brief 4.5) and the same
+While gate L1a is off every seat is a free beta seat (brief 4.5) and the same
 text is shown marked "Beta" (label()). Each acceptance is a row in
 advisor_agreements: the version, a SHA-256 of the exact text shown, whether
-L1 was on then, and the time - stored like the terms (users.terms_version).
+L1a was on then (column l1_on), and the time - stored like the terms (users.terms_version).
 
 The flag `advisor_agreement` (flags.FEATURES) turns the requirement on; off,
 nothing is asked and nothing changes (staging turns it on first).
@@ -101,12 +101,14 @@ def required() -> bool:
 
 
 def l1_on() -> bool:
-    """Gate L1 (flags.GATE_CHECKS): off, the agreement is shown marked Beta."""
-    return flags.gate("L1")
+    """Gate L1a, the workspace seat (flags.GATE_CHECKS; "L1" in the setting
+    still counts): off, the agreement is shown marked Beta. Kept with each
+    acceptance as l1_on, the column's name from before the split."""
+    return flags.gate("L1a")
 
 
 def label() -> str:
-    """"Beta" while gate L1 is off, else ""."""
+    """"Beta" while gate L1a is off, else ""."""
     return "" if l1_on() else BETA_LABEL
 
 

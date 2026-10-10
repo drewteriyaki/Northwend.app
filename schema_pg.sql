@@ -756,3 +756,21 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 );
 CREATE INDEX IF NOT EXISTS idx_analytics_events_at ON analytics_events (at);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_anon ON analytics_events (anon_id);
+
+-- Paid advisor seats - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS seats (
+    user_id             INTEGER PRIMARY KEY,
+    stripe_customer     TEXT,
+    stripe_subscription TEXT,
+    checkout_session    TEXT,
+    plan                TEXT,
+    status              TEXT    NOT NULL DEFAULT 'none',
+    founding            INTEGER NOT NULL DEFAULT 0,
+    founding_no         INTEGER,
+    started_at          TEXT,
+    current_period_end  TEXT,
+    grace_until         TEXT,
+    last_checked        TEXT,
+    manual_note         TEXT,
+    created_at          TEXT    NOT NULL
+);

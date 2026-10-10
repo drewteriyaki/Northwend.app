@@ -510,10 +510,12 @@ class NothingCountedTests(unittest.TestCase):
 class FlagTests(unittest.TestCase):
 
     def test_needs_the_flag_and_gate_l2(self):
-        self.assertEqual(flags.FEATURES["intros"], {"gates": ("L2",), "view": "intros"})
+        # and L1b since the L1 split: an introduction connects a person to an advisor
+        self.assertEqual(flags.FEATURES["intros"], {"gates": ("L1b", "L2"), "view": "intros"})
         for flag_value, gate_value, on in (("", "", False), ("intros", "", False),
-                                           ("", "L2", False), ("intros", "L0,L1,L3", False),
-                                           ("intros", "L2", True)):
+                                           ("", "L1b,L2", False), ("intros", "L0,L1,L3", False),
+                                           ("intros", "L2", False), ("intros", "L1b,L2", True),
+                                           ("intros", "L1,L2", True)):
             with self.subTest(flags=flag_value, gates=gate_value), \
                     _settings(flag_value, gate_value):
                 self.assertEqual(flags.on("intros"), on)
@@ -558,7 +560,7 @@ class IntroAppTests(unittest.TestCase):
         sys.modules.update(cls.modules)
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def _run(self, user_id, username, page=None, flags_value=ON, gates_value="L2", **state):
+    def _run(self, user_id, username, page=None, flags_value=ON, gates_value="L1b,L2", **state):
         from streamlit.testing.v1 import AppTest
         at = AppTest.from_file(os.path.join(REPO, "dashboard.py"), default_timeout=120)
         at.session_state["user_id"] = user_id

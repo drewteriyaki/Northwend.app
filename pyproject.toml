@@ -46,7 +46,7 @@ py-modules = [
     "accounts", "admin", "advising", "advisor", "advisor_demo", "advisor_pack", "ai_gateway",
     "ai_spend", "analytics",
     "ai_usage", "alerts", "whats_new",
-    "allocation", "asset_classes", "auth", "brokerages", "changes", "charts", "checkin",
+    "allocation", "asset_classes", "auth", "billing", "brokerages", "changes", "charts", "checkin",
     "checkin_email", "cli", "client_book", "client_csv", "client_plan", "codefresh", "context_card",
     "consent", "access_log", "db_roles",
     "csv_import", "dashboard", "disclosures", "dividend_dates", "error_alerts", "export", "feature_counts", "feedback", "fees",

@@ -19,6 +19,8 @@ name: Scheduled sync (hosted Postgres)
 #                     and Trail Conditions only when it lists "trail_conditions"
 # and, for announced dividend dates (dividend_dates.py; skipped until set):
 #   POLYGON_API_KEY   a Polygon / Massive key (the free plan is enough)
+# and, for the nightly seat check with Stripe (billing.py; skipped until set):
+#   STRIPE_SECRET_KEY the live restricted key (docs/RUNBOOK.md, "Billing: Stripe setup")
 # A job that fails emails the admin (error_alerts.py, at most once an hour per
 # job) with RESEND_API_KEY, to the ALERT_EMAIL secret or admin@northwend.app.
 # The refresh job covers every account (--all-users, each ticker fetched
@@ -50,6 +52,12 @@ on:
     # 1.5 s apart (at most 40 a minute of Finnhub's free 60, leaving room for
     # the prices), at most 250 tickers a run, the oldest-fetched first.
     - cron: "7 11-23 * * *"
+    # Paid advisor seats (billing.py --sync): every known Stripe subscription
+    # read and each seat's status updated - nightly at 06:20 UTC, every day.
+    # Billing by pull (ADR 0004): there is no webhook, so this is how a
+    # cancellation or a failed payment reaches the app; the grace days absorb
+    # the wait. Does nothing until the STRIPE_SECRET_KEY secret is set.
+    - cron: "20 6 * * *"
   workflow_dispatch: {}  # allow manual triggering from the Actions tab
 
 # Once the database roles are split (docs/DB_ROLES.md), DATABASE_URL is the
@@ -275,3 +283,36 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: python error_alerts.py job "Your news" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # Paid advisor seats (billing.py; flag billing + gate L1a): reads every
+  # known subscription - and any checkout still waiting - from Stripe and
+  # updates the seats table. Counts only in the log. A seat Stripe couldn't
+  # tell us about fails the run, so the admin hears of it. Here rather than a
+  # Render cron: once a night is all it needs, and GitHub's nightly runs cost
+  # nothing (the dropped runs were the every-15-minutes ones).
+  billing-sync:
+    if: github.event.schedule == '20 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip  # reuse installed packages between runs
+      - run: pip install -r requirements.txt
+      - name: Check every seat with Stripe
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # the live copy's restricted key (rk_live_...); skipped while unset
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          # the same values as the app's, when the owner changed them
+          NORTHWEND_FOUNDING_SEATS: ${{ secrets.NORTHWEND_FOUNDING_SEATS }}
+          NORTHWEND_SEAT_GRACE_DAYS: ${{ secrets.NORTHWEND_SEAT_GRACE_DAYS }}
+        run: python billing.py --sync --db "$DATABASE_URL"
+      - name: Tell the admin it failed
+        if: failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: python error_alerts.py job "Seat check with Stripe" --db "$DATABASE_URL" --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

@@ -903,3 +903,28 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 );
 CREATE INDEX IF NOT EXISTS idx_analytics_events_at ON analytics_events (at);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_anon ON analytics_events (anon_id);
+
+-- Paid advisor seats (billing.py; flag billing + gate L1a): one row per
+-- advisor, made the first time they're seen with billing on. Stripe is the
+-- source of truth - checked on return from its hosted checkout and every
+-- night (python billing.py --sync), never taken from a link. No card data,
+-- ever: Stripe's own ids, the plan, the status and the dates. Founding places
+-- are numbered in app_state ('founding_places_given'), never handed out
+-- twice. Deleted with the account (admin.ACCOUNT_TABLES; admin.delete_account
+-- refuses while the seat is live); in the advisor's own export.
+CREATE TABLE IF NOT EXISTS seats (
+    user_id             INTEGER PRIMARY KEY,     -- the advisor's login
+    stripe_customer     TEXT,                    -- Stripe's cus_... id
+    stripe_subscription TEXT,                    -- Stripe's sub_... id
+    checkout_session    TEXT,                    -- a cs_... still to check with Stripe
+    plan                TEXT,                    -- 'monthly' or 'yearly'
+    status              TEXT    NOT NULL DEFAULT 'none',  -- 'none' or Stripe's status
+    founding            INTEGER NOT NULL DEFAULT 0,       -- 1 while a founding seat continues
+    founding_no         INTEGER,                 -- the founding place it got (1, 2, ...)
+    started_at          TEXT,                    -- the first paid seat began, UTC
+    current_period_end  TEXT,                    -- what's paid for runs to, UTC
+    grace_until         TEXT,                    -- add/send stay open until, with no live seat
+    last_checked        TEXT,                    -- last read from Stripe, UTC
+    manual_note         TEXT,                    -- set by an admin, paid outside the app: "Payment Link", "Invoice"
+    created_at          TEXT    NOT NULL         -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+);

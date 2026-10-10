@@ -32,6 +32,7 @@ import ai_usage
 import alerts
 import asset_classes
 import auth
+import billing
 import charts
 import consent
 import csv_import
@@ -2033,6 +2034,14 @@ if "together" in st.query_params:
         st.session_state["page"] = "Life"
     del st.query_params["together"]
 
+# ?billing=done / ?billing=cancel: back from Stripe's checkout (billing.py).
+# Only a hint to check: views/billing.py reads the checkout kept on the seat
+# from Stripe itself - nothing in the address is trusted. ?page=account opens
+# Your seat; the address then loses it (just below).
+if billing.RETURN_PARAM in st.query_params:
+    st.session_state["billing_back"] = str(st.query_params.get(billing.RETURN_PARAM))[:10]
+    del st.query_params[billing.RETURN_PARAM]
+
 if "page" not in st.session_state:
     # a fresh session: start on the page in the address (?page=plan), if it's
     # one this account can open
@@ -2136,6 +2145,8 @@ def _add_client():
     email = (st.session_state.get("new_client_email") or "").strip()
     invite = bool(email) and st.session_state.get("new_client_invite", True)
     viewer = st.session_state["user_id"]
+    if not _seat_ok():   # a paid seat that isn't active (views/billing.py)
+        return
     if not name and not email:
         st.session_state["client_msg"] = (
             "error", "Enter their name, or a household name like Chen household.")
@@ -2936,6 +2947,10 @@ def _rules_from(saved_prefs):
         saved = {}
     return [{**r, "abs_gt": float(saved.get(r["key"], r["abs_gt"]))} for r in alerts.DEFAULT_RULES]
 
+
+# paid advisor seats (billing.py; flag billing): Your seat on Account, and the
+# one plain line in place of add and send while a seat isn't active
+_view("billing")
 
 # the advisor agreement before Your clients, and the standing line's helpers
 _view("advisor_agreement")

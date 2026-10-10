@@ -372,10 +372,12 @@ class AppTests(unittest.TestCase):
         return self.page(self.carol, "carol", model, page, flags, gates,
                          two_step_ok=self.carol_ok, **state)
 
-    def test_drafts_need_the_flag_and_both_gates(self):
+    def test_drafts_need_the_flag_and_gate_l1a(self):
+        # workspace software since the L1 split (flags.FEATURES): L1a only -
+        # L2 alone, or L1b alone (the half that connects people), isn't enough
         model = _Model("x")
-        for flags, gates in (("", "L1,L2"), ("advisor_drafts", "L1"),
-                             ("advisor_drafts", "L2")):
+        for flags, gates in (("", "L1a,L2"), ("advisor_drafts", "L2"),
+                             ("advisor_drafts", "L1b,L2")):
             at = self._carol(model, "Advisor notes", flags, gates, active_user_id=self.dana)
             self.assertNotIn("draft_report", [b.key for b in at.button], (flags, gates))
 

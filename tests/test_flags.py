@@ -79,10 +79,10 @@ class FlagTests(unittest.TestCase):
             self.assertFalse(flags.gate("L1"))
 
     def test_streamlits_secrets_are_read_a_list_or_a_string(self):
-        with _settings(secrets={"NORTHWEND_FLAGS": ["walk"], "NORTHWEND_GATES": "L1,L2"}):
+        with _settings(secrets={"NORTHWEND_FLAGS": ["walk"], "NORTHWEND_GATES": "L1a,L2"}):
             self.assertTrue(flags.on("walk"))
             self.assertFalse(flags.on("screenshot_ai"))
-            self.assertEqual(flags.gates_on(), {"L1", "L2"})
+            self.assertEqual(flags.gates_on(), {"L1a", "L2"})
         # the environment first: set there (even empty), the secret isn't looked at
         with _settings({"NORTHWEND_FLAGS": ""}, secrets={"NORTHWEND_FLAGS": "walk"}):
             self.assertFalse(flags.on("walk"))
@@ -117,7 +117,10 @@ class FlagTests(unittest.TestCase):
             with unittest.mock.patch.dict(flags.FEATURES, {"walk": {"gates": ("L4",),
                                                                     "view": None}}):
                 self.assertFalse(flags.on("walk"))
-        self.assertEqual(flags.GATES, ("L0", "L1", "L2", "L3"))
+        self.assertEqual(flags.GATES, ("L0", "L1a", "L1b", "L2", "L3"))
+        # nothing spelled like L4 gets in through the old-name table either
+        with _settings({"NORTHWEND_GATES": "L4a L4 l4a"}):
+            self.assertEqual(flags.gates_on(), set())
         for name, f in flags.FEATURES.items():
             self.assertTrue(set(f["gates"]) <= set(flags.GATES), name)
         # no L4 setting anywhere in the app (LEGAL_GATES.md: no flag, nothing built)
@@ -126,19 +129,19 @@ class FlagTests(unittest.TestCase):
                 self.assertNotIn("GATE_L4", fh.read(), path)
 
     def test_a_feature_needs_its_flag_and_every_gate(self):
-        fake = {"fake": {"gates": ("L1", "L2"), "view": "fake_view", "page": "Fake"}}
+        fake = {"fake": {"gates": ("L1b", "L2"), "view": "fake_view", "page": "Fake"}}
         with unittest.mock.patch.dict(flags.FEATURES, fake):
-            with _settings({"NORTHWEND_FLAGS": "fake", "NORTHWEND_GATES": "L1"}):
+            with _settings({"NORTHWEND_FLAGS": "fake", "NORTHWEND_GATES": "L1b"}):
                 self.assertFalse(flags.on("fake"))
                 self.assertFalse(flags.view_on("fake_view"))
                 self.assertFalse(flags.page_on("Fake"))
                 self.assertEqual(flags.state()["flags"]["fake"],
-                                 {"on": False, "set": True, "needs": ("L1", "L2")})
-            with _settings({"NORTHWEND_FLAGS": "fake", "NORTHWEND_GATES": "L1,L2"}):
+                                 {"on": False, "set": True, "needs": ("L1b", "L2")})
+            with _settings({"NORTHWEND_FLAGS": "fake", "NORTHWEND_GATES": "L1b,L2"}):
                 self.assertTrue(flags.on("fake"))
                 self.assertTrue(flags.view_on("fake_view"))
                 self.assertTrue(flags.page_on("Fake"))
-            with _settings({"NORTHWEND_GATES": "L1,L2"}):
+            with _settings({"NORTHWEND_GATES": "L1b,L2"}):
                 self.assertFalse(flags.on("fake"))
         with _settings():   # a view or page no feature owns always runs
             self.assertTrue(flags.view_on("kit"))
