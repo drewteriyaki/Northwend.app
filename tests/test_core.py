@@ -4920,6 +4920,7 @@ class WebsiteTests(unittest.TestCase):
         for name, page in self.pages.items():
             for href in re.findall(r'href="(/[^"]*|#[^"]*)"', page):
                 path, _, anchor = href.partition("#")
+                path = path.partition("?")[0]   # a version on an asset (favicon.svg?v=3d)
                 target = name if not path else ("index.html" if path == "/" else path.lstrip("/") + ".html")
                 if path.endswith((".css", ".svg", ".woff2")):
                     self.assertTrue(os.path.exists(os.path.join(self.PUBLIC, path.lstrip("/"))), href)

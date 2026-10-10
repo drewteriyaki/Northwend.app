@@ -41,7 +41,16 @@ the record of what was built and why. Status as of October 9, 2026:
 - [ ] 3. The live copy's own API keys; least-privilege database roles -
       *prepared: `docs/DB_ROLES.md`, `NORTHWEND_SKIP_SCHEMA_SETUP`*
 - [ ] 4. Market data: a licensed provider recommended; switched on the owner's
-      OK; yfinance out of production (audit 1.9a)
+      OK; yfinance out of production (audit 1.9a) - *compared Oct 10: no
+      provider licenses public display for $30-50/month (Tiingo EOD + IEX
+      Redistribution $250/month startup, Twelve Data Venture "$149" or "$499",
+      Massive Business $2,499, Finnhub commercial by quote only). Owner: keep
+      overhead flat - no quotes asked until founding seats are filled; then
+      Finnhub, Twelve Data and Massive for startup quotes, and the licence
+      starts once ~3 seats cover it; until then news_feed
+      goes off on live (Finnhub's free terms are personal use only), in the
+      one flag change at the end of this list. Fallback with no licence: values
+      from the person's own brokerage file*
 - [ ] 5. Beta flag set: walk, ledger, log, storm drill, 401(k) decoder,
       decoder_public on; directory, intros, billing, pay_yourself off -
       *`decoder_public` (`?decode=401k`, no account) is built*
