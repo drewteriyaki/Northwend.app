@@ -115,6 +115,8 @@ def fee_card_line():
 def render_fee_step():
     """The fee check as a step in Learn the basics (Get started), once there
     are holdings to look at."""
+    if st.session_state.pop("own_open_fees", False):   # asked for from a basics topic's box
+        open_fee_window()                                 # (views/own_numbers.py)
     if not st.session_state.get("gs_has_holdings") or not fees.has_funds(_fee_check()):
         return
     with st.container(border=True, horizontal=True, vertical_alignment="center",

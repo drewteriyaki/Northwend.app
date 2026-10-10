@@ -107,6 +107,10 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   in), `overview.py` (advisor clients), `fees.py` +
   `views/fees.py` (Fee check; `security_info.expense_ratio` is a fraction - Yahoo's
   `netExpenseRatio` is a percent, the others fractions: `sync_history._expense_ratio`),
+  `own_numbers.py` + `views/own_numbers.py` (flag `learn_own_numbers`: "In your own
+  portfolio" under four of Learn's basics - funds, spread, fees, ups - facts from their
+  own holdings in percentages and asset classes, never tickers or advice words; 2022
+  figures only from practice money's stored prices; only the login's own account),
   `fund_holdings.py` + `views/fund_overlap.py` (Fund overlap on Home: each fund's top 10
   holdings from Yahoo, fetched only when the window opens, kept a week in the shared
   `fund_top_holdings` table; yield on cost is `income.yield_on_cost`).

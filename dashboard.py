@@ -2988,6 +2988,9 @@ _view("challenges")
 # Fee check: each fund's yearly fee in dollars, in a window (fees.py)
 _view("fees")
 
+# Learn the basics with your own numbers: a box under a topic (own_numbers.py)
+_view("own_numbers")
+
 # Fund overlap: do the funds hold the same companies? (fund_holdings.py)
 _view("fund_overlap")
 

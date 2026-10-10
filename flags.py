@@ -369,6 +369,15 @@ FEATURES = {
     # settings; never in client mode, never sent to the AI. No gate.
     # views/dashboard_page.py and views/plan.py check on("wins").
     "wins": {"gates": (), "view": None},
+    # Learn the basics with your own numbers (direction item 14; own_numbers.py,
+    # views/own_numbers.py): under four basics topics' reads (funds, spread,
+    # fees, ups), one short "In your own portfolio" box - counts, shares, the
+    # Fee check's own result, the bond share and a labelled-hypothetical 2022
+    # mix from the practice stand-ins' kept prices. Description of the person's
+    # own figures, no tickers, never "should" (LEGAL_GATES.md section 6): no
+    # gate. Nothing kept, nothing to the AI; never while an advisor is in a
+    # client's account. views/get_started.py checks on("learn_own_numbers").
+    "learn_own_numbers": {"gates": (), "view": "own_numbers"},
 }
 
 

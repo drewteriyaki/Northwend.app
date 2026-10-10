@@ -519,6 +519,8 @@ def _basics_window(key, monthly, years):
         if k == key:
             st.markdown(f"### {icon} {title}")
             st.markdown(body)
+            if flags.on("learn_own_numbers"):   # their own numbers (views/own_numbers.py)
+                render_own_numbers(k)
             learn_more(BASICS_LINKS.get(k))
             if flags.on("teach_back"):   # explain it back (views/teach_back.py)
                 render_teach_back(k)

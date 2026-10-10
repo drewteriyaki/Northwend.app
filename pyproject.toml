@@ -82,6 +82,7 @@ py-modules = [
     "pay_yourself",   # Pay yourself: savings as a monthly paycheck (ROADMAP R11)
     "teach_back",   # Teach It Back: explain a Learn topic back, the AI grader (ROADMAP R13)
     "money_minute",   # Today's minute: one small learning card a day on Home
+    "own_numbers",   # Learn the basics with your own numbers (direction item 14)
     "expedition_log", "ledger",   # the Expedition Log (R3) and the Do-Nothing Ledger (R2)
     "admin_log",   # the admin action log (PLAN 1b.3)
     "tidy",   # the nightly retention job (northwend-tidy)
