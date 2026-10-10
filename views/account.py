@@ -17,6 +17,7 @@
 
 import access_log
 import admin
+import analytics
 import consent
 import feature_counts
 import trail_conditions
@@ -51,12 +52,18 @@ def _acct_show_all():
 
 
 def _acct_counts_off():
-    """"Leave me out of feature counts" (feature_counts.PREF_OFF), on the
-    login's own settings - honoured by every count from then on."""
+    """"Don't use my data to improve the app" (feature_counts.PREF_OFF; named
+    "Leave me out of feature counts" while flag analytics is off), on the
+    login's own settings - honoured by every count from then on, and it
+    stops app-use events at once and deletes the ones recorded, with their
+    random id (analytics.forget: a new id if it's turned off again)."""
+    off = bool(st.session_state.get("acct_counts_off"))
     c = connect(DB)
     try:
         p = prefs.load(c, LOGIN_ID)
-        p[feature_counts.PREF_OFF] = bool(st.session_state.get("acct_counts_off"))
+        p[feature_counts.PREF_OFF] = off
+        if off:
+            analytics.forget(c, p)
         prefs.save(c, LOGIN_ID, p)
     finally:
         c.close()
@@ -102,12 +109,18 @@ def _render_counts_switch():
     finally:
         c.close()
     st.session_state["acct_counts_off"] = off
-    st.toggle("Leave me out of feature counts", key="acct_counts_off",
-              on_change=_acct_counts_off)
-    st.caption("To learn whether features like the monthly walk help, Northwend counts in "
-               "totals only, inside its own database - never you by name, only groups of 20 "
-               "or more, never shared or sold, and never sent to the AI. Turn this on and "
-               "you're left out of every count.")
+    st.toggle(analytics.switch_label(), key="acct_counts_off", on_change=_acct_counts_off)
+    if analytics.flag_on():
+        st.caption("To learn what helps, Northwend counts in totals only, inside its own "
+                   "database, and notes which pages and features are used, with a random ID - "
+                   "never your name, amounts or anything you type, only groups of 20 or "
+                   "more, never shared or sold, and never sent to the AI.")
+        st.caption(analytics.SWITCH_HELP)
+    else:
+        st.caption("To learn whether features like the monthly walk help, Northwend counts in "
+                   "totals only, inside its own database - never you by name, only groups of "
+                   "20 or more, never shared or sold, and never sent to the AI. Turn this on "
+                   "and you're left out of every count.")
 
 
 def _acct_change_email():

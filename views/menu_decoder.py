@@ -48,6 +48,7 @@ def _md_decode():
                   "truncated": False, "failed": True}
     st.session_state["md_result"] = result
     _md_count(text, result)
+    _track("decoder_used", kind="menu_401k")   # app use (analytics.py): never the text
 
 
 def _md_count(text, result):

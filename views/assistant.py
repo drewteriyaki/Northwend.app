@@ -332,6 +332,7 @@ def _assistant_chat(api_key, contexts, cash_by_account):
                 suggested, kept = [], []
             else:
                 _ai_record("chat")  # counted once it has answered
+                _track("ask_question")   # app use (analytics.py): a count, never the words
                 if quota["left"] is not None:
                     quota["left"] = max(0, quota["left"] - 1)
         display.append({"role": "assistant", "text": reply if isinstance(reply, str) else "".join(reply)})

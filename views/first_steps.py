@@ -120,6 +120,7 @@ def _fs_move(i, delta):
     nxt = i + delta
     if nxt >= len(steps):
         _fs_save(done=True, step=0)
+        _track("first_steps_done")   # app use (analytics.py)
         # an advisor's client goes back Home, to their advisor's next step
         st.session_state["page"] = "Dashboard" if CLIENT_MODE else "Get started"
         return
@@ -128,10 +129,12 @@ def _fs_move(i, delta):
 
 def _fs_skip():
     _fs_save(skipped=True)
+    _track("first_steps_skipped")   # app use (analytics.py)
 
 
 def _fs_finish(then=None):
     _fs_save(done=True, step=0)
+    _track("first_steps_done")   # app use (analytics.py)
     if then == "example":
         _load_sample()
         st.session_state["page"] = "Dashboard"   # straight to seeing it

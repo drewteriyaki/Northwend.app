@@ -106,6 +106,7 @@ def _checkin_finish(verdict):
         st.session_state["import_flash"] = (
             f"Your {checkin.month_name(checkin.month_of(today))} walk is done. Walks finished: "
             f"{checkin.count(p)}. Next walk: {_walk_day(checkin.next_walk(p, today))}.")
+        _track("walk_finished")   # app use (analytics.py): that it happened, never the verdict
     st.session_state.pop("checkin_open", None)
     st.session_state.pop("walk_return", None)
 

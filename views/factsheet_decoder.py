@@ -44,6 +44,7 @@ def _fs_decode():
     else:
         st.session_state["fs_paste"] = text
     st.session_state["fs_result"] = result
+    _track("decoder_used", kind="factsheet")   # app use (analytics.py): never the text
 
 
 def _fs_esc(text):

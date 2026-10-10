@@ -75,6 +75,7 @@ def _ch_start(key):
     new = challenges.started(p, key, rule)
     if new != p:
         _write_prefs(new)
+        _track("challenge_started")   # app use (analytics.py): never the rule
 
 
 def _ch_answer(key, choice):

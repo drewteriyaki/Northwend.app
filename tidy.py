@@ -30,6 +30,7 @@ What goes:
 - Announced dividends (dividend_events) whose ex-dividend and pay dates are
   both more than about two years ago (dividend_dates.prune).
 - The admin action log past a year (admin_log.prune), when that module is in.
+- App-use events (analytics_events) past 12 months (analytics.prune).
 - Consent records 7 years after the sharing they record ended (consent.prune),
   and advisor access log rows after 7 years (access_log.prune) - PLAN B6. Both
   outlive account deletion until then (admin.KEPT_AFTER_DELETE).
@@ -45,6 +46,7 @@ from datetime import datetime, timedelta, timezone
 
 import access_log
 import admin
+import analytics
 import auth
 import consent
 import dividend_dates
@@ -142,6 +144,8 @@ def run(conn, *, now: datetime | None = None) -> dict:
         done["admin log entries"] = int(admin_log.prune(conn, older_than_days=ADMIN_LOG_DAYS)
                                         or 0)
         conn.commit()
+    # app-use events past 12 months (analytics.prune)
+    done["app-use events"] = analytics.prune(conn, now=now)
     # B6: 7 years, past account deletion (each module's prune is the only delete)
     done["consent records"] = consent.prune(conn, now=now)
     done["advisor access log rows"] = access_log.prune(conn, now=now)

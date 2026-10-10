@@ -886,3 +886,20 @@ CREATE TABLE IF NOT EXISTS invite_links (
     created_at  TEXT    NOT NULL,                -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
     joined      INTEGER NOT NULL DEFAULT 0       -- accounts made through it - a count only
 );
+-- How the app is used (analytics.py, flag analytics): one row per event -
+-- when, a random id kept in the login's own settings (never the user id: no
+-- column for it), the event's name, the page and a few fixed words (all from
+-- analytics.py's allow-lists - never an amount, a ticker, a name or anything
+-- typed). Turning on "Don't use my data to improve the app" or deleting the
+-- account deletes the id's rows (analytics.forget); kept 12 months
+-- (analytics.prune, tidy.py); in the person's own export by their id.
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    at       TEXT    NOT NULL,                   -- 'YYYY-MM-DDTHH:MM:SSZ' UTC
+    anon_id  TEXT    NOT NULL,                   -- 16 hex characters, analytics.PREF_ID
+    event    TEXT    NOT NULL,                   -- an analytics.EVENTS name
+    page     TEXT,                               -- an analytics.PAGES name
+    props    TEXT                                -- JSON of analytics.PROPS words, or NULL
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_at ON analytics_events (at);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_anon ON analytics_events (anon_id);

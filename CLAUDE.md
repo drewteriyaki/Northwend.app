@@ -297,6 +297,14 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   rule speaking (target mix + drift band, asset classes only). `feature_counts.py`:
   totals only from settings, groups of 20+, skips `feature_counts_off` (Admin's Feature
   tests panel) - any new test metric goes through it and the privacy text first.
+  `analytics.py` (app use, flag `analytics` - on only after the revised Privacy Policy is
+  published): events in our own `analytics_events` table (no service, script or cookie) via
+  dashboard `_track(event, page, **props)` - allow-listed events, pages and fixed prop words
+  (`analytics.clean` drops anything else), a random `analytics_id` in the login's prefs, never
+  user_id; nothing for admins, an advisor in a client's account, opt-outs or GPC/DNT;
+  page_opened once per page change. The Account switch (`feature_counts_off`) is "Don't use my
+  data to improve the app" once the flag is on: it deletes the id's events (`analytics.forget`),
+  as account deletion does; 12 months (tidy.py); Admin "App use" shows groups of 20+ only.
 - Flags and settings: `flags.py` (`NORTHWEND_GATES` L0-L3, never L4; `NORTHWEND_FLAGS`;
   `FEATURES` - a view or page a feature owns is skipped by `_view`/`PAGES`, a feature inside
   a view checks `flags.on("name")`; a test checks every name is checked; everything is off

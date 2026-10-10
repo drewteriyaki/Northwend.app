@@ -44,7 +44,7 @@ northwend-licence-check = "cli:licence_check"
 [tool.setuptools]
 py-modules = [
     "accounts", "admin", "advising", "advisor", "advisor_demo", "advisor_pack", "ai_gateway",
-    "ai_spend",
+    "ai_spend", "analytics",
     "ai_usage", "alerts", "whats_new",
     "allocation", "asset_classes", "auth", "brokerages", "changes", "charts", "checkin",
     "checkin_email", "cli", "client_book", "client_csv", "client_plan", "codefresh", "context_card",

@@ -148,6 +148,9 @@ Open them in any spreadsheet. Dates are UTC.
   never kept); the words you agreed to are in sharing_with_an_advisor.csv
 - your_invite_link.csv: your Invite someone link's code, when you made it and
   how many people joined with your links (a count - never who)
+- app_use.csv: the app-use events recorded for you, if any (when, which event,
+  which page, and fixed words like the kind of device) - never an amount or
+  anything you typed
 
 Not included: your password and sign-in records, which are never stored in a
 readable form, or your two-step key and backup codes. Uploaded files and screenshots were never kept, so there's
@@ -210,6 +213,13 @@ def collect(conn, user_id: int) -> dict[str, list[dict]]:
             f"SELECT * FROM {table} WHERE {col} = ?{extra}", (user_id,))]
         if rows:
             found[name] = rows
+    # app-use events (analytics.py): no user id in that table - found by the
+    # random id in the account's own settings
+    import analytics
+    import prefs
+    events = analytics.own_events(conn, prefs.load(conn, user_id))
+    if events:
+        found["app_use"] = events
     return found
 
 

@@ -291,6 +291,7 @@ def _manual_from_paste(existing):
     ss["me_fill_msg"] = _manual_fill(found, acct)
     ss.pop("me_paste_acct_chosen", None)  # the next paste is asked about afresh
     ss["me_way"] = WAY_TYPE   # show the rows it filled in
+    ss["_an_method"] = "paste"   # the way only, for app use (analytics.py)
 
 
 def _manual_fill(found, acct):
@@ -425,6 +426,7 @@ def _render_screenshot_reader(existing=()):
                 ss["me_fill_msg"] = _manual_fill(found, shot_acct)
                 ss.pop("me_shot_acct_chosen", None)  # the next read is asked about afresh
                 ss["me_way_next"] = WAY_TYPE   # show the rows it filled in
+                ss["_an_method"] = "screenshot"   # the way only (analytics.py)
             st.rerun(scope="fragment")
 
 
@@ -531,6 +533,10 @@ def _review_and_save(meta, rows, totals, source, *, pct_mode=False, key="save_ho
             st.session_state["import_flash"] = flash + "."
             if first:
                 st.session_state["fn_nudge"] = True   # views/future_notes.py
+            # app use (analytics.py): the way they came in, nothing about them
+            _way = st.session_state.pop("_an_method", "manual")
+            _track("holdings_added", method="percent" if pct_mode
+                   else "csv" if key == "csv_save" else _way)
             if after:
                 after()
             _after_import()
@@ -830,6 +836,7 @@ def _load_sample():
         c.close()
     st.session_state["import_flash"] = ("Loaded an example portfolio - explore freely. Clear it "
                                         "any time from the banner at the top.")
+    _track("holdings_added", method="example")
     _after_import()
 
 

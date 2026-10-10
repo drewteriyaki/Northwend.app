@@ -390,6 +390,19 @@ FEATURES = {
     # always loads (the kit and the cost tools call in); views/dashboard_page.py,
     # views/kit.py and views/first_month.py check on("first_month").
     "first_month": {"gates": (), "view": None},
+    # How the app is used (direction item 12; analytics.py): events - a page
+    # opened, holdings added (the way only), a walk finished, a question asked
+    # (a count) - with a random id, in Northwend's own database
+    # (analytics_events): no new service, no script, no cookie. Never an
+    # amount, ticker, name or anything typed (analytics.clean); never for an
+    # admin, an advisor in a client's account, an opted-out person or a
+    # browser sending Global Privacy Control / Do Not Track. Admin sees totals
+    # for groups of 20+ only, nothing by advisor. Switch it on ONLY after the
+    # revised Privacy Policy (docs/legal/next/privacy-policy.md) is published
+    # with its new date (docs/RUNBOOK.md "App use (analytics)"). While it's
+    # off the Account switch keeps its published name. dashboard._track and
+    # the Account switch check analytics.flag_on() (flags.on("analytics")).
+    "analytics": {"gates": (), "view": None},
 }
 
 

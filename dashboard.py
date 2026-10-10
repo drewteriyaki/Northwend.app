@@ -24,6 +24,7 @@ _OLD_MODULES = codefresh.drop_stale(os.path.dirname(os.path.abspath(__file__)))
 
 import access_log
 import accounts
+import analytics
 import advising
 import ai_spend
 import ai_policy
@@ -3344,6 +3345,34 @@ def _write_prefs(d):
     st.session_state["_prefs"] = (USER_ID, dict(d), json.dumps(d))
 
 
+def _track(event, page=None, **props):
+    """One app-use event (analytics.py, flag analytics) - only for the
+    login on their own account (never an advisor in a client's account, never
+    an admin), not opted out, no Global Privacy Control / Do Not Track. The
+    random id is made once, in their own settings. Never raises."""
+    try:
+        if USER_ID != LOGIN_ID or not analytics.flag_on():
+            return
+        headers = st.context.headers
+        p = _read_prefs()
+        if not analytics.allowed(prefs=p, headers=headers, is_admin=IS_ADMIN,
+                                 in_clients_account=ON_CLIENT, flag=True):
+            return
+        anon = analytics.id_of(p)
+        if anon is None:
+            p[analytics.PREF_ID] = anon = analytics.new_id()
+            _write_prefs(p)
+        device = analytics.device_of(headers)
+        conn = connect(DB)
+        try:
+            analytics.record(conn, anon, event, page,
+                             {**props, **({"device": device} if device else {})})
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 - analytics never breaks a page
+        pass
+
+
 def load_columns():
     saved = _read_prefs().get("columns")
     keys = [k for k in (saved or M.DEFAULT_KEYS) if k in M.BY_KEY and M.BY_KEY[k].available]
@@ -3938,6 +3967,12 @@ if not pgcompat.is_postgres_dsn(DB) and not os.path.isfile(DB):
 
 render_feedback()   # the Send feedback window, while it's open (views/feedback.py)
 render_invite()     # the Invite someone window, while it's open (views/invite_friend.py)
+
+# App use (analytics.py, flag analytics): a page opened - once per page
+# change, not on every rerun; _track decides whether anything is recorded
+if st.session_state.get("_an_page") != (USER_ID, PAGE):
+    st.session_state["_an_page"] = (USER_ID, PAGE)
+    _track("page_opened", PAGE)
 
 if "hide_amounts" not in st.session_state:
     st.session_state["hide_amounts"] = bool(_read_prefs().get("hide_amounts", False))

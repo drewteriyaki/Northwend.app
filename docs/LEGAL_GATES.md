@@ -132,7 +132,7 @@ Files are repository paths. Line numbers are at commit `899f35a`.
 | A6 | Account page: name, look, email, password, signed-in devices | `views/account.py` | Account | L0 | No |
 | A7 | Export everything (ZIP of CSVs) | `export.py`, `views/account.py:316` | Account | L0 | No |
 | A8 | Delete my holdings; delete my account | `views/account.py:329`, `views/account.py:341`, `admin.py` | Account | L0 | No |
-| A9 | Leave me out of feature counts | `feature_counts.py`, `views/account.py` | Account | L0 | No |
+| A9 | Leave me out of feature counts ("Don't use my data to improve the app" once flag `analytics` is on: it also stops app-use events and deletes past ones) | `feature_counts.py`, `analytics.py`, `views/account.py` | Account | L0 | No. App-use events (flag `analytics`) wait for the revised Privacy Policy to be published. |
 | A10 | About and disclosures (in the app and as the website's About page) | `disclosures.py` | Education | L0 (its paid and advisor sections change at L1/L2 - section 7) | No |
 | A11 | "Something went wrong" message; error email to the admin | `friendly_errors.py`, `error_alerts.py` | Account | L0 | No |
 | A12 | Admin portal: accounts, advisor requests, AI use, feature tests, System | `views/admin.py`, `admin.py` | Account | L0 | No |

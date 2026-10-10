@@ -59,6 +59,10 @@ ACCOUNT_TABLES = {
     # the accounts made through it stay
     "invite_links": ("user_id",),
 }
+# Not listed: analytics_events (analytics.py) has no account column on
+# purpose - its rows carry only the random id kept in the account's settings,
+# so delete_account removes them by that id (analytics.on_account_deleted)
+# before user_prefs goes.
 # an advisor's own records about a client (advising.end_relationship keeps
 # them when it closes an account nobody could open)
 ADVISOR_RECORD_TABLES = ("advisor_notes", "proposals", "progress_reports", "former_clients")
@@ -319,6 +323,7 @@ def delete_account(conn, user_id: int, *, by: int,
                             (user_id,)).fetchone()["n"]
     links = conn.execute("SELECT advisor_id, client_id FROM advisor_clients WHERE "
                          "advisor_id = ? OR client_id = ?", (user_id, user_id)).fetchall()
+    import analytics
     import client_book
     import together
     with conn:
@@ -336,6 +341,9 @@ def delete_account(conn, user_id: int, *, by: int,
                                   "account_deleted")
         # doing it together ends with a revoke both ways (together.py)
         together.on_account_deleted(conn, user_id)
+        # app-use events hold no user id, only the random id in the
+        # settings: deleted by it here, before the settings go (analytics.py)
+        analytics.on_account_deleted(conn, user_id)
         for table, cols in ACCOUNT_TABLES.items():
             where = " OR ".join(f"{c} = ?" for c in cols)
             params = (user_id,) * len(cols)

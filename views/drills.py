@@ -71,6 +71,7 @@ def _drill_tap(key, choice):
     p = _read_prefs()
     if drills.record(p, key, choice, _drill_today()):
         _write_prefs(p)
+        _track("drill_done")   # app use (analytics.py): never which drill or tap
         st.session_state["drill_open"] = True   # the note after the tap stays in view
 
 

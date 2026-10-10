@@ -745,3 +745,14 @@ CREATE TABLE IF NOT EXISTS invite_links (
     created_at  TEXT    NOT NULL,
     joined      INTEGER NOT NULL DEFAULT 0
 );
+-- How the app is used - see the matching comment in schema.sql.
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id       SERIAL  PRIMARY KEY,
+    at       TEXT    NOT NULL,
+    anon_id  TEXT    NOT NULL,
+    event    TEXT    NOT NULL,
+    page     TEXT,
+    props    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_at ON analytics_events (at);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_anon ON analytics_events (anon_id);

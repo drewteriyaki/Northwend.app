@@ -18,6 +18,7 @@ import secrets
 import admin
 import admin_log
 import ai_spend
+import analytics
 import auth
 import dividend_dates
 import error_alerts
@@ -805,8 +806,51 @@ def _render_admin():
         _render_decoder_counts(c)
         if flags.on("drills"):
             _render_drill_returns(c)
+        if analytics.flag_on():
+            _render_app_use(c)
     finally:
         c.close()
+
+
+AN_EVENT_WORDS = {   # analytics.EVENTS, in words
+    "page_opened": "Opened a page", "holdings_added": "Added holdings",
+    "walk_finished": "Finished a walk", "decoder_used": "Used a decoder",
+    "first_steps_done": "Finished first steps", "first_steps_skipped": "Skipped first steps",
+    "ask_question": "Asked Northwend", "challenge_started": "Started a challenge",
+    "drill_done": "Rehearsed a drill",
+}
+
+
+def _render_app_use(c):
+    """App use (analytics.summary): totals for the last 30 days, each row only
+    for a group of analytics.MIN_GROUP or more people - never one person's
+    events, nothing by advisor (events hold none)."""
+    s = analytics.summary(c)
+    least = analytics.MIN_GROUP
+    st.subheader(f"App use (last {analytics.SUMMARY_DAYS} days)", anchor=False)
+    st.caption(f"Totals only, with a random ID per person - never a name. A row shows once "
+               f"{least} or more people are in it; people who turned on \""
+               f"{analytics.SWITCH_LABEL}\", admins, advisors in a client's account and "
+               "browsers that send Global Privacy Control aren't recorded. Never used to "
+               "choose, rank or suggest an advisor.")
+    if not (s["events"] or s["pages"] or s["days"]):
+        st.caption(f"Fewer than {least} people in any group so far - nothing to show yet.")
+        return
+    if s["events"]:
+        st.dataframe(pd.DataFrame([{"What": AN_EVENT_WORDS.get(r["event"], r["event"]),
+                                    "Times": r["times"], "People": r["people"]}
+                                   for r in s["events"]]), hide_index=True, width="stretch")
+    if s["details"]:
+        st.dataframe(pd.DataFrame([{"What": AN_EVENT_WORDS.get(r["event"], r["event"]),
+                                    "Detail": r["detail"], "People": r["people"]}
+                                   for r in s["details"]]), hide_index=True, width="stretch")
+    if s["pages"]:
+        st.dataframe(pd.DataFrame([{"Page": _label(r["page"]), "Times opened": r["times"],
+                                    "People": r["people"]} for r in s["pages"]]),
+                     hide_index=True, width="stretch")
+    if s["days"]:
+        st.dataframe(pd.DataFrame([{"Day": r["day"], "People": r["people"]}
+                                   for r in s["days"]]), hide_index=True, width="stretch")
 
 
 AI_LEVEL_WORDS = {
@@ -902,7 +946,7 @@ def _render_feature_tests(c):
     st.subheader("Feature tests", anchor=False)
     st.caption(f"Totals only, worked out from what's stored - never a person. A total shows "
                f"once a group reaches {feature_counts.MIN_GROUP} people, and people who turned "
-               "on \"Leave me out of feature counts\" are never counted.")
+               f"on \"{analytics.switch_label()}\" are never counted.")
     days, least = feature_counts.SECOND_WITHIN_DAYS, feature_counts.MIN_GROUP
     today = datetime.now().date()
     people = list(feature_counts.walk_settings(c, admin.listed_admins()))

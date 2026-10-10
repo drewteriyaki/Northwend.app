@@ -1,8 +1,9 @@
 <!-- DRAFT for the owner's review (direction update, October 9, 2026, item 9).
 Not published, not built into the website. Changes from the published version:
 the short version; section 2 (payments, and product analytics replacing "no
-third-party analytics"); section 3; section 4 (Stripe and the analytics service
-added; "isn't paid by anyone" reworded); section 6 (cookies, Global Privacy
+third-party analytics"); section 3; section 4 (Stripe added; analytics stays in
+Northwend's own database, so no analytics service row; "isn't paid by anyone"
+reworded); section 6 (cookies, Global Privacy
 Control honoured as an opt-out); section 7 (how long analytics and billing
 records are kept); section 8 (the opt-out). Choices left open are in comments.
 Nothing here may ship before analytics or payments are built and this is
@@ -21,7 +22,7 @@ it's kept, and your choices. It covers the app and the website, northwend.app.
 less than you share where it can. It never asks for your brokerage login. It
 never sells your data, shares it for advertising, shows ads, or tracks you across
 other sites. To learn which parts of the app people use, it records what you do
-in the app (like which pages you open) on a service we run ourselves - never your
+in the app (like which pages you open) in its own database - never your
 amounts, holdings or what you type, never for ads and never to pick an advisor
 for you - and you can turn that off with one switch on your Account page.
 
@@ -203,18 +204,18 @@ mode work without any.
   customer record and subscription. Never your card number - Stripe holds it,
   and we never see it.
 - **How the app is used (product analytics).** Unless you've turned it off, the
-  app records events: which pages you open, which buttons and features you use,
-  when, and on what kind of device and browser - with a random ID for your
-  account, not your name or email. It never records amounts, holdings, tickers,
-  account names, your profile answers or anything you type. Events go to an
-  analytics service we run ourselves <!-- PostHog or Plausible, self-hosted:
-  name it here once chosen -->; no advertising company or third-party tracker
-  receives them. We use them only to find out what helps and what's confusing,
+  app records events: which pages you open, which features you use (for
+  example that you added holdings, and whether by file, paste or by hand),
+  when, and on what kind of device (phone, tablet or computer) - with a random
+  ID for your account, not your name or email. It never records amounts,
+  holdings, tickers, account names, your profile answers or anything you type.
+  Events are kept in Northwend's own database <!-- analytics.py: the
+  analytics_events table, no separate analytics service -->; no advertising
+  company or third-party tracker receives them. We use them only to find out what helps and what's confusing,
   in totals. They are **never** used to choose, rank or suggest an advisor for
   anyone, never sold, never shared for advertising and never sent to the AI.
-  Streamlit's own usage statistics stay off. The website (northwend.app)
-  <!-- decide: "runs no scripts" stays true only if the website gets no
-  analytics; Plausible on the site would need its script allowed -->
+  Streamlit's own usage statistics stay off. The website (northwend.app) runs
+  no scripts and records no events.
 - **Feature counts.** To learn whether features like the monthly walk help,
   Northwend counts in totals only, inside its own database - for example, how many
   people took a second monthly walk within 45 days of their first, how many
@@ -229,8 +230,8 @@ mode work without any.
   for groups of 20 or more (and only on the admin page), and is never shared,
   sold or sent to the AI. You can leave yourself out at any time with **Don't use
   my data to improve the app** on the Account page; you're then left out of every
-  count, including ones about walks you took before, and no analytics events are
-  recorded for you from then on.
+  count, including ones about walks you took before, no analytics events are
+  recorded for you from then on, and the ones already recorded are deleted.
 
 ## 3. How we use it
 
@@ -261,7 +262,9 @@ It is shared only as needed to run the service, with:
 | **GitHub Actions** | Runs the scheduled jobs: price updates and price history, announced dividend dates, news headlines for held and watched tickers, the nightly clean-up of what's kept only for a while (section 7), the advisors' Monday email, and the monthly walk reminders and Trail Conditions emails people turn on | Access to the database to do those jobs |
 | **Resend** | Sends account emails, and feedback you send to the Northwend team | Your email address and that message (for feedback, your address only if you ask for a reply) |
 | **Stripe** | Takes payment for a paid plan, only if you buy one | Your name, email and payment details, which you enter on Stripe's own page; from us, which plan and a reference to your account |
-| **Our analytics service** (self-hosted <!-- PostHog or Plausible -->, on <!-- the host it runs on -->) | Records app events, unless you've turned that off | The events in section 2, with a random ID - never your name, email, amounts, holdings or anything you type |
+
+<!-- No "analytics service" row: app events stay in Northwend's own database
+(the Neon row above) - no separate service receives them (analytics.py). -->
 
 Your advisor, if you have one, sees everything in your account except your notes
 to your future self, your monthly walks, your account map, your Lost & Found
@@ -435,9 +438,8 @@ its API isn't used to train its models, and it's kept only for a limited time.
   keep you signed in on that device. The hosting service may set cookies it needs
   to run the site.
 - There are **no advertising cookies and no third-party trackers.** Our own
-  analytics <!-- decide: "uses no cookies" (Plausible, or PostHog without
-  cookies) or "sets one cookie of its own to tell visits apart" --> and is
-  switched off with your Account page setting.
+  analytics uses no cookies (the random ID is kept with your account, not in
+  your browser) and is switched off with your Account page setting.
 - **No cross-site tracking:** we don't track you across other websites, and we
   don't allow third parties to collect personal information about your online
   activities over time and across other websites through Northwend.
@@ -472,7 +474,7 @@ you delete it.
 | Daily prices and fund details (no personal data) | Kept |
 | Announced dividend dates (no personal data) | About 2 years |
 | Error records (the kind of error and where it happened, no personal data) | 90 days |
-| Analytics events (with a random ID, never amounts or what you type) | 12 months <!-- decide --> ; deleted sooner with your account |
+| Analytics events (with a random ID, never amounts or what you type) | 12 months <!-- analytics.KEEP_DAYS, tidy.py --> ; deleted sooner with your account or when you turn on "Don't use my data to improve the app" |
 | Payment records (plan, price, dates, Stripe's references - never a card number) | 7 years after the payment, for tax and accounting <!-- check with the accountant --> |
 | The record of what the person running Northwend did to accounts (never holdings) | 1 year |
 | An advisor's own records about a former client (their notes, the proposals and reports they sent, the name and email they had) | Kept with the advisor's account, for their record-keeping duties (section 8) |

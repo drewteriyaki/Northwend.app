@@ -245,6 +245,8 @@ class TidyTests(_DB):
                                 "together invitations": 1, "wrong-password counts": 2,
                                 "sign-up counts": 1, "email-send counts": 1, "minute bars": 1,
                                 "dividend dates": 0,
+                                # 12 months (analytics.prune): none here
+                                "app-use events": 0,
                                 # 7 years (B6): nothing that old here
                                 "consent records": 0, "advisor access log rows": 0})
         q = lambda sql: [tuple(r) for r in c.execute(sql)]  # noqa: E731

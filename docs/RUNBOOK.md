@@ -818,6 +818,44 @@ own count; `tests/test_postgres.py` does the same for the Postgres one.
 
 ---
 
+## App use (analytics)
+
+`analytics.py`, flag `analytics`, off unless set. Events (a page opened, holdings
+added with the way only, a walk finished, a decoder used, first steps done or
+skipped, a question asked - a count, a challenge started, a drill rehearsed) go
+into Northwend's own database, table `analytics_events`: no new service, no
+script on any page, no cookie, no cost. Each row: when, a random ID kept in the
+person's settings (`analytics_id` - never the user id), the event, the page and
+a few fixed words (the kind of device). Nothing else gets through
+`analytics.clean`.
+
+**Before turning it on:** publish the revised Privacy Policy first
+(`docs/legal/next/privacy-policy.md`: it says app events are recorded, names the
+service as "Northwend's own database" and adds the 12-month row) with its new
+effective date (`disclosures.LAST_UPDATED`), and the About page's wording to
+match. Only then add `analytics` to `NORTHWEND_FLAGS`. With the flag on, the
+Account switch reads "Don't use my data to improve the app" (the same setting,
+`feature_counts_off`, so earlier choices carry over); with it off it keeps the
+published name "Leave me out of feature counts".
+
+Never recorded: the flag off; the switch on; a browser sending Global Privacy
+Control (`Sec-GPC: 1`) or Do Not Track (`DNT: 1`); admins; an advisor in a
+client's account; anyone not signed in. Turning the switch on deletes that
+person's past events and their ID at once (a new ID if they turn it off again);
+deleting an account does the same, before its settings go. Kept 12 months:
+`tidy.py` prunes nightly ("app-use events"). A person's own events are in their
+Export everything (`app_use.csv`).
+
+**Where to see it:** Admin > App use (last 30 days): per event, per page and
+people per day - each row only for 20 or more different IDs. There is no view of
+one ID's events and nothing by advisor; it is never used to choose, rank or
+suggest an advisor (docs/DIRECTION_2026-10-09.md).
+
+**To turn it off:** take `analytics` out of `NORTHWEND_FLAGS` - recording stops
+on the next page change. To delete everything: `DELETE FROM analytics_events;`.
+
+---
+
 ## The AI eval
 
 Ask Northwend's eval set (`evals/`, docs/AI_PLAN.md section 8): 64 cases in
