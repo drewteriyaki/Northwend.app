@@ -59,6 +59,13 @@ PAGES = {
                       "proposals, meeting prep and progress reports - clients bring holdings "
                       "from any brokerage.",
                       "/advisors"),
+    # the paid-seats version of /advisors (direction item 11): a draft, held -
+    # see ADVISOR_SEATS_LIVE below
+    "advisors-seats.html": ("advisors-seats.html", "For financial advisors · Northwend",
+                            "A workspace for independent advisors and their own clients: "
+                            "meeting prep, proposals, progress reports and records, at one "
+                            "flat price per seat.",
+                            "/advisors"),
     "decode-401k.html": ("decode-401k.html", "Decode your 401(k) menu · Northwend",
                          "Paste your workplace plan's fund list and see what kind of fund each "
                          "one is and what it charges - free, no account, nothing saved.",
@@ -89,7 +96,16 @@ PAGES = {
 # to be switched on. Put its name here to hold it back. (The no-account
 # decoder's page was held until the hosting move; published October 6, 2026,
 # with flag decoder_public on.)
-HELD: set[str] = set()
+HELD: set[str] = {"advisors-seats.html"}
+
+# The "For advisors" page for paid workspace seats is a draft for the owner's
+# review, and its price must not go live before billing is switched on in the
+# app. Until then it is built for its tests only (advisors-seats.html, held)
+# and /advisors stays the current page. To publish it at /advisors, set this
+# to True, run python website/build.py and release.
+ADVISOR_SEATS_LIVE = False
+if ADVISOR_SEATS_LIVE:
+    PAGES["advisors.html"] = PAGES["advisors-seats.html"]
 PUBLISHED = {k: v for k, v in PAGES.items() if k not in HELD}
 
 

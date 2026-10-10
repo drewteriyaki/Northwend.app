@@ -4807,6 +4807,49 @@ class WebsiteTests(unittest.TestCase):
         self.assertIn('href="/advisors" aria-current="page"', adv)
         self.assertNotIn('aria-current="page"', self.pages["about.html"])
 
+    def test_the_paid_seats_advisor_page_is_held_until_switched_on(self):
+        # direction item 11: built and checked here, never written to public/
+        # while ADVISOR_SEATS_LIVE is False (its price waits for billing)
+        site = self.site
+        self.assertIn("advisors-seats.html", site.HELD)
+        self.assertNotIn("advisors-seats.html", site.render())
+        self.assertFalse(os.path.exists(os.path.join(self.PUBLIC, "advisors-seats.html")))
+        if not site.ADVISOR_SEATS_LIVE:
+            self.assertNotIn("$79", self.pages["advisors.html"])
+        page = site.render(include_held=True)["advisors-seats.html"]
+        for words in ("$79 a month", "$790 a year", "$99 a month", "first 20",
+                      "Never per client, per lead, or a share of what you earn",
+                      "doesn't refer, rank or match advisors", "check with your compliance team",
+                      "the advice is yours", "software and records only",
+                      "keep it if they leave", "limited to the fees you paid",
+                      "See the example book", "We check your license", "isn't an endorsement",
+                      "CRD", "Questions about using Northwend in your practice"):
+            self.assertIn(words, page.replace("&#x27;", "'"), words)
+        self.assertIn("PRICE BLOCK: must NOT go live until billing", page)
+        self.assertIn(f'href="{site.ADVISOR_SIGNUP_URL}"', page)
+        self.assertIn('href="/advisors" aria-current="page"', page)
+        self.assertNotIn("<script", page)
+        self.assertNotIn("style=", page)
+        self.assertNotIn("{{", page)
+        main = page[page.index('<main id="main">'):page.index("</main>")].lower()
+        for word in ("introduction", "find a guide", "calm", "screenshot", "licence"):
+            self.assertNotIn(word, main, word)   # off-live features, house words
+        self.assertEqual(main.count("sell investments"), 1)
+        # every link on it goes to a published page and anchor (so publishing it
+        # never breaks the link check; /advisor-agreement doesn't exist yet)
+        ids = {n: set(re.findall(r'id="([^"]+)"', p)) for n, p in self.pages.items()}
+        ids["advisors-seats.html"] = set(re.findall(r'id="([^"]+)"', page))
+        for href in re.findall(r'href="(/[^"]*|#[^"]*)"', page):
+            path, _, anchor = href.partition("#")
+            path = path.partition("?")[0]
+            if path.endswith((".css", ".svg", ".woff2")):
+                continue
+            target = ("advisors-seats.html" if not path else
+                      "index.html" if path == "/" else path.lstrip("/") + ".html")
+            self.assertIn(target, ids, href)
+            if anchor:
+                self.assertIn(anchor, ids[target], href)
+
     def test_worked_out_tables(self):
         site = self.site
         # $100 a month for 10 years at 6% a year, compounded monthly

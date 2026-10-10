@@ -1,0 +1,154 @@
+<!-- DRAFT (direction item 11): the "For advisors" page for paid workspace
+seats. Held in build.py (ADVISOR_SEATS_LIVE = False) until the owner has read
+it AND billing is switched on: it is built for the tests but never written to
+public/. Publishing it replaces /advisors (see build.py). -->
+<div class="wrap">
+<section class="split hero" aria-labelledby="hero-title">
+<div class="hero-copy">
+<span class="chip chip-compass">Founding seats</span>
+<p class="eyebrow">For financial advisors</p>
+<h1 id="hero-title" class="display">A workspace for you and your own clients.</h1>
+<p class="lead muted measure">For independent advisors at registered solo and two-person firms - especially new, fee-only, flat-fee and advice-only planners whose clients are just starting out.</p>
+<div class="btn-row">
+<a class="btn btn-primary btn-lg" href="{{ADVISOR_SIGNUP_URL}}">See the example book</a>
+<a class="btn btn-lg" href="#price">See the price</a>
+</div>
+<p class="hero-note small muted"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg><span>For registered professionals. We check your firm and CRD or license number first, usually within two working days. If you're at a larger firm, please check with your compliance team before using outside software.</span></p>
+</div>
+<div class="card card-float" role="group" aria-label="An example of the Your clients page">
+<div class="card-row">
+<span class="heading">Your clients</span>
+<span class="chip chip-compass">Example</span>
+</div>
+<ul class="client-list">
+<li><span class="client-name">Maya R.<span class="small muted">Retirement · 2041</span></span><span class="client-val">$412,380.20<span class="small up">+$1,204.10 (0.29%)</span></span><span class="chip chip-dawn">Review due</span></li>
+<li><span class="client-name">Sam and Lee K.<span class="small muted">College fund · 2034</span></span><span class="client-val">$96,415.75<span class="small up">+$310.62 (0.32%)</span></span><span class="chip">On track</span></li>
+<li><span class="client-name">Jordan P.<span class="small muted">House deposit · 2028</span></span><span class="client-val">$38,902.40<span class="small down">-$85.10 (0.22%)</span></span><span class="chip chip-warn">Mix drifted</span></li>
+</ul>
+<div class="guide-note">
+<span class="guide-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path><path d="M10 13h6"></path><path d="M10 17h6"></path></svg></span>
+<p class="small"><strong>Meeting prep for Maya:</strong> what changed since your last review, and talking points drafted for you to edit.</p>
+</div>
+</div>
+</section>
+</div>
+
+<section id="seat" class="band" aria-labelledby="seat-title">
+<div class="wrap section">
+<div class="section-head">
+<p class="eyebrow">What the seat is</p>
+<h2 id="seat-title" class="title">The workspace you use with your own clients</h2>
+<p class="muted">One seat is for one advisor. Your clients bring their holdings from any brokerage, with no brokerage login.</p>
+</div>
+<ul class="features">
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3 3-5 6-5s6 2 6 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.5c3 0 5 1.6 5 4.5"></path></svg></span><h3 class="heading">Clients who arrive ready</h3><p class="muted">A new client comes to the first meeting with their holdings, their goal and a fee check already entered.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg></span><h3 class="heading">Meeting prep and a proposal in about ten minutes</h3><p class="muted">What changed since the last review, talking points drafted for you to edit, and a proposed mix set beside today's.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path><path d="M10 13h6"></path><path d="M10 17h6"></path></svg></span><h3 class="heading">Progress reports</h3><p class="muted">For last month, last quarter or the time since your last one. Your client reads it in their own account.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg></span><h3 class="heading">Notes that are never deleted</h3><p class="muted">Notes your client sees and private notes only you see. You archive instead of delete, and edits keep the earlier text.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></span><h3 class="heading">Records you can download</h3><p class="muted">Each client's record - notes, proposals and reports - downloads as one file, to keep with your own books.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></span><h3 class="heading">Your client's own view</h3><p class="muted">Each client has their own account: their goal, their plan, your notes and your name on it, between meetings too.</p></li>
+<li><span class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"></path><path d="M9 12h11"></path><path d="M9 18h11"></path><path d="M4 6h.01"></path><path d="M4 12h.01"></path><path d="M4 18h.01"></path></svg></span><h3 class="heading">A log your client can see</h3><p class="muted">Each page you open in a client's account is listed for them: who, which page and when. Never their figures.</p></li>
+</ul>
+</div>
+</section>
+
+<div class="wrap">
+<section id="not" class="section" aria-labelledby="not-title">
+<div class="section-head">
+<p class="eyebrow">What the seat isn't</p>
+<h2 id="not-title" class="title">Software for the clients you already have</h2>
+</div>
+<div class="notes-row">
+<div class="note-item"><h3 class="heading">Not a listing or leads</h3><p class="muted small">A seat doesn't include a directory listing, leads or referrals, and no one is introduced to you. Northwend doesn't refer, rank or match advisors.</p></div>
+<div class="note-item"><h3 class="heading">Not your planning software</h3><p class="muted small">Keep the planning software you use. Northwend is the front door and the view your clients open, which planning software usually doesn't have.</p></div>
+<div class="note-item"><h3 class="heading">Unless you plan without one</h3><p class="muted small">For advice-only planners who never needed a full planning tool, the seat can be the whole workspace.</p></div>
+</div>
+</section>
+</div>
+
+<!-- PRICE BLOCK: must NOT go live until billing (Stripe checkout, direction
+item 10) is switched on in the app. Keep ADVISOR_SEATS_LIVE = False in
+build.py until then. Figures match docs/legal/next/advisor-software-agreement.md
+section 4: founding USD 79/month or USD 790/year for the first 20, kept while
+the seat continues without a break; standard USD 99 later. -->
+<section id="price" class="band" aria-labelledby="price-title">
+<div class="wrap section">
+<div class="section-head">
+<p class="eyebrow">Price</p>
+<h2 id="price-title" class="title">One flat fee for each seat</h2>
+<p class="muted">Never per client, per lead, or a share of what you earn.</p>
+</div>
+<div class="panel">
+<div class="stack">
+<div><span class="chip chip-compass">The first 20 seats</span></div>
+<h3 class="heading">Founding seat</h3>
+<p class="figure-hero">$79 a month</p>
+<p class="muted">or $790 a year. You keep this price for as long as your seat continues without a break.</p>
+</div>
+<ul class="checks checks-single">
+<li>{{CHECK}}<span><strong>After the founding seats:</strong> $99 a month.</span></li>
+<li>{{CHECK}}<span><strong>Cancel any time,</strong> in one step in the app. The seat runs to the end of the period you've paid for.</span></li>
+<li>{{CHECK}}<span><strong>Optional setup:</strong> we'll load your client list for you, once. Write to <a class="strong" href="mailto:support@northwend.app">support@northwend.app</a> and we'll tell you the price first.</span></li>
+</ul>
+</div>
+</div>
+</section>
+
+<div class="wrap">
+<section id="terms" class="section" aria-labelledby="terms-title">
+<div class="section-head">
+<p class="eyebrow">The agreement, in plain words</p>
+<h2 id="terms-title" class="title">Four things we agree on</h2>
+<!-- link the full advisor agreement here (/advisor-agreement) only once it is
+published as a page; until then it doesn't exist, and the link checker fails. -->
+<p class="muted">A paid seat comes with an advisor agreement. Its four main points are below; the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a> apply too.</p>
+</div>
+<ol class="steps">
+<li><h3 class="heading">You're the registered professional, and the advice is yours</h3><p class="muted">Proposals, notes, messages and reports carry your name and your firm's. Northwend doesn't review, approve or supervise them.</p></li>
+<li><h3 class="heading">Northwend is software and records only</h3><p class="muted">It isn't an adviser or a broker, it doesn't act for you or your clients, and it never recommends you or any investment. We don't sell investments.</p></li>
+<li><h3 class="heading">Clients own their data and keep it if they leave</h3><p class="muted">A client's account is theirs: they can download it, stop sharing it with you, and keep it if they stop working with you. Your notes and the records you sent stay with you.</p></li>
+<li><h3 class="heading">Our liability is limited to the fees you paid</h3><p class="muted">Northwend's total responsibility to you is limited to what you paid us in the 12 months before a claim.</p></li>
+</ol>
+</section>
+
+<section id="start" class="section section-tight" aria-labelledby="start-title">
+<div class="section-head">
+<p class="eyebrow">Getting started</p>
+<h2 id="start-title" class="title">From sign-up to your first client</h2>
+</div>
+<ol class="steps">
+<li><h3 class="heading">Create an advisor account</h3><p class="muted">With your firm and your CRD or license number.</p></li>
+<li><h3 class="heading">Look around the example book</h3><p class="muted">While you wait, a made-up client book shows Your clients, a proposal, a progress report and meeting prep. Nothing in it is real.</p></li>
+<li><h3 class="heading">We check your license</h3><p class="muted">Usually within two working days. It confirms you're registered - it isn't an endorsement.</p></li>
+<li><h3 class="heading">Invite a client</h3><p class="muted">Turn on two-step sign-in, then send a one-time setup link. Your client sets their own password and brings their holdings in.</p></li>
+</ol>
+</section>
+
+<section id="questions" class="section section-tight" aria-labelledby="questions-title">
+<div class="section-head">
+<p class="eyebrow">Before you start</p>
+<h2 id="questions-title" class="title">Common questions</h2>
+</div>
+<div class="faq">
+<details><summary>Do I need my compliance team's approval?</summary><p>That depends on your firm. Many firms ask advisors to get approval before using outside software, and advisors at larger firms almost always need it, so check with your compliance team first. Your own obligations, such as client disclosures and keeping records, stay with you and your firm.</p></details>
+<details><summary>How is my clients' data kept safe?</summary><p>Every advisor account uses two-step sign-in with an authenticator app. Uploads aren't kept, account numbers are cut to the last 3 digits, and the AI sees holdings as percentages only. You see only the accounts your clients share with you. More in the <a href="/privacy#security">Privacy Policy's security section</a>.</p></details>
+<details><summary>Can I cancel?</summary><p>Yes, any time, in one step in the app. You can still sign in and download your records afterward, and your clients keep their own accounts.</p></details>
+<details><summary>What do my clients see?</summary><p>Their own account: their holdings, goal and plan, the notes, proposals and reports you share with them, your name and firm, and the list of pages you've opened in their account. They never see your private notes or anyone else's account.</p></details>
+<details><summary>Does Northwend hold client money or place trades?</summary><p>No. It isn't a broker or a custodian and isn't connected to any brokerage. Money and trades stay with each client's brokerage.</p></details>
+<details><summary>Which brokerages do my clients need?</summary><p>Any. Clients bring holdings in from their brokerage's own export, a paste, or by typing them in.</p></details>
+</div>
+</section>
+</div>
+
+<section class="cta-band cta-navy" aria-labelledby="cta-title">
+<div class="wrap cta-inner">
+<div class="cta-goal">
+<span class="sun" aria-hidden="true"></span>
+<div class="stack measure">
+<h2 id="cta-title" class="title">See the example book first.</h2>
+<p>Create an advisor account and look around a made-up client book while we check your license. Questions about using Northwend in your practice: <a href="mailto:support@northwend.app">support@northwend.app</a></p>
+</div>
+</div>
+<a class="btn btn-dawn btn-lg" href="{{ADVISOR_SIGNUP_URL}}">See the example book</a>
+</div>
+</section>

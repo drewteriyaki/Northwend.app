@@ -442,3 +442,5 @@ p, h1, h2, h3, ul, ol, dl, dd, figure { margin: 0; }
 /* the closing band on Home: navy, the star */
 .cta-navy { background: var(--band); color: var(--on-band); }
 .cta-navy .sun { background: var(--band-star); }
+.cta-navy p a { color: var(--on-band-link); }
+.cta-navy p a:hover { color: var(--on-band); }
