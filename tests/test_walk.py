@@ -266,7 +266,10 @@ class FeatureCountTests(_DB):
         with open(os.path.join(REPO, "feature_counts.py"), encoding="utf-8") as fh:
             src = fh.read()
         sql = re.findall(r'"(SELECT[^"]*)"', src)
-        self.assertEqual(sql, ["SELECT data FROM user_prefs WHERE data LIKE ?",
+        self.assertEqual(sql, [# the walks: settings only, admin logins filtered inside
+                               "SELECT p.data AS data FROM user_prefs p JOIN users u ON "
+                               "u.id = p.user_id ",
+                               "SELECT data FROM user_prefs WHERE data LIKE ?",
                                # the Storm Drill count (R4): settings only, no body
                                "SELECT p.data AS data FROM future_notes n LEFT JOIN user_prefs p "])
 

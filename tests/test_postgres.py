@@ -1037,6 +1037,39 @@ class WalkTests(_PG):
         self.assertIsNone(feature_counts.walks(c, date(2026, 12, 31)))
 
 
+@unittest.skipUnless(PG, SKIP)
+class SecondWalkSqlTests(_PG):
+    """docs/RUNBOOK.md's read-only SQL for the second-walk measure gives the
+    code's own number on Postgres (the SQLite one: test_second_walk_measure)."""
+    TAG = "walksql"
+
+    def test_the_runbook_query_matches_the_code(self):
+        from tests.test_second_walk_measure import runbook_sql, walker
+        c = self.conn
+        day = c.execute("SELECT current_date AS d").fetchone()["d"]
+        today = day if isinstance(day, date) else date.fromisoformat(str(day)[:10])
+        a = today - timedelta(days=60)
+        made = [walker(a, a + timedelta(days=45))] * 9 + [walker(a, a + timedelta(days=46))] * 4
+        made += [walker(a)] * 8 + [walker(today - timedelta(days=10))] * 3
+        made += [walker(a, off=True)] * 4 + [walker(a, before=["2001-01"])] * 2
+        made += [walker(today - timedelta(days=46), today - timedelta(days=1))] * 2
+        made += [walker(today - timedelta(days=45))]
+        for i, p in enumerate(made):
+            prefs.save(c, self.user(f"sql{i}.ws"), p)
+        boss = self.user("boss.ws")
+        prefs.save(c, boss, walker(a, a + timedelta(days=1)))
+        c.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (boss,))
+        c.commit()
+        self.assertEqual(feature_counts.walks(c, today),
+                         {"first_walks": 27, "window_closed": 23, "second_walks": 11})
+        row = c.execute(runbook_sql(0)).fetchone()
+        self.assertEqual((row["first_walks"], row["window_closed"], row["second_walks"],
+                          int(row["percent"])), (27, 23, 11, round(100 * 11 / 23)))
+        month = runbook_sql(0).split("), totals AS")[0] + ")\n" + runbook_sql(1)
+        c.execute(month).fetchall()      # by month: runs (a = 60 days back, so its month
+        c.rollback()                     # may still be open - the rows aren't checked)
+
+
 # --------------------------------------------------------------------------- #
 # an investor's own data: holdings, activity, plans, settings, prices
 # --------------------------------------------------------------------------- #

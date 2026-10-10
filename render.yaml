@@ -101,6 +101,8 @@ services:
         sync: false
       - key: AI_ZDR                # 0 until Anthropic confirms zero data retention in writing
         sync: false
+      - key: NORTHWEND_SECOND_WALK_TARGET   # optional: the second-walk target, a percent
+        sync: false
 
   # ---- Scheduled jobs (Render cron, times in UTC) -------------------------
   # The same scripts the GitHub workflow runs, on Render's clock. A failed run

@@ -626,6 +626,134 @@ content.
 
 ---
 
+## The second-walk measure
+
+The one retention measure (R1, `feature_counts.py`): of the people who
+finished a first monthly walk at least 46 days ago (their 45 days are over),
+how many finished a second within 45 days of the first (day 45 counts).
+Left out: anyone with "Leave me out of feature counts" on, anyone whose
+first walk was a check-in from before walks were counted, and admin logins
+(`users.is_admin` and `NORTHWEND_ADMINS`). Deleted accounts take their
+settings with them. Nothing shows for a group under 20.
+
+**Where to see it:** Admin > Feature tests, "The monthly walk": "Walked again
+within 45 days: X of Y (Z%)", with "target N%" beside it once
+`NORTHWEND_SECOND_WALK_TARGET` is set (a percent, in the host's settings), and
+"By the month of the first walk" (a month under 20 shows "fewer than 20"; a
+month can also be held back so the small ones can't be worked out by
+subtraction).
+
+**The same number by hand**, read-only, in the Neon console's SQL editor
+(it returns totals only, and no row at all under 20 first walks; its "today"
+is the database's date, UTC on Neon, like the app's). Put your admin logins
+from `NORTHWEND_ADMINS` in the commented line. The Admin page is the place to
+read it - the Privacy Policy says counts are shown only there; this is for
+checking it.
+
+```sql
+WITH people AS (
+  SELECT p.user_id AS who, p.data::jsonb AS d
+  FROM user_prefs p JOIN users u ON u.id = p.user_id
+  WHERE p.data LIKE '%"walk_verdicts"%' AND COALESCE(u.is_admin, 0) = 0
+  -- AND lower(u.username) NOT IN ('your-admin-login')
+), counted AS (
+  SELECT who, d FROM people
+  WHERE jsonb_typeof(d->'walk_verdicts') = 'object'
+    AND COALESCE(d->'feature_counts_off' IN ('false', 'null', '0', '""', '[]', '{}'), true)
+), walk_days AS (
+  SELECT c.who, c.d, left(e.v->>'on', 10)::date AS day
+  FROM counted c CROSS JOIN LATERAL jsonb_each(c.d->'walk_verdicts') AS e(m, v)
+  WHERE jsonb_typeof(e.v) = 'object' AND e.v->>'on' ~ '^\d{4}-\d{2}-\d{2}'
+), ranked AS (
+  SELECT who, d, day, row_number() OVER (PARTITION BY who ORDER BY day) AS n
+  FROM walk_days
+), firsts AS (
+  SELECT who, d, max(day) FILTER (WHERE n = 1) AS first_on,
+         max(day) FILTER (WHERE n = 2) AS second_on
+  FROM ranked GROUP BY who, d
+), eligible AS (
+  SELECT * FROM firsts f WHERE NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(CASE jsonb_typeof(f.d->'checkin_log')
+           WHEN 'array' THEN f.d->'checkin_log' ELSE '[]'::jsonb END) AS l(m)
+    WHERE jsonb_typeof(l.m) = 'string'
+      AND (l.m #>> '{}') COLLATE "C" < to_char(f.first_on, 'YYYY-MM') COLLATE "C")
+), totals AS (
+  SELECT count(*) AS first_walks,
+         count(*) FILTER (WHERE first_on + 45 < current_date) AS window_closed,
+         count(*) FILTER (WHERE first_on + 45 < current_date
+                          AND second_on <= first_on + 45) AS second_walks
+  FROM eligible
+)
+SELECT first_walks, window_closed,
+       CASE WHEN window_closed >= 20 THEN second_walks END AS second_walks,
+       CASE WHEN window_closed >= 20
+            THEN round(100.0 * second_walks / window_closed) END AS percent
+FROM totals WHERE first_walks >= 20;
+```
+
+By the month of the first walk: the same query with its last part
+(`totals` and the final `SELECT`) replaced by this. It shows only months of
+20 or more whose every window is over; Admin may also hold one back, so
+use it only beside the total above.
+
+```sql
+SELECT to_char(first_on, 'YYYY-MM') AS month, count(*) AS people,
+       count(*) FILTER (WHERE second_on <= first_on + 45) AS walked_again
+FROM eligible
+WHERE (date_trunc('month', first_on) + interval '1 month' - interval '1 day')::date + 45
+      < current_date
+GROUP BY 1 HAVING count(*) >= 20 ORDER BY 1;
+```
+
+On a local SQLite copy (`sqlite3 scratch.db`, never the real `portfolio.db`):
+
+```sql
+WITH people AS (
+  SELECT p.user_id AS who, p.data AS d
+  FROM user_prefs p JOIN users u ON u.id = p.user_id
+  WHERE p.data LIKE '%"walk_verdicts"%' AND COALESCE(u.is_admin, 0) = 0
+  -- AND lower(u.username) NOT IN ('your-admin-login')
+), counted AS (
+  SELECT who, d FROM people
+  WHERE json_valid(d) AND json_type(d, '$.walk_verdicts') = 'object'
+    AND NOT COALESCE(json_extract(d, '$.feature_counts_off') NOT IN (0, '', '[]', '{}'), 0)
+), walk_days AS (
+  SELECT c.who, c.d, substr(json_extract(e.value, '$.on'), 1, 10) AS day
+  FROM counted c, json_each(c.d, '$.walk_verdicts') AS e
+  WHERE e.type = 'object'
+    AND date(substr(json_extract(e.value, '$.on'), 1, 10))
+        = substr(json_extract(e.value, '$.on'), 1, 10)
+), ranked AS (
+  SELECT who, d, day, row_number() OVER (PARTITION BY who ORDER BY day) AS n
+  FROM walk_days
+), firsts AS (
+  SELECT who, d, max(CASE WHEN n = 1 THEN day END) AS first_on,
+         max(CASE WHEN n = 2 THEN day END) AS second_on
+  FROM ranked GROUP BY who, d
+), eligible AS (
+  SELECT * FROM firsts f WHERE NOT EXISTS (
+    SELECT 1 FROM json_each(f.d, '$.checkin_log') AS l
+    WHERE json_type(f.d, '$.checkin_log') = 'array' AND l.type = 'text'
+      AND l.value < substr(f.first_on, 1, 7))
+), totals AS (
+  SELECT count(*) AS first_walks,
+         coalesce(sum(date(first_on, '+45 days') < date('now')), 0) AS window_closed,
+         coalesce(sum(date(first_on, '+45 days') < date('now')
+                      AND second_on <= date(first_on, '+45 days')), 0) AS second_walks
+  FROM eligible
+)
+SELECT first_walks, window_closed,
+       CASE WHEN window_closed >= 20 THEN second_walks END AS second_walks,
+       CASE WHEN window_closed >= 20
+            THEN round(100.0 * second_walks / window_closed) END AS percent
+FROM totals WHERE first_walks >= 20;
+```
+
+`tests/test_second_walk_measure.py` runs the SQLite query against the code's
+own count; `tests/test_postgres.py` does the same for the Postgres one.
+
+---
+
 ## The AI eval
 
 Ask Northwend's eval set (`evals/`, docs/AI_PLAN.md section 8): 64 cases in

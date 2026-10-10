@@ -149,6 +149,18 @@ def max_signups_per_day() -> int | None:
     return value if value > 0 else None
 
 
+def second_walk_target() -> float | None:
+    """NORTHWEND_SECOND_WALK_TARGET: the owner's target for the share of
+    people who walk again within 45 days (feature_counts.py), a percent -
+    shown beside the figure in Admin > Feature tests. Unset, blank,
+    unreadable or outside 0-100: None."""
+    try:
+        value = float(get("NORTHWEND_SECOND_WALK_TARGET").strip().rstrip("%"))
+    except ValueError:
+        return None
+    return value if 0 <= value <= 100 else None
+
+
 def ai_zdr() -> bool:
     """AI_ZDR: zero data retention is confirmed with Anthropic for this
     copy's key (AI_PLAN 3.3, 4.2). Until it is, a hosted copy refuses any AI

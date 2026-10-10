@@ -903,23 +903,39 @@ def _render_feature_tests(c):
     st.caption(f"Totals only, worked out from what's stored - never a person. A total shows "
                f"once a group reaches {feature_counts.MIN_GROUP} people, and people who turned "
                "on \"Leave me out of feature counts\" are never counted.")
-    days = feature_counts.SECOND_WITHIN_DAYS
-    w = feature_counts.walks(c, datetime.now().date())
+    days, least = feature_counts.SECOND_WITHIN_DAYS, feature_counts.MIN_GROUP
+    today = datetime.now().date()
+    people = list(feature_counts.walk_settings(c, admin.listed_admins()))
+    w = feature_counts.walk_totals(people, today)
+    target = settings.second_walk_target()
+    aim = f" · target {target:g}%" if target is not None else ""
     st.markdown(f"**The monthly walk** - a second walk within {days} days of the first")
     if w is None:
-        st.caption(f"Fewer than {feature_counts.MIN_GROUP} people have finished a first walk "
-                   "so far - nothing to show yet.")
+        st.caption(f"Fewer than {least} people have finished a first walk "
+                   f"so far - nothing to show yet.{aim}")
         return
     lines = [f"- Finished a first walk: {w['first_walks']}",
              f"- Their {days} days are up: {w['window_closed']}"]
     if w["second_walks"] is None:
-        lines.append(f"- Walked again within {days} days: shown once {feature_counts.MIN_GROUP} "
-                     f"people's {days} days are up")
+        lines.append(f"- Walked again within {days} days: shown once {least} "
+                     f"people's {days} days are up{aim}")
     else:
         share = w["second_walks"] / w["window_closed"] * 100
         lines.append(f"- Walked again within {days} days: {w['second_walks']} of "
-                     f"{w['window_closed']} ({share:.0f}%)")
+                     f"{w['window_closed']} ({share:.0f}%){aim}")
     st.markdown("\n".join(lines))
+    months = feature_counts.walk_month_totals(people, today) or []
+    if months:
+        with st.expander("By the month of the first walk"):
+            st.markdown("\n".join(
+                f"- {r['month']}: " + (
+                    f"{r['second']} of {r['people']} ({r['second'] / r['people'] * 100:.0f}%)"
+                    if r["second"] is not None else
+                    f"fewer than {least}" if r["people"] is None else
+                    "held back, so the smaller months can't be worked out")
+                for r in months))
+            st.caption(f"Only months whose every {days}-day window is over.")
+    st.caption("Admin logins aren't counted. The target is NORTHWEND_SECOND_WALK_TARGET.")
 
 
 def _render_drill_returns(c):
