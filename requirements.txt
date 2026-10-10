@@ -12,7 +12,7 @@
 # to relax in Windows Security, not a code problem.
 
 streamlit==1.65.0
-pandas==2.3.3
+pandas==2.2.3
 altair==6.2.2   # bundled with streamlit; pinned because dashboard.py imports it directly
 
 # Deep historical price data (sync_history.py / the dashboard's "Sync history"

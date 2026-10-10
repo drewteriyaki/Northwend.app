@@ -364,6 +364,26 @@ class RestoreCheckTests(unittest.TestCase):
             self.assertEqual(self.rc.main(["--db", gone]), 1)
         self.assertRegex(out.getvalue(), r"(?m)^news\s+missing$")
 
+    def test_fewer_rows_are_listed_and_the_sign_explained(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):   # live as the first: users 2 -> 1
+            self.assertEqual(self.rc.main(["--db", self.live, "--against", self.restored]), 0)
+        text = out.getvalue()
+        self.assertRegex(text, r"(?m)^users\s+2\s+1\s+-1$")
+        self.assertIn("look at these: users.", text)
+        self.assertIn("+ means the second (live) has more rows", text)
+        self.assertEqual(self.rc.fewer({"a": 3, "b": 1, "c": None}, {"a": 2, "b": 1, "c": 5}),
+                         ["a"])
+
+    def test_ask_types_the_string_without_showing_it(self):
+        with unittest.mock.patch("getpass.getpass", return_value=f" {self.restored} ") as gp:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(self.rc.main(["--db", "ask"]), 0)
+        gp.assert_called_once()
+        self.assertIn("not shown", gp.call_args.args[0])
+        self.assertIn("All tables there.", out.getvalue())
+
     def test_the_password_is_never_shown(self):
         dsn = "postgresql://northwend_app:s3cret-pass@ep-x-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
         self.assertEqual(self.rc.where(dsn), "ep-x-pooler.us-east-2.aws.neon.tech/neondb")

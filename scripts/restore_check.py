@@ -4,6 +4,10 @@ holds, so a restored Neon branch can be compared with the live one.
 
     python scripts/restore_check.py --db "<restored branch's connection string>"
     python scripts/restore_check.py --db "<restored>" --against "<live>"
+    python scripts/restore_check.py --db ask --against ask
+
+`ask` asks for the connection string without showing it, so it never lands
+in the shell's history (PowerShell keeps every command line it's given).
 
 Counts only - it never reads a row's contents, so nobody looks at anyone's
 holdings to check a restore. It only reads: the Postgres session is read-only
@@ -15,8 +19,12 @@ The tables are every table in schema_pg.sql, so a new table is counted
 without a change here. One missing from a database shows as "missing".
 With --against, each table's difference is shown (the live branch usually
 has a few more rows than one restored from an hour ago - the drill's "give
-or take the last hour"); judging it is the person's. Exit code: 1 when a
-table is missing from either database, else 0.
+or take the last hour"); judging it is the person's. The difference is the
+second database's count minus the first's, so "+3" means live has 3 more
+rows. Tables with FEWER rows in the second are listed again at the end, to
+look at: in a drill (a branch from an hour ago against live) that should
+only be a few deletions from the last hour. Exit code: 1 when a table is
+missing from either database, else 0.
 """
 
 from __future__ import annotations
@@ -121,14 +129,32 @@ def report(first: dict, second: dict | None = None,
     return "\n".join(lines), ok
 
 
+def fewer(first: dict, second: dict) -> list[str]:
+    """Tables with fewer rows in the second database than in the first."""
+    return [t for t, n in first.items()
+            if n is not None and second.get(t) is not None and second[t] < n]
+
+
+def _ask(value: str | None, which: str) -> str | None:
+    """`ask` -> the connection string, typed without being shown."""
+    if value != "ask":
+        return value
+    import getpass
+    return getpass.getpass(f"Connection string for {which} (not shown): ").strip()
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Row counts of Northwend's tables, for the "
                                             "restore drill. Counts only; read-only.")
     p.add_argument("--db", required=True,
-                   help="the database to count: a Postgres connection string or a SQLite file")
+                   help="the database to count: a Postgres connection string, a SQLite "
+                        "file, or `ask` to type it without it being shown")
     p.add_argument("--against",
-                   help="a second database to compare with (for the drill: the live one)")
+                   help="a second database to compare with (for the drill: the live one); "
+                        "`ask` works here too")
     args = p.parse_args(argv)
+    args.db = _ask(args.db, "the restored branch")
+    args.against = _ask(args.against, "the live branch")
     names = tables()
     first = counts(args.db, names)
     second = counts(args.against, names) if args.against else None
@@ -139,6 +165,12 @@ def main(argv=None) -> int:
     if second is None:
         print("All tables there." if ok else "A table is missing.")
     else:
+        print("The difference is the second count minus the first: + means the second "
+              "(live) has more rows.")
+        lower = fewer(first, second)
+        if lower:
+            print("Fewer rows in the second than the first - look at these: "
+                  + ", ".join(lower) + ".")
         print("Every table is in both. Differences should be only what changed since "
               "the restore point." if ok else "A table is missing from one of them.")
     return 0 if ok else 1

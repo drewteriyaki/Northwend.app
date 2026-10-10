@@ -70,7 +70,7 @@ days, except where a day was set.
 
 | When | What | How |
 |---|---|---|
-| Every quarter: January, April, July, October | The restore drill | [Restore the database](#restore-the-database), "Quarterly restore drill": a Neon branch of the live project from an hour ago, then `python scripts/restore_check.py --db "<drill branch>" --against "<live>"` (counts only, read-only). No table missing, differences only the last hour's. Delete the branch and add a line to the drill's table. |
+| Every quarter: January, April, July, October | The restore drill | [Restore the database](#restore-the-database), "Quarterly restore drill": a Neon branch of the live project from an hour ago, then `python scripts/restore_check.py --db ask --against ask` (counts only, read-only; strings typed without being shown). No table missing, no fewer rows in the core tables, differences only the last hour's. Delete the branch and add a line to the drill's table. |
 | Yearly for each listed advisor, as each falls due | The license re-check | `licence_check.py`: a check is due 11 months after the last one, and the nightly tidy job emails the count each week while any are due. Admin > License checks lists them: look each advisor up again on FINRA BrokerCheck or the SEC's IAPD and record the source, the CRD and the day. Past 13 months an advisor is left out of the directory until re-checked. |
 | January | Dated yearly figures | Review dated yearly figures in season content, and anything else that names a year's figure (contribution limits, for one), against the new year's official numbers. Update them, and add a What's new entry if people will notice. |
 | October, with that quarter's drill | Key rotation | [Rotate a key](#rotate-a-key), one key at a time: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `FINNHUB_API_KEY`, the Neon password; live and staging each their own. `NORTHWEND_TOTP_KEY` only through [Two-step key](#two-step-key). Any key that may have been seen is rotated at once, whatever the month. |
@@ -160,17 +160,31 @@ Start quickly.
    the new branch > pooled connection. Copy it. Don't paste it anywhere but
    the places below.
 5. **Count rows** on both the new branch and the live one, and compare. From
-   the repo on your computer (it needs only `requirements.txt` installed):
+   the repo on your computer (it needs only `pip install "psycopg[binary]==3.3.6"`,
+   not all of `requirements.txt`):
 
    ```
-   python scripts/restore_check.py --db "<new branch's string>" --against "<live string>"
+   python scripts/restore_check.py --db ask --against ask
    ```
 
+   `ask` asks for each connection string without showing it - first the new
+   branch's, then live's - so the password never lands in PowerShell's
+   history (pasting the strings on the command line would put them there).
    It lists every table in `schema_pg.sql` with both counts and the
    difference, and says if a table is missing from either. It only reads:
    the session is read-only, it never sets the schema up, and it never
    prints the connection strings. Counts only - nobody reads anyone's
-   holdings to check a restore. (No Python to hand? In Neon's SQL Editor on
+   holdings to check a restore.
+
+   **Reading it.** The difference is live's count minus the branch's: `+5`
+   means live has 5 more rows. A missing table is a fail (it exits with 1).
+   Fewer rows are **not** a fail by themselves - the script exits with 0 -
+   so read its last lines: it lists every table with fewer rows on live.
+   Restoring after a problem, that's what you expect (the branch is from
+   before the rows were lost). In the drill, live should have **at least**
+   as many rows as an hour-old branch in `users`, `positions`, `snapshots`,
+   `plans` and `advisor_notes`; fewer there, beyond someone deleting their
+   account in that hour, is a fail - write it down and find out why. (No Python to hand? In Neon's SQL Editor on
    each branch, `SELECT COUNT(*) FROM users;` and the same for `snapshots`,
    `positions`, `plans`, `advisor_notes`.)
 6. **Swap.** Put the new branch's connection string in every place the old
@@ -192,10 +206,14 @@ Never copy live data into staging, or onto your own computer.
 
 - [ ] Make a branch of the live project from one hour ago (steps 3 and 4).
 - [ ] Count rows on both (step 5):
-      `python scripts/restore_check.py --db "<drill branch>" --against "<live>"`.
-      No table missing; the differences are only the last hour's (a few
-      sign-ins, prices, sessions).
-- [ ] Minutes from start to counts: ____
+      `python scripts/restore_check.py --db ask --against ask` (the drill
+      branch first, then live; typed without being shown).
+      Passes when: no table missing; no "look at these" line naming `users`,
+      `positions`, `snapshots`, `plans` or `advisor_notes` (beyond an account
+      deleted in that hour); the other differences are small and positive
+      (a few sign-ins, prices, sessions).
+- [ ] Minutes from start to counts: ____ (almost all of it is the Neon
+      console; the count itself takes under a second)
 - [ ] Delete the drill branch. Nothing points at it.
 - [ ] Add a line below.
 

@@ -14,9 +14,10 @@ updates:
       python-packages:
         patterns: ["*"]
     ignore:
-      # pinned on purpose: pandas 3.0 is blocked on one machine (requirements.txt)
+      # pinned on purpose at 2.2.3 (requirements.txt): newer pandas wheels were
+      # blocked on one machine, so no bumps at all - not even minor ones (a
+      # minor bump to 2.3.3 slipped through on Oct 7 and was put back Oct 10)
       - dependency-name: pandas
-        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"
