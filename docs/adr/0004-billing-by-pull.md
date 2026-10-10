@@ -41,3 +41,25 @@ Streamlit's private server, or a Cloudflare Worker.
   to a small webhook service (option B in step 6). That is a new decision.
 - `billing.py` has no usage component. A test reads its source and fails on
   any reference to clients or intros (step 6, item 2).
+
+## Update, October 10, 2026: Stripe, and a nightly check
+
+The owner's direction update (`docs/DIRECTION_2026-10-09.md`, item 10) named
+Stripe hosted checkout and customer portal, and the code was built that way
+(`billing.py`). Points 2 and 3 above stand (no inbound webhook; the checkout is
+read from the provider on return, never trusted from a link). What changed:
+
+- **Stripe instead of Paddle.** Stripe is not the merchant of record, so
+  Northwend is the seller: sales tax on software (which differs by state) is
+  the owner's to work out with an accountant; Stripe Tax can calculate it but
+  isn't wired in. That is the trade-off point 1 avoided. Paddle stays an
+  option if filing tax becomes a burden - a new decision, and a provider swap
+  inside `billing._stripe`.
+- **Nightly, not hourly.** The check runs once a day (`billing-sync` in
+  `scheduled-sync.yml`, 06:20 UTC), plus "Check again" on Your seat. GitHub's
+  frequent schedules drop runs; a daily one has been reliable, and the grace
+  period (`NORTHWEND_SEAT_GRACE_DAYS`, 14) absorbs a day's lag.
+- **Manual seats.** Payment taken outside the app (a Stripe Payment Link or an
+  invoice) is recorded by an admin (Admin > Advisor seats, logged
+  `seat_manual`); the nightly check never asks Stripe about those.
+- **Gate L1a**, not L1 (L1 is split; `docs/LEGAL_GATES.md`).
