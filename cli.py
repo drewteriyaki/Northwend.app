@@ -9,6 +9,7 @@
     northwend-users list            # manage_users.py: logins, admins, AI limits
     northwend-weekly-email          # weekly_email.py: advisors' Monday email
     northwend-migrate --db <dsn>    # portfolio.py migrate: the schema, on purpose, and its version
+    northwend-migrate --db <dsn> --roles   # ...then the app's and jobs' roles (db_roles.py)
     northwend-tidy --db <dsn>       # tidy.py: the retention schedule (nightly job)
     northwend-licence-check --db <dsn>  # licence_check.py: advisors due a license re-check
 

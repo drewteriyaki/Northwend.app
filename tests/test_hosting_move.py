@@ -85,7 +85,9 @@ class RenderBlueprintTests(unittest.TestCase):
                "NORTHWEND_TOTP_KEY", "NORTHWEND_ADMINS", "ALERT_EMAIL")
     # switched by hand in Render's Environment: a Blueprint sync must not undo it
     BY_HAND = ("NORTHWEND_GATES", "NORTHWEND_FLAGS", "NORTHWEND_AI_CEILING_USD", "AI_ZDR",
-               "NORTHWEND_MAX_SIGNUPS_PER_DAY")
+               "NORTHWEND_MAX_SIGNUPS_PER_DAY",
+               # flipped with PORTFOLIO_DB's role (docs/DB_ROLES.md), undone without a release
+               "NORTHWEND_SKIP_SCHEMA_SETUP")
 
     def test_the_parser_reads_the_file(self):
         env = render_env()
@@ -121,7 +123,7 @@ class RenderBlueprintTests(unittest.TestCase):
         env = render_env()
         want = {"NORTHWEND_ENV": "production", "CLIENT_IP_HEADER": "cf-connecting-ip",
                 "APP_URL": "https://go.northwend.app/", "MAIL_DRY_RUN": "0",
-                "NORTHWEND_SKIP_SCHEMA_SETUP": "0", "STREAMLIT_SERVER_MAX_UPLOAD_SIZE": "10",
+                "STREAMLIT_SERVER_MAX_UPLOAD_SIZE": "10",
                 "STREAMLIT_BROWSER_GATHER_USAGE_STATS": "false",
                 "STREAMLIT_CLIENT_SHOW_ERROR_DETAILS": "none"}
         for key, value in want.items():
@@ -271,12 +273,15 @@ class SkipSchemaSetupTests(unittest.TestCase):
         self.assertIn("NORTHWEND_SKIP_SCHEMA_SETUP: ${{ vars.NORTHWEND_SKIP_SCHEMA_SETUP }}", top)
 
     def test_the_roles_page_has_the_sql(self):
+        # the SQL itself is db_roles.py's (tests/test_db_roles_split.py); the
+        # page names the command that runs it and what it does
         text = _read("docs", "DB_ROLES.md")
         for role in ("northwend_app", "northwend_jobs"):
-            self.assertIn(f"CREATE ROLE {role} WITH LOGIN", text)
-        self.assertIn("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public", text)
+            self.assertIn(role, text)
+        self.assertIn("northwend-migrate --db", text)
+        self.assertIn("--roles", text)
         self.assertIn("ALTER DEFAULT PRIVILEGES", text)
-        self.assertNotRegex(text, r"GRANT\s+(ALL|CREATE)\b[^;]*\bTO northwend_(app|jobs)")
+        self.assertNotRegex(text, r"GRANT\s+(ALL|CREATE)\b[^;]*\bTO \"?northwend_(app|jobs)")
         for word in ("NORTHWEND_SKIP_SCHEMA_SETUP", "northwend-migrate", "1.6f"):
             self.assertIn(word, text)
 

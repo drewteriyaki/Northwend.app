@@ -6,6 +6,7 @@ Subcommands:
   verify [--db portfolio.db] [--snapshot DATE]  check parsed holdings against the file's totals
   report [--db portfolio.db] [--snapshot DATE]  print an unrealized gain/loss summary
   migrate --db <file or postgresql://...>       set up / upgrade the schema, record its version
+          [--roles [--new-password ROLE]]       ...then the database roles (db_roles.py)
 
 Standard library only (sqlite3, csv, argparse). No network calls.
 """
@@ -1121,7 +1122,24 @@ def cmd_migrate(args: argparse.Namespace) -> int:
         return 1
     print(f"Schema of {where} is at version {done['version']} "
           f"(this code's is {SCHEMA_VERSION}; reached {done['applied_at']}).")
-    return 0
+    if not getattr(args, "roles", False):
+        if getattr(args, "new_password", None):
+            print("--new-password needs --roles.", file=sys.stderr)
+            return 2
+        return 0
+    # the app's and the jobs' roles (db_roles.py, docs/DB_ROLES.md): after the
+    # schema, so the grants cover every table it has just made
+    if not pgcompat.is_postgres_dsn(args.db):
+        print("--roles is for a Postgres database only (a SQLite file has no roles).",
+              file=sys.stderr)
+        return 2
+    import db_roles
+    conn = pgcompat.connect(args.db)
+    try:
+        done = db_roles.setup(conn, args.db, new_passwords=tuple(args.new_password or ()))
+    finally:
+        conn.close()
+    return db_roles.report(done)
 
 
 # --------------------------------------------------------------------------- #
@@ -1151,6 +1169,13 @@ def build_parser() -> argparse.ArgumentParser:
                                         "and record its version")
     pm.add_argument("--db", required=True,
                     help="SQLite file or Postgres connection string (postgresql://...)")
+    pm.add_argument("--roles", action="store_true",
+                    help="then make or check the app's and the jobs' database roles "
+                         "(Postgres, as the owner role; docs/DB_ROLES.md)")
+    pm.add_argument("--new-password", action="append", metavar="ROLE",
+                    choices=("northwend_app", "northwend_jobs"),
+                    help="with --roles: give this role a new password (rotation); "
+                         "a role made now always gets one")
     pm.set_defaults(func=cmd_migrate)
 
     return p

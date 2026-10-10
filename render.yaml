@@ -53,10 +53,6 @@ services:
       # the live copy sends email (staging and local runs keep 1)
       - key: MAIL_DRY_RUN
         value: "0"
-      # 1 once the database roles are split (docs/DB_ROLES.md): then only
-      # `northwend-migrate`, run as the owner role, changes the schema
-      - key: NORTHWEND_SKIP_SCHEMA_SETUP
-        value: "0"
       # Streamlit's own settings (.streamlit/config.toml says the same for the
       # first two; set here too so the host can't lose them)
       - key: STREAMLIT_SERVER_MAX_UPLOAD_SIZE      # MB, audit 1.3b
@@ -68,8 +64,15 @@ services:
       - key: STREAMLIT_CLIENT_SHOW_ERROR_DETAILS
         value: none
       # ---- Secrets -------------------------------------------------------
-      # the live Neon connection string (the app role's, docs/DB_ROLES.md)
+      # the live Neon connection string: the northwend_app role's once
+      # docs/DB_ROLES.md is done (the owner's never stays here)
       - key: PORTFOLIO_DB
+        sync: false
+      # 0 until the roles are split, then 1 (docs/DB_ROLES.md, step 4): only
+      # `northwend-migrate`, run as the owner role, changes the schema. By
+      # hand, not a value here: it goes with PORTFOLIO_DB's role, and undoing
+      # the switch must not need a release.
+      - key: NORTHWEND_SKIP_SCHEMA_SETUP
         sync: false
       # the Anthropic production workspace's key, never staging's
       - key: ANTHROPIC_API_KEY
@@ -109,7 +112,8 @@ services:
   # emails the admin (error_alerts.py, at most once an hour per job) and then
   # still fails, so Render's own run list shows it red.
   # PORTFOLIO_DB here is the jobs' connection string (the northwend_jobs role
-  # once docs/DB_ROLES.md is done; until then the same one as the app).
+  # once docs/DB_ROLES.md is done; until then the same one as the app), and
+  # NORTHWEND_SKIP_SCHEMA_SETUP goes to 1 with it.
 
   # Live prices for every account's tickers - every 15 minutes in market
   # hours (13:00-20:45 UTC covers 9:30am-4:15pm ET with DST slop), weekdays.
@@ -131,8 +135,8 @@ services:
         value: production
       - key: MAIL_DRY_RUN        # the failure email really goes
         value: "0"
-      - key: NORTHWEND_SKIP_SCHEMA_SETUP
-        value: "0"
+      - key: NORTHWEND_SKIP_SCHEMA_SETUP   # by hand, with PORTFOLIO_DB's role
+        sync: false
       - key: PORTFOLIO_DB
         sync: false
       - key: FINNHUB_API_KEY
@@ -164,8 +168,8 @@ services:
         value: production
       - key: MAIL_DRY_RUN
         value: "0"
-      - key: NORTHWEND_SKIP_SCHEMA_SETUP
-        value: "0"
+      - key: NORTHWEND_SKIP_SCHEMA_SETUP   # by hand, with PORTFOLIO_DB's role
+        sync: false
       - key: PORTFOLIO_DB
         sync: false
       - key: FINNHUB_API_KEY

@@ -16,6 +16,7 @@ Contents:
 - [Restore the database](#restore-the-database)
 - [Rotate a key](#rotate-a-key)
 - [Two-step key](#two-step-key)
+- [Separate keys per copy](#separate-keys-per-copy)
 - [Sign everyone out](#sign-everyone-out)
 - [Turn off AI or email in an emergency](#turn-off-ai-or-email-in-an-emergency)
 - [Turn a feature or gate on or off](#turn-a-feature-or-gate-on-or-off)
@@ -217,7 +218,7 @@ Staging has keys of its own: rotate those separately.
 | `FINNHUB_API_KEY` | finnhub.io > Dashboard | The `FINNHUB_API_KEY` GitHub secret, app settings, Render | Actions > Scheduled sync > Run workflow: the refresh job is green. A new Finnhub key may end the old one at once. |
 | `POLYGON_API_KEY` | polygon.io (also massive.com) > Dashboard > API Keys - the free plan | The `POLYGON_API_KEY` GitHub secret (the nightly dividend dates job), Render (only so Admin > System says it's set) | Actions > Scheduled sync > Run workflow: the dividend-dates job is green and prints how many it asked. Without it the job fetches nothing and says so; the pages still show Yahoo's and the brokerage file's dates. |
 | `NORTHWEND_TOTP_KEY` | Made on your computer (see [Two-step key](#two-step-key)) | App settings (live and staging each their own), Render. Not in GitHub. A copy in your password manager. | Never just replace it: the old one must stay behind the new one until everything is re-encrypted. Follow [Two-step key](#two-step-key), "Rotate it". |
-| The Neon password (inside `PORTFOLIO_DB` and `DATABASE_URL`) | Neon console > the project > Roles > the app's role > Reset password | `PORTFOLIO_DB` in app settings, the `DATABASE_URL` GitHub secret, Render | The old password stops at once, so the app is down until the new string is in. Do it at a quiet hour, all places in one go. Restart the app. Run the workflow. |
+| The Neon password (inside `PORTFOLIO_DB` and `DATABASE_URL`) | Once the roles are split: `northwend-migrate --db "<owner string>" --roles --new-password northwend_app` (or `northwend_jobs`), which prints the new string once (`docs/DB_ROLES.md`, "A new password for a role"). The owner's own: Neon console > the project > Roles > `neondb_owner` > Reset password. | The app role's: `PORTFOLIO_DB` in the app's settings (Render web; staging's Secrets). The jobs role's: Render's two cron jobs' `PORTFOLIO_DB` and the `DATABASE_URL` GitHub secret. The owner's: your password manager only. | The old password stops at once, so the app (or the jobs) are down until the new string is in. Do it at a quiet hour, all places in one go. Restart the app. Run the workflow. |
 | GitHub | - | Holds copies of the keys above, not keys of its own | If GitHub itself may be exposed: change the password, check two-factor is on, delete unused personal access tokens, review which apps have access (Streamlit, Render), then rotate every key above, since a changed workflow could have read any secret. |
 | Paddle keys (step 6) | Paddle dashboard: the API key, and any notification secret | Render's Environment and the GitHub secret for the reconciliation job. Staging gets sandbox keys only. | Restart the app. Run the reconciliation job. A test will fail on a live billing key in the repo (coming in this step, PLAN 1b.4). |
 
@@ -284,6 +285,51 @@ front, comma-separated) and restart; nothing was lost. Meanwhile those
 people can sign in with a backup code, and the admin is emailed (an error
 named KeyUnreadable, at most once an hour). If the key is truly lost: each
 of them needs Admin > Reset two-step sign-in, then sets it up again.
+
+---
+
+## Separate keys per copy
+
+PLAN step 4.5 (audit 1.5c). The live copy has keys of its own, made for it
+and kept nowhere else: never one shared with staging, your computer, the AI
+eval or the old Community Cloud app. Then a key that leaks from staging (or a
+laptop) can't reach live people's data, live's AI bill or live's email
+reputation, and each copy's key can be rotated without touching the other.
+
+Do it once, at a quiet hour, after the move to Render (or as part of its
+step 1). For each row: make the new key, put it in every place in the
+"Live copy" column, check it, then revoke the old one if it was shared. Name
+each key for its copy ("northwend-live", "northwend-staging") wherever the
+service lets you, and keep a copy in your password manager under the same
+name.
+
+| Key | Make the live copy's own at | Live copy: where it goes | Staging gets | Check it worked |
+|---|---|---|---|---|
+| `ANTHROPIC_API_KEY` | console.anthropic.com > Settings > Workspaces: a "Northwend production" workspace (and set its monthly spend limit at or just above `NORTHWEND_AI_CEILING_USD`), then API keys > Create key in that workspace | Render web service `northwend` only. Not the cron jobs, not GitHub. | Its own key from a "Northwend staging" workspace, in staging's Streamlit Secrets | Admin > System: AI key set. Ask Northwend one question. Anthropic console > Usage shows it under the production workspace only. `AI_ZDR` stays 0 unless Anthropic's written zero-retention confirmation covers this workspace. |
+| `RESEND_API_KEY` | resend.com > API Keys > Create: "Sending access", domain northwend.app, named northwend-live | Render web, both Render cron jobs (their failure email), the `RESEND_API_KEY` GitHub secret | No key and `MAIL_DRY_RUN` = 1 (or its own sending-only key, named northwend-staging) | Admin > System: email is sending. Ask for a password reset to your own address: it arrives. Resend > Emails shows it delivered. |
+| `FINNHUB_API_KEY` | finnhub.io's free plan shows one key per account (if its Dashboard now offers a second key, use that instead): register a second free account for the live copy (with an address you own, e.g. the one for operations) and copy its key from the Dashboard | Render web (the in-app refresh), both Render cron jobs, the `FINNHUB_API_KEY` GitHub secret | The existing key, in staging's Secrets (its minute limit is then no longer shared with live) | `northwend-prices` > Trigger Run: green. A ticker's page on the live app shows a price time from today. |
+| `POLYGON_API_KEY` | polygon.io (also massive.com) > Dashboard > API Keys > New key, named northwend-live (the free plan) | The `POLYGON_API_KEY` GitHub secret (the nightly dividend-dates job); Render web only so Admin > System says it's set | Nothing (staging has no jobs) | Actions > Scheduled sync > Run workflow: the dividend-dates job is green and prints how many it asked. Then revoke the old key. |
+| `NORTHWEND_TOTP_KEY` | Made on your computer ([Two-step key](#two-step-key), step 1). **Never just swapped:** live's existing two-step keys are encrypted with the current one. If live's current key was ever on staging, your computer's `.env`, or Community Cloud, follow "Rotate it": the new key, a comma, the old one in Render; `manage_users.py encrypt-two-step --rotate` with both keys in the shell and live's app-role string; then the new key alone. | Render web only. Not the cron jobs, not GitHub. | Its own key, made separately, in staging's Secrets | Admin > System: "Two-step key: set (key id ...)" matching the id you wrote down for live, "0 readable", none "with an older key", none "won't open". Sign in with an app code. |
+| Live database, app role (`PORTFOLIO_DB`) | `northwend-migrate --db "<live owner string>" --roles` prints it once (`docs/DB_ROLES.md`) | Render web: `PORTFOLIO_DB`, with `NORTHWEND_SKIP_SCHEMA_SETUP` = 1 | Staging's own Neon project and its own app-role string | DB_ROLES step 2's check; Render > Logs clean; save a watchlist ticker. |
+| Live database, jobs role (`PORTFOLIO_DB` / `DATABASE_URL`) | The same command, the same time | Render cron jobs `northwend-prices` and `northwend-news`: `PORTFOLIO_DB` (with `NORTHWEND_SKIP_SCHEMA_SETUP` = 1); the `DATABASE_URL` GitHub secret (with the repository variable `NORTHWEND_SKIP_SCHEMA_SETUP` = 1) | Its own, kept for checks by hand | Trigger Run on both cron jobs; Actions > Scheduled sync > Run workflow: every job green. |
+| Live database owner | Neon > the live project > Roles > `neondb_owner` > Reset password (DB_ROLES step 5), after the two above are in | Your password manager only; pasted into `northwend-migrate` when the schema changes | Staging's owner, reset the same way | The old owner string no longer connects. The app and the jobs still work (they don't use it). |
+| Paddle keys (PLAN step 6, not yet) | Paddle dashboard, live mode | Render web, the reconciliation job's GitHub secret | Sandbox keys only | The reconciliation job runs green. |
+
+Not secrets, but per copy and set in the same places: `ALERT_EMAIL`,
+`APP_URL` (live: https://go.northwend.app/), `NORTHWEND_ADMINS`,
+`NORTHWEND_GATES`, `NORTHWEND_FLAGS`, `NORTHWEND_AI_CEILING_USD`, `AI_ZDR`,
+`MAIL_DRY_RUN` (live 0, staging 1), `NORTHWEND_ENV` (live production, staging
+staging) and `NORTHWEND_SKIP_SCHEMA_SETUP`. The eval's key
+(`ANTHROPIC_API_KEY_EVAL`) is the eval workspace's own, only ever in your
+shell for `python -m evals.run` - never the live key, never in an app.
+
+Done when:
+- [ ] Every row above is ticked for the live copy, and no key in Render or
+      GitHub is also in staging's Secrets, the old Community Cloud app or a
+      `.env` file.
+- [ ] Admin > System on the live app shows every key set, and on staging
+      shows staging's own (a different two-step key id).
+- [ ] Each shared key that was replaced is revoked at its service.
 
 ---
 
@@ -802,9 +848,13 @@ Before you start:
       plan, branch `main`.
 - [ ] Render asks for each `sync: false` setting. Copy each from the live
       app's Secrets: `PORTFOLIO_DB`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`,
-      `FINNHUB_API_KEY`, `NORTHWEND_ADMINS`, `ALERT_EMAIL`,
+      `FINNHUB_API_KEY`, `POLYGON_API_KEY`, `NORTHWEND_ADMINS`, `ALERT_EMAIL`,
       `NORTHWEND_GATES` (today `L0`), `NORTHWEND_FLAGS`,
-      `NORTHWEND_AI_CEILING_USD`. `AI_ZDR`: `0` until Anthropic has confirmed
+      `NORTHWEND_AI_CEILING_USD`. `NORTHWEND_SKIP_SCHEMA_SETUP`: `0` until
+      the database roles are split (`docs/DB_ROLES.md`), then `1` - on the
+      web service and both cron jobs. The live copy's own keys, not
+      staging's: [Separate keys per copy](#separate-keys-per-copy).
+      `AI_ZDR`: `0` until Anthropic has confirmed
       zero data retention in writing. `NORTHWEND_TOTP_KEY`: exactly the live
       app's (from your password manager) - a different one means nobody's
       app codes work on Render ([Two-step key](#two-step-key)). The rest (`NORTHWEND_ENV=production`,
