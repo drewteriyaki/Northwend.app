@@ -23,6 +23,68 @@ about 6-8 sessions make a week.
 
 ---
 
+## The current order (direction update, October 9, 2026)
+
+The owner's direction update (`docs/DIRECTION_2026-10-09.md`, section 4)
+sets the order from here and wins where the steps below disagree: paid
+advisor seats open for the workspace only (gate L1a, no lawyer first), the
+directory and introductions wait for a scoped opinion (L2 / L1b), an optional
+individual tier comes at 90 days (L4a), and self-hosted analytics with an
+opt-out are allowed once the Privacy Policy says so. Steps 1-9 below stay as
+the record of what was built and why. Status as of October 9, 2026:
+
+**Next 2 weeks - finish the open-beta list**
+- [ ] 1. Render cron jobs for prices and news - *released to main
+      (`f28ba7f`); waiting on the owner's Blueprint sync, secrets and a run of
+      each, then the GitHub schedules for both come out*
+- [ ] 2. Restore drill; the Neon backup branch named for deletion (audit 1.6e, X6)
+- [ ] 3. The live copy's own API keys; least-privilege database roles -
+      *prepared: `docs/DB_ROLES.md`, `NORTHWEND_SKIP_SCHEMA_SETUP`*
+- [ ] 4. Market data: a licensed provider recommended; switched on the owner's
+      OK; yfinance out of production (audit 1.9a)
+- [ ] 5. Beta flag set: walk, ledger, log, storm drill, 401(k) decoder,
+      decoder_public on; directory, intros, billing, pay_yourself off -
+      *`decoder_public` (`?decode=401k`, no account) is built*
+- [ ] 6. Second walk within 45 days, recorded and visible
+- [ ] 7. `NORTHWEND_MAX_SIGNUPS_PER_DAY` and a plain "we're full for today" page
+- [x] 8. L1 split into L1a / L1b in `docs/LEGAL_GATES.md`; L4a added - done
+      October 9 (docs only; the code split comes with billing, item 10)
+- [ ] 9. Revised Privacy Policy, Terms and advisor software agreement, drafted
+      in plain words for the owner's approval
+
+**30 days - first revenue and the beta opens**
+- [ ] 10. Founding seats ($79/month or $790/year for the first 20, in config);
+      Stripe hosted checkout and portal; signed webhooks; reconciliation; lapse
+      to read + export (replaces step 6's "billing by pull" - ADR 0004 to update)
+- [ ] 11. Advisor page on the website
+- [ ] 12. Analytics with the opt-out; marketing copy rewrite; open sign-up with
+      the daily cap - *sign-up is already open (gate L0 on live)*
+- [ ] 13. First-30-days sequence (day 0, 3, 7, 14, 30), one figure-free email each
+- [ ] 14. Learn topics tied to the person's own numbers
+- [ ] 15. Weekly release day; public changelog - *the website's /whats-new is
+      built from `whats_new.ENTRIES`*
+
+**90 days - prove both sides**
+- [ ] 16. 20 founding seats; real AI and data cost per seat in `AI_COSTS.md`
+- [ ] 17. Individual Plus tier (L4a): capacity only; one-click cancel
+- [ ] 18. Workspace improvements for advice-only and flat-fee planners: a dated
+      one-time-review plan page, bulk import polish, client mode
+- [ ] 19. Statement decoder; Walk Together - *built ahead: Walk Together as
+      "Doing it together" (`together.py`) and the fact-sheet decoder (paste
+      only); statements still wait for proven local redaction*
+- [ ] 20. Service-layer extraction (hardening Phase 3) - *started: no SQL left
+      in `dashboard.py` or `views/` (step 8)*
+
+**180 days - open the directory, if the opinion exists**
+- [ ] 21. Scoped opinion, then L2 and L1b open; standard seats $99, founding $79
+- [ ] 22. Annual plans; team seat for two-person firms
+- [ ] 23. Seasons, Trail Forks, Explain It To Someone, Pay Yourself - *built
+      ahead, behind their flags (step 9); pay_yourself stays off*
+- [ ] 24. Frontend replacement (auth first), then a mobile web app
+- [ ] 25. Scope the employer channel
+
+---
+
 ## First, why the legal order matters (not legal advice)
 
 Until now Northwend took no money from anyone. That was the main thing

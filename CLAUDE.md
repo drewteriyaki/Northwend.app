@@ -7,7 +7,11 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
 
 ## Working rules
 - `ROADMAP.md` is the plan. Work items in order (or the one named), tick them
-  `[x]` with a short note in the same commit.
+  `[x]` with a short note in the same commit. The current order is the owner's
+  direction update `docs/DIRECTION_2026-10-09.md` (ticked in `docs/PLAN.md`, "The
+  current order"): advisor workspace seats (gate L1a) open without a lawyer; the
+  directory and anything connecting a person to an advisor (L2 / L1b) wait for a
+  scoped opinion; never matching or ranking advisors, never analytics used to pick one.
 - **Always ask "Commit and push?" before committing or pushing.** Every push is approved.
 - **Staging first.** Commit on the `staging` branch and push it; the staging app
   (its own Streamlit Cloud app and Neon database, banner "Staging copy") and the

@@ -27,10 +27,12 @@ data.
 | Gate | What the lawyer signs off | Proposed flag | When it is off |
 |---|---|---|---|
 | **L0** Beta baseline | Terms, Privacy Policy, the "educational, not advice" disclosure, 18+ and US-residency attestation, account deletion and export | `NORTHWEND_GATE_L0` (built as `L0` in `NORTHWEND_GATES`, `flags.gate("L0")`) | No open self-serve sign-up: Create account asks for an invite code first ("Northwend is in a small beta. If you have an invite code, enter it here."). The admin makes codes in Admin > Invite codes; each works once (`invite_codes.py`, step 1a.9). Signing in, setup links and admin-made accounts work as today. |
-| **L1** Advisor seats and billing | Advisor agreement text, billing copy, the flat-fee-only structure, seat lapse | `NORTHWEND_GATE_L1` (and a separate `NORTHWEND_BILLING` feature flag, as the brief asks for both) | Advisor seats are free beta seats. The agreement is shown marked "beta". No price, checkout or billing screen. No call to the payment provider. |
+| **L1a** Advisor workspace seats and billing (split from L1, October 9, 2026) | **No lawyer before it opens** (owner's decision; direction update section 3): selling advisors software is ordinary B2B software and the advisor is the regulated party. Opens on the owner's say with the advisor software agreement (four plain-words clauses: the advisor is a registered representative of their own firm and responsible for all advice; Northwend provides software and records only; the client owns their data and keeps it if they leave; Northwend's liability is limited to fees paid), the billing copy, the flat-fee-only structure and the seat lapse (read + export). One-hour attorney consultation in month 3 | Today's `L1` in `NORTHWEND_GATES` (`flags.GATES`); renamed or split in code when billing is built (direction item 10), with a separate `billing` feature flag | Advisor seats are free beta seats. The agreement is shown marked "beta". No price, checkout or billing screen. No call to the payment provider. |
+| **L1b** Anything that connects a person to an advisor (split from L1, October 9, 2026) | Opens only with L2, after the scoped legal opinion: a compensated referral can make Northwend a "promoter" under the SEC Marketing Rule (and a solicitor under some states' rules), and advice about choosing an adviser can itself be investment advice | Not in code yet: today these features sit behind L2 (directory, intros) and `L1` + `L2` (advisor drafts). When L1 is split in code, every feature that sends a person toward an advisor needs L1b **and** L2 | Nothing connects a person to an advisor except a setup link the advisor sends, as today. |
 | **L2** Directory and intro flow | Directory copy, filters, ordering rule, the two-step consent text, the standing "advice is the advisor's" line, state coverage | `NORTHWEND_GATE_L2` | No directory, no "Find a guide" link, no intro requests. Advisors add clients by setup link, as today. The standing line uses interim text. **Question for L2 (PLAN 5.7):** what an advisor sees of a client who hasn't yet confirmed sharing in their own words (a link from before consent records, or one an admin made). Today: everything, as before - the client is asked once at their next sign-in ("Keep sharing" or "Stop sharing", `views/consent_ask.py`) and the advisor's book says "hasn't confirmed sharing yet". **Question for L2 (ADR 0005):** whether "offers a one-time review" becomes a filter. Today it's shown on a listing only (offered or not, its price as the advisor states it, "Paid to the advisor directly; Northwend takes no part of it") - B4's five filters stay five and it's never a sort. Also for review here: the "How advisors are paid" explainer on Find a guide (`directory.FEES_*`) and the quiet "Want to talk with a financial advisor? Find a guide" line on Learn and Plan (`directory.GUIDE_LINE`). |
 | **L3** Conclusion policy | The example-mix rewrite and Ask Northwend's conclusion policy, with the eval set as evidence | `NORTHWEND_GATE_L3` | Anything worked out from a person's answers shows its most careful form (see below). |
 | **L4** In-house advice | Never in scope | **No flag.** | Nothing is built toward it. If asked, refuse and point here. A test could check that no `NORTHWEND_GATE_L4` setting or code path exists. |
+| **L4a** Optional individual paid tier, "Plus" (added October 9, 2026; **not related to L4**) | Not reviewed to launch; included in the scoped opinion later. Lawful while the AI stays non-prescriptive; direct payment raises the stakes on the conclusion policy, so the tier is **capacity only** - more Ask Northwend questions and decodes a month, never more personal answers, never a different policy | Not built (direction item 17, the 90-day window). When built, spelled so it can't be read as L4 (`flags.py` refuses `L4`, and a test checks no `GATE_L4` exists) | Everyone has the same free allowances (`ai_usage.py`). No price, checkout or upgrade prompt for individuals. |
 
 **What "off" means for L3 (proposal, for the owner to confirm).** The brief
 says to "apply the example-mix rewrite behind gate L3". Today's wording ("an
@@ -67,6 +69,30 @@ that release; without it, sign-up there needs an invite code.)*
 never add usage-based billing; never rank the directory; never let a helper
 write to the database or change holdings; **never remove a disclosure**;
 show diffs before any destructive change.
+
+**Added by the direction update of October 9, 2026** (`docs/DIRECTION_2026-10-09.md`):
+never build matching or ranking of advisors; never add usage-based or
+per-client billing; never use analytics data to choose or suggest an advisor;
+keep L2 and L1b off until the owner says the scoped opinion exists. No lawyer
+and no insurance during the early beta, by the owner's decision: a one-hour
+attorney consultation in month 3, tech E&O + cyber insurance in month 4, the
+scoped opinion before the directory opens.
+
+**Why the workspace needs no review and the directory does** (owner's working
+map, the workbook's Legal map sheet; not legal advice, to be confirmed at the
+month-3 consultation):
+
+| Feature | Classification | Review before launch | Gate |
+|---|---|---|---|
+| Advisor workspace sold as a flat seat (meeting prep, proposals, reports, records, client view) | Ordinary B2B software; the advisor is the regulated party | No: template agreement, one-hour review later | L1a |
+| Onboarding service for advisors (one-time setup fee, invoiced) | Services to a business; no advice to anyone | No | L1a |
+| Directory and introductions (anything connecting a person to an advisor) | Compensated referral risk: SEC Marketing Rule "promoter" duties; solicitor registration in some states; advice on selecting advisers can be investment advice | Yes: scoped opinion on the flat-fee, unranked, person-chooses structure | L2 / L1b |
+| Matching algorithm or ranking of advisors from user data | Northwend choosing the advisor is a recommendation | Never built | - |
+| Individual Plus tier (more AI questions and decodes) | Paid educational software, lawful while non-prescriptive | Not to launch; in the opinion later | L4a |
+| Ask Northwend and the common starting points | Education by construction (describes, calculates, never prescribes; eval set on every prompt change) | Not to run free; in the opinion before the directory | L3 |
+| Product analytics with an account-level opt-out | Privacy disclosure | No: rewrite the Privacy Policy accurately first | - |
+| Ads in the app; affiliate or referral fees from brokerages or funds | Not pursued: breaks published promises; the conflict the app exists to avoid | - | - |
+| Employer plans ("Northwend for your team") | B2B education benefit | Agreement review when the first employer signs | - |
 
 ---
 
