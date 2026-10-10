@@ -378,6 +378,18 @@ FEATURES = {
     # gate. Nothing kept, nothing to the AI; never while an advisor is in a
     # client's account. views/get_started.py checks on("learn_own_numbers").
     "learn_own_numbers": {"gates": (), "view": "own_numbers"},
+    # Your first month (first_month.py, views/first_month.py; DIRECTION
+    # 2026-10-09 section 6, item 13): one card in Home's This month while an
+    # individual's account is under five weeks old and a step is open - five
+    # steps (the questions about you, practice money, what funds cost, a goal,
+    # the first Monthly Walk) as a checklist, the next one a button, each
+    # earning a piece of gear (the binoculars and the watch are new; they join
+    # the kit while this is on). Learning and habits only, no figures, never
+    # overdue. Kept: which cost tool was opened (keys only). Never an advisor
+    # or client mode. Education (LEGAL_GATES.md section 6): no gate. The view
+    # always loads (the kit and the cost tools call in); views/dashboard_page.py,
+    # views/kit.py and views/first_month.py check on("first_month").
+    "first_month": {"gates": (), "view": None},
 }
 
 

@@ -66,6 +66,16 @@ GEAR = (
      "Explain a topic from the basics on Learn back in your own words.", None,
      ('<rect x="3" y="9" width="18" height="8" rx="4"/>', '<path d="M8 9v8"/>',
       '<path d="M16 9v8"/>', '<path d="M7 9l5-5 5 5"/>')),
+    # the first month's own two (first_month.py; in the kit while its flag is on)
+    ("binoculars", "Binoculars", "You looked at what funds cost",
+     "Open the Fee check on Home, or read \"Fees add up\" in the basics on Learn.", None,
+     ('<circle cx="7" cy="15" r="4"/>', '<circle cx="17" cy="15" r="4"/>',
+      '<path d="M11 15h2"/>', '<path d="M4.5 12l2-6h3l1.5 7"/>',
+      '<path d="M19.5 12l-2-6h-3l-1.5 7"/>')),
+    ("watch", "Watch", "Your first monthly walk is done",
+     "Take the monthly walk on Home once your own holdings are in.", None,
+     ('<circle cx="12" cy="12" r="6"/>', '<path d="M12 9v3l2 1.5"/>',
+      '<path d="M9 6.5L10 3h4l1 3.5"/>', '<path d="M9 17.5l1 3.5h4l1-3.5"/>')),
 )
 KEYS = tuple(g[0] for g in GEAR)
 BY_KEY = {g[0]: g for g in GEAR}
@@ -80,7 +90,7 @@ _NUMBER_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
 NEED = {"map": "profile_done", "compass": "goal_set", "tent": "basics_done",
         "rope": "practice_done", "boots": "statement_in", "lantern": "steady",
         "logbook": "checkins", "whistle": "drills_done", "cloak": "storm", "flag": "goal_reached",
-        "mapcase": "taught_back"}
+        "mapcase": "taught_back", "binoculars": "costs_checked", "watch": "first_walk"}
 
 # What each piece is for, in one short line - shown wherever it appears.
 FOR = {
@@ -99,6 +109,8 @@ FOR = {
     "cloak": "For staying invested through a market drop instead of selling.",
     "flag": "For reaching the goal you set.",
     "mapcase": "For putting what you've learned into your own words.",
+    "binoculars": "For looking closely at what a fund charges each year before it adds up.",
+    "watch": "For starting the habit of one look at your plan a month.",
 }
 
 # How each is earned: the rule earned() and the facts behind it really use
@@ -124,6 +136,9 @@ HOW = {
             "doesn't count).",
     "mapcase": (f"Earned when {_NUMBER_WORDS[TAUGHT]} topics from the basics on Learn hold "
                 "when you explain them back in your own words - try as often as you like."),
+    "binoculars": ("Earned when you open the Fee check, a fund decoder on Learn, or read "
+                   "\"Fees add up\" in Learn the basics."),
+    "watch": "Earned when you finish your first monthly walk on Home.",
 }
 
 # Why it matters, in one sentence - the "milestone reached" window.
@@ -150,12 +165,17 @@ WHY = {
             "enjoy, then pick the next one.",
     "mapcase": "Putting an idea in your own words is one of the surest ways to find out "
                "you've really got it.",
+    "binoculars": "A fee is taken every year without a bill, so knowing it is the first step "
+                  "to keeping more of what you invest.",
+    "watch": "One short look a month is enough to stay in touch with your plan without "
+             "watching every move.",
 }
 
 # Where to go to earn it: (button label, ("learn", Get started waypoint) |
 # ("page", page) | ("dialog", holdings dialog) | ("checkin", page): Home with
 # the monthly walk open, views/checkin.py | ("drill", page): Home with this
-# week's drill open, views/drills.py). The storm cloak has none -
+# week's drill open, views/drills.py | ("costs", page): Home with the Fee
+# check open, or Learn the basics without funds to check, views/first_month.py). The storm cloak has none -
 # there's nothing to do but stay in.
 GO = {
     "map": ("Answer the questions", ("learn", "profile")),
@@ -168,6 +188,8 @@ GO = {
     "whistle": ("Open this week's drill", ("drill", "Dashboard")),
     "flag": ("See your plan", ("page", "Plan")),
     "mapcase": ("Explain a topic back", ("learn", "basics")),
+    "binoculars": ("Check what funds cost", ("costs", "Dashboard")),
+    "watch": ("Start this month's walk", ("checkin", "Dashboard")),
 }
 
 # per theme: earned (dawn on dawn-soft) and not yet (line-strong) - the design system's
@@ -212,21 +234,25 @@ def weathered_storm(values: list[tuple[str, float]], sells: list[str]) -> bool:
 
 
 def kit_keys(managed: bool = False, walk: bool = True,
-             drills: bool = True, teach: bool = True) -> tuple[str, ...]:
+             drills: bool = True, teach: bool = True,
+             first_month: bool = True) -> tuple[str, ...]:
     """The pieces in this person's kit. An advisor's client has no practice
     money on Learn (its example funds could cross their advisor's advice), so
     no rope; the rest - learning and habits - are theirs too. Without the
     Monthly Walk (`walk` False: its flag is off, flags.py) there's no logbook
     to earn, so nothing points to a walk that isn't there; the same for the
     preparedness drills (`drills`) and the whistle, and Teach It Back
-    (`teach`) and the map case."""
+    (`teach`) and the map case, and Your first month (`first_month`,
+    first_month.py) and its binoculars and watch."""
     return tuple(k for k in KEYS if not (managed and k in NOT_FOR_CLIENTS)
                  and (walk or k not in NEEDS_WALK)
+                 and (first_month or k not in NEEDS_FIRST_MONTH)
                  and (drills or k not in NEEDS_DRILLS)
                  and (teach or k not in NEEDS_TEACH))
 
 
-NEEDS_WALK = ("logbook",)
+NEEDS_WALK = ("logbook", "watch")
+NEEDS_FIRST_MONTH = ("binoculars", "watch")
 NEEDS_DRILLS = ("whistle",)
 NEEDS_TEACH = ("mapcase",)
 
@@ -237,7 +263,8 @@ NOT_FOR_CLIENTS = ("rope",)
 def earned(facts: dict, keys: tuple[str, ...] = KEYS) -> list[str]:
     """The keys of the gear earned, in kit order. `facts`: profile_done,
     goal_set, basics_done, practice_done, statement_in, steady, checkins,
-    drills_done, storm, goal_reached, taught_back (booleans). `keys`: the kit (kit_keys())."""
+    drills_done, storm, goal_reached, taught_back, costs_checked, first_walk
+    (booleans). `keys`: the kit (kit_keys())."""
     return [k for k in keys if facts.get(NEED[k])]
 
 

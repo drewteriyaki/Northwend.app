@@ -248,6 +248,12 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   Home under Your kit, one drill a week, taps are things to weigh - never trades, never
   graded; the readiness map; prefs `drills` keys only; the whistle in `gear.py`; never
   in a client's account, the client record or the AI; wording test in `tests/test_drills.py`).
+  `first_month.py` + `views/first_month.py` (Your first month, flag `first_month`, no gate: a
+  card in Home's This month while an individual's own account is under 35 days old and a step
+  is open - questions about you, practice money, what funds cost, a goal, the first Monthly
+  Walk; each step is its gear's own rule (map, rope, binoculars, compass, watch - the last two
+  join the kit while the flag is on); never overdue; prefs `first_month` keeps only which cost
+  tool was opened; fixed lines (`lines()`) for a later email; never an advisor or client mode).
   `challenges.py` + `views/challenges.py` (This month's practice challenge, flag `challenges`:
   a card in Home's This month and the full one under Learn's practice money; pretend money on
   the practice stand-ins' prices already in `daily_bars` - nothing fetched, a challenge whose

@@ -10,6 +10,7 @@
 
 import checkin
 import drills
+import first_month
 import flags
 import gear
 import storms
@@ -48,6 +49,10 @@ def _read_gear_facts(value):
             "drills_done": drills.third_done(_read_prefs()),   # drills (views/drills.py)
             # Teach It Back: three Learn topics that held (views/teach_back.py)
             "taught_back": teach_back.third_held(_read_prefs()),
+            # Your first month (first_month.py): a cost tool opened or the fees
+            # read, and the first walk finished
+            "costs_checked": first_month.costs_checked(_read_prefs()),
+            "first_walk": first_month.first_walk(_read_prefs()),
             "storm": gear.weathered_storm(values, sells), "goal_reached": reached}
 
 
@@ -62,11 +67,17 @@ def _kit_keys():
     has no rope, as Learn has no practice money for them (CLIENT_MODE). The
     logbook only while the walk is on (flags.py) - or once earned: it stays;
     the whistle the same with the preparedness drills, and the map case with
-    Teach It Back."""
+    Teach It Back; the binoculars and the watch with Your first month
+    (first_month.py) - or once earned and shown while it was on: they stay."""
     p = _read_prefs()
-    return gear.kit_keys(CLIENT_MODE, walk=flags.on("walk") or checkin.logbook(p),
+    have = {"binoculars": first_month.costs_checked(p), "watch": first_month.first_walk(p)}
+    seen = [k for k in (p.get("gear_seen") or []) if have.get(k)]
+    keys = gear.kit_keys(CLIENT_MODE, walk=flags.on("walk") or checkin.logbook(p),
                          drills=flags.on("drills") or drills.third_done(p),
-                         teach=flags.on("teach_back") or teach_back.third_held(p))
+                         teach=flags.on("teach_back") or teach_back.third_held(p),
+                         first_month=True)
+    return tuple(k for k in keys if k not in gear.NEEDS_FIRST_MONTH
+                 or flags.on("first_month") or k in seen)
 
 
 def _milestone_done():
@@ -88,6 +99,9 @@ def _gear_go(target):
     elif kind == "drill":     # Home, with this week's drill open (views/drills.py)
         st.session_state["drill_open"] = True
         _go(where)
+    elif kind == "costs":     # Home, with the Fee check open (views/first_month.py)
+        st.session_state["first_month_costs"] = True
+        _go(where)
     elif kind == "learn":
         # that waypoint open on Learn (if Learn still has it)
         if where in dict(globals().get("GET_STARTED_STEPS") or ()):
@@ -101,7 +115,7 @@ def _gear_can_go(k):
     """A button to where the piece is earned - not for a managed client's
     goal or money added, which their advisor keeps (Plan is read-only); the
     logbook only while a walk is waiting on Home (views/checkin.py)."""
-    if k == "logbook":
+    if k in ("logbook", "watch"):
         return _checkin_due()
     if k == "whistle":   # while this week's drill is waiting (views/drills.py)
         return (flags.on("drills")
@@ -160,6 +174,9 @@ def check_milestones(value):
     have = gear.earned(_gear_facts(value), _kit_keys())
     p = _read_prefs()
     fresh, seen = gear.new_since(have, p.get("gear_seen"))
+    # the binoculars and the watch arrived with Your first month: an account
+    # past its first month takes them quietly (kept as "earned by" today)
+    fresh = first_month.quiet_for(fresh, _fmo_age())   # (views/first_month.py)
     dates = gear.stamp(p.get("gear_dates"), have, fresh, datetime.now().date().isoformat())
     if seen != p.get("gear_seen") or dates != (p.get("gear_dates") or {}):
         p["gear_seen"], p["gear_dates"] = seen, dates

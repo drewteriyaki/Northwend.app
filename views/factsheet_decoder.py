@@ -116,6 +116,7 @@ def _fs_results(result, monthly):
 
 
 def open_factsheet_window():
+    first_month_note("factsheet")   # Your first month's step (views/first_month.py)
     st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
     _fs_window()
 

@@ -93,6 +93,7 @@ def _fee_window():
 
 
 def open_fee_window():
+    first_month_note("fees")   # Your first month's step (views/first_month.py)
     st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
     _fee_window()
 

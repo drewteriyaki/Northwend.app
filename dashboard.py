@@ -785,6 +785,15 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 .pt-month-title { font-family: Newsreader, Georgia, serif; font-size: 1.4rem;
   font-weight: 500; line-height: 1.2; }
 .pt-month-card-title { font-weight: 600; margin-bottom: .2rem; }
+/* Your first month (views/first_month.py): a short checklist, the next step marked */
+.pt-fm-list { list-style: none; margin: .2rem 0 .35rem; padding: 0; font-size: .88rem; }
+.pt-fm-item { display: flex; gap: .45rem; align-items: baseline; padding: .1rem 0; }
+.pt-fm-mark { width: 1rem; flex: 0 0 1rem; text-align: center; color: var(--pt-ink-muted); }
+.pt-fm-done .pt-fm-mark { color: var(--pt-compass); font-weight: 700; }
+.pt-fm-done .pt-fm-title { opacity: .75; }
+.pt-fm-next .pt-fm-title { font-weight: 600; }
+.pt-fm-title { flex: 1 1 auto; }
+.pt-fm-when { font-size: .75rem; color: var(--pt-ink-muted); white-space: nowrap; }
 /* Today's minute: a deep blue top with the count and the week's marks */
 .st-key-pt_minute { gap: .45rem; }
 .pt-mm-head { background: #132a3e; color: #ffffff; border-radius: 12px;
@@ -859,6 +868,7 @@ h4, h5, h6 { font-family: Figtree, "Segoe UI", system-ui, sans-serif !important;
 }
 @media (max-width: 640px) {
   .st-key-pt_home_side { padding: .9rem .75rem; }
+  .pt-fm-item:not(.pt-fm-next), .pt-fm-intro { display: none; }   /* Your first month: the next step only */
   .st-key-pt_month_cards { flex-direction: row !important; flex-wrap: nowrap !important;
     align-items: flex-start; overflow-x: auto; scroll-snap-type: x proximity;
     padding-bottom: .4rem; }
@@ -2970,6 +2980,9 @@ _view("advisor_demo")
 
 # milestones and gear: the "milestone reached" window and Your kit (gear.py)
 _view("kit")
+# Your first month on Home, flag first_month (first_month.py); the cost tools
+# below note when they're opened through it
+_view("first_month")
 
 # notes to future you: on a holding, on the plan, back on a storm (future_notes.py)
 _view("future_notes")

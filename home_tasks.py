@@ -3,10 +3,10 @@ put away (views/dashboard_page.py).
 
 Each suggestion on Home's right-hand column (today's minute, the route's next
 step, the mix against its target, the money checks, the drill, the practice
-challenge, the kit, the news) can be marked Done or put away with the small X
+challenge, the kit, the news, your first month) can be marked Done or put away with the small X
 at its top right. Both
-last until the period ends - the month for most, the week for the drill and the
-news, the day for today's minute - and then it comes back.
+last until the period ends - the month for most, the week for the drill, the
+news and your first month, the day for today's minute - and then it comes back.
 What's kept, in the login's own settings (prefs key PREF), is only the
 suggestion's key, the period's id and "done" or "away": never a figure, a
 ticker or any words. Cards that already keep their own state (the monthly
@@ -33,6 +33,7 @@ TASKS = {
     "kit": (MONTH, False),
     "news": (WEEK, False),
     "wins": (MONTH, True),
+    "first_month": (WEEK, True),
 }
 
 TITLE = "This month"
@@ -54,7 +55,7 @@ SHOW_FEWER = "Show fewer"
 NAMES = {"minute": "today's minute", "route": "your next step", "mix": "your mix", "checks": "money checks",
          "drill": "this week's drill", "challenge": "the practice challenge",
          "kit": "your kit", "news": "news",
-         "wins": "your new win"}
+         "wins": "your new win", "first_month": "your first month"}
 
 # the mix card (fixed words; percentages only)
 MIX_TITLE = "Your mix"

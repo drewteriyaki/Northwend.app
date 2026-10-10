@@ -155,6 +155,8 @@ def _render_start_home():
                 st.button(":material/upload_file: Upload a CSV", key="start_import",
                           on_click=_open_holdings_dialog, args=("import",))
 
+    if flags.on("first_month"):   # a young account's first steps (views/first_month.py)
+        render_first_month_card(on_home=False)
     if flags.on("money_minute"):
         render_minute_card(where="start")   # today's minute (views/money_minute.py)
     render_kit_card(None)      # milestones and gear: learning counts too (views/kit.py)
@@ -163,6 +165,7 @@ def _render_start_home():
     if flags.on("challenges"):
         render_challenge_card()   # this month's practice challenge (views/challenges.py)
     check_milestones(None)
+    first_month_pending()   # the binoculars' button asked for the Fee check (views/first_month.py)
 
 
 def _client_ask(step_key):

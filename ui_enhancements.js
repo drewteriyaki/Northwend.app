@@ -123,7 +123,7 @@
     // Home's This month: the X at a card's top right, said for its period
     // (home_tasks.TASKS / AWAY_HELP; the cards with their own state below)
     [/^st-key-task_away_minute$/, () => "Put away until tomorrow"],
-    [/^st-key-task_away_(?:drill|news)$/, () => "Put away until next week"],
+    [/^st-key-task_away_(?:drill|news|first_month)$/, () => "Put away until next week"],
     [/^st-key-task_away_/, () => "Put away until next month"],
     [/^st-key-wk_later$/, () => "Put away until next week"],
     [/^st-key-walk_skip$/, () => "Put away until next month"],

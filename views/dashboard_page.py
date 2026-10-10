@@ -280,6 +280,8 @@ def _month_cards(alloc):
     cards.append(("storm", render_weather))   # a storm note while well below the high (T4)
     if INVESTOR_VIEW:
         cards.append(("walk", render_checkin_card))   # the Monthly Walk (views/checkin.py)
+        if flags.on("first_month"):   # a young account's first steps (views/first_month.py)
+            cards.append(("first_month", render_first_month_card))   # its own X and Done
         cards.append(("route", lambda: _month_task("route", _render_route)))
         if flags.on("weekly"):
             cards.append(("weekly", render_weekly))   # Your week / The week ahead (views/weekly.py)
@@ -363,6 +365,7 @@ def _render_this_month(alloc):
                       on_click=_task_bring_back)
     if INVESTOR_VIEW:
         check_milestones(portfolio_value)
+        first_month_pending()   # the binoculars' button asked for the Fee check (views/first_month.py)
 
 
 # ---- the holdings table under the chart ----------------------------------- #

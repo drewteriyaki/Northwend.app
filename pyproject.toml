@@ -50,7 +50,7 @@ py-modules = [
     "checkin_email", "cli", "client_book", "client_csv", "client_plan", "codefresh", "context_card",
     "consent", "access_log", "db_roles",
     "csv_import", "dashboard", "disclosures", "dividend_dates", "error_alerts", "export", "feature_counts", "feedback", "fees",
-    "friendly_errors", "fund_holdings", "future_notes", "gear", "glossary", "home_tasks", "hosting", "income",
+    "first_month", "friendly_errors", "fund_holdings", "future_notes", "gear", "glossary", "home_tasks", "hosting", "income",
     "invite_codes", "invite_links", "learn", "live_prices",
     "mailer", "manage_users", "manual_entry", "meeting", "metrics", "news", "news_feed", "overview",
     "paste_parse", "perf", "pgcompat", "plans", "portfolio", "prefs", "proposals",

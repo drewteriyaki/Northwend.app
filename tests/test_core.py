@@ -1946,7 +1946,7 @@ class GearTests(unittest.TestCase):
         import gear
         self.assertEqual(gear.earned({"goal_set": True, "profile_done": True, "storm": True}),
                          ["map", "compass", "cloak"])
-        self.assertEqual(len(gear.KEYS), 11)
+        self.assertEqual(len(gear.KEYS), 13)   # with Your first month's binoculars and watch
 
     def test_first_visit_after_the_update_is_quiet(self):
         import gear
@@ -2028,7 +2028,9 @@ class GearTests(unittest.TestCase):
             elif kind == "page":
                 self.assertEqual(where, "Plan")
             elif kind == "checkin":    # Home, with the monthly check-in open
-                self.assertEqual((k, where), ("logbook", "Dashboard"))
+                self.assertIn((k, where), (("logbook", "Dashboard"), ("watch", "Dashboard")))
+            elif kind == "costs":      # Home, with the Fee check open (views/first_month.py)
+                self.assertEqual((k, where), ("binoculars", "Dashboard"))
             elif kind == "drill":      # Home, with this week's drill open (views/drills.py)
                 self.assertEqual((k, where), ("whistle", "Dashboard"))
             else:

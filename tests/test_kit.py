@@ -105,7 +105,7 @@ class KitTests(unittest.TestCase):
         with self._run(self.kim, "kim") as at:
             body = self._html(at)
             self.assertIn("Your kit · 2 of 11 earned", body)
-            for k in gear.KEYS:
+            for k in gear.kit_keys(first_month=False):   # (flag first_month off here)
                 name = gear.BY_KEY[k][1]
                 self.assertIn(f">{name}</span>", body)          # a visible label
                 self.assertIn(f"title='{name} - for ", body)    # and its meaning on hover
@@ -115,7 +115,7 @@ class KitTests(unittest.TestCase):
             self.assertEqual(at.button(key="kit_open").label, "What each piece is for")
             at.button(key="kit_open").click().run()
             body = self._html(at)
-            for k in gear.KEYS:
+            for k in gear.kit_keys(first_month=False):
                 self.assertIn(gear.FOR[k].replace("'", "&#x27;"), body)
                 self.assertIn(gear.HOW[k].replace("'", "&#x27;").replace('"', "&quot;"), body)
             self.assertIn("Earned Sep 14, 2026", body)    # when it was earned

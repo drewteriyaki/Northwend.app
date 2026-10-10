@@ -201,6 +201,7 @@ def _md_overlap(funds):
 
 
 def open_decoder_window():
+    first_month_note("decoder")   # Your first month's step (views/first_month.py)
     st.session_state["dialog_open"] = True   # live prices wait (_dialog_closed)
     _md_window()
 
