@@ -72,11 +72,18 @@ the record of what was built and why. Status as of October 9, 2026:
 - [ ] 10. Founding seats ($79/month or $790/year for the first 20, in config);
       Stripe hosted checkout and portal; signed webhooks; reconciliation; lapse
       to read + export (replaces step 6's "billing by pull" - ADR 0004 to update)
-- [ ] 11. Advisor page on the website
+- [ ] 11. Advisor page on the website - *drafted Oct 10, held:
+      `website/templates/advisors-seats.html`, published with
+      `ADVISOR_SEATS_LIVE = True` in build.py after the owner's review and billing*
 - [ ] 12. Analytics with the opt-out; marketing copy rewrite; open sign-up with
-      the daily cap - *sign-up is already open (gate L0 on live)*
-- [ ] 13. First-30-days sequence (day 0, 3, 7, 14, 30), one figure-free email each
-- [ ] 14. Learn topics tied to the person's own numbers
+      the daily cap - *sign-up is already open (gate L0 on live); daily cap built
+      (item 7); analytics built Oct 10 in Northwend's own database (`analytics.py`,
+      flag `analytics`, off until the revised Privacy Policy is published)*
+- [ ] 13. First-30-days sequence (day 0, 3, 7, 14, 30), one figure-free email each -
+      *in-app card built Oct 10 (`first_month.py`, flag `first_month`); the emails
+      wait for the postal address (CAN-SPAM)*
+- [x] 14. Learn topics tied to the person's own numbers - done Oct 10
+      (`own_numbers.py`, flag `learn_own_numbers`; funds, spread, fees, ups)
 - [ ] 15. Weekly release day; public changelog - *the website's /whats-new is
       built from `whats_new.ENTRIES`*
 
