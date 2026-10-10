@@ -6,7 +6,7 @@
 # First steps (ROADMAP S1): a new investor's start as a slideshow - one screen
 # at a time, Back / Next and progress dots - instead of the whole Get started
 # page at once. Welcome -> a few tap questions (the profile, two at a time) ->
-# a goal -> their direction -> bring holdings in. Skippable and resumable
+# a goal -> bring holdings in. Skippable and resumable
 # (where they are is kept in their settings, so it follows them to another
 # device); Get started shows the full page once it's done or skipped, with a
 # way to go through it again.
@@ -21,15 +21,15 @@ FIRST_STEPS = (
     ("safety", "Your safety net", ("income_stability", "emergency_fund", "high_interest_debt",
                                      "employer_match")),
     ("goal", "Your goal", ()),
-    # gate L3 off: the common starting points table, the same for everyone
-    ("direction", "Your direction" if TAILORED_MIX else learn.COMMON_POINTS_TITLE, ()),
+    # (a "Common starting points" screen sat here until Oct 10: people found a
+    # table of mixes confusing before they'd learned what a mix is - it's on
+    # Learn and Plan instead)
     ("bring", "Bring it in", ()),
 )
 # a trusted, public place to read more about each screen's idea (learn.LEARN_MORE)
 FIRST_STEPS_LINKS = {
     "ups": "risk_tolerance",
     "safety": "emergency_fund",
-    "direction": "asset_allocation",
 }
 
 
@@ -50,8 +50,7 @@ def _fs_steps():
     direction comes from their advisor) and no beginner's way in."""
     return [s for s in FIRST_STEPS
             if not (s[0] == "goal" and not CAN_MANAGE)
-            and not (s[0] == "bring" and (not CAN_IMPORT or CLIENT_MODE))
-            and not (s[0] == "direction" and CLIENT_MODE)]
+            and not (s[0] == "bring" and (not CAN_IMPORT or CLIENT_MODE))]
 
 
 def first_steps_active(has_holdings):
@@ -232,27 +231,6 @@ def _fs_screen_goal(profile):
     st.caption("Not sure yet? Leave the amount at 0 and press Next.")
 
 
-def _fs_screen_direction(profile):
-    if not TAILORED_MIX:   # gate L3 off: the same table for everyone, nothing picked
-        st.markdown("Where people often start, by how long until the money is needed and how "
-                    "they feel about drops. Learn explains how a mix is built, one step at a "
-                    "time.")
-        render_common_points()
-        return
-    plan = load_plan()
-    today = datetime.now().date()
-    horizon = (plans.months_until(plan["target_date"], today) / 12
-               if plans.has_goal(plan) and plans.months_until(plan["target_date"], today) > 0
-               else None)
-    mix = learn.starter_mix(profile, horizon)
-    kind = learn.investor_type(profile, mix, learn.readiness(profile))
-    if kind:
-        _render_direction(kind, mix)
-    else:
-        st.markdown("Answer the questions on the earlier screens and this shows a direction "
-                    "worked out from them, with an example mix.")
-
-
 def _fs_screen_bring(profile):
     if route.learn_first(profile.get("experience")):
         # new to investing: most people here don't have an account yet, so
@@ -331,8 +309,6 @@ def render_first_steps(has_holdings):
                         _fs_question(f, profile)
                 elif key == "goal":
                     _fs_screen_goal(profile)
-                elif key == "direction":
-                    _fs_screen_direction(profile)
                 elif key == "bring":
                     _fs_screen_bring(profile)
             if key in FIRST_STEPS_LINKS:

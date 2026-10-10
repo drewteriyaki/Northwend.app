@@ -4989,7 +4989,7 @@ class DisclosureTests(unittest.TestCase):
         for must in ("not financial advice", "Anthropic", "percentages", "column names",
                      "ticker", "any brokerage", "hypothetical", "18 and over", "as-is",
                      "For advisors", "Cookies", "How long it's kept", "Neon", "GitHub",
-                     "Resend", "support@northwend.app", "Andrew Zhang"):
+                     "Resend", "support@northwend.app", "independent developer"):
             self.assertIn(must.lower(), text.lower())
         # everything is filled in: no placeholders left on the page
         self.assertEqual(disclosures.placeholders(), [])

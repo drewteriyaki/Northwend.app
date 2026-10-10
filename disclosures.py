@@ -495,7 +495,7 @@ def hosting_lines(host: str | None = None, behind_cloudflare: bool | None = None
 MIN_AGE = 18
 
 # Fill these in before launch - see placeholders().
-OPERATOR_NAME = "Andrew Zhang"
+OPERATOR_NAME = "Northwend"   # the name the public sees; "Northwend LLC" once it's formed
 CONTACT = "support@northwend.app"
 
 # the published Terms of Use and Privacy Policy (docs/legal/, built into the
@@ -511,8 +511,8 @@ SUMMARY = ("Northwend is an educational tool for following your investments. "
 
 SECTIONS = [
     ("Who runs Northwend", f"""
-Northwend is a free, early (beta) version, run by an individual developer,
-{_OPERATOR}. It may change, have mistakes, or be unavailable at times. Questions,
+{_OPERATOR} is a free, early (beta) version, run by an independent developer.
+It may change, have mistakes, or be unavailable at times. Questions,
 problems or requests about your data: **{_CONTACT}**.
 
 Northwend is for people **{MIN_AGE} and over**.

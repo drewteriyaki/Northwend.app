@@ -11,7 +11,7 @@ published with a new effective date. Not legal advice. -->
 # Privacy Policy
 
 **Effective date:** {{EFFECTIVE}}
-**Who we are:** Northwend is run by {{OPERATOR}} ("we", "us"). <!-- once formed: "Northwend LLC" -->
+**Who we are:** {{OPERATOR}}, run by an independent developer ("we", "us"). <!-- once formed: "Northwend LLC" -->
 **Contact:** {{CONTACT}}
 
 This policy explains what Northwend collects, why, who it's shared with, how long

@@ -26,6 +26,12 @@ PREF_SEEN = "whats_new_seen"   # the date (ISO) of the newest entry they've open
 # dict {"text": ..., "flag": feature name in flags.FEATURES} for a feature
 # that's off on some copies.
 ENTRIES = [
+    {"date": "2026-10-10", "title": "A shorter welcome",
+     "items": [
+         "The first steps for someone new are one screen shorter: the table of common "
+         "starting points is no longer in them. It's still on Learn, after the basics that "
+         "explain what a mix is.",
+     ]},
     {"date": "2026-10-09", "title": "A new practice challenge",
      "items": [
          {"text": "\"The two drops of 2018\" replaces the 2008 challenge, which needed older "

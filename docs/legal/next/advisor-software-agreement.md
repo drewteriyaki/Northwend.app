@@ -10,7 +10,7 @@ attorney consultation should read this one first. -->
 # Advisor Software Agreement
 
 **Effective date:** {{EFFECTIVE}}
-**Between:** {{OPERATOR}} ("Northwend", "we") <!-- once formed: "Northwend LLC, a Georgia limited liability company" -->
+**Between:** {{OPERATOR}} ("we") <!-- once formed: "Northwend LLC, a Georgia limited liability company" -->
 and the advisor who buys a seat, for themselves and their firm ("you").
 **Contact:** {{CONTACT}}
 

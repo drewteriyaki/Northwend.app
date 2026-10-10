@@ -9,7 +9,7 @@ Not legal advice. -->
 # Terms of Use
 
 **Effective date:** {{EFFECTIVE}}
-**Operator:** Northwend is run by {{OPERATOR}} ("we", "us"). <!-- once formed: "Northwend LLC, a Georgia limited liability company" -->
+**Operator:** {{OPERATOR}}, run by an independent developer ("we", "us"). <!-- once formed: "Northwend LLC, a Georgia limited liability company" -->
 **Contact:** {{CONTACT}}
 
 Please read these terms before you use Northwend. By creating an account or

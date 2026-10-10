@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective date:** {{EFFECTIVE}}
-**Who we are:** Northwend is run by {{OPERATOR}}, an individual developer ("we", "us").
+**Who we are:** {{OPERATOR}}, run by an independent developer ("we", "us").
 **Contact:** {{CONTACT}}
 
 This policy explains what Northwend collects, why, who it's shared with, how long

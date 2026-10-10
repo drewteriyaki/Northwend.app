@@ -1,7 +1,7 @@
 # Terms of Use
 
 **Effective date:** {{EFFECTIVE}}
-**Operator:** Northwend is run by {{OPERATOR}}, an individual developer ("we", "us").
+**Operator:** {{OPERATOR}}, run by an independent developer ("we", "us").
 **Contact:** {{CONTACT}}
 
 Please read these terms before you use Northwend. By creating an account or

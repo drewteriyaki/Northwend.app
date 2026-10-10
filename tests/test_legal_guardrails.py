@@ -258,15 +258,15 @@ class PersonalizedViewsTests(_Base):
             self.assertNoTickers(_texts(at), "Your direction")
         with self._run(self.ivy, "ivy", "Plan", gates="L3") as at:
             self.assertNoTickers(_texts(at), "Plan")
-        with self._run(self.fay, "fay", "Get started", gates="L3") as at:
-            body = " ".join(_texts(at))
-            self.assertIn("Usually held through a broad US stock index fund", body)
-            self.assertNoTickers(_texts(at), "First steps: Your direction")
-        # off: the first steps' screen is the common starting points table
-        with self._run(self.fay, "fay", "Get started") as at:
-            self.assertTrue([h for h in at.get("html") if "pt-common-points" in h.proto.body])
-            self.assertNotIn("Your direction", " ".join(_texts(at)))
-            self.assertNoTickers(_texts(at), "First steps: Common starting points")
+        # the first steps have no mix screen any more (removed Oct 10): after the
+        # goal comes "Bring it in", gate on or off, with no mix and no fund
+        for gates in ("L3", ""):
+            with self._run(self.fay, "fay", "Get started", gates=gates) as at:
+                body = " ".join(_texts(at))
+                self.assertIn("Bring it in", body)
+                self.assertNotIn("Your direction", body)
+                self.assertFalse([h for h in at.get("html") if "pt-common-points" in h.proto.body])
+                self.assertNoTickers(_texts(at), "First steps")
         with self._run(self.ivy, "ivy", "Plan") as at:
             self.assertNoTickers(_texts(at), "Plan")
 
