@@ -84,7 +84,8 @@ class RenderBlueprintTests(unittest.TestCase):
     SECRETS = ("PORTFOLIO_DB", "ANTHROPIC_API_KEY", "RESEND_API_KEY", "FINNHUB_API_KEY",
                "NORTHWEND_TOTP_KEY", "NORTHWEND_ADMINS", "ALERT_EMAIL")
     # switched by hand in Render's Environment: a Blueprint sync must not undo it
-    BY_HAND = ("NORTHWEND_GATES", "NORTHWEND_FLAGS", "NORTHWEND_AI_CEILING_USD", "AI_ZDR")
+    BY_HAND = ("NORTHWEND_GATES", "NORTHWEND_FLAGS", "NORTHWEND_AI_CEILING_USD", "AI_ZDR",
+               "NORTHWEND_MAX_SIGNUPS_PER_DAY")
 
     def test_the_parser_reads_the_file(self):
         env = render_env()

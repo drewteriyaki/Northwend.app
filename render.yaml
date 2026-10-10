@@ -97,6 +97,8 @@ services:
         sync: false
       - key: NORTHWEND_AI_CEILING_USD   # the monthly AI ceiling in dollars; 0 rests AI
         sync: false
+      - key: NORTHWEND_MAX_SIGNUPS_PER_DAY   # new accounts a day on Create account; empty = no cap
+        sync: false
       - key: AI_ZDR                # 0 until Anthropic confirms zero data retention in writing
         sync: false
 

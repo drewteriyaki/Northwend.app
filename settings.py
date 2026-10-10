@@ -131,6 +131,24 @@ def ai_ceiling_usd(default: float = 100) -> float:
     return value if value >= 0 else default
 
 
+def max_signups_per_day() -> int | None:
+    """NORTHWEND_MAX_SIGNUPS_PER_DAY: how many accounts people may make for
+    themselves on Create account in one day (auth.signups_full). A positive
+    whole number; unset, blank, 0, negative or unreadable means no cap - an
+    unreadable value is logged as a warning, never an error on the page."""
+    raw = get("NORTHWEND_MAX_SIGNUPS_PER_DAY")
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        import logging
+        logging.getLogger(__name__).warning(
+            "NORTHWEND_MAX_SIGNUPS_PER_DAY isn't a whole number (%r): no daily cap", raw)
+        return None
+    return value if value > 0 else None
+
+
 def ai_zdr() -> bool:
     """AI_ZDR: zero data retention is confirmed with Anthropic for this
     copy's key (AI_PLAN 3.3, 4.2). Until it is, a hosted copy refuses any AI

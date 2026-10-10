@@ -112,7 +112,9 @@ Live on Streamlit Community Cloud with Neon Postgres; locally it runs on SQLite.
   `fund_top_holdings` table; yield on cost is `income.yield_on_cost`).
 - People: `auth.py` (logins, sessions, client setup links, self-serve sign-up,
   confirm / reset links, advisor requests; sign-up needs an invite code from `invite_codes.py`
-  while gate L0 is off - the live app sets `NORTHWEND_GATES = "L0"`), `two_step.py` + `views/two_step.py`
+  while gate L0 is off - the live app sets `NORTHWEND_GATES = "L0"`; `NORTHWEND_MAX_SIGNUPS_PER_DAY`
+  caps Create account a day, midnight to midnight Eastern - `auth.signups_full` counts `signups`
+  rows with ok = 1, then "We're full for today"; setup links and admin/advisor-made accounts never count), `two_step.py` + `views/two_step.py`
   (two-step sign-in: `_two_step_gate()` runs inside `_login()` after any way in;
   required for advisors and admins; the authenticator keys are encrypted with `NORTHWEND_TOTP_KEY`
   (Fernet, "new,old" to rotate; `manage_users.py encrypt-two-step [--rotate]`; the published

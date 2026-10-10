@@ -18,6 +18,7 @@ import secrets
 import admin
 import admin_log
 import ai_spend
+import auth
 import dividend_dates
 import error_alerts
 import feature_counts
@@ -28,6 +29,7 @@ import invite_links
 import licence_check
 import price_report
 import rate_limits
+import settings
 import two_step
 
 
@@ -508,6 +510,18 @@ def _admin_two_step_rows(c):
     return [("Two-step key (NORTHWEND_TOTP_KEY)", key), ("Two-step keys stored", stored)]
 
 
+def _admin_signup_cap_row(c):
+    """The daily sign-up cap (auth.signups_full) and today's count - a number
+    only, never who."""
+    cap = settings.max_signups_per_day()
+    made = auth.signups_today(c)
+    today = f"{made} made on Create account today (since midnight Eastern)"
+    if cap is None:
+        return ("New accounts a day (NORTHWEND_MAX_SIGNUPS_PER_DAY)", f"no cap; {today}")
+    full = " - full for today" if made >= cap else ""
+    return ("New accounts a day (NORTHWEND_MAX_SIGNUPS_PER_DAY)", f"{cap}; {today}{full}")
+
+
 def _render_system(c):
     """Developer facts about this copy of the app - never a secret's value."""
     from manage_users import where
@@ -539,6 +553,7 @@ def _render_system(c):
         ("Newest daily price history", last_bar or "none"),
         ("Admins", "; ".join(admins)),
         *_admin_flag_rows(),
+        _admin_signup_cap_row(c),
         # the limits as set in rate_limits.py - never anyone's counts (audit 1.8d)
         *((f"Limit - {what}", how) for what, how in rate_limits.rows_for_admin()),
     ]

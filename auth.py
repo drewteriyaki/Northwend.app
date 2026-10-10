@@ -593,6 +593,23 @@ SIGNUPS_PER_ADDRESS_PER_DAY = 3   # accounts made from one internet address
 SIGNUP_TRIES_PER_ADDRESS_PER_HOUR = 10  # any sign-up tries from one address
 SIGNUPS_PER_HOUR = 200            # accounts made app-wide, in case addresses are hidden
                                   # (20 until the launch: room for a busy hour, still a stop)
+# The owner's daily cap (settings.max_signups_per_day, NORTHWEND_MAX_SIGNUPS_PER_DAY):
+# once that many accounts were made on Create account today, the form gives way
+# to FULL_TITLE / FULL_TEXT until midnight US Eastern time (the app is for people
+# in the United States; New York's clock, as weekly.py and live_prices.py use).
+# Counted from the signups rows with ok = 1 - only Create account writes those
+# (the decoder's and share links' rows are ok = 0) - so a client's setup link,
+# an account an admin or advisor makes, signing in and resetting a password
+# never count and are never stopped. A friend's Invite someone link and an
+# advisor's own request are Create account, so they count and wait too.
+FULL_TITLE = "We're full for today"
+FULL_TEXT = ("Northwend lets a limited number of people join each day while it's new. "
+             "Please come back tomorrow - sign-up opens again at midnight Eastern time.")
+try:
+    from zoneinfo import ZoneInfo
+    SIGNUP_DAY_ZONE = ZoneInfo("America/New_York")
+except Exception:   # pragma: no cover - no tz database: standard time all year
+    SIGNUP_DAY_ZONE = timezone(timedelta(hours=-5))
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$")
 
 
@@ -619,6 +636,31 @@ def invite_only() -> bool:
     return not flags.gate("L0")
 
 
+def signup_day_start(now: datetime | None = None) -> datetime:
+    """Midnight US Eastern time at the start of `now`'s day there, in UTC."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    local = now.astimezone(SIGNUP_DAY_ZONE)
+    midnight = datetime(local.year, local.month, local.day, tzinfo=SIGNUP_DAY_ZONE)
+    return midnight.astimezone(timezone.utc)
+
+
+def signups_today(conn, *, now: datetime | None = None) -> int:
+    """Accounts made on Create account since midnight Eastern - a count only
+    (one query on idx_signups_time)."""
+    since = _utc(signup_day_start(now))
+    return conn.execute("SELECT COUNT(*) AS n FROM signups WHERE created_at >= ? AND ok = 1",
+                        (since,)).fetchone()["n"]
+
+
+def signups_full(conn, *, now: datetime | None = None) -> bool:
+    """Whether today's cap (NORTHWEND_MAX_SIGNUPS_PER_DAY) is reached; never
+    when there's no cap."""
+    cap = settings.max_signups_per_day()
+    return cap is not None and signups_today(conn, now=now) >= cap
+
+
 def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
             us_resident: bool = False, terms_version: str, ip: str | None = None,
             seconds_open: float = 0, honeypot: str = "", invite_code: str | None = None,
@@ -633,8 +675,9 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
     L0 off) asks for `invite_code`, one the admin made (invite_codes.py),
     used up with the account. `friend_code` is the Invite someone link they
     came through, if any (invite_links.py): its count goes up by one with
-    the account - nothing records which account it was. Returns {"ok",
-    "error", "user_id", "username"}."""
+    the account - nothing records which account it was. Once today's cap is
+    reached (signups_full) nothing is made and the result has "full": True.
+    Returns {"ok", "error", "user_id", "username"}."""
     import invite_codes
     import invite_links
     def fail(msg):
@@ -648,6 +691,10 @@ def sign_up(conn, email: str, password: str, *, agreed: bool, adult: bool,
     if honeypot:  # only a bot fills in a field nobody can see; say nothing useful
         _note_signup(conn, key, stamp, ok=False)
         return fail("Something went wrong. Please try again in a little while.")
+    # checked again here, not only when the form was drawn: the last place may
+    # have gone while it was being filled in
+    if signups_full(conn, now=now):
+        return {**fail(FULL_TEXT), "full": True}
     if not valid_email(email):
         return fail("Enter your email address, like name@example.com.")
     if len(password or "") < MIN_PASSWORD_LENGTH:

@@ -1312,13 +1312,37 @@ def _show_signup(flag):
 SIGNUP_ROLES = {"investor": "For my own investing", "advisor": "I'm a financial advisor"}
 
 
+def _signup_full() -> bool:
+    """Create account once today's cap is reached (auth.FULL_TITLE): a plain
+    note and the way back to Log in - no form, nothing asked or kept."""
+    _, mid, _ = st.columns([1, 1.4, 1])
+    with mid:
+        _logo_title(APP_NAME)
+        st.subheader(auth.FULL_TITLE, anchor=False)
+        st.info(auth.FULL_TEXT, icon=":material/schedule:")
+        st.caption("Already have an account? Signing in works as usual.")
+        st.button("Sign in", key="signup_full_to_login", width="stretch",
+                  on_click=_show_signup, args=(False,))
+    return False
+
+
 def _signup() -> bool:
     """The Create account page (auth.sign_up): how they'll use Northwend, an
     email, a password, and agreeing to the disclosures. A new account is
     signed in straight away and starts on Get started. An advisor's account
     starts as an investor account with a request for advisor access
     (auth.request_advisor) that the admin approves. Linkable as ?signup=1, or
-    ?signup=advisor to start on the advisor choice. False until it's made."""
+    ?signup=advisor to start on the advisor choice. False until it's made.
+    Once today's cap is reached (NORTHWEND_MAX_SIGNUPS_PER_DAY) the form gives
+    way to "We're full for today" (_signup_full)."""
+    if settings.max_signups_per_day() is not None:
+        conn = connect(DB)
+        try:
+            full = auth.signups_full(conn)
+        finally:
+            conn.close()
+        if full:
+            return _signup_full()
     # when the form first appeared - one sent sooner than a person could is asked again
     st.session_state.setdefault("signup_opened", time.time())
     need_code = auth.invite_only()   # while gate L0 is off (setup links never need one)
@@ -1410,6 +1434,8 @@ def _signup() -> bool:
                 auth.request_advisor(conn, result["user_id"], firm, licence)
     finally:
         conn.close()
+    if result.get("full"):   # the last place went while the form was open
+        st.rerun()           # drawn again as "We're full for today"
     if not result["ok"]:
         note.error(result["error"])
         return False
