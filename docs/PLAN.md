@@ -37,9 +37,14 @@ the record of what was built and why. Status as of October 9, 2026:
 - [ ] 1. Render cron jobs for prices and news - *released to main
       (`f28ba7f`); waiting on the owner's Blueprint sync, secrets and a run of
       each, then the GitHub schedules for both come out*
-- [ ] 2. Restore drill; the Neon backup branch named for deletion (audit 1.6e, X6)
+- [ ] 2. Restore drill; the Neon backup branch named for deletion (audit 1.6e, X6) -
+      *drilled on a scratch SQLite copy Oct 10 (0.1 s, catches missing rows and
+      tables); the live Postgres drill and the branch (made by hand ~Sep 29,
+      name not recorded) are the owner's*
 - [ ] 3. The live copy's own API keys; least-privilege database roles -
-      *prepared: `docs/DB_ROLES.md`, `NORTHWEND_SKIP_SCHEMA_SETUP`*
+      *built Oct 10 (`northwend-migrate --roles`, `db_roles.py`; CI's Postgres
+      job green); the owner's steps in `docs/DB_ROLES.md`, the key checklist in
+      the RUNBOOK*
 - [ ] 4. Market data: a licensed provider recommended; switched on the owner's
       OK; yfinance out of production (audit 1.9a) - *compared Oct 10: no
       provider licenses public display for $30-50/month (Tiingo EOD + IEX
@@ -54,8 +59,10 @@ the record of what was built and why. Status as of October 9, 2026:
 - [ ] 5. Beta flag set: walk, ledger, log, storm drill, 401(k) decoder,
       decoder_public on; directory, intros, billing, pay_yourself off -
       *`decoder_public` (`?decode=401k`, no account) is built*
-- [ ] 6. Second walk within 45 days, recorded and visible
-- [ ] 7. `NORTHWEND_MAX_SIGNUPS_PER_DAY` and a plain "we're full for today" page
+- [x] 6. Second walk within 45 days, recorded and visible - done Oct 10:
+      Admin > Feature tests, by month, `NORTHWEND_SECOND_WALK_TARGET`; SQL in the RUNBOOK
+- [x] 7. `NORTHWEND_MAX_SIGNUPS_PER_DAY` and a plain "we're full for today" page -
+      done Oct 10 (midnight Eastern; Admin > System shows the count)
 - [x] 8. L1 split into L1a / L1b in `docs/LEGAL_GATES.md`; L4a added - done
       October 9 (docs only; the code split comes with billing, item 10)
 - [ ] 9. Revised Privacy Policy, Terms and advisor software agreement, drafted
